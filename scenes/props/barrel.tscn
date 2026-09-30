@@ -1,0 +1,52 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/prop.gd" id="1_prop"]
+
+[sub_resource type="StandardMaterial3D" id="m_body"]
+albedo_color = Color(0.9, 0.2, 0.15, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="m_white"]
+albedo_color = Color(0.97, 0.97, 0.95, 1)
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="mesh_body"]
+material = SubResource("m_body")
+top_radius = 0.32
+bottom_radius = 0.32
+height = 0.95
+radial_segments = 14
+rings = 1
+
+[sub_resource type="CylinderMesh" id="mesh_band"]
+material = SubResource("m_white")
+top_radius = 0.33
+bottom_radius = 0.33
+height = 0.16
+radial_segments = 14
+rings = 1
+
+[sub_resource type="CylinderShape3D" id="shape"]
+radius = 0.32
+height = 0.95
+
+[node name="Barrel" type="RigidBody3D" node_paths=PackedStringArray("color_mesh")]
+collision_layer = 4
+collision_mask = 7
+mass = 45.0
+sleeping = true
+script = ExtResource("1_prop")
+random_colors = Array[Color]([Color(0.9, 0.2, 0.15, 1), Color(0.15, 0.45, 0.9, 1), Color(1, 0.7, 0.1, 1), Color(0.2, 0.7, 0.35, 1)])
+color_mesh = NodePath("Body")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.475, 0)
+shape = SubResource("shape")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.475, 0)
+mesh = SubResource("mesh_body")
+
+[node name="Band" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+mesh = SubResource("mesh_band")

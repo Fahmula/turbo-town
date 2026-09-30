@@ -1,0 +1,77 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/vehicles/sports_car.tscn" id="1_car"]
+[ext_resource type="Script" path="res://scripts/camera/chase_camera.gd" id="2_cam"]
+[ext_resource type="Script" path="res://scripts/vehicle/player_vehicle_controller.gd" id="3_ctrl"]
+[ext_resource type="Script" path="res://scripts/dev/autotest.gd" id="4_auto"]
+
+[sub_resource type="BoxShape3D" id="Ground_shape"]
+size = Vector3(2000, 2, 2000)
+
+[sub_resource type="StandardMaterial3D" id="Ground_mat"]
+albedo_color = Color(0.4, 0.62, 0.35, 1)
+uv1_scale = Vector3(200, 200, 1)
+
+[sub_resource type="PlaneMesh" id="Ground_mesh"]
+material = SubResource("Ground_mat")
+size = Vector2(2000, 2000)
+
+[sub_resource type="BoxShape3D" id="Ramp_shape"]
+size = Vector3(8, 0.4, 14)
+
+[sub_resource type="BoxMesh" id="Ramp_mesh"]
+size = Vector3(8, 0.4, 14)
+
+[sub_resource type="BoxShape3D" id="Wall_shape"]
+size = Vector3(30, 2, 1)
+
+[sub_resource type="BoxMesh" id="Wall_mesh"]
+size = Vector3(30, 2, 1)
+
+[node name="PhysicsTest" type="Node3D"]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.9, -0.5, 0)
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="Shape" type="CollisionShape3D" parent="Ground"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+shape = SubResource("Ground_shape")
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("Ground_mesh")
+
+[node name="Ramp" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.96, -0.28, 0, 0.28, 0.96, -40, 1.6, -120)
+
+[node name="Shape" type="CollisionShape3D" parent="Ramp"]
+shape = SubResource("Ramp_shape")
+
+[node name="Mesh" type="MeshInstance3D" parent="Ramp"]
+mesh = SubResource("Ramp_mesh")
+
+[node name="Wall" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 1, -60)
+
+[node name="Shape" type="CollisionShape3D" parent="Wall"]
+shape = SubResource("Wall_shape")
+
+[node name="Mesh" type="MeshInstance3D" parent="Wall"]
+mesh = SubResource("Wall_mesh")
+
+[node name="Car" parent="." instance=ExtResource("1_car")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="Controller" type="Node" parent="." node_paths=PackedStringArray("vehicle")]
+script = ExtResource("3_ctrl")
+vehicle = NodePath("../Car")
+
+[node name="Camera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+script = ExtResource("2_cam")
+target = NodePath("../Car")
+
+[node name="Autotest" type="Node" parent="." node_paths=PackedStringArray("vehicle")]
+script = ExtResource("4_auto")
+vehicle = NodePath("../Car")

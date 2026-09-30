@@ -1,0 +1,45 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/prop.gd" id="1_prop"]
+
+[sub_resource type="StandardMaterial3D" id="m_wood"]
+albedo_color = Color(0.82, 0.6, 0.35, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="m_dark"]
+albedo_color = Color(0.6, 0.42, 0.24, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="mesh_box"]
+material = SubResource("m_wood")
+size = Vector3(1.2, 1.2, 1.2)
+
+[sub_resource type="BoxMesh" id="mesh_slat"]
+material = SubResource("m_dark")
+size = Vector3(1.24, 0.16, 1.24)
+
+[sub_resource type="BoxShape3D" id="shape"]
+size = Vector3(1.2, 1.2, 1.2)
+
+[node name="Crate" type="RigidBody3D"]
+collision_layer = 4
+collision_mask = 7
+mass = 25.0
+sleeping = true
+script = ExtResource("1_prop")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("shape")
+
+[node name="Box" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+mesh = SubResource("mesh_box")
+
+[node name="SlatTop" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+mesh = SubResource("mesh_slat")
+
+[node name="SlatBottom" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+mesh = SubResource("mesh_slat")

@@ -1,0 +1,30 @@
+# Godot 4 editor/import cache (regenerated on open/import)
+.godot/
+*.tmp
+
+# Build output from tools/release.sh and manual exports
+/build/
+/dist/
+/export/
+
+# Export credentials (Android keystores, etc.) - never commit
+.export_credentials.cfg
+export_credentials.cfg
+
+# Python bytecode from the Blender tools
+__pycache__/
+*.pyc
+
+# Blender autosave/backup files
+*.blend1
+*.blend2
+
+# Third-party art-direction screenshots: kept locally only, not part of the game
+/reference images/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*~
+.vscode/
+.idea/

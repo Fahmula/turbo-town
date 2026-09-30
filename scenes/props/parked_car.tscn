@@ -1,0 +1,51 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/prop.gd" id="1_prop"]
+[ext_resource type="PackedScene" path="res://assets/models/car_body.glb" id="2_body"]
+[ext_resource type="PackedScene" path="res://assets/models/wheel.glb" id="3_wheel"]
+
+[sub_resource type="BoxShape3D" id="shape_body"]
+size = Vector3(1.92, 0.62, 4.36)
+
+[sub_resource type="BoxShape3D" id="shape_cabin"]
+size = Vector3(1.5, 0.48, 2.4)
+
+[sub_resource type="BoxShape3D" id="shape_wheels"]
+size = Vector3(1.94, 0.3, 3.4)
+
+[node name="ParkedCar" type="RigidBody3D"]
+collision_layer = 4
+collision_mask = 7
+mass = 1100.0
+sleeping = true
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 0.5, 0)
+script = ExtResource("1_prop")
+random_colors = Array[Color]([Color(0.25, 0.55, 0.95, 1), Color(0.98, 0.78, 0.2, 1), Color(0.3, 0.8, 0.45, 1), Color(0.95, 0.95, 0.93, 1), Color(0.6, 0.4, 0.9, 1), Color(0.2, 0.22, 0.26, 1), Color(1, 0.55, 0.2, 1), Color(0.35, 0.85, 0.9, 1)])
+
+[node name="BodyShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.57, 0)
+shape = SubResource("shape_body")
+
+[node name="CabinShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.12, 0.45)
+shape = SubResource("shape_cabin")
+
+[node name="WheelShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+shape = SubResource("shape_wheels")
+
+[node name="Model" parent="." instance=ExtResource("2_body")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.37, 0)
+
+[node name="WheelFL" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -0.83, 0.37, -1.35)
+
+[node name="WheelFR" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.83, 0.37, -1.35)
+
+[node name="WheelRL" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -0.83, 0.37, 1.35)
+
+[node name="WheelRR" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.83, 0.37, 1.35)

@@ -1,0 +1,42 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/game/game.gd" id="1_game"]
+[ext_resource type="PackedScene" path="res://scenes/world/world.tscn" id="2_world"]
+[ext_resource type="PackedScene" path="res://scenes/vehicles/sports_car.tscn" id="3_car"]
+[ext_resource type="Script" path="res://scripts/vehicle/player_vehicle_controller.gd" id="4_ctrl"]
+[ext_resource type="Script" path="res://scripts/camera/chase_camera.gd" id="5_cam"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="6_hud"]
+[ext_resource type="Script" path="res://scripts/traffic/traffic_manager.gd" id="7_traffic"]
+
+[node name="Main" type="Node3D" node_paths=PackedStringArray("world", "vehicle", "camera", "hud", "traffic")]
+script = ExtResource("1_game")
+world = NodePath("World")
+traffic = NodePath("Traffic")
+vehicle = NodePath("PlayerCar")
+camera = NodePath("ChaseCamera")
+hud = NodePath("HUD")
+
+[node name="World" parent="." instance=ExtResource("2_world")]
+
+[node name="Traffic" type="Node3D" parent="." node_paths=PackedStringArray("world", "player", "camera")]
+script = ExtResource("7_traffic")
+world = NodePath("../World")
+player = NodePath("../PlayerCar")
+camera = NodePath("../ChaseCamera")
+
+[node name="PlayerCar" parent="." instance=ExtResource("3_car")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+
+[node name="PlayerController" type="Node" parent="." node_paths=PackedStringArray("vehicle")]
+script = ExtResource("4_ctrl")
+vehicle = NodePath("../PlayerCar")
+
+[node name="ChaseCamera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+current = true
+far = 3000.0
+script = ExtResource("5_cam")
+target = NodePath("../PlayerCar")
+
+[node name="HUD" type="CanvasLayer" parent="." node_paths=PackedStringArray("vehicle")]
+script = ExtResource("6_hud")
+vehicle = NodePath("../PlayerCar")
