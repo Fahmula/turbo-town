@@ -7,6 +7,7 @@ full of ramps.
 Open the folder in Godot and press **Play (F5)**.
 
 Feature checklist, backlog and known issues: see [PROGRESS.md](PROGRESS.md).
+Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING.md).
 
 ## Controls
 
