@@ -58,7 +58,7 @@ fi
 NOTES="$(git show "$SHA:CHANGELOG.md" 2>/dev/null | awk -v v="$VERSION" '
 	$0 ~ "^## \\[" v "\\]" { on = 1; next }
 	on && /^## \[/ { exit }
-	on { print }' | sed -e '/./,$!d')"   # drop leading blank lines
+	on { print }' | sed -e '/./,$!d' || true)"   # drop leading blank lines
 if [[ -z "${NOTES//[[:space:]]/}" ]]; then
 	[[ $DRY_RUN == 1 ]] || die "CHANGELOG.md at $SHORT has no '## [$VERSION]' section; write the release notes and commit first"
 	echo "warning: no CHANGELOG.md section for $VERSION (ok for --dry-run)"
