@@ -1,7 +1,7 @@
 # Releasing Turbo Town
 
 Stable builds for the Steam Deck are published as GitHub Releases on the
-private repo [Fahmula/turbo-town](https://github.com/Fahmula/turbo-town).
+public repo [Fahmula/turbo-town](https://github.com/Fahmula/turbo-town).
 Each release has one complete Linux x86_64 build: `TurboTown-vX.Y.Z-linux-x86_64.tar.gz`.
 
 ## Rules
@@ -69,11 +69,34 @@ Godot binary.
 - When upgrading Godot, update `GODOT_VERSION` in `tools/release.sh` and install
   the matching templates.
 
-## Installing on the Steam Deck (manual, for now)
+## Steam Deck: install and auto-update
 
-1. Desktop Mode: download the `.tar.gz` from the release page and extract it,
-   for example to `~/Games/`. It creates `~/Games/TurboTown/`.
-2. First time only: Steam > Games > Add a Non-Steam Game to My Library >
-   Browse > `~/Games/TurboTown/TurboTown.x86_64`.
-3. Updating: delete the old `TurboTown/` folder and extract the new one in the
-   same place. The Steam shortcut keeps working.
+`tools/steamdeck/turbotown.sh` is uploaded with every release. It installs the
+game, adds it to Steam, and updates it on every launch.
+
+**First-time install** (Desktop Mode, open Konsole):
+
+```bash
+curl -fLo /tmp/turbotown.sh https://github.com/Fahmula/turbo-town/releases/latest/download/turbotown.sh && bash /tmp/turbotown.sh install
+```
+
+This installs to `~/Games/TurboTown/` (`turbotown.sh` + `current/`), adds a
+menu entry, and adds a "Turbo Town" shortcut to Steam (via `steamos-add-to-steam`).
+If Steam doesn't show it, add it yourself: Add a Non-Steam Game > Turbo Town.
+
+**After that, nothing:** every time the game is started from Steam, the launcher:
+
+- checks `github.com/Fahmula/turbo-town/releases/latest`, which only ever
+  points to the newest stable release (drafts and pre-releases are ignored);
+- if it's newer, downloads it, verifies the SHA-256, and swaps it in. A failed
+  download never touches the installed game;
+- updates itself to the launcher script from that release;
+- starts the game. With no internet it just starts the installed version.
+
+Other commands: `~/Games/TurboTown/turbotown.sh status | update`. Log:
+`~/Games/TurboTown/update.log`. Save data is in `~/.local/share/godot/app_userdata/`
+and is never touched by updates. To uninstall, delete `~/Games/TurboTown`,
+`~/.local/share/applications/turbotown.desktop` and the Steam shortcut.
+
+To test the launcher locally, point it at a fake server with
+`TURBOTOWN_REPO_URL=...` and `TURBOTOWN_DIR=...`.

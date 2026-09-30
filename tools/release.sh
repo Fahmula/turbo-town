@@ -66,6 +66,7 @@ fi
 
 if [[ $DRY_RUN == 0 ]]; then
 	gh auth status >/dev/null 2>&1 || die "gh is not logged in (run: gh auth login)"
+	REPO_WEB="$(gh repo view --json url --jq .url)"
 	git fetch -q origin "$BRANCH" --tags
 	git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists on origin"
 	git merge-base --is-ancestor "$SHA" "origin/$BRANCH" \
@@ -117,12 +118,14 @@ echo "ok"
 step "Packaging $PKG_NAME.tar.gz"
 cp "$BIN_DIR/$GAME.x86_64" "$PKG_DIR/"
 printf '%s\n' "$VERSION" >"$PKG_DIR/VERSION"
+cp "$SRC/icon.svg" "$PKG_DIR/icon.svg"
 cat >"$PKG_DIR/README.txt" <<EOF
 Turbo Town $TAG (Linux x86_64 / Steam Deck)
 Built from commit $SHORT with Godot $GODOT_VERSION.
 
 Run: ./$GAME.x86_64
-Steam Deck: add $GAME.x86_64 to Steam as a Non-Steam Game, then play it from Game Mode.
+Steam Deck: use the turbotown.sh installer from the GitHub Release page instead;
+it installs, adds a Steam shortcut, and keeps the game updated.
 EOF
 tar -C "$OUT/package" -czf "$TARBALL" "$GAME"
 (cd "$DIST" && sha256sum "$PKG_NAME.tar.gz" >"$PKG_NAME.tar.gz.sha256")
@@ -140,10 +143,14 @@ NOTES_FILE="$OUT/release-notes.md"
 {
 	printf '%s\n\n' "$NOTES"
 	cat <<EOF
-## Install / update on Steam Deck
-1. Download \`$PKG_NAME.tar.gz\` below and extract it (it contains a \`$GAME/\` folder).
-2. To update, replace the old \`$GAME/\` folder with the new one. Your Steam shortcut keeps working.
-3. First install only: in Desktop Mode, Steam > Add a Game > Add a Non-Steam Game > browse to \`$GAME/$GAME.x86_64\`.
+## Steam Deck
+Already installed with \`turbotown.sh\`? Nothing to do: the game updates itself the next time it's launched.
+
+First-time install (Desktop Mode, open Konsole):
+\`\`\`
+curl -fLo /tmp/turbotown.sh $REPO_WEB/releases/latest/download/turbotown.sh && bash /tmp/turbotown.sh install
+\`\`\`
+Manual alternative: extract \`$PKG_NAME.tar.gz\` and run \`$GAME/$GAME.x86_64\`.
 
 EOF
 	if [[ -n "$PREV_TAG" ]]; then
@@ -170,7 +177,8 @@ git tag -a "$TAG" "$SHA" -m "Turbo Town $TAG"
 git push origin "refs/tags/$TAG"
 
 step "Creating GitHub Release"
-gh release create "$TAG" "$TARBALL" "$TARBALL.sha256" \
+cp "$SRC/tools/steamdeck/turbotown.sh" "$OUT/turbotown.sh"
+gh release create "$TAG" "$TARBALL" "$TARBALL.sha256" "$OUT/turbotown.sh" \
 	--verify-tag --latest --title "Turbo Town $TAG" --notes-file "$NOTES_FILE"
 echo
 echo "Released $TAG: $(gh release view "$TAG" --json url --jq .url)"
