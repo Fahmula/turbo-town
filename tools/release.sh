@@ -77,6 +77,7 @@ OUT="$ROOT/build/release/$TAG"
 SRC="$OUT/src"
 BIN_DIR="$OUT/linux"
 PKG_NAME="$GAME-$TAG-linux-x86_64"
+[[ $DRY_RUN == 1 ]] && PKG_NAME="$GAME-$TAG-DRYRUN-$SHORT-linux-x86_64"   # never mistaken for a release
 PKG_DIR="$OUT/package/$GAME"
 DIST="$ROOT/dist"
 TARBALL="$DIST/$PKG_NAME.tar.gz"
