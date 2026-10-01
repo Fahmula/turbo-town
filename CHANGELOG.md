@@ -24,7 +24,15 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   A/D to barrel roll. Let go and the car turns itself level to land.
 - RECORDS page with your best combos, biggest air, longest drift and more.
 
+### Stunt park and mountain
+- A LOOP-THE-LOOP in the stunt park (go 80+ km/h!) and a round WALL RIDE bowl
+  right after it. Both count as stunts.
+- A dirt trail zig-zags up the mountain to the summit, with jumps, and there's
+  a new Trail Climb race up it.
+
 ### Traffic
+- Fixed: traffic cars sometimes got flung into the air the moment they
+  appeared.
 - Highway traffic changes lanes: cars overtake slow trucks and buses and keep right.
 - Honk (E / L3) behind a car and it pulls over or moves a lane over to let you pass.
 - Park in a car's lane and it drives around you when the other lane is clear,

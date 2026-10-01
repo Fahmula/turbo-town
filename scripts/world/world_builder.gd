@@ -107,6 +107,13 @@ func _extra_props() -> Array[Dictionary]:
 		list.append({"scene": "ramp", "xform": Transform3D(Basis(Vector3.UP, PI * 0.5), p),
 			"shape": 1, "length": 8.0 + k * 2.0, "height": 2.0 + k, "width": 7.0, "color": Color(0.75, 0.55, 0.35)})
 	list.append_array(_highway_junction_lights())
+	# Dirt kickers on two of the mountain trail's long legs.
+	var trail := roads.find_road("MountainTrail")
+	for f in [0.27, 0.6]:
+		var i := int(trail.points.size() * f)
+		var d := trail.points[i + 2] - trail.points[i]
+		list.append({"scene": "ramp", "xform": Transform3D(Basis.looking_at(d.normalized()), trail.points[i] + Vector3.DOWN * 0.08),
+			"shape": 1, "length": 6.0, "height": 1.3, "width": 5.0, "color": Color(0.62, 0.45, 0.3)})
 	# Beach barrels.
 	for k in 6:
 		list.append({"scene": "barrel", "xform": Transform3D(Basis.IDENTITY, Vector3(-360, roads.beach_height, -12 + k * 4.0))})

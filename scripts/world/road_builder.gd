@@ -3,7 +3,7 @@ extends RefCounted
 ## Defines the road network (as polylines with heights), cuts it into the
 ## terrain, and builds road decks, intersections, barriers and bridge pillars.
 
-enum Kind { CITY, HIGHWAY, COUNTRY }
+enum Kind { CITY, HIGHWAY, COUNTRY, TRAIL }
 
 ## Deck heights above natural ground beyond this become bridges on pillars
 ## instead of embankments.
@@ -70,6 +70,7 @@ func define_all() -> void:
 	_define_city_grid()
 	_define_highway()
 	_define_hill_roads()
+	_define_trails()
 	_define_avenues()
 	var west := find_road("AvenueWestOuter")
 	beach_height = west.points[west.points.size() - 1].y
@@ -183,7 +184,58 @@ func _define_hill_roads() -> void:
 	flat_areas.append(Vector4(c.x, c.y, MapLayout.SUMMIT_RADIUS, summit_height - 0.15))
 
 
+## Dirt trails: shaped into the terrain like roads (so no trees grow on them)
+## but drawn as bumpy dirt, with no traffic.
+func _define_trails() -> void:
+	var trail := _fillet_path(MapLayout.MOUNTAIN_TRAIL, 9.0, 3.0)
+	_follow_terrain(trail, 5, false, false)
+	_add_road("MountainTrail", Kind.TRAIL, trail, MapLayout.TRAIL_WIDTH, 4.0)
+
+
 # --- geometry helpers ---
+
+## Straight legs between the control points, joined by circular arcs of
+## `radius` (proper hairpins on a zig-zag), resampled every `spacing` m.
+static func _fillet_path(ctrl: Array, radius: float, spacing: float) -> PackedVector3Array:
+	var pts: Array[Vector2] = []
+	for p in ctrl:
+		pts.append(p)
+	var dense: Array[Vector2] = [pts[0]]
+	for i in range(1, pts.size() - 1):
+		var a := pts[i - 1]
+		var b := pts[i]
+		var c := pts[i + 1]
+		var d0 := (b - a).normalized()
+		var d1 := (c - b).normalized()
+		var turn := d0.angle_to(d1)
+		var trim := minf(radius * tan(absf(turn) * 0.5), minf(a.distance_to(b), b.distance_to(c)) * 0.45)
+		var r := trim / maxf(tan(absf(turn) * 0.5), 0.001)
+		var t0 := b - d0 * trim
+		var nrm := Vector2(-d0.y, d0.x) * signf(turn)
+		var center := t0 + nrm * r
+		var start_ang := (t0 - center).angle()
+		var steps := maxi(int(absf(turn) * r / 1.5), 2)
+		for k in steps + 1:
+			var ang := start_ang + turn * float(k) / steps
+			dense.append(center + Vector2(cos(ang), sin(ang)) * r)
+	dense.append(pts[pts.size() - 1])
+	var out := PackedVector3Array()
+	out.append(Vector3(dense[0].x, 0, dense[0].y))
+	var carry := 0.0
+	for i in dense.size() - 1:
+		var a := dense[i]
+		var b := dense[i + 1]
+		var seg := a.distance_to(b)
+		var pos := spacing - carry
+		while pos <= seg:
+			var p := a.lerp(b, pos / seg)
+			out.append(Vector3(p.x, 0, p.y))
+			pos += spacing
+		carry = seg - (pos - spacing)
+	var last := dense[dense.size() - 1]
+	if out[out.size() - 1].distance_to(Vector3(last.x, 0, last.y)) > spacing * 0.4:
+		out.append(Vector3(last.x, 0, last.y))
+	return out
 
 func _ring_length() -> float:
 	var s := MapLayout.HIGHWAY_HALF_EXTENT - MapLayout.HIGHWAY_CORNER_RADIUS
@@ -352,8 +404,27 @@ func build(parent: Node3D) -> void:
 	parent.add_child(root)
 
 	var decks := {Kind.CITY: MeshBuilder.new(), Kind.HIGHWAY: MeshBuilder.new(), Kind.COUNTRY: MeshBuilder.new()}
+	var trails := MeshBuilder.new()
+	var markers := MeshBuilder.new()
 	for r in roads:
-		_add_deck(decks[r.kind], r)
+		if r.kind == Kind.TRAIL:
+			_add_trail(trails, markers, r)
+		else:
+			_add_deck(decks[r.kind], r)
+	root.add_child(trails.build_node("Trails", load("res://assets/materials/props.tres"), true, 0.85))
+	root.add_child(markers.build_node("TrailMarkers", load("res://assets/materials/props.tres"), false))
+	for r in roads:
+		if r.kind == Kind.TRAIL:
+			var sign := Label3D.new()
+			sign.text = "MOUNTAIN TRAIL"
+			sign.font_size = 120
+			sign.pixel_size = 0.012
+			sign.outline_size = 18
+			sign.modulate = Color(1.0, 0.6, 0.2)
+			sign.outline_modulate = Color(0.1, 0.08, 0.05)
+			sign.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+			sign.position = r.points[0] + Vector3(-5.0, 3.5, 0.0)
+			root.add_child(sign)
 	root.add_child(decks[Kind.CITY].build_node("CityRoads", _mat_city, true, 1.0))
 	root.add_child(decks[Kind.HIGHWAY].build_node("Highway", _mat_highway, true, 1.0))
 	root.add_child(decks[Kind.COUNTRY].build_node("CountryRoads", _mat_country, true, 1.0))
@@ -406,6 +477,37 @@ func _add_deck(mb: MeshBuilder, r: Road) -> void:
 				mb.add_quad(rr + down, rr, l, l + down, side)
 			else:
 				mb.add_quad(l + down, l, rr, rr + down, side)
+
+
+## A dirt ribbon a few cm above the shaped terrain, with darker wheel ruts,
+## and marker posts every 24 m on alternating sides.
+func _add_trail(mb: MeshBuilder, markers: MeshBuilder, r: Road) -> void:
+	var hw := r.width * 0.5
+	var n := r.points.size()
+	var rights := MeshBuilder._path_rights(r.points, r.closed)
+	var lift := Vector3.UP * 0.04
+	# Across the trail: verge, rut, middle, rut, verge.
+	var cuts := [-1.0, -0.62, -0.38, 0.38, 0.62, 1.0]
+	var cols := [Color(0.6, 0.45, 0.3), Color(0.47, 0.34, 0.22), Color(0.63, 0.48, 0.32), Color(0.47, 0.34, 0.22), Color(0.6, 0.45, 0.3)]
+	for i in n - 1:
+		var p0 := r.points[i] + lift
+		var p1 := r.points[i + 1] + lift
+		for k in cols.size():
+			var a0: Vector3 = p0 + rights[i] * hw * cuts[k]
+			var b0: Vector3 = p0 + rights[i] * hw * cuts[k + 1]
+			var a1: Vector3 = p1 + rights[i + 1] * hw * cuts[k]
+			var b1: Vector3 = p1 + rights[i + 1] * hw * cuts[k + 1]
+			mb.add_quad(a0, b0, b1, a1, cols[k])
+	var next := 12.0
+	var side := 1.0
+	for i in n:
+		if r.dist[i] < next:
+			continue
+		next += 24.0
+		side = -side
+		var base := r.points[i] + rights[i] * (hw + 0.8) * side
+		markers.add_box(Transform3D(Basis.IDENTITY, base + Vector3.UP * 0.5), Vector3(0.18, 1.0, 0.18), Color(0.95, 0.95, 0.9))
+		markers.add_box(Transform3D(Basis.IDENTITY, base + Vector3.UP * 1.1), Vector3(0.22, 0.25, 0.22), Color(1.0, 0.5, 0.1))
 
 
 func _build_barriers(root: Node3D) -> void:

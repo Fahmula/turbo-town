@@ -96,9 +96,18 @@ func _draw_map(c: Node2D) -> void:
 			var b := _px(Vector3(g[col + 1] - hw, 0, g[row + 1] - hw))
 			c.draw_rect(Rect2(a, b - a), BLOCK_COLORS.get(kind, Color.GRAY))
 
+	# Dirt trails.
+	for r in world.roads.roads:
+		if r.kind == RoadBuilder.Kind.TRAIL:
+			var tpts := PackedVector2Array()
+			for p in r.points:
+				tpts.append(_px(p))
+			c.draw_polyline(tpts, Color(0.5, 0.36, 0.22), r.width * px_per_m + 1.0, true)
 	# Roads: dark edge, then the surface.
 	for pass_i in 2:
 		for r in world.roads.roads:
+			if r.kind == RoadBuilder.Kind.TRAIL:
+				continue
 			var pts := PackedVector2Array()
 			for p in r.points:
 				pts.append(_px(p))

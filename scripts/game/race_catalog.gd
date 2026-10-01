@@ -17,6 +17,7 @@ const REFERENCE_TIMES := {
 	"mountain": 26.3,
 	"dirt": 36.4,
 	"beach": 13.0,
+	"trail": 32.1,
 }
 
 
@@ -75,6 +76,20 @@ static func build(world: WorldBuilder) -> Array[Dictionary]:
 	dstart.origin.y = t.height_at(dstart.origin.x, dstart.origin.z) + 0.6
 	races.append(_race("dirt", "Dirt Rally", "Bumps, jumps and dust on the dirt fields.",
 		dstart, dirt, 16.0))
+
+	# Trail Climb: up the dirt switchbacks to the summit.
+	var trail := world.roads.find_road("MountainTrail")
+	var tcps: Array[Vector3] = []
+	for i in range(20, trail.points.size(), 20):
+		tcps.append(trail.points[i])
+	tcps.append(trail.points[trail.points.size() - 1])
+	var tdir := trail.points[3] - trail.points[0]
+	tdir.y = 0.0
+	var tpath: Array[Vector3] = []
+	for p in trail.points:
+		tpath.append(p)
+	races.append(_race("trail", "Trail Climb", "Dirt switchbacks all the way up. Try the buggy!",
+		Transform3D(Basis.looking_at(tdir.normalized()), trail.points[0] + Vector3.UP * 0.6), tcps, 10.0, tpath))
 
 	# Beach Dash: from the middle of the city west to the beach.
 	var beach: Array[Vector3] = []

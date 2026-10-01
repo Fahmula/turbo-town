@@ -172,6 +172,8 @@ func build(roads: RoadBuilder) -> void:
 	var t0 := Time.get_ticks_msec()
 	for ri in roads.roads.size():
 		var r := roads.roads[ri]
+		if r.kind == RoadBuilder.Kind.TRAIL:
+			continue  # dirt trails: no traffic
 		var offsets: Array = CITY_OFFSETS
 		var speeds: Array = CITY_SPEEDS
 		if r.kind == RoadBuilder.Kind.HIGHWAY:

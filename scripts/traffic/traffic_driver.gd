@@ -80,6 +80,7 @@ var _bypass_stalled := 0.0
 ## Passing a parked vehicle: {"obj": Vehicle, "lane": Lane, "from": s, "to": s, "offset": m}
 var _bypass := {}
 ## Counters for the dev tests.
+var age := 0.0
 var lane_changes := 0
 var passes := 0
 
@@ -239,6 +240,7 @@ func _physics_process(dt: float) -> void:
 	if vehicle == null or _plan.is_empty():
 		return
 	state_time += dt
+	age += dt
 	_update_audio(dt)
 	match state:
 		State.LOST:
@@ -335,8 +337,9 @@ func _back_up(dt: float) -> void:
 		_pedals(0.0, 0.5, 0.0)
 		return
 	vehicle.gear = -1
-	# In reverse, the brake pedal drives backwards. Counter-steer to open a gap.
-	_pedals(0.0, 0.45, -_last_steer * 0.6)
+	# In reverse, the brake pedal drives backwards. Counter-steer to open a gap
+	# (long vehicles back up straight: their tail would swing into the next lane).
+	_pedals(0.0, 0.45, 0.0 if _avoid_dead_ends else -_last_steer * 0.6)
 
 
 ## Free space behind the rear bumper (m), up to 4 m.
@@ -490,27 +493,42 @@ func _plan_speed() -> float:
 			continue
 		var op := other.global_position
 		var straight := op.distance_to(my_pos)
-		if straight > horizon + 5.0:
+		if straight > horizon + 8.0:
 			continue
 		var reach := _half_width + other.body_half_width + 0.3
+		# Long vehicles also count by their nose and tail, so a bus turning
+		# across our lane still blocks it while its tail swings through.
+		var pts: Array[Vector3] = [op]
+		# How far each point sits inside the vehicle's end (for the gap).
+		var insets: Array[float] = [other.body_length() * 0.5]
+		if other.body_length() > 5.5:
+			var ofwd := -other.global_basis.z
+			pts.append(op + ofwd * (other.body_front - 1.0))
+			pts.append(op - ofwd * (other.body_rear - 1.0))
+			insets.append_array([1.0, 1.0])
+			reach = _half_width + 1.3
 		var best_l := reach * reach
 		var best_i := -1
-		var j := clampi(int((straight - 3.0) / 3.0), 0, count)
-		while j < count:
-			var sd: float = _samples_d[j]
-			if sd > straight * 1.6 + 6.0:
-				break
-			var q := _samples_p[j]
-			var dx := q.x - op.x
-			var dz := q.z - op.z
-			var l := dx * dx + dz * dz
-			if l < best_l and absf(q.y - op.y) < 3.0:
-				best_l = l
-				best_i = j
-			j += 1
+		var best_inset := insets[0]
+		for pi in pts.size():
+			var opt := pts[pi]
+			var j := clampi(int((opt.distance_to(my_pos) - 3.0) / 3.0), 0, count)
+			while j < count:
+				var sd: float = _samples_d[j]
+				if sd > straight * 1.6 + 10.0:
+					break
+				var q := _samples_p[j]
+				var dx := q.x - opt.x
+				var dz := q.z - opt.z
+				var l := dx * dx + dz * dz
+				if l < best_l and absf(q.y - opt.y) < 3.0:
+					best_l = l
+					best_i = j
+					best_inset = insets[pi]
+				j += 1
 		if best_i < 0 or _samples_d[best_i] < 2.0 or _yields_to_me(other):
 			continue
-		var gap := _samples_d[best_i] - _front - other.body_length() * 0.5
+		var gap := _samples_d[best_i] - _front - best_inset
 		if other.body_length() > 6.0:
 			gap -= 2.5  # room for a long vehicle's tail to swing when it turns
 		var lead_v := maxf(other.linear_velocity.dot(_samples_dir[best_i]), 0.0)

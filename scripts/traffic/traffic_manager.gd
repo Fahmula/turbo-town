@@ -301,10 +301,14 @@ func _spawn(lane: TrafficNetwork.Lane, s: float, scene: PackedScene = null) -> T
 	if body:
 		var palette: Array[Color] = body.paint_palette if not body.paint_palette.is_empty() else paint_colors
 		body.paint_color = palette[_rng.randi() % palette.size()]
-	add_child(car)
+	# Place it before it enters the tree: added at the origin and moved after,
+	# the physics engine can treat it as a sweep through the ground and fling it.
 	var dir := lane.dir_at(s)
 	var flat := Vector3(dir.x, 0.0, dir.z).normalized()
-	car.teleport(Transform3D(Basis.looking_at(flat, Vector3.UP), lane.point_at(s) + Vector3.UP * (car.wheel_radius() + 0.08)))
+	var xform := Transform3D(Basis.looking_at(flat, Vector3.UP), lane.point_at(s) + Vector3.UP * (car.ride_height() + 0.08))
+	car.transform = global_transform.affine_inverse() * xform
+	add_child(car)
+	car.teleport(xform)
 	car.linear_velocity = dir * lane.speed * 0.7
 	var driver := TrafficDriver.new()
 	driver.name = "Driver"

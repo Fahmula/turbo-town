@@ -110,6 +110,8 @@ var _body_touching := false
 var _pending_impact := 0.0
 var _pending_impact_pos := Vector3.ZERO
 var _pending_impact_normal := Vector3.UP
+## What the last reported impact was against (for debugging).
+var last_impact_collider: Object = null
 
 
 func _ready() -> void:
@@ -236,8 +238,11 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		var other := state.get_contact_collider_object(i)
 		if other and other.has_method("on_vehicle_hit"):
 			other.call_deferred("on_vehicle_hit", self, impulse)
+		if other and other.has_meta("no_impact"):
+			continue  # scraping along a loop / wall ride isn't a crash
 		if impulse > impact_threshold and impulse > _pending_impact:
 			_pending_impact = impulse
+			last_impact_collider = other
 			_pending_impact_pos = state.get_contact_collider_position(i)
 			_pending_impact_normal = state.get_contact_local_normal(i)
 

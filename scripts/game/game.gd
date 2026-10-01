@@ -305,6 +305,11 @@ func change_vehicle(index: int, color: Color, place_here := true) -> void:
 	remove_child(old)
 	old.queue_free()
 	car.name = "PlayerCar"
+	# Put it in place before it enters the tree (see TrafficManager._spawn).
+	if not spot.is_empty():
+		car.transform = spot["xform"]
+	elif not world.spawn_points.is_empty():
+		car.transform = world.spawn_points[spawn_index]["xform"]
 	add_child(car)
 	move_child(car, slot)
 	vehicle = car

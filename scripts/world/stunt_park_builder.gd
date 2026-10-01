@@ -7,6 +7,24 @@ extends RefCounted
 
 const PI_ROT := PI  # rotate a ramp 180° so it faces south (+Z)
 
+# Loop-the-loop (east side): enter heading south at LOOP_X from LOOP_Z, come
+# out LOOP_SHIFT metres further east (a gentle helix, so the way down doesn't
+# land on the way in). Like a real coaster loop it's tighter at the top
+# (radius LOOP_R_TOP) than at the bottom (LOOP_R_BOTTOM): gentler g's going
+# in, still easy to make it over the top. Needs about 70 km/h.
+const LOOP_X := 160.0
+const LOOP_Z := 372.0
+const LOOP_R_BOTTOM := 10.0
+const LOOP_R_TOP := 5.0
+const LOOP_WIDTH := 7.0
+const LOOP_SHIFT := 8.0
+const LOOP_STEPS := 120
+# Wall-ride bowl: the floor curves up into a vertical wall; the opening faces
+# north, right where the loop comes out.
+const BOWL_CENTER := Vector2(165.0, 487.0)
+const BOWL_FLOOR := 9.0
+const BOWL_CURVE := 8.0
+
 var prop_spawns: Array[Dictionary] = []
 var _rng := RandomNumberGenerator.new()
 
@@ -21,6 +39,8 @@ func build(parent: Node3D) -> void:
 	parent.add_child(root)
 	_build_pad(root)
 	_build_gate(root)
+	_build_loop(root)
+	_build_bowl(root)
 	_place_ramps()
 	_place_props()
 
@@ -100,6 +120,170 @@ func _build_gate(root: Node3D) -> void:
 		label.rotation.y = 0.0 if side > 0 else PI
 		label.double_sided = false
 		root.add_child(label)
+
+
+## Quad visible from the side `facing` points to (MeshBuilder wants CCW).
+static func _quad(mb: MeshBuilder, a: Vector3, b: Vector3, c: Vector3, d: Vector3, facing: Vector3, col: Color) -> void:
+	if (b - a).cross(c - a).dot(facing) >= 0.0:
+		mb.add_quad(a, b, c, d, col)
+	else:
+		mb.add_quad(a, d, c, b, col)
+
+
+## Centre line of the loop track: LOOP_STEPS + 1 points from the way in to
+## the way out (the heading turns a full circle; radius of curvature
+## a + b*cos(heading) blends from LOOP_R_BOTTOM to LOOP_R_TOP).
+static func loop_points() -> PackedVector3Array:
+	var a := (LOOP_R_BOTTOM + LOOP_R_TOP) * 0.5
+	var b := (LOOP_R_BOTTOM - LOOP_R_TOP) * 0.5
+	var pts := PackedVector3Array()
+	var z := LOOP_Z
+	var y := 0.04
+	var sub := 8
+	for i in LOOP_STEPS + 1:
+		var th := TAU * i / LOOP_STEPS
+		pts.append(Vector3(LOOP_X + LOOP_SHIFT * (th - sin(th)) / TAU, y, z))
+		for k in sub:
+			var t := TAU * (i + (k + 0.5) / sub) / LOOP_STEPS
+			var ds := (a + b * cos(t)) * TAU / LOOP_STEPS / sub
+			z += cos(t) * ds
+			y += sin(t) * ds
+	return pts
+
+
+## Unit normal of the track at step i (pointing at the inside of the loop).
+static func loop_normal(i: int) -> Vector3:
+	var th := TAU * i / LOOP_STEPS
+	return Vector3(0, cos(th), -sin(th))
+
+
+func _build_loop(root: Node3D) -> void:
+	var mb := MeshBuilder.new()
+	var pts := loop_points()
+	var hw := LOOP_WIDTH * 0.5
+	var thick := 0.35
+	# U-shaped cross-section: flat in the middle, the edges curving up, so a car
+	# that drifts off the line (the loop shifts sideways as it goes round) is
+	# steered back to the middle without needing grip.
+	var prof: Array[Vector2] = []  # (sideways, height above the surface)
+	for k in 9:
+		var u := -hw + LOOP_WIDTH * k / 8.0
+		var e := maxf(absf(u) - 1.8, 0.0) / (hw - 1.8)
+		prof.append(Vector2(u, 1.2 * e * e))
+	for i in LOOP_STEPS:
+		var p0 := pts[i]
+		var p1 := pts[i + 1]
+		var n0 := loop_normal(i)
+		var n1 := loop_normal(i + 1)
+		var col := Color(0.25, 0.55, 0.95) if (i / 5) % 2 == 0 else Color(0.95, 0.95, 0.97)
+		var edge_col := Color(0.95, 0.3, 0.25) if (i / 5) % 2 == 0 else Color(0.97, 0.97, 0.97)
+		var n_mid := (n0 + n1).normalized()
+		for k in prof.size() - 1:
+			var a := prof[k]
+			var b := prof[k + 1]
+			var v00 := p0 + Vector3.RIGHT * a.x + n0 * a.y
+			var v01 := p0 + Vector3.RIGHT * b.x + n0 * b.y
+			var v10 := p1 + Vector3.RIGHT * a.x + n1 * a.y
+			var v11 := p1 + Vector3.RIGHT * b.x + n1 * b.y
+			var c := col if absf((a.x + b.x) * 0.5) < 1.9 else edge_col
+			_quad(mb, v00, v01, v11, v10, n_mid, c)
+			# Underside.
+			_quad(mb, v00 - n0 * thick, v10 - n1 * thick, v11 - n1 * thick, v01 - n0 * thick, -n_mid, Color(0.35, 0.37, 0.42))
+		# Close off the edges.
+		for side: float in [-1.0, 1.0]:
+			var e: Vector2 = prof[0] if side < 0.0 else prof[prof.size() - 1]
+			var t0: Vector3 = p0 + Vector3.RIGHT * e.x + n0 * e.y
+			var t1: Vector3 = p1 + Vector3.RIGHT * e.x + n1 * e.y
+			_quad(mb, t0 - n0 * thick, t1 - n1 * thick, t1, t0, Vector3.RIGHT * side, edge_col)
+	var top := pts[LOOP_STEPS / 2]
+	# Gantry holding up the top: pillars outside both lanes (the top of the
+	# loop is right above the way in), joined by a beam over the track.
+	var grey := Color(0.4, 0.42, 0.48)
+	var top_y := top.y + thick + 0.4
+	var left := LOOP_X - hw - 1.3
+	var right := LOOP_X + LOOP_SHIFT + hw + 1.3
+	for z in [top.z - 3.0, top.z + 3.0]:
+		mb.add_box(Transform3D(Basis.IDENTITY, Vector3(left, top_y * 0.5, z)), Vector3(0.7, top_y, 0.7), grey)
+		mb.add_box(Transform3D(Basis.IDENTITY, Vector3(right, top_y * 0.5, z)), Vector3(0.7, top_y, 0.7), grey)
+		mb.add_box(Transform3D(Basis.IDENTITY, Vector3((left + right) * 0.5, top_y + 0.35, z)), Vector3(right - left + 0.7, 0.7, 0.7), grey)
+	var node := mb.build_node("Loop", load("res://assets/materials/props.tres"), true, 1.0)
+	_make_slick(node)
+	root.add_child(node)
+	var sign := Label3D.new()
+	sign.text = "LOOP!\n80+ km/h"
+	sign.font_size = 160
+	sign.pixel_size = 0.012
+	sign.outline_size = 22
+	sign.modulate = Color(1.0, 0.85, 0.25)
+	sign.outline_modulate = Color(0.08, 0.1, 0.2)
+	sign.position = Vector3(LOOP_X - 7.0, 3.0, LOOP_Z - 30.0)
+	sign.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	root.add_child(sign)
+
+
+## Long, low cars scrape their bumpers on tight curves (like real ones would).
+## No friction for the bodywork there (the tyres use raycasts, so grip is
+## unaffected) and the scraping doesn't count as crashing.
+static func _make_slick(body: Node3D) -> void:
+	var pm := PhysicsMaterial.new()
+	pm.friction = 0.0
+	pm.bounce = 0.0
+	(body as StaticBody3D).physics_material_override = pm
+	body.set_meta("no_impact", true)
+
+
+func _build_bowl(root: Node3D) -> void:
+	var mb := MeshBuilder.new()
+	var segs := 72
+	var prof_steps := 12
+	var gap := deg_to_rad(30.0)  # half-width of the opening, around north (-Z)
+	var top := BOWL_CURVE + 1.5
+	var thick := 0.4
+	var c3 := Vector3(BOWL_CENTER.x, 0.03, BOWL_CENTER.y)
+	var profile: Array[Vector2] = []  # (radius, height)
+	var normals: Array[Vector2] = []  # inward/up, in (radius, height)
+	for k in prof_steps + 1:
+		var phi := PI * 0.5 * k / prof_steps
+		profile.append(Vector2(BOWL_FLOOR + BOWL_CURVE * sin(phi), BOWL_CURVE * (1.0 - cos(phi))))
+		normals.append(Vector2(-sin(phi), cos(phi)))
+	profile.append(Vector2(BOWL_FLOOR + BOWL_CURVE, top))
+	normals.append(Vector2(-1, 0))
+	for i in segs:
+		var a0 := -PI * 0.5 + gap + (TAU - 2.0 * gap) * i / segs
+		var a1 := -PI * 0.5 + gap + (TAU - 2.0 * gap) * (i + 1) / segs
+		var d0 := Vector3(cos(a0), 0, sin(a0))
+		var d1 := Vector3(cos(a1), 0, sin(a1))
+		var col := Color(1.0, 0.6, 0.15) if (i / 3) % 2 == 0 else Color(1.0, 0.85, 0.3)
+		for k in profile.size() - 1:
+			var q0 := profile[k]
+			var q1 := profile[k + 1]
+			var nk := normals[k]
+			var facing := d0 * nk.x + Vector3.UP * nk.y
+			var v00 := c3 + d0 * q0.x + Vector3.UP * q0.y
+			var v01 := c3 + d0 * q1.x + Vector3.UP * q1.y
+			var v10 := c3 + d1 * q0.x + Vector3.UP * q0.y
+			var v11 := c3 + d1 * q1.x + Vector3.UP * q1.y
+			_quad(mb, v00, v10, v11, v01, facing, col)
+			# Outside skin.
+			var o := -(d0 * nk.x + Vector3.UP * nk.y) * thick
+			_quad(mb, v00 + o, v01 + o, v11 + o, v10 + o, -facing, Color(0.4, 0.42, 0.48))
+		# Rim on top.
+		var r := BOWL_FLOOR + BOWL_CURVE
+		_quad(mb, c3 + d0 * r + Vector3.UP * top, c3 + d1 * r + Vector3.UP * top,
+			c3 + d1 * (r + thick) + Vector3.UP * top, c3 + d0 * (r + thick) + Vector3.UP * top, Vector3.UP, Color(0.95, 0.95, 0.97))
+	var node := mb.build_node("WallRide", load("res://assets/materials/props.tres"), true, 1.0)
+	node.set_meta("no_impact", true)  # (normal friction: scraping the wall helps you stick)
+	root.add_child(node)
+	var sign := Label3D.new()
+	sign.text = "WALL RIDE"
+	sign.font_size = 160
+	sign.pixel_size = 0.012
+	sign.outline_size = 22
+	sign.modulate = Color(1.0, 0.6, 0.15)
+	sign.outline_modulate = Color(0.08, 0.1, 0.2)
+	sign.position = Vector3(BOWL_CENTER.x, top + 2.0, BOWL_CENTER.y)
+	sign.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	root.add_child(sign)
 
 
 func _place_ramps() -> void:

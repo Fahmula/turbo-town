@@ -55,6 +55,13 @@ const HILL_LOOP := [
 	Vector2(115, -510), Vector2(150, -440), Vector2(140, -370), Vector2(100, -322),
 	Vector2(50, -305),
 ]
+## Dirt trail zig-zagging up the mountain's south face (gentle grades) from
+## near the hill loop junction to the summit.
+const MOUNTAIN_TRAIL := [
+	Vector2(0, -318), Vector2(55, -345), Vector2(-45, -372), Vector2(45, -400),
+	Vector2(-35, -425), Vector2(25, -450), Vector2(0, -468),
+]
+const TRAIL_WIDTH := 6.0
 const SUMMIT_ROAD := [
 	Vector2(-147, -440), Vector2(-110, -462), Vector2(-60, -485), Vector2(-22, -490),
 ]

@@ -9,6 +9,8 @@ extends Node
 ##   --stunts=<dir>   air, flips, rolls, spins, drift, near miss, wipeout -> combos and records
 ##   --map=<dir>      minimap and big map screenshots
 ##   --races=<dir>    an autopilot drives every race (times -> medal reference), checks the flow
+##   --park=<dir>     loop-the-loop and wall-ride bowl driven by an autopilot
+##   --trail=<dir>    drive the mountain trail to the summit
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -35,6 +37,15 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--uturn="):
 			_mode = "uturn"
+			_dir = arg.split("=")[1]
+		elif arg == "--spawncheck":
+			_mode = "spawncheck"
+			_dir = OS.get_user_data_dir()
+		elif arg.begins_with("--trail="):
+			_mode = "trail"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--park="):
+			_mode = "park"
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--races="):
 			_mode = "races"
@@ -123,6 +134,12 @@ func _run() -> void:
 		await _map(game)
 	elif _mode == "races":
 		await _races(game)
+	elif _mode == "park":
+		await _park(game)
+	elif _mode == "trail":
+		await _trail(game)
+	elif _mode == "spawncheck":
+		await _spawncheck(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -1047,9 +1064,11 @@ func _lanes(game: Game) -> void:
 		for dr: TrafficDriver in tm.drivers:
 			if not watched.has(dr):
 				watched[dr] = dr.lane_changes
-				dr.vehicle.impact.connect(func(st: float, _p: Vector3, _n: Vector3) -> void:
+				var ddr := dr
+				dr.vehicle.impact.connect(func(st: float, p: Vector3, _n: Vector3) -> void:
 					if st > 9000.0:
-						crashes[0] += 1)
+						crashes[0] += 1
+						_log_crash(tm, ddr, st, p))
 			total_changes += dr.lane_changes - int(watched[dr])
 			watched[dr] = dr.lane_changes
 			if dr.current_lane() and dr.current_lane().lane_count == 3:
@@ -1114,9 +1133,11 @@ func _junction(game: Game) -> void:
 				if clear:
 					var d := tm.spawn_near(tm.car_scenes[tm._rng.randi() % 3], q)
 					if d:
-						d.vehicle.impact.connect(func(st: float, _p: Vector3, _n: Vector3) -> void:
+						var dd := d
+						d.vehicle.impact.connect(func(st: float, p: Vector3, _n: Vector3) -> void:
 							if st > 9000.0:
-								crashes[0] += 1)
+								crashes[0] += 1
+								_log_crash(tm, dd, st, p))
 		for d: TrafficDriver in tm.drivers:
 			var lane := d.current_lane()
 			if lane and moves.has(lane.id):
@@ -1522,3 +1543,204 @@ func _races(game: Game) -> void:
 		line += "\"%s\": %.1f, " % [k, times[k]]
 	print("  reference times: { %s}" % line)
 	_check(not Records.best_times.is_empty(), "best times recorded (%s)" % str(Records.best_times))
+
+
+func _park(game: Game) -> void:
+	var st := game.stunts
+	var cam := game.camera
+	game.traffic.set_enabled(false)
+	var tricks: Array[String] = []
+	st.trick.connect(func(n: String, _p: int) -> void: tricks.append(n))
+	var has := func(prefix: String) -> bool:
+		for n in tricks:
+			if n.begins_with(prefix):
+				return true
+		return false
+	for vi in [0, 1, 6, 5]:  # sports car, sedan, buggy, pickup
+		tricks.clear()
+		game.change_vehicle(vi, Color.RED, false)
+		var v := game.vehicle
+		v.teleport(Transform3D(Basis.looking_at(Vector3.BACK), Vector3(StuntParkBuilder.LOOP_X, 0.6 + v.ride_height(), StuntParkBuilder.LOOP_Z - 62.0)))
+		await _wait_s(0.5)
+		var t := 0.0
+		var max_y := 0.0
+		var shot := false
+		while t < 14.0:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			var pos := v.global_position
+			# Aim at the loop's centre line a bit ahead of the nearest point
+			# (straight lines before and after it).
+			var ahead_pt: Vector3
+			var lp := StuntParkBuilder.loop_points()
+			if pos.z < StuntParkBuilder.LOOP_Z - 2.0 and max_y < 2.0:
+				ahead_pt = Vector3(StuntParkBuilder.LOOP_X, pos.y, pos.z + 12.0)
+			else:
+				var best := 0
+				var bd := INF
+				for k in lp.size():
+					var dd := lp[k].distance_squared_to(pos)
+					if dd < bd and (k > lp.size() / 2 or max_y < 8.0):
+						bd = dd
+						best = k
+				if best + 6 < lp.size():
+					ahead_pt = lp[best + 6]
+				else:
+					ahead_pt = lp[lp.size() - 1] + Vector3(0, 0, 12)
+			var local := v.global_basis.inverse() * (ahead_pt - pos)
+			_set_axis(clampf(atan2(local.x, -local.z) * 1.5, -1.0, 1.0))
+			_set_pedals(v.speed_kmh < (92.0 if vi == 5 else 80.0), false)
+			max_y = maxf(max_y, pos.y)
+			if pos.y > 11.0 and not shot:
+				shot = true
+				cam.set_process(false)
+				cam.global_position = Vector3(StuntParkBuilder.LOOP_X - 30.0, 8.0, StuntParkBuilder.LOOP_Z + 4.0)
+				cam.look_at(Vector3(StuntParkBuilder.LOOP_X + 4.0, 7.5, StuntParkBuilder.LOOP_Z + 4.0), Vector3.UP)
+				await _shot("park_loop_%d" % vi)
+				cam.set_process(true)
+			if pos.z > StuntParkBuilder.LOOP_Z + 30.0 and max_y > 11.0:
+				break
+		_release()
+		await _wait_s(1.2)
+		var exit_ok := v.global_position.z > StuntParkBuilder.LOOP_Z + 15.0 and v.global_basis.y.y > 0.9
+		_check(max_y > 12.0 and exit_ok and has.call("LOOP"), "%s loops the loop (top %.1f m, tricks %s, end %s up %.2f)" % [v.display_name, max_y, ", ".join(tricks), v.global_position.round(), v.global_basis.y.y])
+
+	# Wall ride: circle the bowl high on the wall.
+	tricks.clear()
+	game.change_vehicle(0, Color.RED, false)
+	var v := game.vehicle
+	var c := StuntParkBuilder.BOWL_CENTER
+	var c3 := Vector3(c.x, 0, c.y)
+	v.teleport(Transform3D(Basis.looking_at(Vector3.BACK), Vector3(c.x, 0.6 + v.ride_height(), c.y - 40.0)))
+	await _wait_s(0.5)
+	var t := 0.0
+	var max_tilt := 0.0
+	var shot := false
+	while t < 16.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		var pos := v.global_position
+		var rel := Vector3(pos.x - c3.x, 0, pos.z - c3.z)
+		var target: Vector3
+		if t < 3.0:
+			target = c3 + Vector3(0, 0, 3)
+		else:
+			# Circle anticlockwise (seen from above) at a radius near the wall.
+			var ang := atan2(rel.z, rel.x) - 0.5
+			target = c3 + Vector3(cos(ang), 0, sin(ang)) * 15.5 + Vector3.UP * 5.0
+		var local := v.global_basis.inverse() * (target - pos)
+		_set_axis(clampf(atan2(local.x, -local.z) * 1.6, -1.0, 1.0))
+		_set_pedals(v.speed_kmh < 70.0, false)
+		max_tilt = maxf(max_tilt, absf(v.global_basis.x.y))
+		if absf(v.global_basis.x.y) > 0.8 and not shot:
+			shot = true
+			cam.set_process(false)
+			cam.global_position = c3 + Vector3(0, 22, 0)
+			cam.look_at(pos, Vector3.FORWARD)
+			await _shot("park_wallride")
+			cam.set_process(true)
+	_release()
+	await _wait_s(1.5)
+	_check(has.call("WALL RIDE"), "wall ride in the bowl (max tilt %.2f, tricks %s)" % [max_tilt, ", ".join(tricks)])
+
+
+func _trail(game: Game) -> void:
+	game.traffic.set_enabled(false)
+	var road := game.world.roads.find_road("MountainTrail")
+	var path := road.points
+	for vi in [6, 5]:  # buggy, pickup
+		game.change_vehicle(vi, Color.RED, false)
+		var v := game.vehicle
+		var dir := path[3] - path[0]
+		dir.y = 0.0
+		v.teleport(Transform3D(Basis.looking_at(dir.normalized()), path[0] + Vector3.UP * (v.ride_height() + 0.3)))
+		await _wait_s(0.5)
+		var idx := 0
+		var t := 0.0
+		var stuck := 0.0
+		var shots := 0
+		while idx < path.size() - 2 and t < 120.0:
+			await get_tree().physics_frame
+			var dt := get_physics_process_delta_time()
+			t += dt
+			var pos := v.global_position
+			while idx < path.size() - 1 and Vector2(path[idx].x - pos.x, path[idx].z - pos.z).length() < 7.0:
+				idx += 1
+			var local := v.global_basis.inverse() * (path[mini(idx + 1, path.size() - 1)] - pos)
+			_set_axis(clampf(atan2(local.x, -local.z) * 2.0, -1.0, 1.0))
+			# Slow for the hairpins coming up.
+			var want := 40.0
+			var a0 := path[mini(idx + 1, path.size() - 1)] - path[idx]
+			var a1 := path[mini(idx + 6, path.size() - 1)] - path[mini(idx + 3, path.size() - 1)]
+			if Vector2(a0.x, a0.z).angle_to(Vector2(a1.x, a1.z)) > 0.5 or absf(Vector2(a0.x, a0.z).angle_to(Vector2(a1.x, a1.z))) > 0.5:
+				want = 18.0
+			_set_pedals(v.speed_kmh < want, v.speed_kmh > want + 8.0)
+			stuck = stuck + dt if v.speed_kmh < 3.0 else 0.0
+			if stuck > 6.0:
+				break
+			if idx > shots * (path.size() / 3) + 10 and shots < 3:
+				await _shot("trail_%d_%d" % [vi, shots])
+				shots += 1
+		_release()
+		var top := v.global_position
+		print("    %s: reached point %d/%d at %s in %.0fs" % [v.display_name, idx, path.size(), top.round(), t])
+		_check(idx >= path.size() - 3, "%s drives the mountain trail to the top (%.0f m up)" % [v.display_name, top.y])
+
+
+## Prints who a traffic car hit (for the traffic tests' crash counts).
+func _log_crash(tm: TrafficManager, d: TrafficDriver, st: float, p: Vector3) -> void:
+	if not is_instance_valid(d):
+		return
+	var other := ""
+	for o in tm.vehicles:
+		if is_instance_valid(o) and o != d.vehicle and o.global_position.distance_to(d.vehicle.global_position) < 8.0:
+			var od := tm.driver_of(o)
+			other += " %s(%.0fkmh%s)" % [o.display_name, o.speed_kmh, (" lc%.1f %s" % [od._lc_offset, ["D", "S", "L"][od.state]]) if od else " player"]
+	var hit: Object = d.vehicle.last_impact_collider
+	var hit_name: String = String((hit as Node).name) if hit is Node else str(hit)
+	print("  CRASH %.0f %s hit '%s' at %s %.0fkmh lane %d lc %.1f age %.1fs blocker '%s' near:%s" % [st, d.vehicle.display_name, hit_name,
+		p.round(), d.vehicle.speed_kmh, d.current_lane().id if d.current_lane() else -1, d._lc_offset, d.age, d.blocker, other])
+
+
+## Spawns traffic cars one by one and reports any impact in their first second.
+func _spawncheck(game: Game) -> void:
+	var tm := game.traffic
+	tm.set_enabled(false)
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(0, 0.8, 0)))
+	await _wait_s(0.5)
+	var bad := 0
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	for k in 60:
+		var pick := tm.network.random_spawn(rng)
+		if pick.is_empty():
+			continue
+		var scene: PackedScene = tm.car_scenes[k % tm.car_scenes.size()]
+		var d := tm._spawn(pick["lane"], pick["s"], scene)
+		var v := d.vehicle
+		var hits: Array[String] = []
+		var frame := [0]
+		v.impact.connect(func(st: float, p: Vector3, _n: Vector3) -> void:
+			hits.append("f%d %.0f vs %s at %s (car at %s)" % [frame[0], st, (v.last_impact_collider as Node).name if v.last_impact_collider is Node else "?", p.round(), v.global_position.round()]))
+		var y0 := v.global_position.y
+		var lane_id := d.current_lane().id
+		var lane_len := d.current_lane().length
+		for f in 120:
+			frame[0] = f
+			await get_tree().physics_frame
+			if not is_instance_valid(d):
+				break
+		if not is_instance_valid(d):
+			# Spawned too far from the player and tidied away: fine unless it crashed.
+			if not hits.is_empty():
+				print("  (freed) %s lane %d: %s" % [scene.resource_path.get_file(), lane_id, ", ".join(hits)])
+				bad += 1
+			continue
+		if not hits.is_empty() or d.state != TrafficDriver.State.DRIVING:
+			bad += 1
+			print("  %s on lane %d (len %.0f, s %.0f): %s state %s  dy %.2f blocker '%s'" % [v.display_name, lane_id, lane_len,
+				pick["s"], ", ".join(hits), ["D", "S", "L"][d.state], v.global_position.y - y0, d.blocker])
+		tm._despawn(d)
+		for w in int(OS.get_environment("GAPF") if OS.get_environment("GAPF") != "" else "1"):
+			await get_tree().physics_frame
+	_check(bad == 0, "clean spawns (%d bad of 60)" % bad)

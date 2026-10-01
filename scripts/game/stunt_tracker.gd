@@ -1,7 +1,7 @@
 class_name StuntTracker
 extends Node
 ## Spots the stunts the player pulls off — big air, flips, barrel rolls, air
-## spins, near misses and drifts — and chains them into combos: every trick
+## spins, loops, wall rides, near misses and drifts — and chains them into combos: every trick
 ## adds its points and bumps the multiplier; the combo is banked after a few
 ## quiet seconds on the ground, or lost in a wipeout (crash landing / big hit).
 
@@ -36,6 +36,10 @@ var _in_air := false
 var _air_time := 0.0
 var _rot := Vector3.ZERO
 var _landing_check := -1.0
+var _loop_pitch := 0.0
+var _loop_air := 0.0
+var _level_time := 0.0
+var _wall_time := 0.0
 var _drift_time := 0.0
 var _drift_points := 0.0
 var _drift_grace := 0.0
@@ -49,10 +53,11 @@ func _physics_process(dt: float) -> void:
 	if vehicle == null or not is_instance_valid(vehicle) or not enabled:
 		return
 	_track_air(dt)
+	_track_loop(dt)
 	_track_drift(dt)
 	_track_near_misses(dt)
 	# Bank the combo after a quiet spell (the clock stops in the air and while drifting).
-	if not _combo.is_empty() and not _in_air and _drift_time <= 0.0 and _landing_check < 0.0:
+	if not _combo.is_empty() and not _in_air and _drift_time <= 0.0 and _landing_check < 0.0 and _wall_time <= 0.0:
 		_combo_timer -= dt
 		if _combo_timer <= 0.0:
 			_bank()
@@ -155,6 +160,36 @@ func _score_jump() -> void:
 		_add("PERFECT LANDING", 100)
 
 
+# --- Loops and wall rides -----------------------------------------------------
+
+func _track_loop(dt: float) -> void:
+	var v := vehicle
+	var b := v.global_basis
+	_loop_pitch += (b.inverse() * v.angular_velocity).x * dt
+	if v.airtime > 0.0:
+		_loop_air += dt
+	# A loop = a whole turn nose-over-tail while staying on the wheels; judged
+	# once the car is level on the ground again.
+	var level := b.y.y > 0.95 and v.grounded_wheels >= 3
+	_level_time = _level_time + dt if level else 0.0
+	if _level_time > 0.5:
+		# Long cars slide over the top a little, so they don't quite turn a
+		# full 360 on paper; 260 degrees one way on the wheels is only a loop
+		# (half pipes go up and come back down).
+		if absf(_loop_pitch) > 4.5 and _loop_air < 0.6:
+			_add("LOOP-THE-LOOP", 1000)
+		_loop_pitch = 0.0
+		_loop_air = 0.0
+	# Wall ride: driving along a wall with the car tipped right over sideways.
+	var on_wall := v.grounded_wheels >= 3 and absf(b.x.y) > 0.75 and v.forward_speed > 6.0
+	if on_wall:
+		_wall_time += dt
+	elif _wall_time > 0.0:
+		if _wall_time > 1.0:
+			_add("WALL RIDE %.1fs" % _wall_time, int(150.0 * _wall_time))
+		_wall_time = 0.0
+
+
 # --- Drift -------------------------------------------------------------------
 
 func _track_drift(dt: float) -> void:
@@ -222,6 +257,8 @@ func _track_near_misses(dt: float) -> void:
 # Teleports, respawns and flip-resets: whatever was in the air doesn't count.
 func _on_reset() -> void:
 	_reset_air()
+	_loop_pitch = 0.0
+	_wall_time = 0.0
 	_end_drift(false)
 	_near_pending.clear()
 

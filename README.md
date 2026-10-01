@@ -50,8 +50,8 @@ wipeout (landing on the roof) or a big crash. Let go of a flip/roll and the car
 turns itself level to land. Best combos and records: RECORDS in the menus
 (saved to `user://records.cfg`).
 
-**Races**: five checkpoint races (City Sprint, Highway Loop, Mountain Climb,
-Dirt Rally, Beach Dash). Drive into a green start circle and stop, or pick one
+**Races**: six checkpoint races (City Sprint, Highway Loop, Mountain Climb,
+Trail Climb, Dirt Rally, Beach Dash). Drive into a green start circle and stop, or pick one
 on the RACES page. 3-2-1-GO, then drive through the gates in order: the next
 one is lit, an arrow over the car points at it and the minimap marks it.
 Gold/silver/bronze times, best times saved. Backspace (or falling in the sea)
@@ -172,6 +172,9 @@ godot --path . -- --lanes=/tmp/shots    passing a parked player, horn reactions,
 godot --path . -- --stunts=/tmp/shots   air, flips, rolls, spins, drift, near miss, wipeout (pass/fail)
 godot --path . -- --map=/tmp/shots      minimap / big map screenshots (+ world_map.png)
 godot --path . -- --races=/tmp/shots    race flow checks + autopilot drives every race (medal reference times)
+godot --path . -- --park=/tmp/shots     loop-the-loop (4 vehicles) and the wall-ride bowl
+godot --path . -- --trail=/tmp/shots    buggy + pickup drive the mountain trail to the summit
+godot --path . --headless --fixed-fps 120 -- --spawncheck   60 traffic spawns, none may crash
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)
 godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end
