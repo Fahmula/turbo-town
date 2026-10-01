@@ -188,15 +188,17 @@ bible.
 
 ## 3. Where the game is today (legacy baseline)
 
-As of v0.3.1 (2026-10-01), the game uses a bright toy low-poly style:
+As of v0.3.1 (2026-10-01), the game used a bright toy low-poly style. Step 1
+of the migration (§31: lighting, atmosphere and palette) landed the same day;
+those rows describe the game after it.
 
 | Area | Today | Target |
 |---|---|---|
 | Geometry | `MeshBuilder` flat-shades every triangle. Trees, rocks and clouds are faceted blobs. Vehicle bodies are side profiles extruded with `extrude_profile`, plus box parts. | Smooth shading with bevels. Deformation-ready vehicle topology. |
 | Textures | None. Everything is vertex colour or a procedural shader (road markings, windows, water). | Stay procedural-first. Add small generated detail textures where they pay off (§8). |
-| Palette | Pastel saturated buildings (`CityBuilder.PALETTE`), bright green grass, blue-tinted asphalt, `adjustment_saturation = 1.15`. | Naturalistic palette (§5), saturation 1.0. |
-| Lighting | A good base: sun plus time-of-day keys (`DayNight.KEYS`), SSAO on High, Filmic tonemap, light fog. | More sun/shadow contrast, cooler shadows, more aerial haze (§9, §11). |
-| Sky | `ProceduralSkyMaterial` in saturated blue. Faceted mesh clouds. | A paler, hazier horizon and soft clouds. |
+| Palette | **Migrated (step 1).** World colours follow §5 and live in `ArtPalette` (`scripts/world/art_palette.gd`). Vehicle paints are not done yet (step 4). | Naturalistic palette (§5). |
+| Lighting | **Migrated (step 1).** Warm sun, cool ambient, AgX tonemap, aerial fog, 15:00 day preset (§9, §11). | More sun/shadow contrast, cooler shadows, more aerial haze. |
+| Sky | Colours **migrated (step 1)**: paler, hazier horizon. Clouds are still faceted meshes (step 2). | A paler, hazier horizon and soft clouds. |
 | Vehicles | Bodies of 1.6–2.6k tris, 8 cm arch gaps, opaque glass, no interior, racing stripes on the sports car. | §12–13. |
 | Damage | Vertex dents (smoothstep falloff, bent normals). Bumpers and spoiler fall off. Lights and glass break. Smoke and sparks. | Add a scrape/primer/bare-metal layer, crumple stiffness, and structure behind lost parts (§14). |
 | UI | Dark navy rounded panels, yellow accent, outlined default font, built in code with `UiKit`. | Keep the colours and layout. Add a real font, a type scale and icons (§20–22). |
@@ -249,13 +251,15 @@ Values are sRGB hex, plus the Godot `Color()` floats in sRGB space (the same
 space as `Color()` in GDScript, material `albedo_color`, and `MeshBuilder`
 vertex colours). Vary each instance by about ±4% in value and ±0.02 in hue so
 repeats don't look stamped. **Don't invent new base colours: add them here
-first.**
+first.** In code, the world's base colours live in `ArtPalette`
+(`scripts/world/art_palette.gd`); builders read it, and small accents stay
+inline.
 
 **Rules**
 
 - **Large surfaces** (terrain, walls, roads, sea, big props): chroma ≤ 0.35.
   Chroma here means the highest sRGB channel minus the lowest, on a 0–1 scale.
-  Today the pastel buildings are 0.36–0.67 and the grass is 0.39.
+  (Before step 1 the pastel buildings were 0.36–0.67 and the grass 0.39.)
 - **Accents** (vehicles, signs, flowers, markings, UI): chroma up to 0.90.
 - **Gameplay markers** (race gates, start circles, guide arrow) may use
   saturated, emissive colours. They're UI placed in 3D.
@@ -272,7 +276,7 @@ first.**
 
 | Name | Hex | Godot `Color` | Use |
 |---|---|---|---|
-| asphalt | `#46474A` | `(0.275, 0.278, 0.290)` | road base (today `(0.30, 0.31, 0.35)`, too blue) |
+| asphalt | `#46474A` | `(0.275, 0.278, 0.290)` | road base (`ArtPalette.ASPHALT`, road shaders) |
 | asphalt_dark | `#393A3D` | `(0.224, 0.227, 0.239)` | repairs, fresh patches, wheel paths |
 | asphalt_worn | `#5A5B5D` | `(0.353, 0.357, 0.365)` | worn, sun-bleached patches |
 | paint_white | `#E4E2DA` | `(0.894, 0.886, 0.855)` | lane lines, zebra crossings |
@@ -281,7 +285,7 @@ first.**
 | concrete_stained | `#8E8A82` | `(0.557, 0.541, 0.510)` | bases, drip streaks, joints |
 | sidewalk | `#BDB8AE` | `(0.741, 0.722, 0.682)` | paving |
 | curb | `#A8A39A` | `(0.659, 0.639, 0.604)` | kerbs |
-| grass | `#5E7F3A` | `(0.369, 0.498, 0.227)` | lawns, lowland (today `(0.43, 0.72, 0.33)`, too bright) |
+| grass | `#5E7F3A` | `(0.369, 0.498, 0.227)` | lawns, lowland (`ArtPalette.LAWN`; terrain blends `GRASS_DARK`↔`GRASS_LIGHT`) |
 | grass_dry | `#8A8A4A` | `(0.541, 0.541, 0.290)` | hills, fields |
 | dirt | `#8C6A48` | `(0.549, 0.416, 0.282)` | trails, dirt fields |
 | sand | `#D8C59A` | `(0.847, 0.773, 0.604)` | beach |
@@ -317,9 +321,9 @@ first.**
 | trim_white | `#E8E4DA` | `(0.910, 0.894, 0.855)` | window frames, cornices |
 | roof | `#6E6C68` | `(0.431, 0.424, 0.408)` | flat roofs, membranes |
 
-### Sky keys (targets for `DayNight.KEYS`)
+### Sky keys (in `DayNight.KEYS` since step 1)
 
-| Key | Today | Target |
+| Key | Before (v0.3.1) | Now |
 |---|---|---|
 | Day zenith | `(0.16, 0.45, 0.92)` | `#3D7CC9` `(0.239, 0.486, 0.788)` |
 | Day horizon / fog | `(0.62, 0.82, 0.98)` | `#D6E3EC` `(0.839, 0.890, 0.925)`: paler, hazier |
@@ -335,7 +339,7 @@ first.**
 | Warm street lamp (~3000 K) | `#FFE2B0` | `(1.000, 0.886, 0.690)` |
 | Cool LED (highway, airfield) | `#E8F0FF` | `(0.910, 0.941, 1.000)` |
 | Headlight | `#FFF4E0` | `(1.000, 0.957, 0.878)` |
-| Lit window | `#FFCC80` | `(1.000, 0.800, 0.502)` (matches `building.gdshader` today) |
+| Lit window | `#FFAD5C` | `(1.0, 0.68, 0.36)` warm rooms; about 15% are cool-white offices `(0.8, 0.88, 1.0)` (`building.gdshader`) |
 
 ### Vehicle paints
 
@@ -403,7 +407,7 @@ spatial shaders.
 | Stucco / plaster | building palette | 0.9 | 0 | |
 | Limestone | limestone | 0.8 | 0 | |
 | Brick | brick | 0.9 | 0 | mortar lines lighter, about +15% value |
-| Building window glass | dark blue-grey | 0.05–0.15 | 0 | today `building.gdshader` uses metallic 0.2. Prefer 0 with low roughness. |
+| Building window glass | dark blue-grey | 0.05–0.15 | 0 | `building.gdshader`: roughness 0.1, metallic 0 |
 | Curtain wall glass | curtain_glass | 0.05–0.1 | 0 | |
 | Painted metal (poles, signs) | per object | 0.45–0.6 | 0 | paint is not metal |
 | Galvanised steel (guardrails) | `#A7ABAE` | 0.4–0.5 | 1 | |
@@ -413,7 +417,7 @@ spatial shaders.
 | Rubber / tyre | `#1C1C1E` | 0.85–0.95 | 0 | |
 | Grass / foliage | vegetation palette | 0.8–0.95 | 0 | specular 0.25–0.35 |
 | Bark / rock / sand | palette | 0.85–0.95 | 0 | |
-| Water | sea palette | 0.02–0.1 | 0 | today metallic 0.1. Use 0. |
+| Water | sea palette | 0.02–0.1 | 0 | `water.gdshader`: roughness 0.08 |
 | Car paint | paint palette | 0.25–0.4 | 0 (solid) / 0.4–0.6 (metallic) | clearcoat (§13) |
 | Chrome | `#D9DBDE` | 0.08–0.15 | 1 | sparingly |
 | Aluminium rim | `#B8BBBF` | 0.3–0.4 | 1 | |
@@ -479,7 +483,10 @@ spatial shaders.
    variants.
 3. **Antialias procedural lines with `fwidth`** (see `line_mask` in
    `road.gdshader`), and fade high-frequency detail with distance (`fade` in
-   `building.gdshader`). Nothing may shimmer at 1280×800.
+   `building.gdshader`). Nothing may shimmer at 1280×800. **Hash only stable
+   inputs:** round an interpolated vertex colour or UV before hashing it (see
+   `seed` in `building.gdshader`). Otherwise the hash turns tiny per-pixel
+   float wobble into TV-static speckles.
 4. **Fragment budget for world surfaces:** ≤ 4 texture samples (≤ 6 on
    High-only paths). No loops longer than about 8 iterations. No `discard`
    except alpha-scissor foliage. No `SCREEN_TEXTURE` or `DEPTH_TEXTURE` reads
@@ -574,30 +581,36 @@ there. Never add lights to fix the look of a level.
   never black.
 - **Warm light, cool shadows**, achieved with a warm sun colour and blue-ish
   ambient. Never by tinting albedo.
-- **Presets** (`DayNight.PRESET_HOURS`): day at 14:00, which is the default;
-  sunset at 17:45, the hero look (Ref 2); night at 23:00.
+- **Presets** (`DayNight.PRESET_HOURS`): day at 15:00, which is the default
+  (moved from 14:00 in step 1: a lower sun gives longer shadows); sunset at
+  17:45, the hero look (Ref 2); night at 23:00.
 - **Night is moonlit blue, not black.** Roads and buildings stay readable for a
   kid. Warm pools under street lamps, lit windows, headlights.
 
-**Target key values.** These are starting points: tune them by screenshot and
-record the final numbers in `DayNight.KEYS`.
+**Key values** (in `DayNight.KEYS` since step 1; tuned by screenshot):
 
-| Key | Today | Target |
+| Key | Before (v0.3.1) | Now |
 |---|---|---|
-| Day sun | `(1.0, 0.97, 0.9)` × 1.25 | `(1.0, 0.95, 0.86)` × 1.3–1.5 |
-| Day ambient | `(0.8, 0.88, 1.0)` × 0.9 | `(0.62, 0.74, 0.95)` × 0.55–0.7 (lower = stronger shadows) |
-| Sunset sun | `(1.0, 0.55, 0.3)` × 1.0 | `(1.0, 0.6, 0.35)` × 1.1–1.3 |
-| Sunset ambient | `(0.9, 0.65, 0.55)` × 0.6 | `(0.55, 0.55, 0.75)` × 0.45–0.55 (warm key, cool violet shadows) |
-| Night moon | `(0.55, 0.65, 1.0)` × 0.22 | keep |
-| Night ambient | `(0.35, 0.42, 0.7)` × 0.3 | `(0.3, 0.38, 0.62)` × 0.3–0.4 |
+| Day sun | `(1.0, 0.97, 0.9)` × 1.25 | `(1.0, 0.95, 0.86)` × 1.4 |
+| Day ambient | `(0.8, 0.88, 1.0)` × 0.9 | `(0.62, 0.74, 0.95)` × 0.65 (lower = stronger shadows) |
+| Day fog | `(0.66, 0.8, 0.96)` | `(0.8, 0.86, 0.92)` |
+| Sunset sun | `(1.0, 0.55, 0.3)` × 1.0 | `(1.0, 0.6, 0.35)` × 1.2 |
+| Sunset ambient | `(0.9, 0.65, 0.55)` × 0.6 | `(0.55, 0.55, 0.75)` × 0.5 (warm key, cool violet shadows) |
+| Night moon | `(0.55, 0.65, 1.0)` × 0.22 | unchanged |
+| Night ambient | `(0.35, 0.42, 0.7)` × 0.3 | `(0.3, 0.38, 0.62)` × 0.35 |
+
+The ground half of the sky (what paint and glass reflect below the horizon) is
+an earthy `DayNight.GROUND_BOUNCE`, scaled by the light's energy.
 
 **Environment target (High)**
 
-- **Tonemap:** test AgX against the current Filmic. Pick one by screenshot and
-  keep it.
-- **Exposure:** sunlit concrete should read about 0.75–0.85 sRGB on screen.
-- **`adjustment_saturation` 1.0** (today 1.15). If a global grade is needed,
-  use one 3D LUT through `adjustment_color_correction`, generated by a script.
+- **Tonemap: AgX** with `tonemap_agx_contrast` 1.4 (chosen over Filmic in
+  step 1: same sunny look, but bright emissives and sunsets keep their hue).
+- **Exposure** 1.0. Sunlit concrete should read about 0.75–0.85 sRGB on screen.
+- **`adjustment_saturation` 1.1.** This offsets AgX's own desaturation; the
+  result is still far calmer than the old 1.15 with Filmic. If a global grade
+  is needed, use one 3D LUT through `adjustment_color_correction`, generated
+  by a script.
 - **Glow** on Medium and High only (as today): intensity 0.3–0.5, HDR threshold
   ≥ 1.0, so only emissives, sun glints and sparks bloom.
 - **SSAO** on High only (as today). Baked AO everywhere.
@@ -621,7 +634,8 @@ record the final numbers in `DayNight.KEYS`.
   emissive surfaces stand in for real lights.
 
 **Garage and menus:** the garage preview has its own studio lighting in its own
-World3D (`vehicle_picker.gd`: key 1.4, fill 0.4, ambient 0.75, Filmic). Vehicles
+World3D (`vehicle_picker.gd`: key 1.4, fill 0.4, ambient 0.75, AgX 1.4,
+saturation 1.1, matching the world). Vehicles
 must look the same there as in the world: same paint materials, similar
 exposure, same tonemapper.
 
@@ -644,7 +658,9 @@ exposure, same tonemapper.
   ~0.3 m, glass shards, distant vegetation impostors.
 - **Terrain casts.** The mountain at sunset is a hero moment.
 - Fix acne or peter-panning once, on the sun's `shadow_bias` and
-  `shadow_normal_bias`. Never with per-object hacks.
+  `shadow_normal_bias`. Never with per-object hacks. Low uses
+  `shadow_normal_bias` 4.0 (its 2048 atlas striped the ground under a low sun);
+  Medium and High use 2.0 (`GraphicsQuality.apply`).
 - No baked or painted shadows in albedo.
 
 ---
@@ -656,8 +672,10 @@ exposure, same tonemapper.
 - **Aerial perspective:** exponential depth fog whose colour is the horizon
   colour (DayNight sets `fog_light_color`). Use `fog_aerial_perspective`
   0.3–0.6 so the fog picks up the sky, and `fog_sun_scatter` 0.1–0.25 for a
-  warm glow toward the sun (Ref 2). Pick a density that fogs about 40–55% at
-  800–900 m, roughly 0.0006–0.0009 (today 0.00045). Keep `fog_sky_affect` at 0.
+  warm glow toward the sun (Ref 2). Since step 1: aerial perspective 0.4, sun
+  scatter 0.15, density 0.0005 (about a third fogged at 800 m; 0.0007 looked
+  overcast in testing, the old 0.00045 left a hard sea horizon). Keep
+  `fog_sky_affect` at 0.
 - An optional, subtle height-fog layer near sea level for coastal haze.
 - **The sea melts into the haze at the horizon** (Ref 1). No hard horizon line.
 - **Clouds:** soft, round-topped fair-weather cumulus. Target: drawn in a sky
@@ -884,8 +902,8 @@ explosions unless the owner asks.
 - Pick a material family and a palette colour per building, then vary value by
   ±5%. Neighbours differ in family or colour; at most two adjacent buildings
   share a family. Heights vary, and the downtown core is taller (as today).
-- **Night:** about 55% of windows lit (today `step(0.45, hash)`), mostly warm
-  with small variation, plus some cool-white office floors.
+- **Night:** about 55% of windows lit, about 85% of them warm and 15% cool-white
+  offices, with per-window brightness variation (`building.gdshader`, step 1).
 
 **Materials and construction**
 
@@ -1334,9 +1352,16 @@ natively. The dev machine (RTX 4090 Laptop) is more than 10× faster on the GPU,
 so desktop frame times prove nothing. Counts (draw calls, objects, triangles,
 vertices, particles) do transfer.
 
-**Baseline** (2026-10-01, v0.3.1, High, highway spawn, chase camera,
-`--bench` with a window):
-- 589 draw calls and 1,849 objects without traffic; 733 and 2,113 with 22 cars.
+**Baseline** (2026-10-01, High, highway spawn, chase camera, `--bench` with a
+window):
+- After step 1: 605 draw calls and 1,845 objects without traffic. At v0.3.1 it
+  was 589 and 1,849; the +16 are shadow casters from the lower 15:00 sun
+  (identical counts with the old 14:00 sun). With traffic the count depends on
+  where the cars are (733 at v0.3.1, 826 after step 1, for 22 cars).
+- Desktop GPU time was unchanged by step 1 in a back-to-back A/B run (1.37–1.44
+  ms before, 1.37–1.39 ms after). The same bench read 0.60 ms earlier that day,
+  so desktop GPU times swing with the laptop's power state: only compare A/B
+  runs made back to back.
 - Vehicle bodies 1.6–2.6k tris with 8–12 surfaces; wheels ~830 tris with 3
   surfaces each.
 - Dent cost about 0.15 µs per vertex per pass (desktop CPU).
@@ -1406,10 +1431,8 @@ vertices, particles) do transfer.
    circles, ramp edges and hazards stay obvious even if that's less realistic.
 10. **Single sources of truth:** lighting (`DayNight`), UI look (`UiKit`), road
     markings (`road.gdshader`), car paint (`VehicleBodyVisual` or a shared paint
-    material). Today the world palette is scattered (`CityBuilder.PALETTE`,
-    colours in `TerrainBuilder` and `NatureBuilder`...). When migrating,
-    gather it into one palette script (for example
-    `scripts/world/art_palette.gd`) that the builders read.
+    material), world palette (`ArtPalette` in `scripts/world/art_palette.gd`:
+    builders read it for base colours; small accents stay inline).
 
 ---
 
@@ -1502,9 +1525,11 @@ vertices, particles) do transfer.
 
 Cheapest and biggest wins first:
 
-1. **Lighting, atmosphere and palette regrade:** `DayNight.KEYS`, saturation
-   1.0, an AgX test, aerial fog, sky colours, then terrain, grass, asphalt and
-   building colours. Mostly numbers, huge impact.
+1. ✅ **Lighting, atmosphere and palette regrade** (done 2026-10-01):
+   `DayNight.KEYS`, AgX, aerial fog, sky colours, then terrain, grass, asphalt,
+   concrete, vegetation and building colours (`ArtPalette`). Also fixed
+   speckled windows (unstable shader hash) and Low-quality shadow striping at
+   sunset.
 2. **Smooth shading and bevels for world geometry:** a smooth-normals option in
    `MeshBuilder`; trees, rocks; soft clouds in the sky.
 3. **Roads:** asphalt variation, marking wear, sidewalk paving, Jersey barriers,
@@ -1535,3 +1560,5 @@ Cheapest and biggest wins first:
 *Revision log*
 - 2026-10-01: created (stylized realism direction, from three reference
   images; baseline measured at v0.3.1).
+- 2026-10-01: step 1 done; §3, §5, §6, §7, §9–§11, §15, §27, §28 and §31
+  updated with the tested values.

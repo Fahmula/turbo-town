@@ -98,19 +98,19 @@ func _make_round_tree() -> Mesh:
 	var mb := MeshBuilder.new()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
-	mb.add_prism(Vector3.ZERO, 0.32, 0.22, 3.2, 6, Color(0.5, 0.34, 0.22))
-	mb.add_blob(Vector3(0, 4.4, 0), Vector3(2.4, 2.1, 2.4), Color(0.30, 0.62, 0.25), 3, 7, 0.12, rng)
-	mb.add_blob(Vector3(0.9, 5.6, 0.3), Vector3(1.5, 1.4, 1.5), Color(0.36, 0.70, 0.28), 3, 6, 0.1, rng)
-	mb.add_blob(Vector3(-0.8, 5.3, -0.5), Vector3(1.4, 1.3, 1.4), Color(0.33, 0.66, 0.26), 3, 6, 0.1, rng)
+	mb.add_prism(Vector3.ZERO, 0.32, 0.22, 3.2, 6, ArtPalette.BARK)
+	mb.add_blob(Vector3(0, 4.4, 0), Vector3(2.4, 2.1, 2.4), ArtPalette.BROADLEAF, 3, 7, 0.12, rng)
+	mb.add_blob(Vector3(0.9, 5.6, 0.3), Vector3(1.5, 1.4, 1.5), ArtPalette.BROADLEAF_LIT, 3, 6, 0.1, rng)
+	mb.add_blob(Vector3(-0.8, 5.3, -0.5), Vector3(1.4, 1.3, 1.4), ArtPalette.BROADLEAF_MID, 3, 6, 0.1, rng)
 	return mb.build_mesh(load("res://assets/materials/foliage.tres"))
 
 
 func _make_pine_tree() -> Mesh:
 	var mb := MeshBuilder.new()
-	mb.add_prism(Vector3.ZERO, 0.3, 0.2, 2.0, 6, Color(0.45, 0.3, 0.2))
-	mb.add_prism(Vector3(0, 1.5, 0), 2.4, 0.0, 3.2, 7, Color(0.18, 0.48, 0.30))
-	mb.add_prism(Vector3(0, 3.3, 0), 1.9, 0.0, 2.8, 7, Color(0.22, 0.54, 0.33))
-	mb.add_prism(Vector3(0, 4.9, 0), 1.3, 0.0, 2.4, 7, Color(0.26, 0.60, 0.36))
+	mb.add_prism(Vector3.ZERO, 0.3, 0.2, 2.0, 6, ArtPalette.BARK)
+	mb.add_prism(Vector3(0, 1.5, 0), 2.4, 0.0, 3.2, 7, ArtPalette.CONIFER)
+	mb.add_prism(Vector3(0, 3.3, 0), 1.9, 0.0, 2.8, 7, ArtPalette.CONIFER_MID)
+	mb.add_prism(Vector3(0, 4.9, 0), 1.3, 0.0, 2.4, 7, ArtPalette.CONIFER_LIT)
 	# Bottom faces for the cones so they don't look hollow from below.
 	return mb.build_mesh(load("res://assets/materials/foliage.tres"))
 
@@ -130,7 +130,7 @@ func _add_rocks(root: Node3D) -> void:
 			continue
 		var h := _terrain.height_at(x, z)
 		var r := rng.randf_range(0.8, 2.6)
-		var col := Color(0.58, 0.56, 0.54).lerp(Color(0.68, 0.66, 0.63), rng.randf())
+		var col := ArtPalette.ROCK_DARK.lerp(ArtPalette.ROCK_LIGHT, rng.randf())
 		mb.add_blob(Vector3(x, h + r * 0.2, z), Vector3(r * 1.2, r * 0.8, r), col, 3, 5, 0.25, rng)
 		var cs := CollisionShape3D.new()
 		var sh := SphereShape3D.new()
