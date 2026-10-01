@@ -290,21 +290,21 @@ func _build_chunk(cx: int, cz: int, normals: PackedVector3Array, colors: PackedC
 
 func _color_for(x: float, z: float, h: float, up: float, road_w: float) -> Color:
 	var cn := _color_noise.get_noise_2d(x, z) * 0.5 + 0.5
-	var grass := ArtPalette.GRASS_DARK.lerp(ArtPalette.GRASS_LIGHT, cn)
+	var grass := Color(0.38, 0.66, 0.27).lerp(Color(0.56, 0.76, 0.30), cn)
 	var c := grass
 	# Dry, yellowish grass high on the mountain.
-	c = c.lerp(ArtPalette.GRASS_DRY, smoothstep(22.0, 40.0, h) * 0.7)
+	c = c.lerp(Color(0.66, 0.70, 0.36), smoothstep(22.0, 40.0, h) * 0.7)
 	# Dirt fields to the east.
 	var fields := smoothstep(330.0, 360.0, x) * (1.0 - smoothstep(170.0, 200.0, absf(z)))
-	c = c.lerp(ArtPalette.DIRT.lerp(ArtPalette.DIRT_DARK, cn), fields * 0.9)
+	c = c.lerp(Color(0.72, 0.52, 0.34).lerp(Color(0.64, 0.45, 0.30), cn), fields * 0.9)
 	# Rock on steep slopes.
 	var steep := 1.0 - smoothstep(0.72, 0.9, up)
-	c = c.lerp(ArtPalette.ROCK_DARK.lerp(ArtPalette.ROCK_LIGHT, cn), steep)
+	c = c.lerp(Color(0.55, 0.52, 0.50).lerp(Color(0.62, 0.60, 0.58), cn), steep)
 	# Road verges slightly worn.
 	c = c.lerp(c.darkened(0.12), road_w * 0.6)
 	# Beach and sea floor.
 	var shore := shore_factor(x, z)
 	if shore > 0.02:
-		var sand := ArtPalette.SAND_LIGHT.lerp(ArtPalette.SAND_DARK, cn)
+		var sand := Color(0.95, 0.86, 0.62).lerp(Color(0.90, 0.80, 0.56), cn)
 		c = c.lerp(sand, smoothstep(2.2, 0.8, h) * smoothstep(0.02, 0.12, shore))
 	return c

@@ -2,8 +2,8 @@ shader_type spatial;
 render_mode cull_disabled;
 // Stylized sea: flat colour with gentle animated normals and a lighter shoreline tint.
 
-uniform vec4 deep_color : source_color = vec4(0.118, 0.306, 0.431, 1.0);
-uniform vec4 shallow_color : source_color = vec4(0.247, 0.561, 0.584, 1.0);
+uniform vec4 deep_color : source_color = vec4(0.05, 0.45, 0.72, 1.0);
+uniform vec4 shallow_color : source_color = vec4(0.25, 0.78, 0.85, 1.0);
 uniform float wave_scale = 0.05;
 
 varying vec3 world_pos;
@@ -25,5 +25,6 @@ void fragment() {
 	float shallow = 1.0 - smoothstep(560.0, 700.0, dist);
 	ALBEDO = mix(deep_color.rgb, shallow_color.rgb, shallow * 0.6);
 	ROUGHNESS = 0.08;
-	SPECULAR = 0.5;
+	METALLIC = 0.1;
+	SPECULAR = 0.4;
 }

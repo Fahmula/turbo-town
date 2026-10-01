@@ -2,10 +2,10 @@ shader_type spatial;
 // Procedural road markings. UV.x = metres across the road (0 = centre),
 // UV.y = metres along it. Vertex colour alpha 0 marks deck sides (plain concrete).
 
-uniform vec4 asphalt_color : source_color = vec4(0.275, 0.278, 0.290, 1.0);
-uniform vec4 concrete_color : source_color = vec4(0.706, 0.690, 0.655, 1.0);
-uniform vec4 white_line : source_color = vec4(0.894, 0.886, 0.855, 1.0);
-uniform vec4 yellow_line : source_color = vec4(0.851, 0.643, 0.129, 1.0);
+uniform vec4 asphalt_color : source_color = vec4(0.30, 0.31, 0.35, 1.0);
+uniform vec4 concrete_color : source_color = vec4(0.78, 0.77, 0.74, 1.0);
+uniform vec4 white_line : source_color = vec4(0.96, 0.96, 0.93, 1.0);
+uniform vec4 yellow_line : source_color = vec4(1.0, 0.78, 0.18, 1.0);
 uniform float median_half = 0.0;
 uniform int lanes_per_side = 2;
 uniform float lane_width = 2.8;

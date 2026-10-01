@@ -9,25 +9,20 @@ signal night_changed(is_night: bool)
 
 const DAY_MINUTES := 12.0
 ## Fixed times for the non-cycling settings.
-const PRESET_HOURS := [15.0, 17.75, 23.0]
+const PRESET_HOURS := [14.0, 17.75, 23.0]
 
 ## Palette keyframes by hour: [hour, sky top, sky horizon, light colour,
 ## light energy, ambient colour, ambient energy, fog colour]
-## Warm sun, cool sky-blue ambient (so shadows read cool), fog close to the
-## horizon colour so distance fades into haze. See ART_BIBLE.md §9 and §11.
 const KEYS := [
-	[0.0, Color(0.027, 0.043, 0.102), Color(0.102, 0.133, 0.22), Color(0.55, 0.65, 1.0), 0.22, Color(0.3, 0.38, 0.62), 0.35, Color(0.07, 0.09, 0.15)],
-	[5.0, Color(0.027, 0.043, 0.102), Color(0.102, 0.133, 0.22), Color(0.55, 0.65, 1.0), 0.22, Color(0.3, 0.38, 0.62), 0.35, Color(0.07, 0.09, 0.15)],
-	[6.5, Color(0.25, 0.32, 0.58), Color(0.95, 0.68, 0.5), Color(1.0, 0.62, 0.38), 0.9, Color(0.58, 0.56, 0.72), 0.5, Color(0.88, 0.7, 0.6)],
-	[8.5, Color(0.239, 0.486, 0.788), Color(0.839, 0.89, 0.925), Color(1.0, 0.95, 0.86), 1.4, Color(0.62, 0.74, 0.95), 0.65, Color(0.8, 0.86, 0.92)],
-	[16.5, Color(0.239, 0.486, 0.788), Color(0.839, 0.89, 0.925), Color(1.0, 0.95, 0.86), 1.4, Color(0.62, 0.74, 0.95), 0.65, Color(0.8, 0.86, 0.92)],
-	[17.9, Color(0.227, 0.29, 0.549), Color(0.949, 0.651, 0.42), Color(1.0, 0.6, 0.35), 1.2, Color(0.55, 0.55, 0.75), 0.5, Color(0.92, 0.66, 0.5)],
-	[19.8, Color(0.027, 0.043, 0.102), Color(0.102, 0.133, 0.22), Color(0.55, 0.65, 1.0), 0.22, Color(0.3, 0.38, 0.62), 0.35, Color(0.07, 0.09, 0.15)],
-	[24.0, Color(0.027, 0.043, 0.102), Color(0.102, 0.133, 0.22), Color(0.55, 0.65, 1.0), 0.22, Color(0.3, 0.38, 0.62), 0.35, Color(0.07, 0.09, 0.15)],
+	[0.0, Color(0.01, 0.02, 0.07), Color(0.05, 0.08, 0.18), Color(0.55, 0.65, 1.0), 0.22, Color(0.35, 0.42, 0.7), 0.3, Color(0.04, 0.06, 0.12)],
+	[5.0, Color(0.01, 0.02, 0.07), Color(0.05, 0.08, 0.18), Color(0.55, 0.65, 1.0), 0.22, Color(0.35, 0.42, 0.7), 0.3, Color(0.04, 0.06, 0.12)],
+	[6.5, Color(0.22, 0.3, 0.6), Color(1.0, 0.62, 0.42), Color(1.0, 0.62, 0.38), 0.9, Color(0.85, 0.7, 0.65), 0.6, Color(0.9, 0.65, 0.55)],
+	[8.5, Color(0.16, 0.45, 0.92), Color(0.62, 0.82, 0.98), Color(1.0, 0.97, 0.9), 1.25, Color(0.8, 0.88, 1.0), 0.9, Color(0.66, 0.8, 0.96)],
+	[16.5, Color(0.16, 0.45, 0.92), Color(0.62, 0.82, 0.98), Color(1.0, 0.97, 0.9), 1.25, Color(0.8, 0.88, 1.0), 0.9, Color(0.66, 0.8, 0.96)],
+	[17.9, Color(0.25, 0.28, 0.58), Color(1.0, 0.55, 0.32), Color(1.0, 0.55, 0.3), 1.0, Color(0.9, 0.65, 0.55), 0.6, Color(0.92, 0.6, 0.48)],
+	[19.8, Color(0.01, 0.02, 0.07), Color(0.05, 0.08, 0.18), Color(0.55, 0.65, 1.0), 0.22, Color(0.35, 0.42, 0.7), 0.3, Color(0.04, 0.06, 0.12)],
+	[24.0, Color(0.01, 0.02, 0.07), Color(0.05, 0.08, 0.18), Color(0.55, 0.65, 1.0), 0.22, Color(0.35, 0.42, 0.7), 0.3, Color(0.04, 0.06, 0.12)],
 ]
-## Colour of the ground half of the sky (what car paint and glass reflect
-## below the horizon): earthy, scaled by how bright the light is.
-const GROUND_BOUNCE := Color(0.38, 0.38, 0.35)
 
 var hour := 13.0
 var cycling := false
@@ -99,7 +94,7 @@ func _apply() -> void:
 		_sky.sky_top_color = k[0]
 		_sky.sky_horizon_color = k[1]
 		_sky.ground_horizon_color = k[1]
-		_sky.ground_bottom_color = (k[1] as Color).lerp(GROUND_BOUNCE * clampf(k[3] / 1.4, 0.1, 1.0), 0.75)
+		_sky.ground_bottom_color = (k[0] as Color).darkened(0.3)
 	if _env:
 		_env.ambient_light_color = k[4]
 		_env.ambient_light_energy = k[5]

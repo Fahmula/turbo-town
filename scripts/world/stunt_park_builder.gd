@@ -64,7 +64,7 @@ func _build_pad(root: Node3D) -> void:
 		var z := mn.y
 		while z < mx.y - 0.01:
 			var dark := (int((x - mn.x) / tile) + int((z - mn.y) / tile)) % 2 == 0
-			var col := Color(0.55, 0.54, 0.51) if dark else Color(0.6, 0.59, 0.56)
+			var col := Color(0.52, 0.54, 0.60) if dark else Color(0.58, 0.60, 0.66)
 			var x1 := minf(x + tile, mx.x)
 			var z1 := minf(z + tile, mx.y)
 			mb.add_quad(Vector3(x, y, z), Vector3(x, y, z1), Vector3(x1, y, z1), Vector3(x1, y, z), col)

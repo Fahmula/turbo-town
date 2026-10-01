@@ -21,8 +21,6 @@ static func apply(level: int, viewport: Viewport, world: Node) -> void:
 		sun.shadow_enabled = true
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if level >= MEDIUM else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 		sun.directional_shadow_max_distance = [140.0, 200.0, 260.0][level]
-		# Low's coarser shadow map stripes the ground under a low sun (acne).
-		sun.shadow_normal_bias = [4.0, 2.0, 2.0][level]
 	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 4096][level], true)
 	RenderingServer.directional_soft_shadow_filter_set_quality(
 		[RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM][level])

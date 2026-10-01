@@ -9,17 +9,6 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
-### Looks
-- A new, more realistic look for the whole island: a warm afternoon sun with
-  proper shadows, hazy hills and sea in the distance, natural grass and trees,
-  brick and stucco buildings, and grey asphalt and concrete roads.
-- Golden sunsets, and at night the city windows glow like warm rooms (some
-  cool-white offices too).
-
-### Fixes
-- Building windows no longer flicker with a "TV static" pattern, day or night.
-- On Low graphics, shadows no longer draw stripes across the road at sunset.
-
 ## [0.3.1] - 2026-10-01
 
 ### Fixes

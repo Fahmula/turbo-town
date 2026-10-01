@@ -3,11 +3,11 @@
 [ext_resource type="Script" path="res://scripts/world/world_builder.gd" id="1_world"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-sky_top_color = Color(0.239, 0.486, 0.788, 1)
-sky_horizon_color = Color(0.839, 0.89, 0.925, 1)
-sky_curve = 0.15
-ground_bottom_color = Color(0.38, 0.38, 0.35, 1)
-ground_horizon_color = Color(0.839, 0.89, 0.925, 1)
+sky_top_color = Color(0.16, 0.45, 0.92, 1)
+sky_horizon_color = Color(0.62, 0.82, 0.98, 1)
+sky_curve = 0.12
+ground_bottom_color = Color(0.25, 0.45, 0.65, 1)
+ground_horizon_color = Color(0.62, 0.82, 0.98, 1)
 sun_angle_max = 20.0
 
 [sub_resource type="Sky" id="Sky"]
@@ -17,11 +17,11 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.62, 0.74, 0.95, 1)
+ambient_light_color = Color(0.8, 0.88, 1, 1)
 ambient_light_sky_contribution = 0.5
-ambient_light_energy = 0.65
-tonemap_mode = 4
-tonemap_agx_contrast = 1.4
+ambient_light_energy = 0.9
+tonemap_mode = 2
+tonemap_white = 6.0
 ssao_enabled = true
 ssao_radius = 1.2
 ssao_intensity = 1.4
@@ -29,13 +29,11 @@ glow_enabled = true
 glow_intensity = 0.4
 glow_bloom = 0.05
 fog_enabled = true
-fog_light_color = Color(0.8, 0.86, 0.92, 1)
-fog_sun_scatter = 0.15
-fog_density = 0.0005
-fog_aerial_perspective = 0.4
+fog_light_color = Color(0.66, 0.8, 0.96, 1)
+fog_density = 0.00045
 fog_sky_affect = 0.0
 adjustment_enabled = true
-adjustment_saturation = 1.1
+adjustment_saturation = 1.15
 
 [node name="World" type="Node3D"]
 script = ExtResource("1_world")
@@ -45,8 +43,8 @@ environment = SubResource("Env")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 60, 0)
-light_color = Color(1, 0.95, 0.86, 1)
-light_energy = 1.4
+light_color = Color(1, 0.97, 0.9, 1)
+light_energy = 1.25
 shadow_enabled = true
 shadow_bias = 0.04
 shadow_blur = 1.2

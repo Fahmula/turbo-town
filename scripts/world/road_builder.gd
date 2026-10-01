@@ -495,7 +495,7 @@ func _add_trail(mb: MeshBuilder, markers: MeshBuilder, r: Road) -> void:
 	var lift := Vector3.UP * 0.04
 	# Across the trail: verge, rut, middle, rut, verge.
 	var cuts := [-1.0, -0.62, -0.38, 0.38, 0.62, 1.0]
-	var cols := [ArtPalette.DIRT, ArtPalette.DIRT_RUT, ArtPalette.DIRT.lightened(0.04), ArtPalette.DIRT_RUT, ArtPalette.DIRT]
+	var cols := [Color(0.6, 0.45, 0.3), Color(0.47, 0.34, 0.22), Color(0.63, 0.48, 0.32), Color(0.47, 0.34, 0.22), Color(0.6, 0.45, 0.3)]
 	for i in n - 1:
 		var p0 := r.points[i] + lift
 		var p1 := r.points[i + 1] + lift
@@ -525,8 +525,8 @@ func _build_barriers(root: Node3D) -> void:
 		Vector2(0.1, 0.85), Vector2(0.12, 0.72), Vector2(0.24, 0.22), Vector2(0.32, 0.0),
 	])
 	var profile_colors := PackedColorArray([
-		ArtPalette.CONCRETE_STAINED, ArtPalette.CONCRETE, ArtPalette.CONCRETE, ArtPalette.CONCRETE_TOP,
-		ArtPalette.CONCRETE, ArtPalette.CONCRETE, ArtPalette.CONCRETE_STAINED,
+		Color(0.86, 0.86, 0.84), Color(0.9, 0.9, 0.88), Color(0.93, 0.35, 0.22), Color(0.95, 0.95, 0.93),
+		Color(0.93, 0.35, 0.22), Color(0.9, 0.9, 0.88), Color(0.86, 0.86, 0.84),
 	])
 	for r in roads:
 		if not r.barriers:
@@ -603,7 +603,7 @@ func _build_pillars(root: Node3D) -> void:
 	var mb := MeshBuilder.new()
 	var body := StaticBody3D.new()
 	body.name = "BridgePillars"
-	var col := ArtPalette.CONCRETE
+	var col := Color(0.8, 0.79, 0.76)
 	var keep_clear: Array[Road] = []
 	for r in roads:
 		if r.kind != Kind.HIGHWAY:
