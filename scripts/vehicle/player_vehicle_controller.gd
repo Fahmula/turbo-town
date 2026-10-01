@@ -16,10 +16,22 @@ extends Node
 			vehicle.landed.connect(_on_landed)
 ## Keyboard steering is digital; this smooths it into a ramp (per second).
 @export var keyboard_steer_speed := 5.0
+## Air tricks. Plain steering spins the car gently (to aim a landing); with
+## the handbrake held, gas/brake flip it and steering barrel-rolls it. Holding
+## the gas through a jump does nothing, so normal jumps stay safe. Holding a
+## trick turns at a steady rate (rad/s); letting go turns the car back to
+## level for the rest of the jump so it lands on its wheels.
+@export var air_spin_rate := 2.2
+@export var air_flip_rate := 6.5
+@export var air_roll_rate := 8.0
+## Most angular acceleration the air controls can apply (rad/s²).
+@export var air_max_accel := 24.0
 ## Off while menus are open: the car just sits there (auto-hold keeps it still).
 var enabled := true
 
 var _steer := 0.0
+## Set after a trick in this jump: keep turning the car back to level.
+var _righting := false
 
 
 func _ready() -> void:
@@ -36,6 +48,7 @@ func _physics_process(dt: float) -> void:
 		vehicle.handbrake_input = false
 		vehicle.steer_input = 0.0
 		vehicle.horn_input = false
+		vehicle.air_assist_scale = 1.0
 		_steer = 0.0
 		return
 	vehicle.throttle_input = Input.get_action_strength("accelerate")
@@ -48,6 +61,50 @@ func _physics_process(dt: float) -> void:
 	else:
 		_steer = move_toward(_steer, raw, keyboard_steer_speed * dt)
 	vehicle.steer_input = _steer
+	_air_control(dt)
+
+
+func _air_control(dt: float) -> void:
+	vehicle.air_assist_scale = 1.0
+	if vehicle.airtime < 0.15:
+		_righting = false
+		return
+	var tricks := Input.is_action_pressed("handbrake")
+	var pitch := (Input.get_action_strength("accelerate") - Input.get_action_strength("brake")) if tricks else 0.0
+	var amount := maxf(absf(pitch), absf(_steer))
+	var b := vehicle.global_basis
+	# Angular velocity in the car's frame: x = pitch (+ = nose up), y = yaw
+	# (+ = left), z = roll.
+	var av := b.inverse() * vehicle.angular_velocity
+	var want := av
+	if amount >= 0.05:
+		# The leveling assist steps aside while the player is doing tricks.
+		vehicle.air_assist_scale = 1.0 - amount if tricks else 1.0 - amount * 0.5
+		if tricks:
+			want.x = -pitch * air_flip_rate  # brake = nose up = backflip
+			want.z = -_steer * air_roll_rate
+			_righting = true
+		elif vehicle.airtime > 0.5:
+			# Only on proper jumps, so steering over small bumps stays normal.
+			want.y = -_steer * air_spin_rate
+	elif _righting:
+		# Let go of a flip/roll: swing back to level (the short way round),
+		# leaving any spin alone, so it lands on its wheels.
+		vehicle.air_assist_scale = 0.0
+		var axis := b.y.cross(Vector3.UP)
+		var err := asin(clampf(axis.length(), 0.0, 1.0))
+		if b.y.y < 0.0:
+			err = PI - err
+		var world_want := axis.normalized() * minf(err * 5.0, 7.0) if axis.length() > 0.001 else b.x * 7.0
+		want = b.inverse() * world_want
+		want.y = av.y
+	else:
+		return
+	var acc := (want - av) * 6.0
+	acc = Vector3(clampf(acc.x, -air_max_accel, air_max_accel), clampf(acc.y, -air_max_accel, air_max_accel),
+		clampf(acc.z, -air_max_accel, air_max_accel))
+	var inertia := vehicle.inertia if vehicle.inertia != Vector3.ZERO else Vector3(2100, 2300, 700)
+	vehicle.apply_torque(b * Vector3(acc.x * inertia.x, acc.y * inertia.y, acc.z * inertia.z))
 
 
 func _unhandled_input(event: InputEvent) -> void:

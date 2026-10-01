@@ -16,6 +16,14 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - The camera pulls back for the truck and bus so you can see the road, and the
   hood camera sits on the roof of the tall vehicles.
 
+### Stunts
+- Score points for big air, flips, barrel rolls, spins, drifts and near misses
+  with traffic. Chain tricks into combos for a multiplier, but land on your
+  wheels: a wipeout or a big crash loses the combo.
+- Air tricks: steer to spin; hold Space (A on a gamepad) and use W/S to flip or
+  A/D to barrel roll. Let go and the car turns itself level to land.
+- RECORDS page with your best combos, biggest air, longest drift and more.
+
 ### Traffic
 - Highway traffic changes lanes: cars overtake slow trucks and buses and keep right.
 - Honk (E / L3) behind a car and it pulls over or moves a lane over to let you pass.

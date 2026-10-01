@@ -19,6 +19,8 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 | Brake / reverse | S / Down | Left trigger |
 | Steer | A D / Left Right | Left stick |
 | Handbrake | Space | A (Cross) |
+| In the air: spin | A / D | Left stick |
+| In the air: flip / barrel roll | Space + W S / A D | A + RT LT / left stick |
 | Flip car upright | R | Y (Triangle) |
 | Garage: change vehicle / paint | V | D-pad down |
 | Back to spawn point | Backspace | Back / Select |
@@ -39,6 +41,13 @@ Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields
 bus and a paint colour. Left/right = vehicle, up/down = paint, Enter / A =
 drive, Esc / B = back. The game is paused while it's open, and the choice is
 remembered next time the game starts.
+
+**Stunts**: big air, flips, barrel rolls, air spins, drifts and near misses
+(squeezing past traffic) score points. Tricks chain into a combo with a
+multiplier; it's banked after a few seconds back on the wheels, or lost in a
+wipeout (landing on the roof) or a big crash. Let go of a flip/roll and the car
+turns itself level to land. Best combos and records: RECORDS in the menus
+(saved to `user://records.cfg`).
 
 **Settings** (title screen or pause menu): traffic amount (few / normal / busy),
 graphics quality (low / medium / high), speed units, driving assists, gamepad
@@ -72,9 +81,11 @@ scripts/
   ui/        hud.gd, speedometer.gd, vehicle_picker.gd (the garage), game_menu.gd
              (title/pause/settings/controls pages), ui_kit.gd (shared menu look)
   game/      game.gd (title/driving/pause/garage states, spawning, teleports,
-             respawn, changing vehicle), graphics_quality.gd (low/medium/high)
+             respawn, changing vehicle), graphics_quality.gd (low/medium/high),
+             stunt_tracker.gd (tricks, combos, near misses, drifts)
   core/      input_setup.gd (all key/gamepad bindings), settings.gd (Settings
-             autoload: saved player settings)
+             autoload: saved player settings), records.gd (Records autoload:
+             best combos, biggest air...)
   dev/       autotest.gd, dev_tools.gd, audio_check.gd (testing helpers)
 assets/      models (.glb from Blender), shaders, materials
 tools/blender/make_car.py              Sports car + wheel:  blender -b -P tools/blender/make_car.py
@@ -144,6 +155,7 @@ godot --path . -- --showcase=/tmp/shots one of each traffic vehicle in a filmed 
 godot --path . -- --garage=/tmp/shots   garage menu + changing into every vehicle (pass/fail checks)
 godot --path . -- --menus=/tmp/shots    title/pause/settings/controls menus driven by input (pass/fail)
 godot --path . -- --lanes=/tmp/shots    passing a parked player, horn reactions, highway lane changes
+godot --path . -- --stunts=/tmp/shots   air, flips, rolls, spins, drift, near miss, wipeout (pass/fail)
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)
 godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end

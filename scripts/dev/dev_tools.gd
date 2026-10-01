@@ -6,6 +6,7 @@ extends Node
 ##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
 ##   --lanes=<dir>    traffic passing a parked player, horn reactions, highway lane changes
 ##   --junction=<dir> the signalized highway/avenue junction: turns used, crashes, jams
+##   --stunts=<dir>   air, flips, rolls, spins, drift, near miss, wipeout -> combos and records
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -32,6 +33,9 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--uturn="):
 			_mode = "uturn"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--stunts="):
+			_mode = "stunts"
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--corner="):
 			_mode = "corner"
@@ -105,6 +109,8 @@ func _run() -> void:
 		await _junction(game)
 	elif _mode == "corner":
 		await _corner(game)
+	elif _mode == "stunts":
+		await _stunts(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -852,6 +858,18 @@ func _menus(game: Game) -> void:
 	await _tap("ui_cancel")
 	await _wait(5)
 	_check(game.state == Game.State.DRIVING and not get_tree().paused, "back twice resumes driving")
+	# Records page (with a made-up combo so it has something to show).
+	Records.add_combo(4321, "Bus", "BACKFLIP, HUGE AIR 3.1s, PERFECT LANDING")
+	await _tap("pause")
+	for i in 4:
+		await _tap("ui_down")
+	await _tap("ui_accept")
+	await _wait(5)
+	_check(game.menu.page == "records", "records page")
+	await _shot("menu_records")
+	await _tap("ui_cancel")
+	await _tap("ui_cancel")
+	await _wait(5)
 
 	# Garage from the pause menu, cancelled, returns to the pause menu.
 	await _tap("pause")
@@ -863,7 +881,7 @@ func _menus(game: Game) -> void:
 	await _wait(5)
 	_check(game.state == Game.State.PAUSED and game.menu.page == "pause", "cancelling the garage returns to the pause menu")
 	# Main menu, then garage from the title: picking drives off.
-	for i in 4:
+	for i in 5:
 		await _tap("ui_down")
 	await _tap("ui_accept")
 	await _wait(10)
@@ -1149,3 +1167,192 @@ func _corner(game: Game) -> void:
 		if is_instance_valid(d):
 			tm._despawn(d)
 		await _wait(5)
+
+
+## Drops the player car from `height` m over open ground (optionally upside down).
+func _drop(game: Game, height: float, upside_down := false) -> void:
+	var sp: Transform3D = game.world.spawn_points[4]["xform"]
+	var b := sp.basis
+	if upside_down:
+		b = b.rotated(b.z, PI)
+	game.vehicle.teleport(Transform3D(b, sp.origin + Vector3.UP * height))
+
+
+## Holds `keys` until the stunt tracker's accumulated rotation on `axis`
+## reaches `target` radians, then lets go (the car stops rotating by itself).
+func _air_trick(game: Game, keys: Array, axis: int, target: float) -> void:
+	var st := game.stunts
+	for k in keys:
+		Input.action_press(k)
+	var t := 0.0
+	while absf(st._rot[axis]) < target and t < 3.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	for k in keys:
+		Input.action_release(k)
+
+
+## Waits `seconds` of game (physics) time.
+func _wait_s(seconds: float) -> void:
+	var t := 0.0
+	while t < seconds:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+
+
+func _wait_landed(game: Game) -> void:
+	await _wait_s(0.2)  # get airborne first
+	var t := 0.0
+	while (game.vehicle.airtime > 0.0 or game.stunts._landing_check >= 0.0) and t < 8.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	await _wait(5)
+
+
+func _stunts(game: Game) -> void:
+	var st := game.stunts
+	var tm := game.traffic
+	tm.set_enabled(false)
+	await _wait(10)
+	var tricks: Array[String] = []
+	var lost: Array[String] = []
+	var banked: Array[int] = []
+	st.trick.connect(func(n: String, _p: int) -> void: tricks.append(n))
+	st.combo_lost.connect(func(r: String) -> void: lost.append(r))
+	st.combo_banked.connect(func(p: int, _pl: int) -> void: banked.append(p))
+	var has := func(prefix: String) -> bool:
+		for n in tricks:
+			if n.begins_with(prefix):
+				return true
+		return false
+
+	# 1) Big air, no input: lands level by itself.
+	_drop(game, 26.0)
+	await _wait_landed(game)
+	_check(has.call("BIG AIR") and has.call("PERFECT LANDING"), "big air + perfect landing (%s)" % ", ".join(tricks))
+
+	# 2) Backflip: Space + S, then Space + W to stop the rotation.
+	tricks.clear()
+	_drop(game, 45.0)
+	await _wait_s(0.3)
+	await _air_trick(game, ["handbrake", "brake"], 0, TAU - 1.0)
+	await _shot("stunt_backflip_air")
+	await _wait_landed(game)
+	_check(has.call("BACKFLIP"), "backflip (%s; lost %s)" % [", ".join(tricks), lost])
+
+	# 3) Barrel roll: Space + D, then Space + A.
+	tricks.clear()
+	_drop(game, 45.0)
+	await _wait_s(0.3)
+	await _air_trick(game, ["handbrake", "steer_right"], 2, TAU - 1.0)
+	await _wait_landed(game)
+	_check(has.call("BARREL ROLL"), "barrel roll (%s; lost %s)" % [", ".join(tricks), lost])
+
+	# 4) Spin: steering alone in the air.
+	tricks.clear()
+	_drop(game, 40.0)
+	await _wait_s(0.3)
+	await _air_trick(game, ["steer_left"], 1, PI - 0.4)
+	await _wait_landed(game)
+	_check(has.call("180 SPIN") or has.call("360 SPIN"), "air spin (%s)" % ", ".join(tricks))
+	await _shot("stunt_combo")
+
+	# Combo banks after a few quiet seconds.
+	var before := st.score
+	await _wait_s(4.0)
+	_check(st.score > before and not banked.is_empty() and not Records.best_combos.is_empty(),
+		"combo banked: +%d, best combo %d" % [st.score - before, Records.best_combos[0]["points"] if not Records.best_combos.is_empty() else 0])
+
+	# 5) Wipeout: land on the roof after some air.
+	tricks.clear()
+	lost.clear()
+	# (a trick first, so there's a combo to lose)
+	_drop(game, 40.0)
+	await _wait_s(0.3)
+	await _air_trick(game, ["steer_left"], 1, PI - 0.4)
+	await _wait_landed(game)
+	_drop(game, 26.0)
+	await _wait_s(1.2)
+	game.vehicle.global_basis = game.vehicle.global_basis.rotated(game.vehicle.global_basis.z, PI)
+	await _wait_s(4.0)
+	_check(lost.has("WIPEOUT!"), "upside-down landing is a wipeout (%s)" % str(lost))
+	game.vehicle.reset_upright()
+	await _wait_s(2.0)
+
+	# 6) Drift: handbrake turn at speed on the flat dirt.
+	tricks.clear()
+	var sp: Transform3D = game.world.spawn_points[4]["xform"]
+	game.vehicle.teleport(sp)
+	await _wait(30)
+	Input.action_press("accelerate")
+	var t := 0.0
+	while game.vehicle.speed_kmh < 70.0 and t < 10.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	Input.action_press("steer_left")
+	Input.action_press("handbrake")
+	await _wait_s(0.5)
+	Input.action_release("handbrake")
+	t = 0.0
+	while t < 3.0 and not has.call("DRIFT"):
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		# Hold the slide: countersteer a little, keep the throttle on.
+		if game.stunts._drift_time > 0.5:
+			Input.action_release("steer_left")
+	_release()
+	await _wait_s(1.5)
+	_check(has.call("DRIFT"), "drift (%s, best drift %.1fs)" % [", ".join(tricks), Records.best_drift])
+
+	# 8) Steering all the way through a real ramp jump (what kids do) still
+	#    lands on the wheels.
+	for steer in ["steer_left", "steer_right"]:
+		var ramp_sp: Transform3D = game.world.spawn_points[2]["xform"]
+		game.vehicle.teleport(ramp_sp)
+		await _wait_s(0.5)
+		var max_air := 0.0
+		var worst_up := 1.0
+		t = 0.0
+		Input.action_press("accelerate")
+		while t < 12.0:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			var v := game.vehicle
+			max_air = maxf(max_air, v.airtime)
+			if v.airtime > 0.1:
+				Input.action_press(steer)
+			else:
+				Input.action_release(steer)
+			if v.speed_kmh > 70.0:
+				Input.action_release("accelerate")
+			if t > 2.0:
+				worst_up = minf(worst_up, v.global_basis.y.y)
+		_release()
+		_check(worst_up > 0.3, "%s held through park jumps: upright (worst up %.2f, max air %.1fs)" % [steer, worst_up, max_air])
+	game.vehicle.teleport(game.world.spawn_points[4]["xform"])
+	await _wait_s(1.0)
+
+	# 7) Near miss: squeeze past an oncoming traffic car on a city street.
+	tricks.clear()
+	var d := tm.spawn_near(VehicleCatalog.scene(1), Vector3(-1.8, 0, 230))
+	var lane := d.current_lane()
+	var ps := d.lane_s() + 60.0
+	var dir := -lane.dir_at(ps)
+	dir.y = 0.0
+	var right := dir.normalized().cross(Vector3.UP)
+	# Player drives the other way, hugging the centre line.
+	game.vehicle.teleport(Transform3D(Basis.looking_at(dir.normalized(), Vector3.UP),
+		lane.point_at(ps) + right * (-3.6 + 1.3) + Vector3.UP * 0.6))
+	await _wait(5)
+	t = 0.0
+	while t < 6.0 and not has.call("NEAR MISS"):
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		var v := game.vehicle
+		Input.action_press("accelerate") if v.speed_kmh < 50.0 else Input.action_release("accelerate")
+		var local := v.global_basis.inverse() * (v.global_position + dir * 20.0 - v.global_position)
+		var side := (v.global_position - lane.point_at(ps)).dot(right) - (-3.6 + 1.3)
+		_set_axis(clampf(-side * 0.4, -0.3, 0.3))
+	_release()
+	await _wait(30)
+	_check(has.call("NEAR MISS"), "near miss (%s, total %d)" % [", ".join(tricks), Records.near_misses])

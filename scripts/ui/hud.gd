@@ -9,6 +9,8 @@ const HELP_TEXT := """[b]CONTROLS[/b]
 [color=#ffd54a]W / S[/color]   gas / brake + reverse
 [color=#ffd54a]A / D[/color]   steer
 [color=#ffd54a]Space[/color]   handbrake (drift!)
+[color=#ffd54a]In the air[/color]   A/D spin,
+      Space + W/S flip, Space + A/D barrel roll
 [color=#ffd54a]R[/color]   flip car upright
 [color=#ffd54a]V[/color]   garage: change vehicle / paint
 [color=#ffd54a]Backspace[/color]   back to spawn point
@@ -31,6 +33,11 @@ var _hint: Label
 var _help_timer := 14.0
 var _damage_label: Label
 var _damage: VehicleDamage
+var _score_label: Label
+var _combo_box: VBoxContainer
+var _combo_lines: Array[Label] = []
+var _combo_total: Label
+var _combo_fade := 0.0
 
 
 func _ready() -> void:
@@ -89,6 +96,32 @@ func _ready() -> void:
 	if vehicle:
 		_damage = vehicle.get_node_or_null("Damage") as VehicleDamage
 
+	_score_label = _make_label(24, Color(1, 1, 1, 0.9))
+	_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_score_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_score_label.position = Vector2(-320, 16)
+	_score_label.size = Vector2(300, 36)
+	root.add_child(_score_label)
+	set_score(0)
+
+	# Current stunt combo: the tricks so far and the running total.
+	_combo_box = VBoxContainer.new()
+	_combo_box.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	_combo_box.position = Vector2(28, 20)
+	_combo_box.size = Vector2(460, 190)
+	_combo_box.alignment = BoxContainer.ALIGNMENT_END
+	_combo_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_combo_box)
+	for i in 4:
+		var l := _make_label(22, Color(1, 1, 1))
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_combo_box.add_child(l)
+		_combo_lines.append(l)
+	_combo_total = _make_label(34, Color(1.0, 0.85, 0.25))
+	_combo_total.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_combo_box.add_child(_combo_total)
+	_combo_box.modulate.a = 0.0
+
 	var tip := _make_label(15, Color(1, 1, 1, 0.6))
 	tip.text = "H = help"
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -134,6 +167,38 @@ func toggle_help() -> void:
 	_help_timer = -1.0
 
 
+static func format_points(n: int) -> String:
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
+
+
+func set_score(points: int) -> void:
+	_score_label.text = "SCORE %s" % format_points(points)
+
+
+## Shows the stunt combo in progress (empty `tricks` hides it after a moment).
+func show_combo(tricks: Array, multiplier: int, total: int) -> void:
+	if tricks.is_empty():
+		_combo_fade = 0.6
+		return
+	var first := maxi(tricks.size() - _combo_lines.size(), 0)
+	for i in _combo_lines.size():
+		var k := first + i
+		if k < tricks.size():
+			var t: Array = tricks[k]
+			_combo_lines[i].text = "%s  +%s" % [t[0], format_points(t[1])]
+			_combo_lines[i].modulate.a = 1.0 if k == tricks.size() - 1 else 0.75
+		else:
+			_combo_lines[i].text = ""
+	_combo_total.text = "x%d   %s" % [multiplier, format_points(total)] if multiplier > 1 else format_points(total)
+	_combo_box.modulate.a = 1.0
+	_combo_fade = 0.0
+
+
 ## Shows the controls help, hiding it again after `seconds`.
 func show_help_for(seconds: float) -> void:
 	_help.visible = true
@@ -146,7 +211,8 @@ func show_toast(text: String, duration := 2.5) -> void:
 	_toast.modulate.a = 1.0
 
 
-func show_popup(text: String, duration := 1.8) -> void:
+func show_popup(text: String, duration := 1.8, color := Color(1.0, 0.85, 0.25)) -> void:
+	_popup.add_theme_color_override("font_color", color)
 	_popup.text = text
 	_popup_time = duration
 	_popup.modulate.a = 1.0
@@ -164,6 +230,9 @@ func _process(dt: float) -> void:
 	_popup_time -= dt
 	_popup.modulate.a = clampf(_popup_time / 0.4, 0.0, 1.0)
 	_popup.scale = _popup.scale.lerp(Vector2.ONE, 1.0 - exp(-10.0 * dt))
+	if _combo_fade > 0.0:
+		_combo_fade -= dt
+		_combo_box.modulate.a = clampf(_combo_fade / 0.6, 0.0, 1.0)
 
 	if vehicle == null:
 		return

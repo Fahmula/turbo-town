@@ -18,12 +18,12 @@ var spawn_index := 0
 var picker: VehiclePicker
 var menu: GameMenu
 var title_camera: MenuCamera
+var stunts: StuntTracker
 ## Start on the title screen. Off for dev/test runs (they pass command-line
 ## args) so they start driving straight away.
 var show_title := OS.get_cmdline_user_args().is_empty()
 var _garage_from := State.DRIVING
 var _lost_timer := 0.0
-var _best_air := 0.0
 
 
 func _ready() -> void:
@@ -41,8 +41,17 @@ func _ready() -> void:
 	title_camera.name = "TitleCamera"
 	add_child(title_camera)
 
-	vehicle.landed.connect(_on_landed)
+	stunts = StuntTracker.new()
+	stunts.name = "Stunts"
+	stunts.traffic = traffic
+	add_child(stunts)
+	stunts.trick.connect(_on_trick)
+	stunts.combo_changed.connect(hud.show_combo)
+	stunts.combo_banked.connect(_on_combo_banked)
+	stunts.combo_lost.connect(func(reason: String) -> void: hud.show_popup(reason, 1.6, Color(1.0, 0.35, 0.3)))
+	Records.record_broken.connect(func(what: String) -> void: hud.show_toast("NEW RECORD: %s!" % what, 3.0))
 	_load_choice()
+	stunts.vehicle = vehicle
 	vehicle.traction_control = Settings.get_value("assists")
 	hud.speedometer.use_mph = Settings.get_value("units_mph")
 	Settings.changed.connect(_on_setting_changed)
@@ -82,17 +91,15 @@ func _physics_process(dt: float) -> void:
 		_lost_timer = 0.0
 
 
-func _on_landed(airtime: float) -> void:
-	if airtime < 1.0:
-		return
-	var msg := "AIR TIME %.1fs" % airtime
-	if airtime > _best_air:
-		_best_air = airtime
-		if airtime > 2.0:
-			msg = "NEW RECORD! %.1fs" % airtime
-	if airtime > 3.0:
-		msg = "HUGE AIR! " + msg
-	hud.show_popup(msg)
+func _on_trick(trick_name: String, _points: int) -> void:
+	if trick_name != "NEAR MISS" and not trick_name.begins_with("AIR "):
+		hud.show_popup(trick_name + "!", 1.3)
+
+
+func _on_combo_banked(points: int, _place: int) -> void:
+	hud.set_score(stunts.score)
+	if points >= 300:
+		hud.show_popup("+%s" % Hud.format_points(points), 1.5, Color(0.5, 1.0, 0.45))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -134,6 +141,7 @@ func _enter_title() -> void:
 	state = State.TITLE
 	get_tree().paused = false
 	controller.enabled = false
+	stunts.enabled = false
 	hud.visible = false
 	title_camera.target = vehicle
 	title_camera.current = true
@@ -147,6 +155,7 @@ func _enter_driving() -> void:
 	state = State.DRIVING
 	get_tree().paused = false
 	controller.enabled = true
+	stunts.enabled = true
 	hud.visible = true
 	camera.current = true
 	menu.close()
@@ -248,7 +257,7 @@ func change_vehicle(index: int, color: Color, place_here := true) -> void:
 	hud.set_vehicle(car)
 	if traffic:
 		traffic.set_player(car)
-	car.landed.connect(_on_landed)
+	stunts.vehicle = car
 	if not place_here:
 		return
 	if spot.is_empty():

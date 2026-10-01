@@ -12,6 +12,8 @@ const CONTROLS := [
 	["Brake / reverse", "S / Down", "LT"],
 	["Steer", "A D / Left Right", "Left stick"],
 	["Handbrake (drift!)", "Space", "A"],
+	["Air: spin", "A / D", "Left stick"],
+	["Air: flip / barrel roll", "Space + W S / A D", "A + RT LT / stick"],
 	["Flip car upright", "R", "Y"],
 	["Horn", "E", "L3 (press left stick)"],
 	["Garage: change vehicle", "V", "D-pad down"],
@@ -36,6 +38,7 @@ var _dim: ColorRect
 var _ride_label: Label
 var _setting_widgets := {}
 var _volume_label: Label
+var _records_text: RichTextLabel
 
 
 func _ready() -> void:
@@ -54,6 +57,7 @@ func _ready() -> void:
 	_add_page(root, "pause", _build_pause())
 	_add_page(root, "settings", _build_settings())
 	_add_page(root, "controls", _build_controls())
+	_add_page(root, "records", _build_records())
 
 
 func _add_page(root: Control, page_name: String, node: Control) -> void:
@@ -75,6 +79,8 @@ func show_page(page_name: String, remember_current := false) -> void:
 	_dim.color = Color(0.02, 0.03, 0.08, 0.15 if page_name == "title" else 0.55)
 	if page_name == "settings":
 		_refresh_settings()
+	elif page_name == "records":
+		_refresh_records()
 	var first: Control = _first_focus.get(page_name)
 	if first:
 		first.grab_focus.call_deferred()
@@ -148,6 +154,7 @@ func _build_title() -> Control:
 	drive.add_theme_font_size_override("font_size", 32)
 	_button(buttons, "GARAGE", func() -> void: action.emit("garage"))
 	_button(buttons, "SETTINGS", func() -> void: show_page("settings", true))
+	_button(buttons, "RECORDS", func() -> void: show_page("records", true))
 	_button(buttons, "CONTROLS", func() -> void: show_page("controls", true))
 	_button(buttons, "QUIT", func() -> void: action.emit("quit"))
 	_first_focus["title"] = drive
@@ -179,6 +186,7 @@ func _build_pause() -> Control:
 	_button(col, "GARAGE", func() -> void: action.emit("garage"))
 	_button(col, "SETTINGS", func() -> void: show_page("settings", true))
 	_button(col, "CONTROLS", func() -> void: show_page("controls", true))
+	_button(col, "RECORDS", func() -> void: show_page("records", true))
 	_button(col, "MAIN MENU", func() -> void: action.emit("title"))
 	_button(col, "QUIT GAME", func() -> void: action.emit("quit"))
 	_first_focus["pause"] = resume
@@ -280,6 +288,49 @@ func _build_controls() -> Control:
 	back.custom_minimum_size = Vector2(200, 0)
 	_first_focus["controls"] = back
 	return center
+
+
+func _build_records() -> Control:
+	var center := _centered()
+	var p := UiKit.panel(30)
+	center.add_child(p)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	col.custom_minimum_size = Vector2(620, 0)
+	p.add_child(col)
+	col.add_child(UiKit.label("RECORDS", 40, UiKit.ACCENT))
+	_records_text = RichTextLabel.new()
+	_records_text.bbcode_enabled = true
+	_records_text.fit_content = true
+	_records_text.scroll_active = false
+	_records_text.add_theme_font_size_override("normal_font_size", 20)
+	_records_text.add_theme_font_size_override("bold_font_size", 22)
+	col.add_child(_records_text)
+	var back := _button(col, "BACK", _back)
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.custom_minimum_size = Vector2(200, 0)
+	_first_focus["records"] = back
+	return center
+
+
+func _refresh_records() -> void:
+	var y := "[color=#ffd54a]%s[/color]"
+	var t := "[b]BEST COMBOS[/b]\n"
+	if Records.best_combos.is_empty():
+		t += "  None yet: jump, flip, drift and squeeze past traffic!\n"
+	for i in Records.best_combos.size():
+		var c: Dictionary = Records.best_combos[i]
+		var tricks: String = c.get("tricks", "")
+		if tricks.length() > 42:
+			tricks = tricks.substr(0, 40) + "..."
+		t += "  %d.  %s  %s  [color=#ffffffa0]%s[/color]\n" % [i + 1, y % Hud.format_points(int(c["points"])), c.get("vehicle", ""), tricks]
+	t += "\n"
+	t += "Biggest air:  %s\n" % (y % ("%.1f s" % Records.best_air))
+	t += "Longest drift:  %s\n" % (y % ("%.1f s" % Records.best_drift))
+	t += "Most flips + rolls in one jump:  %s\n" % (y % str(Records.most_flips))
+	t += "Near misses:  %s\n" % (y % str(Records.near_misses))
+	t += "Total stunt points:  %s" % (y % Hud.format_points(Records.total_score))
+	_records_text.text = t
 
 
 func _centered() -> CenterContainer:

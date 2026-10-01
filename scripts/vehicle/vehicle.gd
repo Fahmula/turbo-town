@@ -78,6 +78,9 @@ var brake_input := 0.0
 var steer_input := 0.0
 var handbrake_input := false
 var horn_input := false
+## 0..1: how much of the mid-air leveling to use this tick (the player's air
+## controls turn it down while they're steering in the air).
+var air_assist_scale := 1.0
 
 # --- Read-only state ---
 var wheels: Array[VehicleWheel] = []
@@ -405,7 +408,7 @@ func _update_air(dt: float, was_airborne: bool) -> void:
 			var up := global_basis.y
 			var axis := up.cross(Vector3.UP)
 			var ang := angular_velocity - Vector3.UP * angular_velocity.dot(Vector3.UP)
-			var strength := air_stabilization * smoothstep(0.35, 0.75, up.y) * (1.0 - smoothstep(2.5, 5.0, ang.length()))
+			var strength := air_stabilization * air_assist_scale * smoothstep(0.35, 0.75, up.y) * (1.0 - smoothstep(2.5, 5.0, ang.length()))
 			# Tuned on the 1.3 t sports car; scale so heavy vehicles feel the same.
 			var inertia_scale := inertia.x / 2100.0 if inertia.x > 0.0 else 1.0
 			apply_torque((axis * 2500.0 - ang * 900.0) * strength * inertia_scale)
