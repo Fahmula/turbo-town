@@ -425,11 +425,10 @@ func _traffic(game: Game) -> void:
 		for d in tm.drivers:
 			if not seen.has(d):
 				seen[d] = true
-				var dd := d
-				d.vehicle.impact.connect(func(st: float, p: Vector3, _n: Vector3) -> void:
+				_on_driver_impact(d, func(dd: TrafficDriver, st: float, p: Vector3) -> void:
 					if st > 9000.0:
 						impacts[0] += 1
-						if is_instance_valid(dd):
+						if true:
 							var other := ""
 							for o in tm.vehicles:
 								if is_instance_valid(o) and o != dd.vehicle and o.global_position.distance_to(dd.vehicle.global_position) < 7.0:
@@ -511,10 +510,82 @@ func _bench(game: Game) -> void:
 	await _wait(60)
 	await _measure("18 cars, drivers paused", 5.0)
 	for d in tm.drivers:
-		d.vehicle.set_physics_process(false)
 		(d.vehicle.get_node("Effects") as Node).set_physics_process(false)
 		(d.vehicle.get_node("Body") as Node).set_physics_process(false)
+		(d.vehicle.get_node("Damage") as Node).set_physics_process(false)
+	await _measure("18 cars, effects/body/damage off", 5.0)
+	for d in tm.drivers:
+		d.vehicle.set_physics_process(false)
 	await _measure("18 cars, all scripts off", 5.0)
+	await _bench_spawns(game)
+	await _bench_render(game)
+
+
+## Draw calls and render time from the chase camera on the highway, with and
+## without traffic.
+func _bench_render(game: Game) -> void:
+	if DisplayServer.get_name() == "headless":
+		return  # nothing is drawn
+	var tm := game.traffic
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	for on in [false, true]:
+		tm.set_enabled(on)
+		game.teleport_to(1)
+		await _wait_s(4.0)
+		var calls := 0
+		var objs := 0
+		var gpu := 0.0
+		var cpu := 0.0
+		for k in 120:
+			await RenderingServer.frame_post_draw
+			calls += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+			objs += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
+			gpu += RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
+			cpu += RenderingServer.viewport_get_measured_render_time_cpu(get_viewport().get_viewport_rid()) + RenderingServer.get_frame_setup_time_cpu()
+		print("BENCH render traffic %-5s %d cars: %d draw calls, %d objects, gpu %.2f ms, cpu %.2f ms" % [
+			str(on), tm.drivers.size(), calls / 120, objs / 120, gpu / 120.0, cpu / 120.0])
+
+
+## Wall-clock cost of putting one traffic car on the road (and removing it).
+func _bench_spawns(game: Game) -> void:
+	var tm := game.traffic
+	tm.set_enabled(false)
+	await _wait(10)
+	var probe := tm.spawn_near(tm.car_scenes[1], Vector3(-60, 0, 120))
+	var lane: TrafficNetwork.Lane = probe._plan[0]["lane"]
+	var s: float = probe._s
+	tm._despawn(probe)
+	await _wait(5)
+	for scene in tm.car_scenes:
+		var times: Array[float] = []
+		for k in 4:
+			var t0 := Time.get_ticks_usec()
+			var d := tm._spawn(lane, s, scene)
+			times.append((Time.get_ticks_usec() - t0) / 1000.0)
+			await _wait(3)
+			var t1 := Time.get_ticks_usec()
+			tm._despawn(d)
+			times.append((Time.get_ticks_usec() - t1) / 1000.0)
+			await _wait(3)
+		print("BENCH spawn %-14s first %.2f ms, then %.2f / %.2f / %.2f ms (despawn %.2f ms)" % [
+			scene.resource_path.get_file().get_basename(), times[0], times[2], times[4], times[6], times[3]])
+	# Where the time goes, for one type.
+	for k in 3:
+		var t0 := Time.get_ticks_usec()
+		var car := tm.car_scenes[1].instantiate() as Vehicle
+		var t1 := Time.get_ticks_usec()
+		var dmg := car.get_node("Damage")
+		car.remove_child(dmg)
+		tm.add_child(car)
+		var t2 := Time.get_ticks_usec()
+		car.add_child(dmg)
+		var t3 := Time.get_ticks_usec()
+		dmg.repair()
+		var t4 := Time.get_ticks_usec()
+		print("BENCH   instantiate %.2f, add (no damage) %.2f, damage _ready %.2f, repair %.2f ms" % [
+			(t1 - t0) / 1000.0, (t2 - t1) / 1000.0, (t3 - t2) / 1000.0, (t4 - t3) / 1000.0])
+		car.queue_free()
+		await _wait(3)
 
 
 ## Player drives the wrong way down avenues into traffic.
@@ -697,6 +768,17 @@ func _tap(action: String) -> void:
 		ev.pressed = pressed
 		Input.parse_input_event(ev)
 		await _wait(3)
+
+
+## Calls `cb(driver, strength, position)` on impacts of `d`'s car while `d`
+## still drives it (traffic cars are reused by other drivers later).
+func _on_driver_impact(d: TrafficDriver, cb: Callable) -> void:
+	var id := d.get_instance_id()
+	var car := d.vehicle
+	car.impact.connect(func(st: float, p: Vector3, _n: Vector3) -> void:
+		var dd := instance_from_id(id) as TrafficDriver
+		if dd != null and dd.vehicle == car:
+			cb.call(dd, st, p))
 
 
 func _check(ok: bool, what: String) -> void:
@@ -1091,8 +1173,7 @@ func _lanes(game: Game) -> void:
 		for dr: TrafficDriver in tm.drivers:
 			if not watched.has(dr):
 				watched[dr] = dr.lane_changes
-				var ddr := dr
-				dr.vehicle.impact.connect(func(st: float, p: Vector3, _n: Vector3) -> void:
+				_on_driver_impact(dr, func(ddr: TrafficDriver, st: float, p: Vector3) -> void:
 					if st > 9000.0:
 						crashes[0] += 1
 						_log_crash(tm, ddr, st, p))
@@ -1160,8 +1241,7 @@ func _junction(game: Game) -> void:
 				if clear:
 					var d := tm.spawn_near(tm.car_scenes[tm._rng.randi() % 3], q)
 					if d:
-						var dd := d
-						d.vehicle.impact.connect(func(st: float, p: Vector3, _n: Vector3) -> void:
+						_on_driver_impact(d, func(dd: TrafficDriver, st: float, p: Vector3) -> void:
 							if st > 9000.0:
 								crashes[0] += 1
 								_log_crash(tm, dd, st, p))
@@ -1772,6 +1852,30 @@ func _spawncheck(game: Game) -> void:
 			await get_tree().physics_frame
 	_check(bad == 0, "clean spawns (%d bad of 60)" % bad)
 
+	# Removed cars wait in a pool and come back as good as new.
+	await _wait(2)
+	_check(tm.pooled_count() > 0, "removed cars wait in the pool (%d)" % tm.pooled_count())
+	var d1 := tm.spawn_near(tm.car_scenes[1], Vector3(-60, 0, 120))
+	var car := d1.vehicle
+	var dmg := car.get_node("Damage") as VehicleDamage
+	await _wait_s(0.5)
+	dmg._dent(0, car.global_transform * Vector3(0.5, 0.5, -2.0), 0.3, 1.0)
+	dmg._break_headlights()
+	dmg._detach("FrontBumper")
+	var dented := dmg._meshes[0].mesh != dmg._sources[0]
+	tm._despawn(d1)
+	await _wait(2)
+	var d2 := tm.spawn_near(tm.car_scenes[1], Vector3(60, 0, -120))
+	var drivers_on_car := car.find_children("*", "TrafficDriver", false, false).size()
+	var sounds := car.find_children("*", "AudioStreamPlayer3D", false, false).size()
+	_check(d2.vehicle == car, "the same sedan was reused")
+	_check(dented and dmg._meshes[0].mesh == dmg._sources[0] and not dmg.headlights_broken and dmg.total_damage == 0.0
+		and dmg._parts["FrontBumper"]["debris"] == null, "reused car is repaired (dents, lights, bumper)")
+	_check(drivers_on_car == 1 and sounds == 3 and car.visible, "one driver, one set of sounds (%d, %d)" % [drivers_on_car, sounds])
+	await _wait_s(3.0)
+	_check(is_instance_valid(d2) and d2.state == TrafficDriver.State.DRIVING and car.speed_kmh > 10.0,
+		"reused car drives off (%.0f km/h)" % car.speed_kmh)
+
 
 ## Drives straight from `from` towards `to` (both on the ground) at up to
 ## `kmh`; returns the closest the car got to `to` and whether it stayed upright.
@@ -1949,6 +2053,16 @@ func _damage(game: Game) -> void:
 	for k in 3:
 		await _ram_wall(game, 70.0)
 	_check(dmg.glass_broken and dmg.total_damage > 55.0, "glass cracked at %.0f%% damage" % dmg.total_damage)
+	# Later dents keep the broken lights and the paint.
+	var lights_ok := true
+	for sf: Array in dmg._surfaces_named("Headlight"):
+		lights_ok = lights_ok and (sf[0] as MeshInstance3D).get_surface_override_material(sf[1]) == VehicleDamage._broken_light
+	var body := v.get_node("Body") as VehicleBodyVisual
+	var paint_ok := false
+	for mi: MeshInstance3D in dmg._meshes:
+		for k in mi.get_surface_override_material_count():
+			paint_ok = paint_ok or body._paint_mats.has(mi.get_surface_override_material(k))
+	_check(lights_ok and paint_ok, "dents keep broken lights and paint (lights %s, paint %s)" % [lights_ok, paint_ok])
 	# Smashed front makes the car smoke and pull.
 	_check(v.damage_power <= 0.6 and dmg._smoke.emitting, "engine smoking, power %.2f, pull %.2f" % [v.damage_power, v.damage_steer_bias])
 	var cam := game.camera

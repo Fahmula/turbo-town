@@ -61,6 +61,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   a new Trail Climb race up it.
 
 ### Traffic
+- Smoother driving: the game no longer stutters for a moment each time a
+  traffic car appears (cars are reused, and set up much faster).
 - Fixed: traffic cars sometimes got flung into the air the moment they
   appeared.
 - Highway traffic changes lanes: cars overtake slow trucks and buses and keep right.

@@ -7,6 +7,8 @@ extends Node3D
 ## sight near the player and removing ones that are far away or wrecked.
 ## Traffic cars are ordinary Vehicles with a TrafficDriver instead of a player
 ## controller, so they crash, dent and flip just like the player's car.
+## Removed cars wait in a small pool per type and are reused (repaired and
+## repainted): setting up a new vehicle takes several milliseconds.
 
 signal traffic_toggled(on: bool)
 
@@ -28,6 +30,8 @@ signal traffic_toggled(on: bool)
 @export var spawn_min_distance := 60.0
 @export var spawn_max_distance := 260.0
 @export var despawn_distance := 330.0
+## Spare cars kept per vehicle type for reuse.
+@export var pool_per_type := 4
 @export var paint_colors: Array[Color] = [
 	Color(0.25, 0.55, 0.95), Color(0.98, 0.78, 0.2), Color(0.3, 0.8, 0.45),
 	Color(0.95, 0.95, 0.93), Color(0.6, 0.4, 0.9), Color(0.2, 0.22, 0.26),
@@ -56,6 +60,8 @@ var _horn_repeat := 0.0
 var _manage_timer := 0.0
 var _light_timer := 0.0
 var _initial_fill := true
+## scene path -> Array of spare Vehicles (outside the tree)
+var _pool := {}
 
 
 func _ready() -> void:
@@ -72,6 +78,15 @@ func _ready() -> void:
 		var p := player
 		player = null
 		set_player(p)
+
+
+func _notification(what: int) -> void:
+	# Spare cars live outside the tree, so nothing else frees them.
+	if what == NOTIFICATION_PREDELETE:
+		for k: String in _pool:
+			for car: Vehicle in _pool[k]:
+				car.free()
+		_pool.clear()
 
 
 func _on_setting_changed(key: String, value: Variant) -> void:
@@ -240,9 +255,59 @@ func _despawn_pass() -> void:
 
 func _despawn(d: TrafficDriver) -> void:
 	drivers.erase(d)
-	vehicles.erase(d.vehicle)
-	if is_instance_valid(d.vehicle):
-		d.vehicle.queue_free()
+	var car := d.vehicle
+	vehicles.erase(car)
+	if not is_instance_valid(car) or car.is_queued_for_deletion():
+		return
+	var spares: Array = _pool.get(car.scene_file_path, [])
+	if spares.size() >= pool_per_type:
+		car.queue_free()
+		return
+	d.release()
+	car.remove_child(d)
+	d.queue_free()
+	# Out of the tree after this physics step, then it waits in the pool.
+	car.process_mode = Node.PROCESS_MODE_DISABLED
+	_to_pool.call_deferred(car)
+
+
+func _to_pool(car: Vehicle) -> void:
+	if car.get_parent() == self:
+		remove_child(car)
+	car.process_mode = Node.PROCESS_MODE_INHERIT
+	_put_back(car)
+
+
+## Keeps an unused car (outside the tree) for later, or frees it.
+func _put_back(car: Vehicle) -> void:
+	var spares: Array = _pool.get_or_add(car.scene_file_path, [])
+	if spares.size() < pool_per_type:
+		spares.append(car)
+	else:
+		car.free()
+
+
+## A car of type `scene`: a spare from the pool, or a new one.
+func _take(scene: PackedScene) -> Vehicle:
+	var spares: Array = _pool.get(scene.resource_path, [])
+	if not spares.is_empty():
+		return spares.pop_back()
+	var car := scene.instantiate() as Vehicle
+	# Traffic cars stay quiet (the synth is for the player's car) and keep
+	# their own damage/effects.
+	var audio := car.get_node_or_null("Audio")
+	if audio:
+		car.remove_child(audio)
+		audio.free()
+	return car
+
+
+## Spare cars waiting in the pool (for tests).
+func pooled_count() -> int:
+	var n := 0
+	for k: String in _pool:
+		n += (_pool[k] as Array).size()
+	return n
 
 
 func _try_spawn(allow_visible: bool) -> bool:
@@ -285,22 +350,21 @@ func _pick_scene() -> PackedScene:
 
 
 func _spawn(lane: TrafficNetwork.Lane, s: float, scene: PackedScene = null) -> TrafficDriver:
-	var car := (scene if scene else _pick_scene()).instantiate() as Vehicle
+	var car := _take(scene if scene else _pick_scene())
 	# Long vehicles can't turn around at dead ends; swap for a small car there.
 	if lane.dead_end and _scene_wheelbase(car) > 3.2:
-		car.free()
-		car = car_scenes[_rng.randi() % 2].instantiate() as Vehicle
+		_put_back(car)
+		car = _take(car_scenes[_rng.randi() % 2])
 	car.name = "Traffic%d" % _rng.randi()
-	# Traffic cars stay quiet (the synth is for the player's car) and keep
-	# their own damage/effects.
-	var audio := car.get_node_or_null("Audio")
-	if audio:
-		car.remove_child(audio)
-		audio.free()
+	car.visible = true
 	var body := car.get_node_or_null("Body") as VehicleBodyVisual
 	if body:
 		var palette: Array[Color] = body.paint_palette if not body.paint_palette.is_empty() else paint_colors
-		body.paint_color = palette[_rng.randi() % palette.size()]
+		var paint := palette[_rng.randi() % palette.size()]
+		if body.is_node_ready():
+			body.set_paint_color(paint)
+		else:
+			body.paint_color = paint
 	# Place it before it enters the tree: added at the origin and moved after,
 	# the physics engine can treat it as a sweep through the ground and fling it.
 	var dir := lane.dir_at(s)
@@ -308,7 +372,7 @@ func _spawn(lane: TrafficNetwork.Lane, s: float, scene: PackedScene = null) -> T
 	var xform := Transform3D(Basis.looking_at(flat, Vector3.UP), lane.point_at(s) + Vector3.UP * (car.ride_height() + 0.08))
 	car.transform = global_transform.affine_inverse() * xform
 	add_child(car)
-	car.teleport(xform)
+	car.teleport(xform)  # also repairs a reused car
 	car.linear_velocity = dir * lane.speed * 0.7
 	var driver := TrafficDriver.new()
 	driver.name = "Driver"

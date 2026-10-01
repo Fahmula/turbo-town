@@ -141,13 +141,17 @@ tools/blender/vehicle_kit.py           Shared modelling helpers for the scripts
   on and off in both directions. Honk and the car ahead pulls over or moves a
   lane right; park in a lane and traffic drives around you through the
   oncoming lane when it's clear (trucks and buses wait instead).
+  Removed cars wait in a small pool per type and are reused (repaired and
+  repainted), and drivers more than 140 m from the player update at half
+  rate. `--bench` (with a window) prints spawn and render costs.
   Tweak `max_cars`, spawn distances, and the vehicle mix (`car_scenes` +
   `car_weights`) on the `Traffic` node in `main.tscn`. Traffic is a mix of
   sports cars, sedans, vans, delivery trucks and buses; each vehicle scene sets
   its own paint palette (`paint_palette` on its `Body` node) and AI speed
   (`ai_speed_factor`, `ai_max_accel` on the root).
 * **Damage**: crash severity is the car's change of velocity over a quarter of a
-  second. Dents follow the hits (smooth falloff, normals bent so they show);
+  second. Each car shares its model's mesh until its first dent, then gets its
+  own copy; the surface data is read from the GPU once per model and cached. Dents follow the hits (smooth falloff, normals bent so they show);
   bumpers and spoilers lose health from nearby hits and fall off as debris
   (the models export them as separate meshes); lights break at the end that
   was hit and the glass cracks when the car is badly smashed; a smashed front
@@ -206,7 +210,8 @@ godot --path . --headless --fixed-fps 120 -- --spawncheck   60 traffic spawns, n
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)
 godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end
-godot --path . --headless --fixed-fps 120 -- --bench     physics cost with/without traffic
+godot --path . --headless --fixed-fps 120 -- --bench     physics cost with/without traffic, spawn cost
+godot --path . --fixed-fps 120 -- --bench                same + real spawn and render costs (window)
 godot --path . --headless -s res://scripts/dev/traffic_graph_check.gd   lane graph sanity
 godot --path . --headless -s res://scripts/dev/terrain_road_check.gd    terrain poking through roads
 ```

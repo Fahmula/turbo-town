@@ -45,8 +45,9 @@ var glass_broken := false
 var _vehicle: Vehicle
 var _body_visual: VehicleBodyVisual
 var _meshes: Array[MeshInstance3D] = []
+var _sources: Array[ArrayMesh] = []  # per mesh: the model's own (shared) mesh
 var _originals: Array = []  # per mesh: Array of surface arrays
-var _offsets: Array = []    # per mesh: Array of PackedVector3Array (per surface)
+var _offsets: Array = []    # per mesh: Array of PackedVector3Array (per surface), empty until dented
 var _materials: Array = []  # per mesh: Array of Material
 ## name -> {"mesh", "parent", "xform", "health", "debris"}
 var _parts := {}
@@ -58,6 +59,9 @@ var _glass_burst: GPUParticles3D
 var _headlights_were_on := false
 
 static var _broken_light: StandardMaterial3D
+## Surface arrays per model mesh, read once and shared by every vehicle using
+## it: reading them back from the GPU takes milliseconds.
+static var _arrays_cache := {}
 static var _cracked_glass: StandardMaterial3D
 
 
@@ -86,25 +90,22 @@ func _register(mi: MeshInstance3D) -> void:
 	var src := mi.mesh as ArrayMesh
 	if src == null:
 		return
-	var surfaces: Array = []
-	var offsets: Array = []
+	var surfaces: Array = _arrays_cache.get(src, [])
+	if surfaces.is_empty():
+		for i in src.get_surface_count():
+			surfaces.append(src.surface_get_arrays(i))
+		_arrays_cache[src] = surfaces
 	var mats: Array = []
 	for i in src.get_surface_count():
-		var arrays := src.surface_get_arrays(i)
-		surfaces.append(arrays)
-		var off := PackedVector3Array()
-		off.resize((arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
-		offsets.append(off)
 		mats.append(mi.get_active_material(i))
-	# Own copy so other cars sharing the model aren't affected.
-	var copy := src.duplicate() as ArrayMesh
-	mi.mesh = copy
+	# The model's mesh stays shared until the first dent (see _dent).
 	for i in mats.size():
 		if mi.get_surface_override_material(i) == null and mats[i]:
 			mi.set_surface_override_material(i, mats[i])
 	_meshes.append(mi)
+	_sources.append(src)
 	_originals.append(surfaces)
-	_offsets.append(offsets)
+	_offsets.append([])
 	_materials.append(mats)
 	if String(mi.name) in DETACHABLE:
 		_parts[String(mi.name)] = {"mesh": mi, "parent": mi.get_parent(), "xform": mi.transform, "health": 1.0, "debris": null}
@@ -194,10 +195,16 @@ func _dent(m: int, world_pos: Vector3, depth: float, radius: float) -> void:
 	if push.length() < 0.01:
 		return
 	push = push.normalized()
-	var mesh := mi.mesh as ArrayMesh
-	mesh.clear_surfaces()
 	var r2 := radius * radius
 	var surfaces: Array = _originals[m]
+	if (_offsets[m] as Array).is_empty():
+		for s in surfaces.size():
+			var zero := PackedVector3Array()
+			zero.resize(((surfaces[s] as Array)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
+			_offsets[m].append(zero)
+	# A new mesh for this car only (others share the model's), swapped in
+	# whole so the surface material overrides (paint, broken lights) stay.
+	var mesh := ArrayMesh.new()
 	for s in surfaces.size():
 		var arrays: Array = (surfaces[s] as Array).duplicate()
 		var base: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -226,9 +233,17 @@ func _dent(m: int, world_pos: Vector3, depth: float, radius: float) -> void:
 			arrays[Mesh.ARRAY_NORMAL] = norms
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		mesh.surface_set_material(s, _materials[m][s])
-		var override := mi.get_surface_override_material(s)
-		if override == null:
-			mi.set_surface_override_material(s, _materials[m][s])
+	_swap_mesh(mi, mesh)
+
+
+## Gives `mi` another mesh with the same surfaces, keeping its overrides.
+func _swap_mesh(mi: MeshInstance3D, mesh: ArrayMesh) -> void:
+	var overrides := []
+	for s in mesh.get_surface_count():
+		overrides.append(mi.get_surface_override_material(s))
+	mi.mesh = mesh
+	for s in overrides.size():
+		mi.set_surface_override_material(s, overrides[s])
 
 
 func _surfaces_named(mat_name: String) -> Array:
@@ -344,16 +359,9 @@ func repair() -> void:
 	front_right = 0.0
 	rear_damage = 0.0
 	for m in _meshes.size():
-		var mi := _meshes[m]
-		var mesh := mi.mesh as ArrayMesh
-		mesh.clear_surfaces()
-		var surfaces: Array = _originals[m]
-		for s in surfaces.size():
-			var zero := PackedVector3Array()
-			zero.resize((_offsets[m][s] as PackedVector3Array).size())
-			_offsets[m][s] = zero
-			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surfaces[s])
-			mesh.surface_set_material(s, _materials[m][s])
+		if _meshes[m].mesh != _sources[m]:
+			_swap_mesh(_meshes[m], _sources[m])
+		_offsets[m] = []
 	for part_name: String in _parts:
 		_reattach(part_name, true)
 		_parts[part_name]["health"] = 1.0

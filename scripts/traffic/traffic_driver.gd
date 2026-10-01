@@ -81,6 +81,12 @@ var _bypass_stalled := 0.0
 var _bypass := {}
 ## Counters for the dev tests.
 var age := 0.0
+## Beyond this distance from the player the driver thinks at half rate
+## (pedals and steering are held in between). Saves CPU; at that distance
+## nobody can tell.
+const LOD_DISTANCE := 140.0
+var _lod_skip := false
+var _lod_carry := 0.0
 var lane_changes := 0
 var passes := 0
 
@@ -91,6 +97,7 @@ func setup(mgr: TrafficManager, lane: TrafficNetwork.Lane, s: float) -> void:
 	vehicle = get_parent() as Vehicle
 	_rng.randomize()
 	_tick = _rng.randi() % 3
+	_lod_skip = _rng.randi() % 2 == 0  # half the far cars think on odd ticks
 	cruise_factor = _rng.randf_range(0.85, 1.05) * vehicle.ai_speed_factor
 	_front = vehicle.body_front
 	_half_width = vehicle.body_half_width
@@ -113,6 +120,25 @@ func setup(mgr: TrafficManager, lane: TrafficNetwork.Lane, s: float) -> void:
 	_setup_audio()
 	# Run before the vehicle so it sees this tick's inputs.
 	process_physics_priority = -10
+
+
+## A car we remembered is still on the road (not freed, not back in the pool).
+static func _alive(v: Variant) -> bool:
+	return v != null and is_instance_valid(v) and (v as Node).is_inside_tree()
+
+
+## The car is going back to the traffic pool: let go of it.
+func release() -> void:
+	if vehicle.impact.is_connected(_on_impact):
+		vehicle.impact.disconnect(_on_impact)
+	for p in [_engine_audio, _horn_audio, _crash_audio]:
+		if is_instance_valid(p):
+			p.free()
+	vehicle.throttle_input = 0.0
+	vehicle.brake_input = 0.0
+	vehicle.steer_input = 0.0
+	vehicle.handbrake_input = false
+	vehicle.horn_input = false
 
 
 func _setup_audio() -> void:
@@ -239,6 +265,14 @@ func _path_point(ahead: float) -> Vector3:
 func _physics_process(dt: float) -> void:
 	if vehicle == null or _plan.is_empty():
 		return
+	var player := manager.player
+	if player and vehicle.global_position.distance_squared_to(player.global_position) > LOD_DISTANCE * LOD_DISTANCE:
+		_lod_skip = not _lod_skip
+		if _lod_skip:
+			_lod_carry += dt
+			return
+	dt += _lod_carry
+	_lod_carry = 0.0
 	state_time += dt
 	age += dt
 	_update_audio(dt)
@@ -734,7 +768,7 @@ func _lane_logic(dt: float) -> void:
 	_hurry_time -= dt
 	var lane: TrafficNetwork.Lane = _plan[0]["lane"]
 	if not _bypass.is_empty():
-		var obj: Vehicle = _bypass["obj"] if is_instance_valid(_bypass["obj"]) else null
+		var obj: Vehicle = _bypass["obj"] if _alive(_bypass["obj"]) else null
 		if lane != _bypass["lane"] or _s > float(_bypass["to"]) + 10.0 or obj == null \
 				or obj.global_position.distance_to(_bypass["obj_pos"]) > 2.0:
 			_bypass = {}
@@ -750,7 +784,7 @@ func _lane_logic(dt: float) -> void:
 			_bypass_stalled = 0.0
 	# Waiting behind something that isn't going anywhere (the player parked in
 	# our lane, a wreck)?
-	var parked := blocker_vehicle != null and is_instance_valid(blocker_vehicle) \
+	var parked := _alive(blocker_vehicle) \
 		and blocker_vehicle.linear_velocity.length() < 0.4 and _is_parked(blocker_vehicle)
 	if parked and vehicle.forward_speed < 1.0 and _bypass.is_empty():
 		_still_blocked += dt
@@ -785,7 +819,7 @@ func _consider_lane_change() -> void:
 	var desired := lane.speed * cruise_factor
 	var lead_gap := INF
 	var lead_v := INF
-	if blocker.begins_with("car") and blocker_vehicle != null and is_instance_valid(blocker_vehicle):
+	if blocker.begins_with("car") and _alive(blocker_vehicle):
 		lead_v = blocker_vehicle.linear_velocity.length()
 		lead_gap = blocker_vehicle.global_position.distance_to(vehicle.global_position)
 	elif blocker != "":
