@@ -30,6 +30,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   ribbed aluminium box with a roller door, a fuel tank and side guards.
 - New city bus: a modern low-floor bus with a huge windscreen, a long dark
   window band, glass doors, an air-con unit on the roof and an engine grille.
+- New monster truck: a retro show truck high on a tube chassis with chrome
+  shocks, a roll bar, exhaust stacks, a roof light bar and optional stripes.
 - Garage: 12 new paint colours that look like real car paint (some sparkle
   like metallic paint), plus fun ones like lime and pink, and racing stripes
   you can switch on for the sports car (X key or the Y button).
