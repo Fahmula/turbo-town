@@ -4,7 +4,7 @@ extends CanvasLayer
 ## keyboard, gamepad (D-pad/stick + A/B) and mouse. Emits `action` with what
 ## the player chose; Game decides what that means.
 
-## "drive", "garage", "resume", "title" or "quit".
+## "drive", "garage", "resume", "title", "quit", "race:<index>" or "end_race".
 signal action(name: String)
 
 const CONTROLS := [
@@ -40,6 +40,11 @@ var _ride_label: Label
 var _setting_widgets := {}
 var _volume_label: Label
 var _records_text: RichTextLabel
+var _races_list: VBoxContainer
+var _end_race_button: Button
+## Set by Game: the races (RaceCatalog dictionaries) and whether one is running.
+var races: Array = []
+var racing := false
 
 
 func _ready() -> void:
@@ -59,6 +64,7 @@ func _ready() -> void:
 	_add_page(root, "settings", _build_settings())
 	_add_page(root, "controls", _build_controls())
 	_add_page(root, "records", _build_records())
+	_add_page(root, "races", _build_races())
 
 
 func _add_page(root: Control, page_name: String, node: Control) -> void:
@@ -82,6 +88,10 @@ func show_page(page_name: String, remember_current := false) -> void:
 		_refresh_settings()
 	elif page_name == "records":
 		_refresh_records()
+	elif page_name == "races":
+		_refresh_races()
+	elif page_name == "pause":
+		_end_race_button.visible = racing
 	var first: Control = _first_focus.get(page_name)
 	if first:
 		first.grab_focus.call_deferred()
@@ -153,6 +163,7 @@ func _build_title() -> Control:
 	col.add_child(buttons)
 	var drive := _button(buttons, "DRIVE!", func() -> void: action.emit("drive"))
 	drive.add_theme_font_size_override("font_size", 32)
+	_button(buttons, "RACES", func() -> void: show_page("races", true))
 	_button(buttons, "GARAGE", func() -> void: action.emit("garage"))
 	_button(buttons, "SETTINGS", func() -> void: show_page("settings", true))
 	_button(buttons, "RECORDS", func() -> void: show_page("records", true))
@@ -184,6 +195,8 @@ func _build_pause() -> Control:
 	p.add_child(col)
 	col.add_child(UiKit.label("PAUSED", 40, UiKit.ACCENT))
 	var resume := _button(col, "RESUME", func() -> void: action.emit("resume"))
+	_end_race_button = _button(col, "END RACE", func() -> void: action.emit("end_race"))
+	_button(col, "RACES", func() -> void: show_page("races", true))
 	_button(col, "GARAGE", func() -> void: action.emit("garage"))
 	_button(col, "SETTINGS", func() -> void: show_page("settings", true))
 	_button(col, "CONTROLS", func() -> void: show_page("controls", true))
@@ -333,6 +346,57 @@ func _refresh_records() -> void:
 	t += "Near misses:  %s\n" % (y % str(Records.near_misses))
 	t += "Total stunt points:  %s" % (y % Hud.format_points(Records.total_score))
 	_records_text.text = t
+
+
+func _build_races() -> Control:
+	var center := _centered()
+	var p := UiKit.panel(30)
+	center.add_child(p)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	col.custom_minimum_size = Vector2(700, 0)
+	p.add_child(col)
+	col.add_child(UiKit.label("RACES", 40, UiKit.ACCENT))
+	col.add_child(UiKit.label("Drive into a green circle in the world to start a race, or pick one:", 18, Color(1, 1, 1, 0.8)))
+	_races_list = VBoxContainer.new()
+	_races_list.add_theme_constant_override("separation", 8)
+	col.add_child(_races_list)
+	var back := _button(col, "BACK", _back)
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.custom_minimum_size = Vector2(200, 0)
+	_first_focus["races"] = back
+	return center
+
+
+func _refresh_races() -> void:
+	for c in _races_list.get_children():
+		c.queue_free()
+	var first: Button = null
+	for i in races.size():
+		var r: Dictionary = races[i]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 16)
+		var b := _button(row, String(r["name"]).to_upper(), func() -> void: action.emit("race:%d" % i))
+		b.custom_minimum_size = Vector2(280, 0)
+		var info := Label.new()
+		var best: Variant = Records.best_times.get(r["id"])
+		var medals: Array = r["medals"]
+		if best == null:
+			info.text = "gold %s" % RaceCatalog.format_time(medals[0])
+			info.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
+		else:
+			var m := RaceCatalog.medal_for(r, best)
+			info.text = "best %s  %s" % [RaceCatalog.format_time(best), RaceCatalog.MEDAL_NAMES[m] if m >= 0 else ""]
+			info.add_theme_color_override("font_color", RaceCatalog.MEDAL_COLORS[m] if m >= 0 else Color.WHITE)
+		info.add_theme_font_size_override("font_size", 20)
+		info.add_theme_color_override("font_outline_color", UiKit.OUTLINE)
+		info.add_theme_constant_override("outline_size", 4)
+		row.add_child(info)
+		_races_list.add_child(row)
+		if first == null:
+			first = b
+	if first:
+		first.grab_focus.call_deferred()
 
 
 func _centered() -> CenterContainer:

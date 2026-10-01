@@ -40,6 +40,9 @@ var _combo_box: VBoxContainer
 var _combo_lines: Array[Label] = []
 var _combo_total: Label
 var _combo_fade := 0.0
+var _race_label: Label
+## Set by Game: shows its status line while a race is on.
+var race: RaceManager
 
 
 func _ready() -> void:
@@ -97,6 +100,15 @@ func _ready() -> void:
 	root.add_child(_damage_label)
 	if vehicle:
 		_damage = vehicle.get_node_or_null("Damage") as VehicleDamage
+
+	var race_panel := _make_panel()
+	race_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	race_panel.position = Vector2(-330, 100)
+	race_panel.custom_minimum_size = Vector2(660, 0)
+	_race_label = _make_label(28, Color(1, 1, 1))
+	race_panel.add_child(_race_label)
+	race_panel.visible = false
+	root.add_child(race_panel)
 
 	_score_label = _make_label(24, Color(1, 1, 1, 0.9))
 	_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -263,6 +275,10 @@ func _process(dt: float) -> void:
 	if _combo_fade > 0.0:
 		_combo_fade -= dt
 		_combo_box.modulate.a = clampf(_combo_fade / 0.6, 0.0, 1.0)
+
+	var race_text := race.status_text() if race else ""
+	_race_label.get_parent().visible = race_text != ""
+	_race_label.text = race_text
 
 	if vehicle == null:
 		return

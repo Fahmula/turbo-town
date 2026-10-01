@@ -20,6 +20,7 @@ var menu: GameMenu
 var title_camera: MenuCamera
 var stunts: StuntTracker
 var world_map: WorldMap
+var race: RaceManager
 ## Start on the title screen. Off for dev/test runs (they pass command-line
 ## args) so they start driving straight away.
 var show_title := OS.get_cmdline_user_args().is_empty()
@@ -61,6 +62,14 @@ func _ready() -> void:
 		spots.append({"name": sp["name"], "pos": (sp["xform"] as Transform3D).origin})
 	hud.setup_map(world_map, traffic, spots)
 	hud.minimap.visible = Settings.get_value("minimap")
+	race = RaceManager.new()
+	race.name = "Races"
+	add_child(race)
+	race.setup(self)
+	race.finished.connect(_on_race_finished)
+	vehicle.vehicle_reset.connect(race.on_teleport)
+	hud.race = race
+	menu.races = race.races
 	_load_choice()
 	stunts.vehicle = vehicle
 	vehicle.traction_control = Settings.get_value("assists")
@@ -77,6 +86,8 @@ func _ready() -> void:
 func teleport_to(index: int) -> void:
 	if world.spawn_points.is_empty():
 		return
+	if race and race.is_active():
+		race.end_race()
 	spawn_index = wrapi(index, 0, world.spawn_points.size())
 	var sp: Dictionary = world.spawn_points[spawn_index]
 	vehicle.teleport(sp["xform"])
@@ -97,7 +108,7 @@ func _physics_process(dt: float) -> void:
 		_lost_timer += dt
 		if _lost_timer > 2.0:
 			_lost_timer = 0.0
-			teleport_to(spawn_index)
+			respawn()
 	else:
 		_lost_timer = 0.0
 
@@ -126,7 +137,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event.is_action_pressed("respawn"):
-		teleport_to(spawn_index)
+		respawn()
 	elif event.is_action_pressed("teleport_next"):
 		teleport_to(spawn_index + 1)
 	elif event.is_action_pressed("toggle_help"):
@@ -146,6 +157,27 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.is_action_pressed("teleport_%d" % (i + 1)):
 				teleport_to(i)
 				break
+
+
+## Back to the spawn point, or during a race to the last gate passed.
+func respawn() -> void:
+	if race and race.is_active():
+		vehicle.teleport(race.respawn_point())
+		camera.snap()
+	else:
+		teleport_to(spawn_index)
+
+
+func _on_race_finished(r: Dictionary, t: float, medal: int, best: bool) -> void:
+	hud.show_popup("FINISH!  %s" % RaceCatalog.format_time(t), 3.0, Color(0.4, 1.0, 0.45))
+	var msg := ""
+	if medal >= 0:
+		msg = "%s MEDAL!" % RaceCatalog.MEDAL_NAMES[medal]
+	else:
+		msg = "Gold time: %s" % RaceCatalog.format_time(r["medals"][0])
+	if best:
+		msg += "   NEW BEST TIME!"
+	hud.show_toast(msg, 5.0)
 
 
 # --- States -----------------------------------------------------------------
@@ -180,6 +212,7 @@ func _enter_driving() -> void:
 
 func _enter_pause() -> void:
 	state = State.PAUSED
+	menu.racing = race.is_active()
 	get_tree().paused = true
 	hud.visible = false
 	menu.show_page("pause")
@@ -193,9 +226,17 @@ func _on_menu_action(action_name: String) -> void:
 		"garage":
 			open_garage()
 		"title":
+			race.end_race()
 			_enter_title()
 		"quit":
 			get_tree().quit()
+		"end_race":
+			race.end_race()
+			_enter_driving()
+		_:
+			if action_name.begins_with("race:"):
+				_enter_driving()
+				race.start(int(action_name.substr(5)))
 
 
 func _on_setting_changed(key: String, value: Variant) -> void:
@@ -213,6 +254,7 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 # --- Garage / changing vehicle -----------------------------------------------
 
 func open_garage() -> void:
+	race.end_race()
 	_garage_from = state
 	state = State.GARAGE
 	get_tree().paused = true
@@ -273,6 +315,7 @@ func change_vehicle(index: int, color: Color, place_here := true) -> void:
 	if traffic:
 		traffic.set_player(car)
 	stunts.vehicle = car
+	car.vehicle_reset.connect(race.on_teleport)
 	if not place_here:
 		return
 	if spot.is_empty():

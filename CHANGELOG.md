@@ -34,6 +34,13 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - Fixed: city traffic only ever turned right at intersections. Now cars go
   straight and turn left too.
 
+### Races
+- Five races: City Sprint, Highway Loop, Mountain Climb, Dirt Rally and Beach
+  Dash. Stop in a green circle to start one, or pick it from the RACES menu.
+- Drive through the gates in order: the next gate glows, an arrow above your
+  car points the way and the minimap shows it. Win gold, silver or bronze, and
+  beat your best time.
+
 ### Maps
 - Minimap in the corner: it turns with your car, zooms out when you go fast
   and shows the traffic. Turn it off in Settings.

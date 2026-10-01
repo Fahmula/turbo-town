@@ -17,6 +17,8 @@ var best_drift := 0.0
 var most_flips := 0
 var near_misses := 0
 var total_score := 0
+## Race id -> best time (s).
+var best_times := {}
 
 
 func _enter_tree() -> void:
@@ -34,6 +36,7 @@ func load_file() -> void:
 	most_flips = cfg.get_value("records", "most_flips", 0)
 	near_misses = cfg.get_value("records", "near_misses", 0)
 	total_score = cfg.get_value("records", "total_score", 0)
+	best_times = cfg.get_value("records", "best_times", {})
 
 
 func save_file() -> void:
@@ -46,6 +49,7 @@ func save_file() -> void:
 	cfg.set_value("records", "most_flips", most_flips)
 	cfg.set_value("records", "near_misses", near_misses)
 	cfg.set_value("records", "total_score", total_score)
+	cfg.set_value("records", "best_times", best_times)
 	cfg.save(path)
 
 
@@ -100,6 +104,15 @@ func report_flips(count: int) -> bool:
 	save_file()
 	if had:
 		record_broken.emit("MOST FLIPS")
+	return true
+
+
+## Returns true if `seconds` is a new best time for race `id`.
+func report_race_time(id: String, seconds: float) -> bool:
+	if best_times.has(id) and seconds >= float(best_times[id]):
+		return false
+	best_times[id] = seconds
+	save_file()
 	return true
 
 

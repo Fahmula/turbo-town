@@ -50,6 +50,13 @@ wipeout (landing on the roof) or a big crash. Let go of a flip/roll and the car
 turns itself level to land. Best combos and records: RECORDS in the menus
 (saved to `user://records.cfg`).
 
+**Races**: five checkpoint races (City Sprint, Highway Loop, Mountain Climb,
+Dirt Rally, Beach Dash). Drive into a green start circle and stop, or pick one
+on the RACES page. 3-2-1-GO, then drive through the gates in order: the next
+one is lit, an arrow over the car points at it and the minimap marks it.
+Gold/silver/bronze times, best times saved. Backspace (or falling in the sea)
+puts you back at the last gate; END RACE in the pause menu stops it.
+
 **Settings** (title screen or pause menu): traffic amount (few / normal / busy),
 graphics quality (low / medium / high), speed units, driving assists, gamepad
 vibration, fullscreen and volume. Saved to `user://settings.cfg`
@@ -85,7 +92,9 @@ scripts/
              (title/pause/settings/controls pages), ui_kit.gd (shared menu look)
   game/      game.gd (title/driving/pause/garage states, spawning, teleports,
              respawn, changing vehicle), graphics_quality.gd (low/medium/high),
-             stunt_tracker.gd (tricks, combos, near misses, drifts)
+             stunt_tracker.gd (tricks, combos, near misses, drifts),
+             race_catalog.gd (race routes + medal times), race_manager.gd (gates,
+             countdown, timing)
   core/      input_setup.gd (all key/gamepad bindings), settings.gd (Settings
              autoload: saved player settings), records.gd (Records autoload:
              best combos, biggest air...)
@@ -160,6 +169,7 @@ godot --path . -- --menus=/tmp/shots    title/pause/settings/controls menus driv
 godot --path . -- --lanes=/tmp/shots    passing a parked player, horn reactions, highway lane changes
 godot --path . -- --stunts=/tmp/shots   air, flips, rolls, spins, drift, near miss, wipeout (pass/fail)
 godot --path . -- --map=/tmp/shots      minimap / big map screenshots (+ world_map.png)
+godot --path . -- --races=/tmp/shots    race flow checks + autopilot drives every race (medal reference times)
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)
 godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end

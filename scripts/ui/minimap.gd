@@ -85,6 +85,8 @@ func _draw_overlay() -> void:
 		var s: Array = _to_screen(m["pos"], origin)
 		var pos: Vector2 = s[0]
 		if not s[1]:
+			if not m.get("pin", false):
+				continue
 			# Off the map: pin it to the edge so you can see which way to go.
 			pos = half + (pos - half).normalized() * half.x * 0.86
 		var r := 7.0 if m.get("big", false) else 5.0

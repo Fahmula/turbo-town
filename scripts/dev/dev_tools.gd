@@ -8,6 +8,7 @@ extends Node
 ##   --junction=<dir> the signalized highway/avenue junction: turns used, crashes, jams
 ##   --stunts=<dir>   air, flips, rolls, spins, drift, near miss, wipeout -> combos and records
 ##   --map=<dir>      minimap and big map screenshots
+##   --races=<dir>    an autopilot drives every race (times -> medal reference), checks the flow
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -34,6 +35,9 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--uturn="):
 			_mode = "uturn"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--races="):
+			_mode = "races"
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--map="):
 			_mode = "map"
@@ -117,6 +121,8 @@ func _run() -> void:
 		await _stunts(game)
 	elif _mode == "map":
 		await _map(game)
+	elif _mode == "races":
+		await _races(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -812,8 +818,8 @@ func _menus(game: Game) -> void:
 	await _wait(5)
 	_check(game.state == Game.State.PAUSED and get_tree().paused and game.menu.page == "pause", "Esc opens the pause menu")
 	await _shot("menu_pause")
-	await _tap("ui_down")
-	await _tap("ui_down")
+	for i in 3:
+		await _tap("ui_down")
 	await _tap("ui_accept")
 	await _wait(5)
 	_check(game.menu.page == "settings", "down, down, accept opens settings")
@@ -838,8 +844,8 @@ func _menus(game: Game) -> void:
 	await _wait(20)
 	await _shot("graphics_low")
 	await _tap("pause")
-	await _tap("ui_down")
-	await _tap("ui_down")
+	for i in 3:
+		await _tap("ui_down")
 	await _tap("ui_accept")
 	await _tap("ui_down")
 	await _tap("ui_right")
@@ -853,9 +859,8 @@ func _menus(game: Game) -> void:
 	# Back to the pause menu, then the controls page.
 	await _tap("ui_cancel")
 	_check(game.menu.page == "pause", "back returns to the pause menu")
-	await _tap("ui_down")
-	await _tap("ui_down")
-	await _tap("ui_down")
+	for i in 4:
+		await _tap("ui_down")
 	await _tap("ui_accept")
 	await _wait(5)
 	_check(game.menu.page == "controls", "controls page")
@@ -867,7 +872,7 @@ func _menus(game: Game) -> void:
 	# Records page (with a made-up combo so it has something to show).
 	Records.add_combo(4321, "Bus", "BACKFLIP, HUGE AIR 3.1s, PERFECT LANDING")
 	await _tap("pause")
-	for i in 4:
+	for i in 5:
 		await _tap("ui_down")
 	await _tap("ui_accept")
 	await _wait(5)
@@ -880,6 +885,7 @@ func _menus(game: Game) -> void:
 	# Garage from the pause menu, cancelled, returns to the pause menu.
 	await _tap("pause")
 	await _tap("ui_down")
+	await _tap("ui_down")
 	await _tap("ui_accept")
 	await _wait(10)
 	_check(game.state == Game.State.GARAGE and game.picker.is_open, "garage from the pause menu")
@@ -887,7 +893,7 @@ func _menus(game: Game) -> void:
 	await _wait(5)
 	_check(game.state == Game.State.PAUSED and game.menu.page == "pause", "cancelling the garage returns to the pause menu")
 	# Main menu, then garage from the title: picking drives off.
-	for i in 5:
+	for i in 6:
 		await _tap("ui_down")
 	await _tap("ui_accept")
 	await _wait(10)
@@ -1380,3 +1386,130 @@ func _map(game: Game) -> void:
 	await _wait(5)
 	await _shot("big_map")
 	game.hud.toggle_big_map()
+
+
+## Drives the current race along its path: pure pursuit with a speed limit
+## from how sharply the path turns ahead. Returns the finish time or -1.
+func _autopilot_race(game: Game, max_kmh: float, time_limit: float) -> float:
+	var rm := game.race
+	var path: Array = rm.race["path"]
+	var v := game.vehicle
+	var finish := [-1.0]
+	var on_finish := func(_r: Dictionary, t: float, _m: int, _b: bool) -> void: finish[0] = t
+	rm.finished.connect(on_finish)
+	var idx := 0
+	var t := 0.0
+	var stuck := 0.0
+	var respawns := 0
+	while finish[0] < 0.0 and t < time_limit and rm.is_active():
+		await get_tree().physics_frame
+		var dt := get_physics_process_delta_time()
+		t += dt
+		var pos := v.global_position
+		# Advance along the path.
+		while idx < path.size() - 1 and Vector2(path[idx].x - pos.x, path[idx].z - pos.z).length() < 9.0 + v.forward_speed * 0.3:
+			idx += 1
+		var target: Vector3 = path[idx]
+		var local := v.global_basis.inverse() * (target - pos)
+		_set_axis(clampf(atan2(local.x, -local.z) * 2.2, -1.0, 1.0))
+		# Slow for sharp turns in the next ~45 m.
+		var want := max_kmh
+		var a: Vector3 = target - pos
+		var d := 0.0
+		for k in range(idx, mini(idx + 12, path.size() - 1)):
+			var seg: Vector3 = path[k + 1] - path[k]
+			d += seg.length()
+			if d > 45.0 + v.forward_speed:
+				break
+			var ang := rad_to_deg(Vector2(a.x, a.z).angle_to(Vector2(seg.x, seg.z)))
+			want = minf(want, lerpf(max_kmh, 32.0, clampf(absf(ang) / 85.0, 0.0, 1.0)))
+		if rm.phase == RaceManager.Phase.COUNTDOWN:
+			_set_pedals(false, false)
+		else:
+			_set_pedals(v.speed_kmh < want, v.speed_kmh > want + 12.0)
+		stuck = stuck + dt if v.speed_kmh < 4.0 and rm.phase == RaceManager.Phase.RACING else 0.0
+		if stuck > 4.0 or v.global_basis.y.y < 0.3:
+			stuck = 0.0
+			respawns += 1
+			if respawns <= 2:
+				print("      stuck at %s (gate %d, path %d/%d, up %.2f)" % [pos.round(), rm.next_cp, idx, path.size(), v.global_basis.y.y])
+				await _photo_vehicle(game, v, "race_stuck_%s_%d" % [rm.race["id"], respawns])
+			game.respawn()
+			# Pick the path point nearest the respawn spot.
+			var best := INF
+			for k in path.size():
+				var dd: float = (path[k] as Vector3).distance_to(v.global_position)
+				if dd < best:
+					best = dd
+					idx = k
+	_release()
+	rm.finished.disconnect(on_finish)
+	print("    %s: %s, %d respawns" % [rm.race.get("name", "race"), "finished %.1fs" % finish[0] if finish[0] >= 0 else "NOT finished", respawns])
+	return finish[0]
+
+
+func _races(game: Game) -> void:
+	var rm := game.race
+	game.traffic.set_enabled(false)
+	await _wait_s(0.5)
+	# Teleporting onto a start circle must not start a race; driving in does.
+	game.vehicle.teleport(rm.races[0]["start"])
+	await _wait_s(1.0)
+	_check(not rm.is_active(), "teleporting into a start circle doesn't start a race")
+	var st: Transform3D = rm.races[0]["start"]
+	game.vehicle.teleport(Transform3D(st.basis, st.origin + st.basis.z * 18.0))
+	await _wait_s(0.5)
+	# Driving straight through doesn't start it...
+	Input.action_press("accelerate")
+	var t := 0.0
+	while t < 4.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	_release()
+	_check(not rm.is_active(), "driving through a start circle doesn't start a race")
+	# ...stopping in it does.
+	game.vehicle.teleport(Transform3D(st.basis, st.origin + st.basis.z * 18.0))
+	await _wait_s(0.5)
+	t = 0.0
+	while game.vehicle.global_position.distance_to(st.origin) > 3.0 and t < 10.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		_set_pedals(game.vehicle.speed_kmh < 12.0, false)
+	Input.action_release("accelerate")
+	Input.action_press("brake")
+	await _wait_s(0.6)
+	Input.action_release("brake")
+	t = 0.0
+	while not rm.is_active() and t < 3.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	_release()
+	_check(rm.is_active() and rm.phase == RaceManager.Phase.COUNTDOWN and not game.controller.enabled, "stopping in the circle starts the countdown")
+	await _wait_s(0.5)
+	await _shot("race_countdown")
+	await _wait_s(3.0)
+	_check(rm.phase == RaceManager.Phase.RACING and game.controller.enabled, "GO: racing, controls back")
+	rm.end_race()
+	await _wait_s(0.5)
+	var caps := {"city": 85.0, "highway": 150.0, "mountain": 85.0, "dirt": 80.0, "beach": 100.0}
+	var times := {}
+	var only := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--race-only="):
+			only = arg.split("=")[1]
+	for i in rm.races.size():
+		var r: Dictionary = rm.races[i]
+		if only != "" and r["id"] != only:
+			continue
+		rm.start(i)
+		await _wait_s(0.1)
+		var shot_at := 12.0
+		var ft := await _autopilot_race(game, caps.get(r["id"], 90.0), 240.0)
+		times[r["id"]] = ft
+		_check(ft > 0.0, "%s completed by the autopilot (%.1fs, %d gates)" % [r["name"], ft, (r["checkpoints"] as Array).size()])
+		await _wait_s(1.0)
+	var line := ""
+	for k in times:
+		line += "\"%s\": %.1f, " % [k, times[k]]
+	print("  reference times: { %s}" % line)
+	_check(not Records.best_times.is_empty(), "best times recorded (%s)" % str(Records.best_times))
