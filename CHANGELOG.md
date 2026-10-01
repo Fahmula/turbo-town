@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-01
+
 ### Looks
 - A new, more realistic look for the whole island: a warm afternoon sun with
   proper shadows, hazy hills and sea in the distance, natural grass and trees,
@@ -38,7 +40,7 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - Garage: 12 new paint colours that look like real car paint (some sparkle
   like metallic paint), plus fun ones like lime and pink, and racing stripes
   you can switch on for the sports car, pickup, buggy and monster truck (X key
-  or the Y button).
+  or the Y button). Your saved colour switches to the closest new one.
 - Traffic now looks like a real town: mostly white, black, grey and silver
   cars, some blue and red ones, and the odd bright colour.
 
