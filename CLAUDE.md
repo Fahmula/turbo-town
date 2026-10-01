@@ -1,6 +1,20 @@
 # Turbo Town: notes for Claude
 
 Godot 4.7.2 driving sandbox. Game docs: README.md. Plan/backlog: PROGRESS.md.
+Art direction: ART_BIBLE.md.
+
+## Art direction
+
+- **Read ART_BIBLE.md before any visual, UI, environment, vehicle, material,
+  lighting, shader or asset change.** At minimum read §0 (quick rules) and the
+  sections for what you're touching. The direction is stylized realism, and
+  Steam Deck 60 fps budgets are part of it (§27).
+- Most of today's look is legacy toy style (ART_BIBLE.md §3). Don't copy it into
+  new work, and don't restyle existing assets unless the task asks.
+- If you change a rule or a value (palette, budgets, contracts), update
+  ART_BIBLE.md in the same commit.
+- The style reference images are in `reference images/stylized-realism/`
+  (local only). They're other games' art, so never commit them.
 
 ## Git and releases
 

@@ -10,6 +10,7 @@ pause menu while driving.
 
 Feature checklist, backlog and known issues: see [PROGRESS.md](PROGRESS.md).
 Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING.md).
+Visual direction (stylized realism) and asset rules: see [ART_BIBLE.md](ART_BIBLE.md).
 
 ## Controls
 
