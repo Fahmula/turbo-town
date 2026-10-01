@@ -2,6 +2,7 @@ extends Node
 ## Developer helpers, inactive during normal play.
 ##   --tour=<dir>     save screenshots from a set of viewpoints, then quit
 ##   --drive=<dir>    drive the player car with scripted input, snapping shots
+##   --garage=<dir>   garage menu + changing into every vehicle (checks and shots)
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -28,6 +29,9 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--uturn="):
 			_mode = "uturn"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--garage="):
+			_mode = "garage"
 			_dir = arg.split("=")[1]
 		elif arg == "--bench":
 			_mode = "bench"
@@ -76,6 +80,8 @@ func _run() -> void:
 		await _showcase(game)
 	elif _mode == "uturn":
 		await _uturn(game)
+	elif _mode == "garage":
+		await _garage(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -588,3 +594,156 @@ func _photo_vehicle(game: Game, v: Vehicle, name: String) -> void:
 	await _wait(2)
 	await _shot(name + "_top")
 	cam.set_process(was)
+
+
+## Sends an input action through the real input pipeline (press + release).
+func _tap(action: String) -> void:
+	for pressed in [true, false]:
+		var ev := InputEventAction.new()
+		ev.action = action
+		ev.pressed = pressed
+		Input.parse_input_event(ev)
+		await _wait(3)
+
+
+func _check(ok: bool, what: String) -> void:
+	print("  %s  %s" % ["ok  " if ok else "FAIL", what])
+
+
+## Player and every system that follows it agree on which vehicle is driven.
+func _check_wiring(game: Game, label: String) -> void:
+	var v := game.vehicle
+	var players := 0
+	for child in game.get_children():
+		if child is Vehicle:
+			players += 1
+	_check(players == 1, "%s: one player vehicle in the scene (%d)" % [label, players])
+	_check(game.controller.vehicle == v and game.camera.target == v and game.hud.vehicle == v,
+		"%s: controller, camera and HUD follow the new vehicle" % label)
+	_check(game.traffic.player == v and game.traffic.vehicles.count(v) == 1,
+		"%s: traffic knows the new player vehicle" % label)
+
+
+func _garage(game: Game) -> void:
+	var tm := game.traffic
+	game.teleport_to(0)
+	await _wait(60)
+
+	# 1) The menu, driven with the real input actions.
+	var old := game.vehicle
+	await _tap("change_vehicle")
+	await _wait(20)
+	_check(game.picker.is_open and get_tree().paused, "V opens the garage and pauses")
+	await _shot("garage_0")
+	for i in 4:
+		await _tap("menu_right")
+		await _wait(15)
+		await _shot("garage_%d" % (i + 1))
+	for i in 3:
+		await _tap("menu_down")
+	await _wait(10)
+	await _shot("garage_paint")
+	var want_color := VehicleCatalog.COLORS[game.picker.color_index]
+	_check(game.picker.index == 4, "four steps right reach the bus")
+	await _tap("menu_accept")
+	await _wait(10)
+	_check(not game.picker.is_open and not get_tree().paused, "accept closes the garage and unpauses")
+	_check(not is_instance_valid(old), "old car is freed")
+	_check(game.vehicle.display_name == "Bus", "now driving the %s" % game.vehicle.display_name)
+	_check((game.vehicle.get_node("Body") as VehicleBodyVisual).paint_color == want_color, "paint colour applied")
+	_check_wiring(game, "after garage")
+	await _wait(60)
+	_check(game.vehicle.global_basis.y.y > 0.95 and game.vehicle.linear_velocity.length() < 2.0,
+		"bus settles calmly (up %.2f, speed %.1f)" % [game.vehicle.global_basis.y.y, game.vehicle.linear_velocity.length()])
+
+	# Cancel leaves everything alone.
+	var bus := game.vehicle
+	await _tap("change_vehicle")
+	await _wait(5)
+	await _tap("menu_left")
+	await _tap("menu_back")
+	await _wait(5)
+	_check(game.vehicle == bus and not get_tree().paused and not game.picker.is_open, "Esc/B backs out without changing")
+
+	# 2) Drive every vehicle for a bit and photograph the cameras.
+	for i in VehicleCatalog.count():
+		game.teleport_to(0)
+		await _wait(10)
+		game.change_vehicle(i, VehicleCatalog.COLORS[(i * 3) % VehicleCatalog.COLORS.size()])
+		await _wait(5)
+		var v := game.vehicle
+		_check_wiring(game, v.display_name)
+		var t := 0.0
+		var start := v.global_position
+		while t < 7.0:
+			var pos := v.global_position
+			var local := v.global_basis.inverse() * (Vector3(pos.x + 30.0, pos.y, 3.0) - pos)
+			_set_axis(clampf(atan2(local.x, -local.z) * 2.0, -1.0, 1.0))
+			_set_pedals(t > 0.5 and v.speed_kmh < 60.0, false)
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+		print("  %s drove %.0f m, %.0f km/h, upright %.2f" % [v.display_name, v.global_position.distance_to(start), v.speed_kmh, v.global_basis.y.y])
+		var id: String = VehicleCatalog.ENTRIES[i]["id"]
+		await _shot("drive_%s_chase" % id)
+		game.camera.mode = ChaseCamera.Mode.HOOD
+		await _wait(3)
+		await _shot("drive_%s_hood" % id)
+		game.camera.mode = ChaseCamera.Mode.FAR
+		await _wait(3)
+		await _shot("drive_%s_far" % id)
+		game.camera.mode = ChaseCamera.Mode.CHASE
+		_release()
+
+	# 3) No room (a wall right in front): falls back to the spawn point.
+	game.change_vehicle(0, Color.RED)
+	await _wait(5)
+	var spot := Transform3D(Basis.IDENTITY, Vector3(-20, 0.8, -20))
+	game.vehicle.teleport(spot)
+	await _wait(30)
+	var wall := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(6, 3, 0.5)
+	shape.shape = box
+	wall.add_child(shape)
+	game.add_child(wall)
+	wall.global_position = game.vehicle.global_position + Vector3(0, 1.0, -3.4)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	game.change_vehicle(4, Color.YELLOW)
+	var sp: Transform3D = game.world.spawn_points[game.spawn_index]["xform"]
+	_check(game.vehicle.global_position.distance_to(sp.origin) < 3.0, "blocked spot: bus goes to the spawn point instead")
+	wall.queue_free()
+
+	# 4) A traffic car in the way is removed instead.
+	tm.set_enabled(false)
+	await _wait(5)
+	game.change_vehicle(0, Color.RED)
+	var d := tm.spawn_near(VehicleCatalog.scene(1), Vector3(-1.8, 0, 200))
+	await _wait(30)
+	var tv := d.vehicle
+	var lane_fwd := -tv.global_basis.z
+	game.vehicle.teleport(Transform3D(tv.global_basis, tv.global_position + lane_fwd * 6.0 + Vector3.UP * 0.3))
+	d.set_physics_process(false)
+	tv.linear_velocity = Vector3.ZERO
+	await _wait(30)
+	var here := game.vehicle.global_position
+	game.change_vehicle(4, Color.YELLOW)
+	await _wait(5)
+	_check(not is_instance_valid(tv) or tv.is_queued_for_deletion(), "traffic car overlapping the bus was removed")
+	_check(game.vehicle.global_position.distance_to(here) < 1.5, "bus placed where the car was")
+	await _wait(60)
+	_check(game.vehicle.linear_velocity.length() < 2.0, "no physics explosion (speed %.1f)" % game.vehicle.linear_velocity.length())
+
+	# 5) The choice is saved and restored.
+	game.persist_choice = true
+	game.settings_path = _dir.path_join("settings_test.cfg")
+	game._save_choice(2, VehicleCatalog.COLORS[6])
+	game.change_vehicle(0, Color.RED)
+	game._load_choice()
+	game.teleport_to(0)
+	await _wait(10)
+	_check(game.vehicle.display_name == "Van" and (game.vehicle.get_node("Body") as VehicleBodyVisual).paint_color == VehicleCatalog.COLORS[6],
+		"saved choice (purple van) restored")
+	_check_wiring(game, "after load")
+	game.persist_choice = false

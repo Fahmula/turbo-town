@@ -8,11 +8,12 @@
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="6_hud"]
 [ext_resource type="Script" path="res://scripts/traffic/traffic_manager.gd" id="7_traffic"]
 
-[node name="Main" type="Node3D" node_paths=PackedStringArray("world", "vehicle", "camera", "hud", "traffic")]
+[node name="Main" type="Node3D" node_paths=PackedStringArray("world", "vehicle", "controller", "camera", "hud", "traffic")]
 script = ExtResource("1_game")
 world = NodePath("World")
 traffic = NodePath("Traffic")
 vehicle = NodePath("PlayerCar")
+controller = NodePath("PlayerController")
 camera = NodePath("ChaseCamera")
 hud = NodePath("HUD")
 

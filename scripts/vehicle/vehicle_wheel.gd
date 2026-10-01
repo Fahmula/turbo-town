@@ -79,6 +79,19 @@ func setup(vehicle: RigidBody3D, collision_mask: int) -> void:
 	_visual_len = suspension_travel
 
 
+## How far the wheel centre hangs below the mount point when standing still
+## and carrying `supported_mass` kg (springs only; used for previews/placement).
+func rest_drop(supported_mass: float) -> float:
+	return suspension_travel - clampf(supported_mass * 9.81 / spring_stiffness, 0.0, suspension_travel * 0.85)
+
+
+## Puts the "Visual" child at its resting height (for frozen preview models).
+func pose_at_rest(supported_mass: float) -> void:
+	var vis := get_node_or_null("Visual") as Node3D
+	if vis:
+		vis.position = Vector3(0.0, -rest_drop(supported_mass), 0.0)
+
+
 func reset_state() -> void:
 	_prev_compression = 0.0
 	compression = 0.0

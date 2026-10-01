@@ -10,6 +10,7 @@ const HELP_TEXT := """[b]CONTROLS[/b]
 [color=#ffd54a]A / D[/color]   steer
 [color=#ffd54a]Space[/color]   handbrake (drift!)
 [color=#ffd54a]R[/color]   flip car upright
+[color=#ffd54a]V[/color]   garage: change vehicle / paint
 [color=#ffd54a]Backspace[/color]   back to spawn point
 [color=#ffd54a]1 - 6 / Tab[/color]   teleport: City, Highway,
       Stunt Park, Mountain, Dirt Fields, Beach
@@ -82,7 +83,7 @@ func _ready() -> void:
 
 	_pause_panel = _make_panel()
 	var pl := _make_label(36, Color.WHITE)
-	pl.text = "PAUSED\n\nEsc - resume\nF10 - quit game"
+	pl.text = "PAUSED\n\nEsc - resume\nV - garage\nF10 - quit game"
 	_pause_panel.add_child(pl)
 	_pause_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_pause_panel.position = Vector2(-200, -140)
@@ -130,6 +131,12 @@ func _make_label(font_size: int, col: Color) -> Label:
 	l.add_theme_constant_override("outline_size", maxi(font_size / 6, 4))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+## Points the speedometer and damage readout at a different vehicle.
+func set_vehicle(v: Vehicle) -> void:
+	vehicle = v
+	_damage = v.get_node_or_null("Damage") as VehicleDamage if v else null
 
 
 func toggle_help() -> void:

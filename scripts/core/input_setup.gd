@@ -38,12 +38,21 @@ func _enter_tree() -> void:
 	_bind("teleport_next", [KEY_TAB], [JOY_BUTTON_DPAD_RIGHT], [])
 	for i in 6:
 		_bind("teleport_%d" % (i + 1), [KEY_1 + i], [], [])
+	_bind("change_vehicle", [KEY_V], [JOY_BUTTON_DPAD_DOWN], [])
+
+	# Menus (the garage). Sticks need a firm push so they don't drift.
+	_bind("menu_left", [KEY_A, KEY_LEFT], [JOY_BUTTON_DPAD_LEFT], [[JOY_AXIS_LEFT_X, -1.0]], 0.5)
+	_bind("menu_right", [KEY_D, KEY_RIGHT], [JOY_BUTTON_DPAD_RIGHT], [[JOY_AXIS_LEFT_X, 1.0]], 0.5)
+	_bind("menu_up", [KEY_W, KEY_UP], [JOY_BUTTON_DPAD_UP], [[JOY_AXIS_LEFT_Y, -1.0]], 0.5)
+	_bind("menu_down", [KEY_S, KEY_DOWN], [JOY_BUTTON_DPAD_DOWN], [[JOY_AXIS_LEFT_Y, 1.0]], 0.5)
+	_bind("menu_accept", [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE], [JOY_BUTTON_A], [])
+	_bind("menu_back", [KEY_ESCAPE, KEY_BACKSPACE], [JOY_BUTTON_B], [])
 
 
-func _bind(action: StringName, keys: Array, buttons: Array, axes: Array) -> void:
+func _bind(action: StringName, keys: Array, buttons: Array, axes: Array, deadzone := DEADZONE) -> void:
 	if InputMap.has_action(action):
 		return
-	InputMap.add_action(action, DEADZONE)
+	InputMap.add_action(action, deadzone)
 	for key: Key in keys:
 		var ev := InputEventKey.new()
 		ev.physical_keycode = key

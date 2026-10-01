@@ -26,6 +26,7 @@ center_of_mass = Vector3(0, 0.55, 0.1)
 inertia = Vector3(46000, 44000, 9000)
 script = ExtResource("1_vehicle")
 display_name = "Bus"
+driver_eye = Vector3(0, 2.85, -3.3)
 max_engine_torque = 1300
 redline_rpm = 3800
 idle_rpm = 650

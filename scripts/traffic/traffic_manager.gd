@@ -64,9 +64,43 @@ func _ready() -> void:
 	for sig in network.signals:
 		_signals.append({"green": _rng.randi() % 2, "phase": 0, "t": _rng.randf() * MAX_GREEN, "demand": [-100.0, -100.0]})
 	if player:
-		vehicles.append(player)
-		# After a teleport/respawn, repopulate around the new position right away.
-		player.vehicle_reset.connect(func() -> void: _initial_fill = enabled)
+		var p := player
+		player = null
+		set_player(p)
+
+
+## Tells traffic which vehicle the player drives (after a vehicle change).
+func set_player(v: Vehicle) -> void:
+	if player:
+		vehicles.erase(player)
+		if player.vehicle_reset.is_connected(_on_player_reset):
+			player.vehicle_reset.disconnect(_on_player_reset)
+	player = v
+	if player:
+		if not vehicles.has(player):
+			vehicles.append(player)
+		if not player.vehicle_reset.is_connected(_on_player_reset):
+			player.vehicle_reset.connect(_on_player_reset)
+
+
+# After a teleport/respawn, repopulate around the new position right away.
+func _on_player_reset() -> void:
+	_initial_fill = enabled
+
+
+## The traffic driver of `v`, or null if it isn't a traffic vehicle.
+func driver_of(v: Object) -> TrafficDriver:
+	for d in drivers:
+		if d.vehicle == v:
+			return d
+	return null
+
+
+## Removes one traffic vehicle right away (e.g. to make room for the player).
+func remove_vehicle(v: Vehicle) -> void:
+	var d := driver_of(v)
+	if d:
+		_despawn(d)
 
 
 func signal_state(id: int, axis: int) -> int:

@@ -17,6 +17,7 @@ extends Node3D
 var _vehicle: Vehicle
 var _prev_vel := Vector3.ZERO
 var _acc := Vector3.ZERO
+var _paint_mats: Array[BaseMaterial3D] = []
 var _brake_mats: Array[BaseMaterial3D] = []
 var _reverse_mats: Array[BaseMaterial3D] = []
 
@@ -43,6 +44,7 @@ func _prepare_materials(mi: MeshInstance3D) -> void:
 				var m := mat.duplicate() as BaseMaterial3D
 				m.albedo_color = paint_color
 				mi.set_surface_override_material(i, m)
+				_paint_mats.append(m)
 			"TailLight":
 				var m := mat.duplicate() as BaseMaterial3D
 				m.emission_enabled = true
@@ -54,6 +56,13 @@ func _prepare_materials(mi: MeshInstance3D) -> void:
 				m.emission = Color(1, 1, 1)
 				mi.set_surface_override_material(i, m)
 				_reverse_mats.append(m)
+
+
+## Repaints the car (works before or after it enters the tree).
+func set_paint_color(c: Color) -> void:
+	paint_color = c
+	for m in _paint_mats:
+		m.albedo_color = c
 
 
 func _physics_process(dt: float) -> void:

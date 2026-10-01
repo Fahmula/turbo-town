@@ -44,6 +44,10 @@ var _dist := 6.0
 var _shake := 0.0
 var _shake_time := 0.0
 var _initialized := false
+# Extra framing for vehicles bigger than the sports car the defaults are tuned for.
+var _size_dist := 0.0
+var _size_height := 0.0
+var _size_look := 0.0
 
 
 func _ready() -> void:
@@ -60,6 +64,12 @@ func set_target(v: Vehicle) -> void:
 		target.impact.connect(_on_impact)
 		if not target.vehicle_reset.is_connected(snap):
 			target.vehicle_reset.connect(snap)
+		# Long/tall vehicles: pull back and look over the roof so the road
+		# ahead stays visible.
+		var tall := maxf(target.body_top - 1.0, 0.0)
+		_size_dist = maxf(target.body_rear - 2.2, 0.0) + tall * 0.5
+		_size_height = tall * 2.2
+		_size_look = tall
 	_initialized = false
 
 
@@ -140,16 +150,17 @@ func _process(dt: float) -> void:
 
 
 func _process_chase(car_pos: Vector3, speed: float, look_back: bool, dt: float) -> void:
-	var dist := distance
-	var h := height
+	var dist := distance + _size_dist
+	var h := height + _size_height
+	var look_h := look_height + _size_look
 	if mode == Mode.FAR:
 		dist *= 1.6
 		h *= 1.7
 	dist += extra_distance_at_speed * clampf(speed / 50.0, 0.0, 1.0)
 
-	var pivot := Vector3(car_pos.x, _pivot_y + look_height, car_pos.z)
+	var pivot := Vector3(car_pos.x, _pivot_y + look_h, car_pos.z)
 	var yaw := _yaw + _orbit_yaw + (PI if look_back else 0.0)
-	var pitch := atan2(h - look_height, dist) + _orbit_pitch
+	var pitch := atan2(h - look_h, dist) + _orbit_pitch
 	var dir := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
 
 	# Pull in when something is between the car and the camera.
@@ -172,7 +183,7 @@ func _process_chase(car_pos: Vector3, speed: float, look_back: bool, dt: float) 
 
 func _process_hood(t: Transform3D, look_back: bool) -> void:
 	var b := t.basis.orthonormalized()
-	global_position = t * Vector3(0.0, 1.2, -0.2)
+	global_position = t * target.driver_eye
 	var look_dir := (-b.z if not look_back else b.z)
 	look_at(global_position + look_dir * 10.0 + Vector3.UP * 0.2, b.y)
 

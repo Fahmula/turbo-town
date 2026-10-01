@@ -13,6 +13,8 @@ signal landed(airtime: float)
 signal vehicle_reset
 
 @export var display_name := "Car"
+## Where the hood camera sits (local space, roughly the driver's eyes).
+@export var driver_eye := Vector3(0.0, 1.2, -0.2)
 
 @export_group("Engine")
 @export var max_engine_torque := 430.0
@@ -93,6 +95,7 @@ var wheelbase := 2.7
 var body_front := 2.2
 var body_rear := 2.2
 var body_half_width := 0.95
+var body_top := 1.0
 
 var _shift_timer := 0.0
 var _handbrake_timer := 0.0
@@ -133,6 +136,7 @@ func _measure_body() -> void:
 	var min_z := INF
 	var max_z := -INF
 	var max_x := 0.0
+	var max_y := -INF
 	for child in get_children():
 		var cs := child as CollisionShape3D
 		if cs == null or not (cs.shape is BoxShape3D):
@@ -143,10 +147,27 @@ func _measure_body() -> void:
 			min_z = minf(min_z, p.z)
 			max_z = maxf(max_z, p.z)
 			max_x = maxf(max_x, absf(p.x))
+			max_y = maxf(max_y, p.y)
 	if min_z < INF:
 		body_front = -min_z
 		body_rear = max_z
 		body_half_width = max_x
+		body_top = max_y
+
+
+## Height of the body origin above flat ground when standing still. Works
+## before the vehicle enters the tree (reads the wheel children directly).
+func ride_height() -> float:
+	var h := 0.0
+	var count := 0
+	for child in get_children():
+		if child is VehicleWheel:
+			count += 1
+	for child in get_children():
+		var w := child as VehicleWheel
+		if w:
+			h = maxf(h, w.rest_drop(mass / maxi(count, 1)) + w.radius - w.position.y)
+	return h
 
 
 func body_length() -> float:
@@ -395,6 +416,13 @@ func _update_air(dt: float, was_airborne: bool) -> void:
 
 ## Flips the car upright where it is (R key).
 func reset_upright() -> void:
+	var xform := upright_ground_transform()
+	teleport(xform.translated(Vector3.UP * 1.2))
+
+
+## Upright, same heading, origin on the ground below the car (or at the car if
+## there is no ground under it).
+func upright_ground_transform() -> Transform3D:
 	var fwd := -global_basis.z
 	fwd.y = 0.0
 	if fwd.length() < 0.1:
@@ -409,7 +437,7 @@ func reset_upright() -> void:
 	var hit := space.intersect_ray(q)
 	if not hit.is_empty():
 		pos = hit.position
-	teleport(Transform3D(Basis.looking_at(fwd.normalized(), Vector3.UP), pos + Vector3.UP * 1.2))
+	return Transform3D(Basis.looking_at(fwd.normalized(), Vector3.UP), pos)
 
 
 ## Places the car at a transform with all motion cleared.

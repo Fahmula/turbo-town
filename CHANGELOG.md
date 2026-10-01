@@ -9,6 +9,13 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Vehicles
+- New garage: press V (D-pad down on a gamepad) to drive the sedan, van,
+  delivery truck or city bus, and to pick a paint colour. The game remembers
+  your choice next time.
+- The camera pulls back for the truck and bus so you can see the road, and the
+  hood camera sits on the roof of the tall vehicles.
+
 ## [0.2.0] - 2026-09-30
 
 First stable release for the Steam Deck. Drive around Turbo Town with a

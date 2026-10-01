@@ -18,6 +18,7 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 | Steer | A D / Left Right | Left stick |
 | Handbrake | Space | A (Cross) |
 | Flip car upright | R | Y (Triangle) |
+| Garage: change vehicle / paint | V | D-pad down |
 | Back to spawn point | Backspace | Back / Select |
 | Teleport | 1-6, Tab = next | D-pad right |
 | Camera view (chase / far / hood) | C | RB |
@@ -32,14 +33,19 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 
 Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields, 6 Beach.
 
+**Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck or
+bus and a paint colour. Left/right = vehicle, up/down = paint, Enter / A =
+drive, Esc / B = back. The game is paused while it's open, and the choice is
+remembered next time the game starts.
+
 ## Project layout
 
 ```
 scenes/
   main.tscn                 Game root: world + player car + camera + HUD
-  vehicles/sports_car.tscn  The player car (physics, wheels, visuals, audio, FX, damage)
-  vehicles/sedan.tscn, van.tscn, box_truck.tscn, bus.tscn   Traffic vehicles (full
-                            Vehicles too, so they can be made drivable)
+  vehicles/sports_car.tscn  The default player car (physics, wheels, visuals, audio, FX, damage)
+  vehicles/sedan.tscn, van.tscn, box_truck.tscn, bus.tscn   Used by traffic and
+                            drivable from the garage (every vehicle scene is both)
   world/world.tscn          Environment, sun, and the WorldBuilder that generates the map
   props/                    Cone, barrel, crate, bowling pin, lamp, traffic light,
                             parked car, and the parametric Ramp
@@ -47,7 +53,8 @@ scenes/
 scripts/
   vehicle/   vehicle.gd (engine, gearbox, steering, assists), vehicle_wheel.gd
              (raycast suspension + tire model), player_vehicle_controller.gd (input),
-             vehicle_body_visual.gd, vehicle_audio.gd, vehicle_effects.gd, vehicle_damage.gd
+             vehicle_body_visual.gd, vehicle_audio.gd, vehicle_effects.gd, vehicle_damage.gd,
+             vehicle_catalog.gd (the garage's vehicle list, blurbs, star ratings, colours)
   traffic/   traffic_network.gd (lane graph built from the roads, turn curves,
              junctions, U-turns), traffic_manager.gd (spawning, signal timing),
              traffic_driver.gd (AI driver), traffic_light_prop.gd, traffic_audio.gd
@@ -55,8 +62,8 @@ scripts/
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
              landmark builders, mesh_builder.gd (geometry helper)
   props/     prop.gd, ramp.gd (@tool, editable in the editor)
-  ui/        hud.gd, speedometer.gd
-  game/      game.gd (spawning, teleports, respawn, pause)
+  ui/        hud.gd, speedometer.gd, vehicle_picker.gd (the garage menu)
+  game/      game.gd (spawning, teleports, respawn, pause, changing vehicle)
   core/      input_setup.gd (all key/gamepad bindings)
   dev/       autotest.gd, dev_tools.gd, audio_check.gd (testing helpers)
 assets/      models (.glb from Blender), shaders, materials
@@ -98,7 +105,10 @@ tools/blender/vehicle_kit.py           Shared modelling helpers for both scripts
 * **A new car**: duplicate one of the scenes in `scenes/vehicles/`, swap the models
   under `Body` and the wheel `Visual` nodes, then tweak the exported values on the
   root (engine, gears, brakes, steering) and on each wheel (radius, springs, grip,
-  which wheels steer/drive). Set `paint_color` on the `Body` node for a new color.
+  which wheels steer/drive). Set `paint_color` on the `Body` node for a new color
+  and `driver_eye` on the root for the hood camera. Add it to
+  `scripts/vehicle/vehicle_catalog.gd` to make it appear in the garage. The chase
+  camera frames bigger vehicles automatically (from their collision boxes).
 * **A ramp**: instance `scenes/props/ramp.tscn` in any scene and edit its
   shape/length/height/width in the Inspector — it rebuilds live in the editor.
 * **Map changes**: edit `map_layout.gd` (city grid, block types, highway size and
@@ -116,6 +126,7 @@ godot --path . --headless -s res://scripts/dev/audio_check.gd   engine sound lev
 godot --path . -- --traffic=/tmp/shots  watch traffic 150 s, log speeds/stuck/crashes
 godot --path . -- --rampage=/tmp/shots  player drives wrong-way into traffic
 godot --path . -- --showcase=/tmp/shots one of each traffic vehicle in a filmed convoy
+godot --path . -- --garage=/tmp/shots   garage menu + changing into every vehicle (pass/fail checks)
 godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end
 godot --path . --headless --fixed-fps 120 -- --bench     physics cost with/without traffic
 godot --path . --headless -s res://scripts/dev/traffic_graph_check.gd   lane graph sanity
