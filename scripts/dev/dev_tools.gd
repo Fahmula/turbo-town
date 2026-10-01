@@ -7,6 +7,7 @@ extends Node
 ##   --lanes=<dir>    traffic passing a parked player, horn reactions, highway lane changes
 ##   --junction=<dir> the signalized highway/avenue junction: turns used, crashes, jams
 ##   --stunts=<dir>   air, flips, rolls, spins, drift, near miss, wipeout -> combos and records
+##   --map=<dir>      minimap and big map screenshots
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -33,6 +34,9 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--uturn="):
 			_mode = "uturn"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--map="):
+			_mode = "map"
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--stunts="):
 			_mode = "stunts"
@@ -111,6 +115,8 @@ func _run() -> void:
 		await _corner(game)
 	elif _mode == "stunts":
 		await _stunts(game)
+	elif _mode == "map":
+		await _map(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -1356,3 +1362,21 @@ func _stunts(game: Game) -> void:
 	_release()
 	await _wait(30)
 	_check(has.call("NEAR MISS"), "near miss (%s, total %d)" % [", ".join(tricks), Records.near_misses])
+
+
+func _map(game: Game) -> void:
+	await _wait(10)
+	var img := game.world_map.get_texture().get_image()
+	var road := img.get_pixelv(WorldMap.to_uv(Vector3(0, 0, -75)) * WorldMap.SIZE)
+	_check(img.get_width() == WorldMap.SIZE and road.v < 0.45, "world map drawn (road pixel %s)" % road)
+	img.save_png(_dir.path_join("world_map.png"))
+	for i in [0, 1, 2]:
+		game.teleport_to(i)
+		await _wait_s(1.5)
+		game.hud.show_help_for(0.01)
+		await _wait(5)
+		await _shot("minimap_%d" % i)
+	game.hud.toggle_big_map()
+	await _wait(5)
+	await _shot("big_map")
+	game.hud.toggle_big_map()

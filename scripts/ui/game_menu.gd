@@ -24,6 +24,7 @@ const CONTROLS := [
 	["Look around", "Mouse", "Right stick"],
 	["Assists on/off (drift mode)", "T", ""],
 	["Traffic on/off", "G", "D-pad up"],
+	["Map", "M", "D-pad left"],
 	["km/h / mph", "U", ""],
 	["Help", "H / F1", ""],
 	["Pause", "Esc", "Menu"],
@@ -212,6 +213,7 @@ func _build_settings() -> Control:
 	_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"])
 	_cycle_row(grid, "Driving assists", "assists", ["Off (drift mode)", "On"])
 	_cycle_row(grid, "Vibration", "vibration", ["Off", "On"])
+	_cycle_row(grid, "Minimap", "minimap", ["Off", "On"])
 	_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"])
 
 	grid.add_child(UiKit.label("Volume", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))

@@ -34,6 +34,12 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - Fixed: city traffic only ever turned right at intersections. Now cars go
   straight and turn left too.
 
+### Maps
+- Minimap in the corner: it turns with your car, zooms out when you go fast
+  and shows the traffic. Turn it off in Settings.
+- Press M (D-pad left) for a map of the whole island with the numbered
+  teleport spots.
+
 ### Menus
 - New title screen with your car on show: Drive, Garage, Settings, Controls, Quit.
 - Esc / Start now opens a pause menu (resume, garage, settings, controls,

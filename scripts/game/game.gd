@@ -19,6 +19,7 @@ var picker: VehiclePicker
 var menu: GameMenu
 var title_camera: MenuCamera
 var stunts: StuntTracker
+var world_map: WorldMap
 ## Start on the title screen. Off for dev/test runs (they pass command-line
 ## args) so they start driving straight away.
 var show_title := OS.get_cmdline_user_args().is_empty()
@@ -50,6 +51,16 @@ func _ready() -> void:
 	stunts.combo_banked.connect(_on_combo_banked)
 	stunts.combo_lost.connect(func(reason: String) -> void: hud.show_popup(reason, 1.6, Color(1.0, 0.35, 0.3)))
 	Records.record_broken.connect(func(what: String) -> void: hud.show_toast("NEW RECORD: %s!" % what, 3.0))
+	var t0 := Time.get_ticks_msec()
+	world_map = WorldMap.new(world)
+	world_map.name = "WorldMap"
+	add_child(world_map)
+	print("World map drawn in %d ms" % (Time.get_ticks_msec() - t0))
+	var spots: Array = []
+	for sp: Dictionary in world.spawn_points:
+		spots.append({"name": sp["name"], "pos": (sp["xform"] as Transform3D).origin})
+	hud.setup_map(world_map, traffic, spots)
+	hud.minimap.visible = Settings.get_value("minimap")
 	_load_choice()
 	stunts.vehicle = vehicle
 	vehicle.traction_control = Settings.get_value("assists")
@@ -120,6 +131,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		teleport_to(spawn_index + 1)
 	elif event.is_action_pressed("toggle_help"):
 		hud.toggle_help()
+	elif event.is_action_pressed("toggle_map"):
+		hud.toggle_big_map()
 	elif event.is_action_pressed("toggle_traffic") and traffic:
 		traffic.set_enabled(not traffic.enabled)
 		hud.show_toast("Traffic ON" if traffic.enabled else "Traffic OFF")
@@ -191,6 +204,8 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 			vehicle.traction_control = value
 		"units_mph":
 			hud.speedometer.use_mph = value
+		"minimap":
+			hud.minimap.visible = value
 		"graphics":
 			GraphicsQuality.apply(value, get_viewport(), world)
 

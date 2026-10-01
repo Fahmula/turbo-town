@@ -19,11 +19,13 @@ const HELP_TEXT := """[b]CONTROLS[/b]
 [color=#ffd54a]C[/color]   camera view     [color=#ffd54a]Q[/color]   look back
 [color=#ffd54a]Mouse[/color]   look around
 [color=#ffd54a]T[/color]   assists on/off (drift mode)
-[color=#ffd54a]G[/color]   traffic on/off
+[color=#ffd54a]G[/color]   traffic on/off     [color=#ffd54a]M[/color]   map
 [color=#ffd54a]E[/color]   horn     [color=#ffd54a]U[/color]   km/h / mph
 [color=#ffd54a]H / F1[/color]   hide this help     [color=#ffd54a]Esc[/color]   menu"""
 
 var speedometer: Speedometer
+var minimap: Minimap
+var big_map: BigMap
 var _help: PanelContainer
 var _toast: Label
 var _toast_time := 0.0
@@ -122,12 +124,25 @@ func _ready() -> void:
 	_combo_box.add_child(_combo_total)
 	_combo_box.modulate.a = 0.0
 
+	minimap = Minimap.new()
+	minimap.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	minimap.position = Vector2(20, -250)
+	minimap.size = Vector2(230, 230)
+	minimap.vehicle = vehicle
+	root.add_child(minimap)
+
 	var tip := _make_label(15, Color(1, 1, 1, 0.6))
 	tip.text = "H = help"
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	tip.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	tip.position = Vector2(16, -34)
+	tip.position = Vector2(262, -34)
 	root.add_child(tip)
+
+	big_map = BigMap.new()
+	big_map.set_anchors_preset(Control.PRESET_FULL_RECT)
+	big_map.visible = false
+	big_map.vehicle = vehicle
+	root.add_child(big_map)
 
 
 func _make_panel() -> PanelContainer:
@@ -156,9 +171,24 @@ func _make_label(font_size: int, col: Color) -> Label:
 	return l
 
 
-## Points the speedometer and damage readout at a different vehicle.
+## Gives the minimap and big map their picture and what to show on it.
+func setup_map(map: WorldMap, traffic: TrafficManager, spots: Array) -> void:
+	minimap.set_map(map)
+	minimap.traffic = traffic
+	big_map.set_map(map)
+	big_map.traffic = traffic
+	big_map.spots = spots
+
+
+func toggle_big_map() -> void:
+	big_map.visible = not big_map.visible
+
+
+## Points the speedometer, damage readout and maps at a different vehicle.
 func set_vehicle(v: Vehicle) -> void:
 	vehicle = v
+	minimap.vehicle = v
+	big_map.vehicle = v
 	_damage = v.get_node_or_null("Damage") as VehicleDamage if v else null
 
 

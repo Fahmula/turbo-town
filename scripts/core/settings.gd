@@ -19,6 +19,7 @@ const DEFAULTS := {
 	"fullscreen": false,
 	"master_volume": 0.8,
 	"vibration": true,
+	"minimap": true,
 	"assists": true,
 	"vehicle": "sports_car",
 	"paint": Color(0.93, 0.22, 0.14),

@@ -30,6 +30,7 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 | Look around | Mouse | Right stick |
 | Assists on/off (drift mode) | T | |
 | Traffic on/off | G | D-pad up |
+| Island map | M | D-pad left |
 | Horn | E | L3 |
 | km/h ↔ mph | U | |
 | Help | H / F1 | |
@@ -78,7 +79,9 @@ scripts/
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
              landmark builders, mesh_builder.gd (geometry helper)
   props/     prop.gd, ramp.gd (@tool, editable in the editor)
-  ui/        hud.gd, speedometer.gd, vehicle_picker.gd (the garage), game_menu.gd
+  ui/        hud.gd, speedometer.gd, world_map.gd (top-down island picture drawn
+             at startup), minimap.gd (round heading-up minimap), big_map.gd (M),
+             vehicle_picker.gd (the garage), game_menu.gd
              (title/pause/settings/controls pages), ui_kit.gd (shared menu look)
   game/      game.gd (title/driving/pause/garage states, spawning, teleports,
              respawn, changing vehicle), graphics_quality.gd (low/medium/high),
@@ -156,6 +159,7 @@ godot --path . -- --garage=/tmp/shots   garage menu + changing into every vehicl
 godot --path . -- --menus=/tmp/shots    title/pause/settings/controls menus driven by input (pass/fail)
 godot --path . -- --lanes=/tmp/shots    passing a parked player, horn reactions, highway lane changes
 godot --path . -- --stunts=/tmp/shots   air, flips, rolls, spins, drift, near miss, wipeout (pass/fail)
+godot --path . -- --map=/tmp/shots      minimap / big map screenshots (+ world_map.png)
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)
 godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end
