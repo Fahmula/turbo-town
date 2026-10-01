@@ -9,12 +9,21 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-01
+
+A huge update: a garage full of vehicles, stunts and combos, races, day and
+night, new places to explore, crashes where bits fall off, and instant replays.
+
 ### Vehicles
-- New garage: press V (D-pad down on a gamepad) to drive the sedan, van,
-  delivery truck or city bus, and to pick a paint colour. The game remembers
-  your choice next time.
-- The camera pulls back for the truck and bus so you can see the road, and the
-  hood camera sits on the roof of the tall vehicles.
+- New garage: press V (D-pad down on a gamepad) to pick any vehicle and a
+  paint colour. The game remembers your choice next time.
+- Three new vehicles: a pickup truck (it shows up in traffic too), a light and
+  bouncy dune buggy, and a MONSTER TRUCK with giant wheels that can drive right
+  over cars. You can also drive the sedan, van, delivery truck and city bus.
+- Every vehicle sounds different: rumbling diesel truck and bus, burbly V8
+  pickup, buzzy buggy, and a monster truck with a supercharger whine.
+- The camera pulls back for the big vehicles so you can see the road, and the
+  hood camera sits up on the roof of the tall ones.
 
 ### Stunts
 - Score points for big air, flips, barrel rolls, spins, drifts and near misses
@@ -22,64 +31,42 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   wheels: a wipeout or a big crash loses the combo.
 - Air tricks: steer to spin; hold Space (A on a gamepad) and use W/S to flip or
   A/D to barrel roll. Let go and the car turns itself level to land.
+- A LOOP-THE-LOOP in the stunt park (go 80+ km/h!) and a round WALL RIDE bowl
+  right after it. Both count as stunts.
 - RECORDS page with your best combos, biggest air, longest drift and more.
 
-### Replays
-- Press P (X on a gamepad) for an instant replay of the last 8 seconds, with
-  TV-style camera angles.
-- CRASH CAM: big crashes play back in slow motion. Press Enter / A to skip, or
-  switch it off in Settings.
-- Fixed: after pausing, the car could jump forward or get a big kick when the
-  game carried on, and the race clock kept running in the pause menu.
+### Races
+- Six races: City Sprint, Highway Loop, Mountain Climb, Trail Climb, Dirt Rally
+  and Beach Dash. Stop in a green circle to start one, or pick it from the
+  RACES menu.
+- Drive through the gates in order: the next gate glows, an arrow above your
+  car points the way and the minimap shows it. Win gold, silver or bronze, and
+  beat your best time.
 
-### Sounds
-- Every vehicle sounds different now: rumbling diesel truck and bus, burbly
-  V8 pickup, buzzy buggy, and a monster truck with a supercharger whine.
-
-### Crashes
-- Bumpers and spoilers can fall off in big crashes, lights break, the glass
-  cracks and a smashed engine smokes, loses power and pulls to one side.
-  Press R (or respawn) to fix your car.
+### New places
+- An airfield in the south-east with a long runway, hangars, a control tower
+  and planes (press 7 to go there).
+- A harbour on the north-west coast with piers, boats, a big crane and stacks
+  of containers (press 8).
+- Lighthouse Island off the beach, reached over a bridge (press 9).
+- A tunnel through a hill on the road to the stunt park.
+- A dirt trail zig-zags up the mountain to the summit, with jumps.
 
 ### Day and night
 - Pick day, sunset, night or a day-and-night cycle in Settings. At night the
   windows light up, street lamps come on, your car has headlights and the
   lighthouse beam sweeps across the sea.
 
-### New places
-- An airfield in the south-east with a long runway, hangars, a control tower
-  and planes (press 7 to go there).
-- A tunnel through a hill on the road to the stunt park.
-- A harbour on the north-west coast with piers, boats, a big crane and stacks
-  of containers (press 8).
-- Lighthouse Island off the beach, reached over a bridge (press 9).
+### Crashes
+- Bumpers and spoilers can fall off in big crashes, lights break, the glass
+  cracks and a smashed engine smokes, loses power and pulls to one side.
+  Press R (or respawn) to fix your car.
 
-### Stunt park and mountain
-- A LOOP-THE-LOOP in the stunt park (go 80+ km/h!) and a round WALL RIDE bowl
-  right after it. Both count as stunts.
-- A dirt trail zig-zags up the mountain to the summit, with jumps, and there's
-  a new Trail Climb race up it.
-
-### Traffic
-- Smoother driving: the game no longer stutters for a moment each time a
-  traffic car appears (cars are reused, and set up much faster).
-- Fixed: traffic cars sometimes got flung into the air the moment they
-  appeared.
-- Highway traffic changes lanes: cars overtake slow trucks and buses and keep right.
-- Honk (E / L3) behind a car and it pulls over or moves a lane over to let you pass.
-- Park in a car's lane and it drives around you when the other lane is clear,
-  instead of just waiting and honking.
-- The highway has proper junctions with traffic lights where the east and west
-  avenues cross it: cars get on and off in both directions or go straight across.
-- Fixed: city traffic only ever turned right at intersections. Now cars go
-  straight and turn left too.
-
-### Races
-- Five races: City Sprint, Highway Loop, Mountain Climb, Dirt Rally and Beach
-  Dash. Stop in a green circle to start one, or pick it from the RACES menu.
-- Drive through the gates in order: the next gate glows, an arrow above your
-  car points the way and the minimap shows it. Win gold, silver or bronze, and
-  beat your best time.
+### Replays
+- Press P (X on a gamepad) for an instant replay of the last 8 seconds, with
+  TV-style camera angles.
+- CRASH CAM: big crashes play back in slow motion. Press Enter / A to skip, or
+  switch it off in Settings.
 
 ### Maps
 - Minimap in the corner: it turns with your car, zooms out when you go fast
@@ -87,19 +74,32 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - Press M (D-pad left) for a map of the whole island with the numbered
   teleport spots.
 
-### New vehicles
-- Pickup truck (it shows up in traffic too), a light and bouncy dune buggy,
-  and a MONSTER TRUCK with giant wheels that can drive right over cars.
-  Pick them in the garage.
+### Traffic
+- Highway traffic changes lanes: cars overtake slow trucks and buses and keep right.
+- Honk (E / L3) behind a car and it pulls over or moves a lane over to let you pass.
+- Park in a car's lane and it drives around you when the other lane is clear,
+  instead of just waiting and honking.
+- The highway has proper junctions with traffic lights where the east and west
+  avenues cross it: cars get on and off in both directions or go straight across.
 
 ### Menus
 - New title screen with your car on show: Drive, Garage, Settings, Controls, Quit.
-- Esc / Start now opens a pause menu (resume, garage, settings, controls,
-  main menu, quit).
+- Esc / Start opens a pause menu (resume, garage, settings, controls, main
+  menu, quit).
 - Settings: amount of traffic (few / normal / busy), graphics quality (pick Low
-  for longer battery on the Steam Deck), km/h or mph, driving assists,
-  vibration, fullscreen and volume. They're remembered.
+  for longer battery on the Steam Deck), time of day, km/h or mph, driving
+  assists, vibration, minimap, crash cam, fullscreen and volume. They're
+  remembered.
 - Gamepads rumble when you crash or land a big jump.
+
+### Fixes
+- Smoother driving: the game no longer stutters for a moment each time a
+  traffic car appears.
+- After pausing, the car could jump forward or get a big kick when the game
+  carried on, and the race clock kept running in the pause menu.
+- Traffic cars sometimes got flung into the air the moment they appeared.
+- City traffic only ever turned right at intersections. Now cars go straight
+  and turn left too.
 
 ## [0.2.0] - 2026-09-30
 
