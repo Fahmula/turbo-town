@@ -162,4 +162,8 @@ func _define_spawns() -> void:
 		{"name": "Mountain Top", "xform": Transform3D(face.call(Vector3.FORWARD), Vector3(c.x, roads.summit_height + 0.6, c.y + 14.0))},
 		{"name": "Dirt Fields", "xform": Transform3D(face.call(Vector3.RIGHT), fields + Vector3.UP * 0.8)},
 		{"name": "Beach", "xform": Transform3D(face.call(Vector3.LEFT), Vector3(-338, roads.beach_height + 0.6, 3))},
+		{"name": "Airfield", "xform": Transform3D(face.call(Vector3.BACK), MapLayout.APRON_CENTER + Vector3(-11, 0.7, 6))},
+		{"name": "Harbour", "xform": Transform3D(face.call(Vector3.BACK), MapLayout.HARBOR_QUAY_A + Vector3(-4, 0.7, -5))},
+		{"name": "Lighthouse", "xform": Transform3D(face.call(Vector3.RIGHT),
+			Vector3(MapLayout.ISLET_CENTER.x + 14.0, terrain.height_at(MapLayout.ISLET_CENTER.x + 14.0, 0.0) + 0.8, 0.0))},
 	]

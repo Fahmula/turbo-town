@@ -14,8 +14,8 @@ const HELP_TEXT := """[b]CONTROLS[/b]
 [color=#ffd54a]R[/color]   flip car upright
 [color=#ffd54a]V[/color]   garage: change vehicle / paint
 [color=#ffd54a]Backspace[/color]   back to spawn point
-[color=#ffd54a]1 - 6 / Tab[/color]   teleport: City, Highway,
-      Stunt Park, Mountain, Dirt Fields, Beach
+[color=#ffd54a]1 - 9 / Tab[/color]   teleport: City, Highway, Stunt Park,
+      Mountain, Dirt Fields, Beach, Airfield, Harbour, Lighthouse
 [color=#ffd54a]C[/color]   camera view     [color=#ffd54a]Q[/color]   look back
 [color=#ffd54a]Mouse[/color]   look around
 [color=#ffd54a]T[/color]   assists on/off (drift mode)

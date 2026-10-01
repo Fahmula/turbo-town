@@ -24,6 +24,14 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   A/D to barrel roll. Let go and the car turns itself level to land.
 - RECORDS page with your best combos, biggest air, longest drift and more.
 
+### New places
+- An airfield in the south-east with a long runway, hangars, a control tower
+  and planes (press 7 to go there).
+- A tunnel through a hill on the road to the stunt park.
+- A harbour on the north-west coast with piers, boats, a big crane and stacks
+  of containers (press 8).
+- Lighthouse Island off the beach, reached over a bridge (press 9).
+
 ### Stunt park and mountain
 - A LOOP-THE-LOOP in the stunt park (go 80+ km/h!) and a round WALL RIDE bowl
   right after it. Both count as stunts.

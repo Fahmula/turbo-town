@@ -96,6 +96,23 @@ func _draw_map(c: Node2D) -> void:
 			var b := _px(Vector3(g[col + 1] - hw, 0, g[row + 1] - hw))
 			c.draw_rect(Rect2(a, b - a), BLOCK_COLORS.get(kind, Color.GRAY))
 
+	# Landmarks: airfield, harbour quay and piers, bridge, tunnel hill.
+	var ra := _px(MapLayout.RUNWAY_A)
+	var rb := _px(MapLayout.RUNWAY_B)
+	var rhw := MapLayout.RUNWAY_WIDTH * 0.5 * px_per_m
+	c.draw_rect(Rect2(Vector2(ra.x, ra.y - rhw), Vector2(rb.x - ra.x, rhw * 2.0)), ROAD_EDGE)
+	c.draw_line(Vector2(ra.x + 6, ra.y), Vector2(rb.x - 6, rb.y), Color(0.95, 0.95, 0.93), 1.5)
+	var ac := MapLayout.APRON_CENTER
+	var asz := MapLayout.APRON_SIZE
+	var ap := _px(ac - Vector3(asz.x * 0.5, 0, asz.y * 0.5))
+	c.draw_rect(Rect2(ap, Vector2(asz.x, asz.y) * px_per_m), Color(0.62, 0.63, 0.66))
+	var qa := _px(MapLayout.HARBOR_QUAY_A - Vector3(18, 0, 0))
+	var qb := _px(MapLayout.HARBOR_QUAY_B + Vector3(18, 0, 0))
+	c.draw_rect(Rect2(Vector2(qa.x, qb.y), Vector2(qb.x - qa.x, qa.y - qb.y)), Color(0.66, 0.67, 0.68))
+	for pz in [MapLayout.HARBOR_QUAY_A.z - 15.0, (MapLayout.HARBOR_QUAY_A.z + MapLayout.HARBOR_QUAY_B.z) * 0.5, MapLayout.HARBOR_QUAY_B.z + 15.0]:
+		c.draw_line(_px(Vector3(MapLayout.HARBOR_QUAY_A.x - 18.0, 0, pz)), _px(Vector3(MapLayout.HARBOR_QUAY_A.x - 64.0, 0, pz)), Color(0.55, 0.4, 0.26), 6.0 * px_per_m)
+	c.draw_line(_px(Vector3(MapLayout.BRIDGE_EAST_X, 0, 0)), _px(Vector3(MapLayout.BRIDGE_WEST_X, 0, 0)), ROAD_COLOR, MapLayout.BRIDGE_WIDTH * px_per_m)
+	c.draw_circle(_px(Vector3(MapLayout.ISLET_CENTER.x, 0, MapLayout.ISLET_CENTER.y)), 3.0, Color(0.95, 0.25, 0.2))
 	# Dirt trails.
 	for r in world.roads.roads:
 		if r.kind == RoadBuilder.Kind.TRAIL:
@@ -120,6 +137,11 @@ func _draw_map(c: Node2D) -> void:
 			var q := _px(Vector3(it.x, 0, it.y))
 			var s := (MapLayout.CITY_ROAD_WIDTH + (2.0 if pass_i == 0 else 0.0) / px_per_m) * px_per_m
 			c.draw_rect(Rect2(q - Vector2(s, s) * 0.5, Vector2(s, s)), ROAD_EDGE if pass_i == 0 else ROAD_COLOR)
+	# The tunnel's hill covers the south avenue.
+	var tl := _px(Vector3(-MapLayout.TUNNEL_HILL_HALF_WIDTH * 0.6, 0, MapLayout.TUNNEL_Z0))
+	var tr := _px(Vector3(MapLayout.TUNNEL_HILL_HALF_WIDTH * 0.6, 0, MapLayout.TUNNEL_Z1))
+	c.draw_rect(Rect2(tl, tr - tl), Color(0.36, 0.6, 0.28))
+	c.draw_line(_px(Vector3(0, 0, MapLayout.TUNNEL_Z0)), _px(Vector3(0, 0, MapLayout.TUNNEL_Z1)), Color(0.27, 0.29, 0.34, 0.6), 2.0, true)
 	# Highway centre line, so it reads as the big road.
 	var hwy := world.roads.highway
 	var line := PackedVector2Array()

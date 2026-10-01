@@ -153,7 +153,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		Settings.set_value("assists", not Settings.get_value("assists"))
 		hud.show_toast("Assists ON" if vehicle.traction_control else "Assists OFF - drift mode!")
 	else:
-		for i in 6:
+		for i in mini(9, world.spawn_points.size()):
 			if event.is_action_pressed("teleport_%d" % (i + 1)):
 				teleport_to(i)
 				break

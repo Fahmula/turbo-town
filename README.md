@@ -24,7 +24,7 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 | Flip car upright | R | Y (Triangle) |
 | Garage: change vehicle / paint | V | D-pad down |
 | Back to spawn point | Backspace | Back / Select |
-| Teleport | 1-6, Tab = next | D-pad right |
+| Teleport | 1-9, Tab = next | D-pad right |
 | Camera view (chase / far / hood) | C | RB |
 | Look back | Q | LB |
 | Look around | Mouse | Right stick |
@@ -36,7 +36,8 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 | Help | H / F1 | |
 | Pause menu | Esc | Start / Menu |
 
-Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields, 6 Beach.
+Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields, 6 Beach,
+7 Airfield, 8 Harbour, 9 Lighthouse.
 
 **Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck,
 bus, pickup, buggy or monster truck and a paint colour. Left/right = vehicle, up/down = paint, Enter / A =
@@ -174,6 +175,7 @@ godot --path . -- --map=/tmp/shots      minimap / big map screenshots (+ world_m
 godot --path . -- --races=/tmp/shots    race flow checks + autopilot drives every race (medal reference times)
 godot --path . -- --park=/tmp/shots     loop-the-loop (4 vehicles) and the wall-ride bowl
 godot --path . -- --trail=/tmp/shots    buggy + pickup drive the mountain trail to the summit
+godot --path . -- --landmarks=/tmp/shots drive the tunnel, bridge, runway and a pier (+ views)
 godot --path . --headless --fixed-fps 120 -- --spawncheck   60 traffic spawns, none may crash
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)

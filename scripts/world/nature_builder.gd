@@ -57,7 +57,7 @@ func _scatter_trees(round_spots: Array[Transform3D], pine_spots: Array[Transform
 		var h := _terrain.height_at(x, z)
 		if h < 1.5:
 			continue
-		if _terrain.road_weight_at(x, z) > 0.01:
+		if _terrain.road_weight_at(x, z) > 0.01 or _keep_clear(x, z):
 			continue
 		if _terrain.slope_at(x, z) > 0.55:
 			continue
@@ -125,7 +125,7 @@ func _add_rocks(root: Node3D) -> void:
 		var dist := rng.randf_range(60.0, 170.0)
 		var x := MapLayout.MOUNTAIN_CENTER.x + cos(ang) * dist
 		var z := MapLayout.MOUNTAIN_CENTER.y + sin(ang) * dist
-		if _terrain.road_weight_at(x, z) > 0.01:
+		if _terrain.road_weight_at(x, z) > 0.01 or _keep_clear(x, z):
 			continue
 		var h := _terrain.height_at(x, z)
 		var r := rng.randf_range(0.8, 2.6)
@@ -173,3 +173,11 @@ func _add_sea(root: Node3D) -> void:
 	mi.position.y = MapLayout.SEA_LEVEL
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mi)
+
+
+## Spots trees mustn't grow: the tunnel's hill (it would stick through) and
+## around the lighthouse.
+static func _keep_clear(x: float, z: float) -> bool:
+	if absf(x) < MapLayout.TUNNEL_HILL_HALF_WIDTH + 3.0 and z > MapLayout.TUNNEL_Z0 - 3.0 and z < MapLayout.TUNNEL_Z1 + 3.0:
+		return true
+	return Vector2(x, z).distance_to(MapLayout.ISLET_CENTER) < 16.0

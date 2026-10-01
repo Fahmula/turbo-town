@@ -69,6 +69,12 @@ func base_height(x: float, z: float) -> float:
 
 	# Island shoreline.
 	h = lerpf(h, -6.5, shore_factor(x, z))
+
+	# Lighthouse islet out in the sea to the west.
+	var di := Vector2(x, z).distance_to(MapLayout.ISLET_CENTER)
+	if di < MapLayout.ISLET_RADIUS + 25.0:
+		var top := MapLayout.ISLET_HEIGHT + _detail.get_noise_2d(x, z) * 0.6
+		h = maxf(h, lerpf(-6.5, top, smoothstep(MapLayout.ISLET_RADIUS + 20.0, MapLayout.ISLET_RADIUS - 6.0, di)))
 	return h
 
 

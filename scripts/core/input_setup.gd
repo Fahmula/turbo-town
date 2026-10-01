@@ -36,7 +36,7 @@ func _enter_tree() -> void:
 	_bind("toggle_units", [KEY_U], [], [])
 	_bind("toggle_traffic", [KEY_G], [JOY_BUTTON_DPAD_UP], [])
 	_bind("teleport_next", [KEY_TAB], [JOY_BUTTON_DPAD_RIGHT], [])
-	for i in 6:
+	for i in 9:
 		_bind("teleport_%d" % (i + 1), [KEY_1 + i], [], [])
 	_bind("change_vehicle", [KEY_V], [JOY_BUTTON_DPAD_DOWN], [])
 	_bind("toggle_map", [KEY_M], [JOY_BUTTON_DPAD_LEFT], [])

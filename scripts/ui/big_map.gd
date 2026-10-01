@@ -1,7 +1,7 @@
 class_name BigMap
 extends Control
 ## Full-screen island map (M / D-pad left), north up: where you are, the
-## traffic, race markers and the numbered teleport spots (keys 1-6).
+## traffic, race markers and the numbered teleport spots (keys 1-9).
 
 var map: WorldMap
 var vehicle: Vehicle
@@ -85,6 +85,6 @@ func _draw_overlay() -> void:
 		var pts := PackedVector2Array([c + f * 13.0, c - f * 9.0 + r * 9.0, c - f * 4.0, c - f * 9.0 - r * 9.0])
 		_overlay.draw_colored_polygon(pts, Color(1.0, 0.3, 0.25))
 		_overlay.draw_polyline(pts + PackedVector2Array([pts[0]]), Color.WHITE, 2.0, true)
-	var hint := "1-6 teleport     M close"
+	var hint := "1-9 teleport     M close"
 	_overlay.draw_string_outline(font, Vector2(12, _overlay.size.y - 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 6, UiKit.OUTLINE)
 	_overlay.draw_string(font, Vector2(12, _overlay.size.y - 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)

@@ -11,6 +11,7 @@ extends Node
 ##   --races=<dir>    an autopilot drives every race (times -> medal reference), checks the flow
 ##   --park=<dir>     loop-the-loop and wall-ride bowl driven by an autopilot
 ##   --trail=<dir>    drive the mountain trail to the summit
+##   --landmarks=<dir> drive through the tunnel, over the bridge, down the runway (+ shots)
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -41,6 +42,9 @@ func _ready() -> void:
 		elif arg == "--spawncheck":
 			_mode = "spawncheck"
 			_dir = OS.get_user_data_dir()
+		elif arg.begins_with("--landmarks="):
+			_mode = "landmarks"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--trail="):
 			_mode = "trail"
 			_dir = arg.split("=")[1]
@@ -138,6 +142,8 @@ func _run() -> void:
 		await _park(game)
 	elif _mode == "trail":
 		await _trail(game)
+	elif _mode == "landmarks":
+		await _landmarks(game)
 	elif _mode == "spawncheck":
 		await _spawncheck(game)
 	else:
@@ -1744,3 +1750,70 @@ func _spawncheck(game: Game) -> void:
 		for w in int(OS.get_environment("GAPF") if OS.get_environment("GAPF") != "" else "1"):
 			await get_tree().physics_frame
 	_check(bad == 0, "clean spawns (%d bad of 60)" % bad)
+
+
+## Drives straight from `from` towards `to` (both on the ground) at up to
+## `kmh`; returns the closest the car got to `to` and whether it stayed upright.
+func _drive_line(game: Game, from: Vector3, to: Vector3, kmh: float, seconds: float, shot := "") -> Array:
+	var v := game.vehicle
+	var dir := to - from
+	dir.y = 0.0
+	v.teleport(Transform3D(Basis.looking_at(dir.normalized()), from + Vector3.UP * (v.ride_height() + 0.4)))
+	await _wait_s(0.4)
+	var t := 0.0
+	var best := INF
+	var worst_up := 1.0
+	var shot_done := shot == ""
+	while t < seconds:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		var pos := v.global_position
+		var local := v.global_basis.inverse() * (to - pos)
+		_set_axis(clampf(atan2(local.x, -local.z) * 2.0, -1.0, 1.0))
+		_set_pedals(v.speed_kmh < kmh, false)
+		best = minf(best, Vector2(pos.x - to.x, pos.z - to.z).length())
+		worst_up = minf(worst_up, v.global_basis.y.y)
+		if not shot_done and t > seconds * 0.4:
+			shot_done = true
+			await _shot(shot)
+		if best < 6.0:
+			break
+	_release()
+	return [best, worst_up]
+
+
+func _landmarks(game: Game) -> void:
+	game.traffic.set_enabled(false)
+	await _wait_s(0.3)
+	# Tunnel: north to south along the avenue.
+	var r := await _drive_line(game, Vector3(1.8, 0.0, 160.0), Vector3(1.8, 0.0, 245.0), 60.0, 14.0, "landmark_tunnel")
+	_check(r[0] < 6.0 and r[1] > 0.9, "drives through the tunnel (closest %.1f m)" % r[0])
+	# Bridge: beach to the islet.
+	var east := Vector3(MapLayout.BRIDGE_EAST_X + 25.0, 0.0, 0.0)
+	east.y = game.world.terrain.height_at(east.x, 0.0)
+	var west := Vector3(MapLayout.ISLET_CENTER.x + 16.0, 0.0, 0.0)
+	r = await _drive_line(game, east, west, 50.0, 20.0, "landmark_bridge")
+	var on_islet := game.vehicle.global_position.y > MapLayout.SEA_LEVEL + 1.0
+	_check(r[0] < 6.0 and on_islet and r[1] > 0.9, "drives over the bridge to the islet (closest %.1f m, y %.1f)" % [r[0], game.vehicle.global_position.y])
+	# Runway: full length at speed.
+	r = await _drive_line(game, MapLayout.RUNWAY_A + Vector3(10, 0, 0), MapLayout.RUNWAY_B - Vector3(15, 0, 0), 150.0, 20.0, "landmark_runway")
+	_check(r[0] < 6.0 and r[1] > 0.9, "runway end to end (closest %.1f m)" % r[0])
+	# Harbour: out along a pier.
+	var pz := (MapLayout.HARBOR_QUAY_A.z + MapLayout.HARBOR_QUAY_B.z) * 0.5
+	r = await _drive_line(game, Vector3(MapLayout.HARBOR_QUAY_A.x + 8.0, MapLayout.HARBOR_QUAY_A.y, pz), Vector3(MapLayout.HARBOR_QUAY_A.x - 55.0, MapLayout.HARBOR_QUAY_A.y, pz), 30.0, 14.0, "landmark_pier")
+	_check(r[0] < 6.0 and game.vehicle.global_position.y > 0.0, "drives out onto a pier (closest %.1f m)" % r[0])
+	# A few views.
+	var cam := game.camera
+	cam.set_process(false)
+	var views := [
+		["view_airfield", MapLayout.APRON_CENTER + Vector3(-60, 30, 70), MapLayout.APRON_CENTER + Vector3(30, 0, 20)],
+		["view_tunnel", Vector3(40, 18, 165), Vector3(0, 4, 205)],
+		["view_harbor", MapLayout.HARBOR_QUAY_A + Vector3(-90, 30, 30), MapLayout.HARBOR_QUAY_A + Vector3(-20, 0, -40)],
+		["view_lighthouse", Vector3(-440, 20, 60), Vector3(-500, 5, 0)],
+	]
+	for vw in views:
+		cam.global_position = vw[1]
+		cam.look_at(vw[2], Vector3.UP)
+		await _wait(3)
+		await _shot(vw[0])
+	cam.set_process(true)

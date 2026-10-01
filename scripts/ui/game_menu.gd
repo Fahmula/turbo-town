@@ -18,7 +18,7 @@ const CONTROLS := [
 	["Horn", "E", "L3 (press left stick)"],
 	["Garage: change vehicle", "V", "D-pad down"],
 	["Back to spawn point", "Backspace", "View"],
-	["Teleport", "1-6, Tab", "D-pad right"],
+	["Teleport", "1-9, Tab", "D-pad right"],
 	["Camera view", "C", "RB"],
 	["Look back", "Q", "LB"],
 	["Look around", "Mouse", "Right stick"],

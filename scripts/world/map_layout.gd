@@ -84,6 +84,31 @@ const DIRT_MOUNDS := [
 # --- Beach (west) ---
 const BEACH_LOT := Vector2(-352.0, 0.0)
 
+# --- Airport (south-east): runway with an apron of hangars to its north ---
+const RUNWAY_A := Vector3(285, 1.0, 300)
+const RUNWAY_B := Vector3(525, 1.0, 300)
+const RUNWAY_WIDTH := 28.0
+const APRON_CENTER := Vector3(335, 1.0, 258)
+const APRON_SIZE := Vector2(100, 36)
+
+# --- Tunnel through a hill on the south avenue ---
+const TUNNEL_Z0 := 180.0
+const TUNNEL_Z1 := 228.0
+const TUNNEL_HALF_WIDTH := 7.5
+const TUNNEL_HILL_HALF_WIDTH := 32.0
+
+# --- Harbour on the north-west coast: a quay with piers into the sea ---
+const HARBOR_QUAY_A := Vector3(-392, 1.2, -200)
+const HARBOR_QUAY_B := Vector3(-392, 1.2, -280)
+
+# --- Lighthouse islet off the west beach, joined by a bridge ---
+const ISLET_CENTER := Vector2(-528, 0)
+const ISLET_RADIUS := 30.0
+const ISLET_HEIGHT := 3.0
+const BRIDGE_EAST_X := -405.0
+const BRIDGE_WEST_X := -506.0
+const BRIDGE_WIDTH := 9.0
+
 # --- Island / terrain ---
 const TERRAIN_HALF_SIZE := 640.0
 const TERRAIN_CELL := 4.0

@@ -387,6 +387,12 @@ func raster_into_terrain() -> void:
 			_terrain.raster_segment(r.points[i], r.points[i1], hw, r.shoulder)
 	for f in flat_areas:
 		_terrain.raster_circle(Vector2(f.x, f.y), f.z, f.w, 14.0)
+	# Landmark ground: airport runway + apron, harbour quay.
+	_terrain.raster_segment(MapLayout.RUNWAY_A, MapLayout.RUNWAY_B, MapLayout.RUNWAY_WIDTH * 0.5 + 4.0, 16.0)
+	var ac := MapLayout.APRON_CENTER
+	var asz := MapLayout.APRON_SIZE
+	_terrain.raster_segment(ac - Vector3(asz.x * 0.5, 0, 0), ac + Vector3(asz.x * 0.5, 0, 0), asz.y * 0.5 + 3.0, 12.0)
+	_terrain.raster_segment(MapLayout.HARBOR_QUAY_A, MapLayout.HARBOR_QUAY_B, 18.0, 8.0)
 
 
 # =================================================================== build ==
