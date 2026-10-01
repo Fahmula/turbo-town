@@ -26,6 +26,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - New pickup: a big American-style truck with a chrome grille and bumpers, a
   crew cab, an open load bed with a tailgate, chunky off-road wheels and
   optional racing stripes.
+- New delivery truck: a flat-nosed cab with a wrap-round windscreen and a
+  ribbed aluminium box with a roller door, a fuel tank and side guards.
 - Garage: 12 new paint colours that look like real car paint (some sparkle
   like metallic paint), plus fun ones like lime and pink, and racing stripes
   you can switch on for the sports car (X key or the Y button).

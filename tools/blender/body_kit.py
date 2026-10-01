@@ -705,3 +705,32 @@ def torus(part, mat, center, ring_r, tube_r, seg=16, tseg=5, tilt=0.0, axis="X")
             bm.faces.new([r0[b], r1[b], r1[(b + 1) % tseg], r0[(b + 1) % tseg]])
     bm.transform(mathutils.Matrix.Translation(center) @ mathutils.Matrix.Rotation(tilt, 4, axis))
     _append(part, bm, mat)
+
+
+def panel_box(part, mat, center, size, step=0.35, faces=("+x", "-x", "+y", "-y", "+z", "-z")):
+    """A box whose faces are grids about `step` apart, so dents can bend its
+    flat panels (a plain 8-vertex box can't dent). Faces point outward."""
+    cx, cy, cz = center
+    hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
+    bm = bmesh.new()
+
+    def grid(origin, du, dv, nu, nv):
+        rows = [[bm.verts.new(origin + du * (a / nu) + dv * (b / nv)) for b in range(nv + 1)] for a in range(nu + 1)]
+        for a in range(nu):
+            for b in range(nv):
+                bm.faces.new([rows[a][b], rows[a + 1][b], rows[a + 1][b + 1], rows[a][b + 1]])
+
+    V = mathutils.Vector
+    n = lambda length: max(1, int(round(length / step)))  # noqa: E731
+    specs = {
+        "+x": (V((cx + hx, cy - hy, cz - hz)), V((0, 2 * hy, 0)), V((0, 0, 2 * hz))),
+        "-x": (V((cx - hx, cy + hy, cz - hz)), V((0, -2 * hy, 0)), V((0, 0, 2 * hz))),
+        "+y": (V((cx + hx, cy + hy, cz - hz)), V((-2 * hx, 0, 0)), V((0, 0, 2 * hz))),
+        "-y": (V((cx - hx, cy - hy, cz - hz)), V((2 * hx, 0, 0)), V((0, 0, 2 * hz))),
+        "+z": (V((cx - hx, cy - hy, cz + hz)), V((2 * hx, 0, 0)), V((0, 2 * hy, 0))),
+        "-z": (V((cx - hx, cy + hy, cz - hz)), V((2 * hx, 0, 0)), V((0, -2 * hy, 0))),
+    }
+    for f in faces:
+        o, du, dv = specs[f]
+        grid(o, du, dv, n(du.length), n(dv.length))
+    _append(part, bm, mat)
