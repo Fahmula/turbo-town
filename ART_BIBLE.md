@@ -189,17 +189,18 @@ bible.
 ## 3. Where the game is today (legacy baseline)
 
 As of v0.3.1 (2026-10-01), the game used a bright toy low-poly style. Step 1
-of the migration (§31: lighting, atmosphere and palette) landed the same day;
-those rows describe the game after it.
+of the migration (§31: lighting, atmosphere and palette) and step 4 (the whole
+vehicle fleet) landed on `dev` the same day; those rows describe the game
+after them.
 
 | Area | Today | Target |
 |---|---|---|
-| Geometry | `MeshBuilder` flat-shades every triangle. Trees, rocks and clouds are faceted blobs. Vehicle bodies are side profiles extruded with `extrude_profile`, plus box parts. | Smooth shading with bevels. Deformation-ready vehicle topology. |
+| Geometry | `MeshBuilder` flat-shades every triangle. Trees, rocks and clouds are faceted blobs. **Vehicles migrated (step 4):** smooth loft bodies from `body_kit.py`. | Smooth shading with bevels. Deformation-ready vehicle topology. |
 | Textures | None. Everything is vertex colour or a procedural shader (road markings, windows, water). | Stay procedural-first. Add small generated detail textures where they pay off (§8). |
-| Palette | **Migrated (step 1).** World colours follow §5 and live in `ArtPalette` (`scripts/world/art_palette.gd`). Vehicle paints are not done yet (step 4). | Naturalistic palette (§5). |
+| Palette | **Migrated (step 1).** World colours follow §5 and live in `ArtPalette` (`scripts/world/art_palette.gd`). Vehicle paints **migrated (step 4)**: `PaintPalette` (§5). | Naturalistic palette (§5). |
 | Lighting | **Migrated (step 1).** Warm sun, cool ambient, AgX tonemap, aerial fog, 15:00 day preset (§9, §11). | More sun/shadow contrast, cooler shadows, more aerial haze. |
 | Sky | Colours **migrated (step 1)**: paler, hazier horizon. Clouds are still faceted meshes (step 2). | A paler, hazier horizon and soft clouds. |
-| Vehicles | **Sports car migrated (step 4 prototype):** a loft body from `body_kit.py` with real arches, interior, see-through glass, alloy wheels and clear-coat paint. The other seven vehicles are still legacy: 1.6–2.6k-tri extruded bodies, 8 cm arch gaps, opaque glass, no interior. | §12–13. |
+| Vehicles | **All eight migrated (step 4).** Loft bodies from `body_kit.py` (one `make_<vehicle>.py` each) with real arches, 5–6k deformable vertices, clear-coat paint and four new wheel types. The sports car (90s/early-2000s Japanese coupé) is the quality baseline. Every vehicle has see-through glass and an interior (the buggy an open cockpit) except the bus, which has opaque tinted glass. | §12–13. Later: LOD tuning, Damage 3.0 (§14). |
 | Damage | Vertex dents (smoothstep falloff, bent normals); since step 4 a dent only touches the vertices it moves. Bumpers and spoiler fall off. Lights and glass break. Smoke and sparks. | Add a scrape/primer/bare-metal layer, crumple stiffness, and structure behind lost parts (§14). |
 | UI | Dark navy rounded panels, yellow accent, outlined default font, built in code with `UiKit`. | Keep the colours and layout. Add a real font, a type scale and icons (§20–22). |
 
@@ -697,6 +698,24 @@ exposure, same tonemapper.
   sill). Big bevels on the outer shell (3–8 cm), tighter ones on panel edges
   (5–15 mm). No boxy primitives.
 
+**The fleet: one design language per class (step 4, owner-approved)**
+
+The sports car sets the quality bar: materials, detail density, geometry
+quality and finish. The other classes match that bar but are **not**
+variations of the sports car; each has its own character. The generator
+docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
+
+| Class | Character |
+|---|---|
+| Sports coupé (`make_car.py`) | 90s/early-2000s Japanese-inspired front-engined coupé: long bonnet, fender peaks, fastback cabin, small wing. Keep this character; don't push it more realistic. |
+| Sedan (`make_sedan.py`) | Mid-2000s Japanese-style family sedan: three boxes, upright cabin with six side windows, chrome window trim. Taller and plainer than the coupé on purpose. |
+| Van (`make_van.py`) | Modern European-style passenger van: one box, steep windscreen, black cladding and bumpers all round, sliding-door rail, twin rear doors. |
+| Pickup (`make_pickup.py`) | Full-size American-style truck: tall flat bonnet, huge chrome-framed grille, chrome bumpers, crew cab, separate open bed. |
+| Delivery truck (`make_truck.py`) | Japanese-style cab-over light truck: flat front, wrap-round windscreen, ribbed aluminium box with a roller door, visible chassis. |
+| City bus (`make_bus.py`) | Modern low-floor bus: huge windscreen, continuous dark window band, glass doors, roof air-con, opaque tinted glass. |
+| Buggy (`make_buggy.py`) | Classic desert sand-rail: small open tub with a cockpit dip, full tube roll cage and light bar, exposed engine, rear wing. |
+| Monster truck (`make_monster.py`) | Retro 80s/90s show truck: boxy regular-cab pickup high on a tube chassis, chrome coil-overs, roll bar, exhaust stacks. |
+
 **Must-have details (as geometry)**
 
 - Panel shut-lines (bonnet, doors, boot) as 5–8 mm dark grooves on the
@@ -734,13 +753,17 @@ are the authority for wheel positions and radii.
 
 | Class | Length | Width | Height | Today's model |
 |---|---|---|---|---|
-| Sports coupé | 4.3–4.6 | 1.85–1.95 | 1.15–1.30 | 4.4 × 1.94, wheels r 0.37 at x ±0.83, axles ±1.35 |
-| Sedan | 4.6–4.9 | 1.80–1.88 | 1.40–1.48 | r 0.34, x ±0.80, axles ±1.40 |
-| Van | 4.9–5.4 | 1.95–2.05 | 1.9–2.2 | r 0.36, x ±0.86, axles ±1.50 |
-| Pickup | 5.2–5.8 | 1.9–2.05 | 1.8–1.95 | see scene |
-| Box truck | 6.5–8.0 | 2.3–2.5 | 3.2–3.6 | see scene |
-| City bus | 11–12.5 | 2.5–2.55 | 3.0–3.3 | see scene |
-| Buggy, monster truck | fictional, keep current proportions | | | see scene |
+| Sports coupé | 4.3–4.6 | 1.85–1.95 | 1.15–1.30 | 4.45 × 1.27 h; wheels r 0.37 at x ±0.83, axles ±1.35 |
+| Sedan | 4.6–4.9 | 1.80–1.88 | 1.40–1.48 | 4.70 × 1.47 h; r 0.34, x ±0.80, axles ±1.40 |
+| Van | 4.9–5.4 | 1.95–2.05 | 1.9–2.2 | 4.99 × 2.01 h; r 0.36, x ±0.86, axles ±1.50 |
+| Pickup | 5.2–5.8 | 1.9–2.05 | 1.8–1.95 | 5.44 × 1.75 h; r 0.40, x ±0.86, axles ±1.60 |
+| Box truck | 6.5–8.0 | 2.3–2.5 | 3.2–3.6 | 6.96 × 3.33 h; r 0.45, x ±0.95, axles ±1.90 |
+| City bus | 11–12.5 | 2.5–2.55 | 3.0–3.3 | 8.89 × 3.25 h (shortened for the town's streets); r 0.50, x ±1.00, axles ±2.20 |
+| Buggy | fictional | | | 3.85 × 1.82 h (cage); r 0.42, x ±0.92, axles ±1.25 |
+| Monster truck | fictional | | | 4.72 × 3.30 h; r 0.95, x ±1.32, axles ±1.65 |
+
+Lengths and heights are measured from the models (height from the ground);
+widths are left out because the mirrors dominate them.
 
 ---
 
@@ -755,7 +778,7 @@ are the authority for wheel positions and radii.
 | `TailLight` | `VehicleBodyVisual` brake emission; `VehicleDamage` | red lens |
 | `ReverseLight` | `VehicleBodyVisual` reverse emission | white lens |
 | `Glass` | `VehicleDamage` swaps it to cracked glass | tinted glass |
-| `Trim`, `Chrome`, `Interior`, `Stripe`, `Tire`, `Rim`, `Hub`, `Cage`, `Frame`, `Box` | fixed looks | per §6 (`Interior`: dark cabin parts) |
+| `Trim`, `Chrome`, `Interior`, `Stripe`, `Tire`, `Rim`, `Hub`, `Cage`, `Frame`, `Box`, `Roof`, `GlassDark` | fixed looks | per §6. `Interior`: dark cabin parts. `Cage`: roll cages, chassis tubes. `Box`: the truck's aluminium box. `Roof`: the bus's light grey roof. `GlassDark`: opaque windows painted on the body with nothing behind them (they never crack). |
 
 **Detachable meshes are matched by exact name:** `FrontBumper`, `RearBumper`,
 `Spoiler`. A wing exported as "Wing" silently never falls off (it happened once;
@@ -777,9 +800,10 @@ New names are fine for fixed materials. Add them to this table.
 **Other vehicle materials**
 
 - **Glass.** Alpha-blended tint `#1E2833` at alpha 0.72, roughness 0.05,
-  metallic 0, but only on vehicles that have an interior (new-style bodies:
-  the Blender material's alpha exports as glTF `BLEND`). Legacy bodies keep
-  opaque, dark glass. A see-through cabin also needs inward-facing door
+  metallic 0, but only on vehicles that have an interior (the Blender
+  material's alpha exports as glTF `BLEND`). The bus has no interior, so its
+  `Glass` is opaque dark tint (`vehicle_materials(glass_alpha=1.0)`); it still
+  cracks. A see-through cabin also needs inward-facing door
   cards, headliner and pillars, or you see out through the far side (backface
   culling). Cracked glass is an opaque, whitish spiderweb.
 - **Lights:** lens albedo near white, red or amber, roughness 0.05–0.15.
@@ -870,9 +894,10 @@ explosions unless the owner asks.
   cap.
 - **Topology:** deformable panels need evenly spaced vertices, about 8–15 cm
   apart on large panels (doors, bonnet, roof, sides), quads where possible.
-  **No big n-gons or triangle fans.** Today `extrude_profile` closes each side
-  of the body with one n-gon, so a dent in the middle of a door moves almost
-  nothing. Fix that when remodelling. Avoid long thin triangles.
+  **No big n-gons or triangle fans.** (The legacy `extrude_profile` closed
+  each side with one n-gon, so a dent in a door moved almost nothing. The loft
+  bodies are quad grids; flat parts that must dent use `body_kit.panel_box`.)
+  Avoid long thin triangles.
 - **Per-vertex damage data (reserved layout):** an authored crumple factor (1 =
   soft: bumpers, bonnet, wings, boot; ~0.5 doors; ~0.25 pillars, roof, cabin),
   plus runtime scrape and paint-loss masks written by `VehicleDamage`. The
@@ -1222,11 +1247,15 @@ rerun it, and commit both.
   `BodySpec`/`LoftBody` (a spec-driven loft: profiles, cabin regions, window
   list, door and shut lines, bumper split, inner cabin), projected decal
   patches, lathe and spoke helpers, materials and export. Each vehicle has
-  its own `make_<vehicle>.py`, starting with `make_car.py` (sports car).
-- **Wheels:** `make_wheels.py` builds all four types (sports, sedan, steel,
-  off-road) at a 0.37 m base radius; scenes scale them uniformly.
-- **Legacy:** `vehicle_kit.py`, with `make_traffic_vehicles.py` and
-  `make_offroad_vehicles.py`. These get replaced as each vehicle migrates.
+  its own script: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`,
+  `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`,
+  `make_buggy.py` and `make_monster.py`.
+- **Wheels:** `make_wheels.py` builds all four types (sports `wheel.glb`, sedan
+  `wheel_sedan.glb`, steel `wheel_steel.glb`, off-road `wheel_offroad.glb`) at
+  a 0.37 m base radius; scenes scale them uniformly.
+- The legacy extruder (`vehicle_kit.py`, `make_traffic_vehicles.py`,
+  `make_offroad_vehicles.py`) was deleted once the last vehicle migrated, so it
+  can't overwrite the new models. It's still in git history.
 
 How the loft works: cross-sections at stations front to back, each a list of
 right-half points from the bottom centre to the top centre, mirrored. Face
@@ -1235,6 +1264,9 @@ and bumpers are regions of one quad grid. Arches come from raising the
 section's bottom over the wheels, and the nose and tail round off in plan
 view. Lessons:
 - Never recalculate normals on open shells; the winding is authored.
+- Open shapes (beds, tubs) use `section_override`/a custom section that runs
+  over the rim and down the inside to the centre line, so the mirror still
+  closes (see `make_buggy.py`'s tub and `make_monster.py`'s bed).
 - Check vertex counts on the exported .glb.
 - Preview headless with a Workbench render before importing into Godot.
 
@@ -1253,11 +1285,10 @@ Output goes to `assets/models/`.
 - **Vehicles:** the front points to Blender +Y (Godot −Z). The origin is at
   wheel-centre height, midway between the axles. Wheel positions and radius
   match the vehicle scene.
-- **Material names follow the contract** (§13). Detachable parts are grouped by
-  object-name prefix in `vehicle_kit.DETACHABLE`: `FrontBumper`/`Bumper` →
-  `FrontBumper`, `RearBumper` → `RearBumper`, `Wing` → `Spoiler`. Each becomes
-  its own mesh in the `.glb`.
-- Export GLB with `use_selection` and `export_apply=True` (`vehicle_kit.export`).
+- **Material names follow the contract** (§13). Detachable parts are their own
+  `bk.Part` named exactly `FrontBumper`, `RearBumper` or `Spoiler` (the Part
+  name becomes the Godot node name). Each becomes its own mesh in the `.glb`.
+- Export with `bk.export` (GLB, selection only, transforms applied).
 
 **Modelling rules for the new style**
 
@@ -1326,8 +1357,8 @@ Output goes to `assets/models/`.
 
 | Asset | Tris | Notes |
 |---|---|---|
-| Vehicle body, all meshes under `Body` incl. interior | 6k–10k | ≤ 6,000 deformable vertices (§14). Today 1.6–2.6k. |
-| Wheel (one mesh, instanced ×4) | 800–2,000 | not deformed. Today ~830. |
+| Vehicle body, all meshes under `Body` incl. interior | 6k–10k | ≤ 6,000 deformable vertices (§14). Today 5.7–8.2k tris, 4.9–5.9k vertices. |
+| Wheel (one mesh, instanced ×4) | 800–2,000 | not deformed. Today 2.0–2.4k, a little over: trim the tread/lugs first if primitives get tight. |
 | Small prop | ≤ 300 | |
 | Street furniture | ≤ 1,500 | |
 | Large prop | ≤ 3,000 | |
@@ -1392,12 +1423,21 @@ window):
   ms before, 1.37–1.39 ms after). The same bench read 0.60 ms earlier that day,
   so desktop GPU times swing with the laptop's power state: only compare A/B
   runs made back to back.
-- Vehicle bodies 1.6–2.6k tris with 8–12 surfaces; wheels ~830 tris with 3
-  surfaces each. The new sports car: 7,952 tris, 5,749 vertices, 14 surfaces;
-  its wheel 2,620 tris, 3 surfaces.
 - After the sports car (step 4 prototype): 648 draw calls and 1,896 objects
   without traffic. The model has a couple more surfaces than before, and the
   parked cars in the lots use it too.
+- **After the whole fleet (step 4):** 733 draw calls and 2,023 objects without
+  traffic, +85 / +127 against the sports-car-only build in a back-to-back A/B
+  (three runs each). With 22 traffic cars: 929–993 against 779–863. Desktop GPU
+  and render-CPU times were the same within noise. The cost is surfaces: the
+  sedan, van, pickup and bus went from 8–9 to 12–13 (interiors, chrome, light
+  patches), and traffic plus the parked cars (sedan, van, sports car) use them.
+  One run read 1,553 with traffic: placement varies, and a car near the camera
+  costs about 25 surfaces times the shadow passes. **Check dense city traffic on
+  the Deck** against the 1,200 budget; trims are listed in PROGRESS.md.
+- Bodies now: 5.7–8.2k tris, 4.9–5.9k exported vertices, 8–9 surfaces on the
+  main mesh and 12–15 with bumpers/wing (a hidden `Stripes` mesh costs
+  nothing). Wheels: 2.0–2.4k tris, 3 surfaces.
 - Dent cost: see §14 (windowed, about 1.2 ms per pass for a car).
 
 **Budgets** (busiest view, High)
@@ -1413,7 +1453,7 @@ window):
 | Transparent overdraw | no full-screen transparent layers; foliage uses alpha scissor |
 | Texture memory | ≤ 256 MB |
 | Deformable vertices per vehicle | ≤ 6,000 |
-| Draw surfaces per vehicle | ≤ 10 on the body, ≤ 2–3 per wheel |
+| Draw surfaces per vehicle | ≤ 10 on the body mesh (detachable parts add 2–6), ≤ 2–3 per wheel |
 
 **Rules**
 
@@ -1568,10 +1608,13 @@ Cheapest and biggest wins first:
    `MeshBuilder`; trees, rocks; soft clouds in the sky.
 3. **Roads:** asphalt variation, marking wear, sidewalk paving, Jersey barriers,
    overpass detail, drainage streaks.
-4. **Vehicles** (in progress): remodel every body with deformation-ready
-   topology, interiors and better wheels; clearcoat car paint; glass. The
-   sports car prototype was done 2026-10-01 (`body_kit.py`, `make_car.py`),
-   along with faster dents and clear coat for all paint. Seven vehicles to go.
+4. ✅ **Vehicles** (done 2026-10-01 on `dev`): every body remodelled with
+   deformation-ready topology, interiors and better wheels; clearcoat car
+   paint; glass. The sports car prototype came first and set the quality bar
+   (`body_kit.py`, `make_car.py`), with faster dents and clear coat for all
+   paint; then the other seven, one design language per class (§12), four
+   wheel types, the `PaintPalette` garage and traffic colours, and garage
+   racing stripes.
 5. **Damage 3.0:** crumple stiffness, the scrape/primer/bare-metal layer,
    structure behind detachable parts, a cracked-glass pattern.
 6. **Buildings:** facade grammar (base, middle, top), districts, roof clutter,
@@ -1589,7 +1632,7 @@ Cheapest and biggest wins first:
 - ~~Traffic colours~~ and ~~player paint list~~: decided 2026-10-01 (§5).
 - ~~Racing stripes~~: decided 2026-10-01, a garage option, never on traffic
   (§12).
-- **When to start the migration** (§31), and in what order.
+- **Next migration step** (§31), and when to merge `dev` into `main`.
 
 ---
 
@@ -1600,3 +1643,7 @@ Cheapest and biggest wins first:
   updated with the tested values.
 - 2026-10-01: step 4 sports car prototype; §3, §13, §14 (corrected dent-cost
   measurements), §24, §27 and §31 updated.
+- 2026-10-01: step 4 done (whole fleet); §3, §12 (fleet design languages,
+  measured dimensions), §13 (new fixed materials), §14, §24 (per-vehicle
+  scripts, legacy extruder removed), §26, §27 (fleet A/B baseline, surface
+  budget clarified) and §31 updated.

@@ -111,10 +111,16 @@ scripts/
              best combos, biggest air...)
   dev/       autotest.gd, dev_tools.gd, audio_check.gd (testing helpers)
 assets/      models (.glb from Blender), shaders, materials
-tools/blender/make_car.py              Sports car + wheel:  blender -b -P tools/blender/make_car.py
-tools/blender/make_traffic_vehicles.py Sedan, van, truck, bus + steel wheel (same command)
-tools/blender/make_offroad_vehicles.py Pickup, buggy, monster truck + knobbly wheel
-tools/blender/vehicle_kit.py           Shared modelling helpers for the scripts
+tools/blender/make_car.py      Sports car body:  blender -b -P tools/blender/make_car.py
+tools/blender/make_sedan.py    Sedan (same command for every script)
+tools/blender/make_van.py      Van
+tools/blender/make_pickup.py   Pickup
+tools/blender/make_truck.py    Delivery truck
+tools/blender/make_bus.py      City bus
+tools/blender/make_buggy.py    Buggy
+tools/blender/make_monster.py  Monster truck
+tools/blender/make_wheels.py   All four wheel types (sports, sedan, steel, off-road)
+tools/blender/body_kit.py      Shared loft body builder and modelling helpers
 ```
 
 ## How things work
