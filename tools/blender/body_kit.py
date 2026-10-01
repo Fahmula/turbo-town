@@ -127,13 +127,15 @@ def material(name, color, rough=0.5, metal=0.0, emission=None, strength=0.0, alp
     return mat
 
 
-def vehicle_materials(paint=(0.784, 0.137, 0.106)):
+def vehicle_materials(paint=(0.784, 0.137, 0.106), glass_alpha=0.72):
     """The material set every new-style body uses. Names are the game's
     contract (ART_BIBLE.md §13): Paint, Glass, Headlight, TailLight and
-    ReverseLight are looked up by code."""
+    ReverseLight are looked up by code. `glass_alpha` 1.0 = opaque glass for
+    vehicles with no interior (it still cracks: it's still "Glass")."""
     return {
         "Paint": material("Paint", paint, rough=0.32),
-        "Glass": material("Glass", (0.118, 0.157, 0.2), rough=0.05, alpha=0.72),
+        "Glass": material("Glass", (0.118, 0.157, 0.2) if glass_alpha < 1.0 else (0.09, 0.115, 0.14),
+                          rough=0.05, alpha=glass_alpha),
         "Trim": material("Trim", (0.133, 0.137, 0.149), rough=0.6),
         "Chrome": material("Chrome", (0.85, 0.86, 0.87), rough=0.12, metal=1.0),
         "Headlight": material("Headlight", (1.0, 0.96, 0.88), rough=0.1, emission=(1.0, 0.95, 0.85), strength=2.0),
