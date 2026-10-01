@@ -8,6 +8,8 @@ uniform vec4 glass_lit : source_color = vec4(0.55, 0.72, 0.85, 1.0);
 uniform vec4 frame_color : source_color = vec4(0.95, 0.95, 0.92, 1.0);
 uniform float floor_height = 3.4;
 uniform float window_spacing = 3.2;
+// 0 = day, 1 = night: some windows light up.
+uniform float night = 0.0;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -41,5 +43,7 @@ void fragment() {
 		ALBEDO = c;
 		ROUGHNESS = mix(0.85, 0.15, win * fade);
 		METALLIC = win * fade * 0.2;
+		float lit = step(0.45, hash(id * 1.7 + COLOR.gb * 53.0));
+		EMISSION = vec3(1.0, 0.8, 0.5) * win * lit * night * 1.6;
 	}
 }

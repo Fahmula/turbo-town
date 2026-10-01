@@ -351,6 +351,14 @@ func _build_tunnel(root: Node3D) -> void:
 	var lmi := MeshInstance3D.new()
 	lmi.mesh = lights.build_mesh(_glow_material(Color(1.0, 0.92, 0.75), 3.0))
 	root.add_child(lmi)
+	# A few real lights so the inside isn't dark (on day and night).
+	for k in 3:
+		var light := OmniLight3D.new()
+		light.position = Vector3(0, wall_h + arch - 0.8, lerpf(z0 + 8.0, z1 - 8.0, k / 2.0))
+		light.omni_range = 16.0
+		light.light_energy = 1.6
+		light.light_color = Color(1.0, 0.9, 0.72)
+		root.add_child(light)
 
 
 ## Bottom of the hill's end wall at x: the top of the tunnel mouth, or the ground.
@@ -448,6 +456,10 @@ func _build_islet(root: Node3D) -> void:
 	lamp.mesh = lm.build_mesh(_glow_material(Color(1.0, 0.9, 0.5), 2.5))
 	lamp.name = "LighthouseLamp"
 	root.add_child(lamp)
+	var beam := LighthouseBeam.new()
+	beam.name = "LighthouseBeam"
+	beam.position = base + Vector3.UP * 18.4
+	root.add_child(beam)
 	# Keeper's cottage.
 	var hx := base + Vector3(10.0, 0, 7.0)
 	_solid_box(mb, body, Transform3D(Basis.IDENTITY, hx + Vector3(0, 1.6, 0)), Vector3(7, 3.2, 5), Color(0.97, 0.93, 0.85))

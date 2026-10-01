@@ -24,6 +24,11 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   A/D to barrel roll. Let go and the car turns itself level to land.
 - RECORDS page with your best combos, biggest air, longest drift and more.
 
+### Day and night
+- Pick day, sunset, night or a day-and-night cycle in Settings. At night the
+  windows light up, street lamps come on, your car has headlights and the
+  lighthouse beam sweeps across the sea.
+
 ### New places
 - An airfield in the south-east with a long runway, hangars, a control tower
   and planes (press 7 to go there).

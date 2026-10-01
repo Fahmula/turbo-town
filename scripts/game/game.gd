@@ -21,6 +21,7 @@ var title_camera: MenuCamera
 var stunts: StuntTracker
 var world_map: WorldMap
 var race: RaceManager
+var day_night: DayNight
 ## Start on the title screen. Off for dev/test runs (they pass command-line
 ## args) so they start driving straight away.
 var show_title := OS.get_cmdline_user_args().is_empty()
@@ -76,6 +77,13 @@ func _ready() -> void:
 	hud.speedometer.use_mph = Settings.get_value("units_mph")
 	Settings.changed.connect(_on_setting_changed)
 	GraphicsQuality.apply(Settings.get_value("graphics"), get_viewport(), world)
+	day_night = DayNight.new()
+	day_night.name = "DayNight"
+	add_child(day_night)
+	day_night.setup(world)
+	day_night.night_changed.connect(func(_on: bool) -> void: _fit_headlights())
+	day_night.set_mode(Settings.get_value("time_of_day"))
+	_fit_headlights()
 	teleport_to(0)
 	if show_title:
 		_enter_title()
@@ -249,6 +257,9 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 			hud.minimap.visible = value
 		"graphics":
 			GraphicsQuality.apply(value, get_viewport(), world)
+			get_tree().call_group("night_lights", "set_night", day_night.is_night)
+		"time_of_day":
+			day_night.set_mode(value)
 
 
 # --- Garage / changing vehicle -----------------------------------------------
@@ -321,6 +332,7 @@ func change_vehicle(index: int, color: Color, place_here := true) -> void:
 		traffic.set_player(car)
 	stunts.vehicle = car
 	car.vehicle_reset.connect(race.on_teleport)
+	_fit_headlights()
 	if not place_here:
 		return
 	if spot.is_empty():
@@ -361,6 +373,28 @@ func _find_room(car: Vehicle, old: Vehicle) -> Dictionary:
 				traffic.remove_vehicle(v)
 			return {"xform": xform}
 	return {}
+
+
+## Real headlights on the player's vehicle (only after dark; traffic cars
+## just have glowing lamps, to keep the light count low).
+func _fit_headlights() -> void:
+	if vehicle == null or day_night == null:
+		return
+	var lights := vehicle.get_node_or_null("Headlights") as Node3D
+	if lights == null:
+		lights = Node3D.new()
+		lights.name = "Headlights"
+		vehicle.add_child(lights)
+		for side in [-1.0, 1.0]:
+			var spot := SpotLight3D.new()
+			spot.position = Vector3(side * vehicle.body_half_width * 0.6, 0.45, -vehicle.body_front + 0.2)
+			spot.rotation = Vector3(deg_to_rad(-6.0), 0, 0)
+			spot.spot_range = 55.0
+			spot.spot_angle = 30.0
+			spot.light_energy = 4.0
+			spot.light_color = Color(1.0, 0.95, 0.85)
+			lights.add_child(spot)
+	lights.visible = day_night.is_night
 
 
 func _paint_of(v: Vehicle) -> Color:

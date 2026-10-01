@@ -94,6 +94,14 @@ func _add_block(slabs: MeshBuilder, paint: MeshBuilder, bmb: MeshBuilder, detail
 		"parking":
 			_add_parking(paint, ix0, iz0, ix1, iz1)
 
+	# A street lamp in the middle of each side of the block, arm over the road
+	# (between the street trees).
+	var mx := (x0 + x1) * 0.5
+	var mz := (z0 + z1) * 0.5
+	for lamp: Array in [[Vector3(mx, h, z0 + 0.5), 0.0], [Vector3(mx, h, z1 - 0.5), PI],
+			[Vector3(x0 + 0.5, h, mz), PI * 0.5], [Vector3(x1 - 0.5, h, mz), -PI * 0.5]]:
+		prop_spawns.append({"scene": "lamp", "xform": Transform3D(Basis(Vector3.UP, lamp[1]), lamp[0])})
+
 	# Street trees along the sidewalks of some blocks.
 	if type != "parking" and _rng.randf() < 0.6:
 		var step := 16.0

@@ -20,6 +20,7 @@ const DEFAULTS := {
 	"master_volume": 0.8,
 	"vibration": true,
 	"minimap": true,
+	"time_of_day": 0,  # 0 day, 1 sunset, 2 night, 3 cycle
 	"assists": true,
 	"vehicle": "sports_car",
 	"paint": Color(0.93, 0.22, 0.14),
@@ -28,6 +29,7 @@ const DEFAULTS := {
 const TRAFFIC_LABELS := ["Few", "Normal", "Busy"]
 const TRAFFIC_CARS := [10, 22, 30]
 const GRAPHICS_LABELS := ["Low", "Medium", "High"]
+const TIME_LABELS := ["Day", "Sunset", "Night", "Day & night"]
 
 ## False for dev/test runs: nothing is read from or written to disk.
 var persist := OS.get_cmdline_user_args().is_empty()

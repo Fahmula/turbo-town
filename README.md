@@ -59,8 +59,9 @@ Gold/silver/bronze times, best times saved. Backspace (or falling in the sea)
 puts you back at the last gate; END RACE in the pause menu stops it.
 
 **Settings** (title screen or pause menu): traffic amount (few / normal / busy),
-graphics quality (low / medium / high), speed units, driving assists, gamepad
-vibration, fullscreen and volume. Saved to `user://settings.cfg`
+graphics quality (low / medium / high), time of day (day / sunset / night /
+day & night cycle), speed units, driving assists, gamepad vibration, minimap,
+fullscreen and volume. Saved to `user://settings.cfg`
 (`~/.local/share/godot/app_userdata/Turbo Town/` on Linux and the Steam Deck).
 
 ## Project layout
@@ -86,7 +87,8 @@ scripts/
              traffic_driver.gd (AI driver), traffic_light_prop.gd, traffic_audio.gd
   camera/    chase_camera.gd
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
-             landmark builders, mesh_builder.gd (geometry helper)
+             landmark builders, mesh_builder.gd (geometry helper), day_night.gd
+             (sun, sky, lights after dark), night_light.gd, lighthouse_beam.gd
   props/     prop.gd, ramp.gd (@tool, editable in the editor)
   ui/        hud.gd, speedometer.gd, world_map.gd (top-down island picture drawn
              at startup), minimap.gd (round heading-up minimap), big_map.gd (M),
@@ -176,6 +178,7 @@ godot --path . -- --races=/tmp/shots    race flow checks + autopilot drives ever
 godot --path . -- --park=/tmp/shots     loop-the-loop (4 vehicles) and the wall-ride bowl
 godot --path . -- --trail=/tmp/shots    buggy + pickup drive the mountain trail to the summit
 godot --path . -- --landmarks=/tmp/shots drive the tunnel, bridge, runway and a pier (+ views)
+godot --path . -- --night=/tmp/shots    sunset / night / cycle checks and screenshots
 godot --path . --headless --fixed-fps 120 -- --spawncheck   60 traffic spawns, none may crash
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)

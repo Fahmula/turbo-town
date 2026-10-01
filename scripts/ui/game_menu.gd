@@ -223,6 +223,7 @@ func _build_settings() -> Control:
 
 	var first := _cycle_row(grid, "Traffic", "traffic_density", Settings.TRAFFIC_LABELS)
 	_cycle_row(grid, "Graphics", "graphics", Settings.GRAPHICS_LABELS)
+	_cycle_row(grid, "Time of day", "time_of_day", Settings.TIME_LABELS)
 	_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"])
 	_cycle_row(grid, "Driving assists", "assists", ["Off (drift mode)", "On"])
 	_cycle_row(grid, "Vibration", "vibration", ["Off", "On"])

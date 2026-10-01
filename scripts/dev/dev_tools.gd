@@ -12,6 +12,7 @@ extends Node
 ##   --park=<dir>     loop-the-loop and wall-ride bowl driven by an autopilot
 ##   --trail=<dir>    drive the mountain trail to the summit
 ##   --landmarks=<dir> drive through the tunnel, over the bridge, down the runway (+ shots)
+##   --night=<dir>    sunset / night / cycle: lights switch, screenshots
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -42,6 +43,9 @@ func _ready() -> void:
 		elif arg == "--spawncheck":
 			_mode = "spawncheck"
 			_dir = OS.get_user_data_dir()
+		elif arg.begins_with("--night="):
+			_mode = "night"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--landmarks="):
 			_mode = "landmarks"
 			_dir = arg.split("=")[1]
@@ -144,6 +148,8 @@ func _run() -> void:
 		await _trail(game)
 	elif _mode == "landmarks":
 		await _landmarks(game)
+	elif _mode == "night":
+		await _night(game)
 	elif _mode == "spawncheck":
 		await _spawncheck(game)
 	else:
@@ -883,7 +889,8 @@ func _menus(game: Game) -> void:
 	await _tap("ui_right")
 	await _tap("ui_right")
 	_check(Settings.get_value("graphics") == 2 and game.get_viewport().scaling_3d_scale == 1.0, "graphics high again")
-	# Units row.
+	# Units row (below graphics and time of day).
+	await _tap("ui_down")
 	await _tap("ui_down")
 	await _tap("ui_right")
 	_check(game.hud.speedometer.use_mph, "units switched to mph")
@@ -1817,3 +1824,53 @@ func _landmarks(game: Game) -> void:
 		await _wait(3)
 		await _shot(vw[0])
 	cam.set_process(true)
+
+
+func _night(game: Game) -> void:
+	var dn := game.day_night
+	var cam := game.camera
+	var lamps := get_tree().get_nodes_in_group("night_lights")
+	_check(lamps.size() > 10, "%d night lights in the world" % lamps.size())
+	game.teleport_to(0)
+	await _wait_s(1.0)
+	Settings.set_value("time_of_day", 1)
+	await _wait(10)
+	await _shot("sunset_city")
+	_check(not dn.is_night, "sunset is still daylight")
+	Settings.set_value("time_of_day", 2)
+	await _wait(10)
+	var lamp := lamps[0] as Node3D
+	var lights := game.vehicle.get_node_or_null("Headlights") as Node3D
+	_check(dn.is_night and lamp.visible and lights != null and lights.visible, "night: lamps and headlights on")
+	# Drive a little so the headlights sweep the street.
+	Input.action_press("accelerate")
+	await _wait_s(2.0)
+	_release()
+	await _wait_s(1.0)
+	await _shot("night_city")
+	game.change_vehicle(4, Color.YELLOW)
+	await _wait(10)
+	var bus_lights := game.vehicle.get_node_or_null("Headlights") as Node3D
+	_check(bus_lights != null and bus_lights.visible, "headlights follow a vehicle change")
+	await _shot("night_bus")
+	cam.set_process(false)
+	cam.global_position = Vector3(-420, 25, 60)
+	cam.look_at(Vector3(-528, 12, 0), Vector3.UP)
+	await _wait_s(1.0)
+	await _shot("night_lighthouse")
+	cam.global_position = Vector3(-60, 90, 260)
+	cam.look_at(Vector3(0, 0, 0), Vector3.UP)
+	await _wait(5)
+	await _shot("night_overview")
+	cam.set_process(true)
+	# Cycle: time moves and lights go off in the morning.
+	Settings.set_value("time_of_day", 3)
+	dn.hour = 5.5
+	await _wait(5)
+	var t := 0.0
+	while dn.is_night and t < 60.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		dn.hour += get_physics_process_delta_time() * 0.5  # fast-forward
+	_check(not dn.is_night and not lamp.visible, "morning: lights off again (hour %.1f)" % dn.hour)
+	Settings.set_value("time_of_day", 0)
