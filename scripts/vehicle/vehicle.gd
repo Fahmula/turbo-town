@@ -219,7 +219,11 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 
 ## Current steering lock in degrees (it shrinks with speed).
 func max_steer_at_speed() -> float:
-	var speed_t := clampf(absf(forward_speed) / steer_falloff_speed, 0.0, 1.0)
+	return max_steer_for_speed(forward_speed)
+
+
+func max_steer_for_speed(speed: float) -> float:
+	var speed_t := clampf(absf(speed) / steer_falloff_speed, 0.0, 1.0)
 	return lerpf(max_steer_angle, high_speed_steer_angle, speed_t * (2.0 - speed_t))
 
 

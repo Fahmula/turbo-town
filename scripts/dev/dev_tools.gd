@@ -26,6 +26,9 @@ func _ready() -> void:
 		elif arg.begins_with("--showcase="):
 			_mode = "showcase"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--uturn="):
+			_mode = "uturn"
+			_dir = arg.split("=")[1]
 		elif arg == "--bench":
 			_mode = "bench"
 			_dir = OS.get_user_data_dir()
@@ -71,6 +74,8 @@ func _run() -> void:
 		await _rampage(game)
 	elif _mode == "showcase":
 		await _showcase(game)
+	elif _mode == "uturn":
+		await _uturn(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -311,7 +316,8 @@ func _traffic(game: Game) -> void:
 		for d in tm.drivers:
 			if d.state == TrafficDriver.State.LOST and not lost_seen.has(d):
 				lost_seen[d] = true
-				print("  LOST at t=%.0f pos=%s: %s" % [t, d.vehicle.global_position.round(), d.lost_reason])
+				print("  LOST at t=%.0f pos=%s: %s (%s)" % [t, d.vehicle.global_position.round(), d.lost_reason, d.vehicle.display_name])
+				await _photo_vehicle(game, d.vehicle, "lost_%d" % int(t))
 		# Follow an AI car with the camera between the fixed views.
 		if t > 5.0 and t < 18.0:
 			if follow == null or not is_instance_valid(follow):
@@ -453,10 +459,25 @@ func _rampage(game: Game) -> void:
 					cam.set_process(true)
 		await get_tree().physics_frame
 		t += get_physics_process_delta_time()
+		if int(t * 120) % 600 == 0:
+			print("  t=%.0f traffic cars=%d player=%s speed=%.0f" % [t, tm.drivers.size(), v.global_position.round(), v.speed_kmh])
 		if int(t * 60) % 240 == 0 and shots < 10:
 			shots += 1
 			await _shot("rampage_%d" % shots)
 	_release()
+	# Back off and check that nearby traffic gets going again.
+	var near := {}
+	for d in tm.drivers:
+		if d.vehicle.global_position.distance_to(v.global_position) < 15.0:
+			near[d] = d.vehicle.global_position
+	Input.action_press("brake")
+	await _wait(120)
+	Input.action_release("brake")
+	await _wait(600)
+	for d in near:
+		if is_instance_valid(d) and is_instance_valid(d.vehicle):
+			print("  after release: %s moved %.0f m (state %s, blocker '%s')" % [d.vehicle.display_name,
+				d.vehicle.global_position.distance_to(near[d]), ["DRIVING", "STUNNED", "LOST"][d.state], d.blocker])
 	var counts := [0, 0, 0]
 	for d in tm.drivers:
 		counts[d.state] += 1
@@ -505,3 +526,65 @@ func _showcase(game: Game) -> void:
 			shot_i += 1
 	for d in drivers:
 		print("  %s: state=%s pos=%s" % [d.vehicle.display_name, ["DRIVING", "STUNNED", "LOST"][d.state], d.vehicle.global_position.round()])
+	# Family photo: park them side by side in the plaza.
+	var x := -60.0
+	for d in drivers:
+		d.set_physics_process(false)
+		var v := d.vehicle
+		v.throttle_input = 0.0
+		v.brake_input = 1.0
+		v.steer_input = 0.0
+		v.teleport(Transform3D(Basis(Vector3.UP, -0.5), Vector3(x, 0.15 + v.wheel_radius() + 0.1, -50)))
+		x += 5.5
+	await _wait(90)
+	var views := [
+		["family_front", Vector3(-38, 3.5, -64), Vector3(-44, 1.2, -50)],
+		["family_rear", Vector3(-52, 3.5, -36), Vector3(-44, 1.2, -50)],
+	]
+	for view in views:
+		cam.global_position = view[1]
+		cam.look_at(view[2], Vector3.UP)
+		await _wait(3)
+		await _shot(view[0])
+
+
+## A small car drives into the south avenue dead end (by the stunt park
+## gate) and must U-turn back north.
+func _uturn(game: Game) -> void:
+	var tm := game.traffic
+	tm.set_enabled(false)
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(40, 0.8, 330)))
+	await _wait(10)
+	var d := tm.spawn_near(tm.car_scenes[1], Vector3(-1.8, 0, 270))
+	var t := 0.0
+	var min_z := INF
+	var max_z := -INF
+	while t < 30.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		var z := d.vehicle.global_position.z
+		max_z = maxf(max_z, z)
+		if max_z > 300.0:
+			min_z = minf(min_z, z)
+	var ok := max_z > 300.0 and min_z < 280.0 and d.state == TrafficDriver.State.DRIVING
+	print("UTURN %s: reached z=%.0f, came back to z=%.0f, state=%s blocker='%s'" % [
+		"PASS" if ok else "FAIL", max_z, min_z, ["DRIVING", "STUNNED", "LOST"][d.state], d.blocker])
+
+
+func _photo_vehicle(game: Game, v: Vehicle, name: String) -> void:
+	var cam := game.camera
+	var was := cam.is_processing()
+	cam.set_process(false)
+	var cp := v.global_position
+	var back := v.global_basis.z
+	back.y = 0.0
+	back = back.normalized()
+	cam.global_position = cp + back * 9.0 + Vector3.UP * 6.0 + v.global_basis.x * 3.0
+	cam.look_at(cp - back * 3.0, Vector3.UP)
+	await _wait(2)
+	await _shot(name)
+	cam.global_position = cp + Vector3(0.5, 18.0, 0.5)
+	cam.look_at(cp, Vector3.FORWARD)
+	await _wait(2)
+	await _shot(name + "_top")
+	cam.set_process(was)

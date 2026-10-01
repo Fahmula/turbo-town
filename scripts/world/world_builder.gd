@@ -14,6 +14,8 @@ const PROP_SCENES := {
 	"lamp": preload("res://scenes/props/lamp_post.tscn"),
 	"traffic_light": preload("res://scenes/props/traffic_light.tscn"),
 	"parked_car": preload("res://scenes/props/parked_car.tscn"),
+	"parked_sedan": preload("res://scenes/props/parked_sedan.tscn"),
+	"parked_van": preload("res://scenes/props/parked_van.tscn"),
 	"ramp": preload("res://scenes/props/ramp.tscn"),
 }
 
@@ -54,10 +56,17 @@ func _ready() -> void:
 
 
 func _spawn_props(parent: Node3D, list: Array[Dictionary]) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 321
 	for s in list:
-		var scene: PackedScene = PROP_SCENES.get(s["scene"])
+		var key: String = s["scene"]
+		if key == "parked_car":
+			# Mix of parked vehicle types.
+			var r := rng.randf()
+			key = "parked_sedan" if r < 0.45 else ("parked_van" if r < 0.65 else "parked_car")
+		var scene: PackedScene = PROP_SCENES.get(key)
 		if scene == null:
-			push_warning("Unknown prop scene: %s" % s["scene"])
+			push_warning("Unknown prop scene: %s" % key)
 			continue
 		var node := scene.instantiate() as Node3D
 		if node is Ramp:

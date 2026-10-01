@@ -30,6 +30,10 @@ contains so far.
 ### AI traffic
 - About 22 AI cars that follow lanes, stop at working traffic lights, give way,
   crash, recover and honk at you if you block them. G toggles traffic.
+- Traffic is now a mix of sports cars, sedans, vans, delivery trucks and city
+  buses in lots of colours. Trucks and buses drive slower and take corners
+  carefully. Parking lots have sedans and vans too.
+- Traffic cars that get wedged back up and try again instead of giving up.
 
 ### Presentation
 - HUD with speedometer, gear, RPM, damage and air-time popups.

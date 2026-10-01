@@ -1,0 +1,44 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/prop.gd" id="1_prop"]
+[ext_resource type="PackedScene" path="res://assets/models/van_body.glb" id="2_body"]
+[ext_resource type="PackedScene" path="res://assets/models/wheel_steel.glb" id="3_wheel"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(1.96, 0.84, 4.96)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+size = Vector3(1.9, 0.94, 3.72)
+
+[node name="ParkedVan" type="RigidBody3D"]
+collision_layer = 4
+collision_mask = 7
+mass = 1500
+sleeping = true
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 0.55, 0)
+script = ExtResource("1_prop")
+random_colors = Array[Color]([Color(0.95, 0.95, 0.93, 1), Color(0.95, 0.55, 0.15, 1), Color(0.35, 0.6, 0.9, 1), Color(0.45, 0.75, 0.4, 1)])
+
+[node name="Shape0" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0.04)
+shape = SubResource("shape_0")
+
+[node name="Shape1" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.51, 0.66)
+shape = SubResource("shape_1")
+
+[node name="Model" parent="." instance=ExtResource("2_body")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36, 0)
+
+[node name="WheelFL" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(-0.972973, 0, 0, 0, 0.972973, 0, 0, 0, -0.972973, -0.86, 0.36, -1.5)
+
+[node name="WheelFR" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(0.972973, 0, 0, 0, 0.972973, 0, 0, 0, 0.972973, 0.86, 0.36, -1.5)
+
+[node name="WheelRL" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(-0.972973, 0, 0, 0, 0.972973, 0, 0, 0, -0.972973, -0.86, 0.36, 1.5)
+
+[node name="WheelRR" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(0.972973, 0, 0, 0, 0.972973, 0, 0, 0, 0.972973, 0.86, 0.36, 1.5)

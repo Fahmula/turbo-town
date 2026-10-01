@@ -38,6 +38,8 @@ Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields
 scenes/
   main.tscn                 Game root: world + player car + camera + HUD
   vehicles/sports_car.tscn  The player car (physics, wheels, visuals, audio, FX, damage)
+  vehicles/sedan.tscn, van.tscn, box_truck.tscn, bus.tscn   Traffic vehicles (full
+                            Vehicles too, so they can be made drivable)
   world/world.tscn          Environment, sun, and the WorldBuilder that generates the map
   props/                    Cone, barrel, crate, bowling pin, lamp, traffic light,
                             parked car, and the parametric Ramp
@@ -58,7 +60,9 @@ scripts/
   core/      input_setup.gd (all key/gamepad bindings)
   dev/       autotest.gd, dev_tools.gd, audio_check.gd (testing helpers)
 assets/      models (.glb from Blender), shaders, materials
-tools/blender/make_car.py   Regenerates the car + wheel models: blender -b -P tools/blender/make_car.py
+tools/blender/make_car.py              Sports car + wheel:  blender -b -P tools/blender/make_car.py
+tools/blender/make_traffic_vehicles.py Sedan, van, truck, bus + steel wheel (same command)
+tools/blender/vehicle_kit.py           Shared modelling helpers for both scripts
 ```
 
 ## How things work
@@ -81,13 +85,17 @@ tools/blender/make_car.py   Regenerates the car + wheel models: blender -b -P to
   with 3+ roads have demand-actuated traffic lights; left turns and merges give
   way. Hit a traffic car hard and it gets stunned, then drives on or gives up;
   wrecks are removed once you look away. Cars you block will honk at you.
-  Tweak `max_cars` and spawn distances on the `Traffic` node in `main.tscn`.
+  Tweak `max_cars`, spawn distances, and the vehicle mix (`car_scenes` +
+  `car_weights`) on the `Traffic` node in `main.tscn`. Traffic is a mix of
+  sports cars, sedans, vans, delivery trucks and buses; each vehicle scene sets
+  its own paint palette (`paint_palette` on its `Body` node) and AI speed
+  (`ai_speed_factor`, `ai_max_accel` on the root).
 * **Input**: all bindings are registered in `scripts/core/input_setup.gd`. Any
   action you define in Project Settings > Input Map overrides the default.
 
 ## Adding things
 
-* **A new car**: duplicate `scenes/vehicles/sports_car.tscn`, swap the models
+* **A new car**: duplicate one of the scenes in `scenes/vehicles/`, swap the models
   under `Body` and the wheel `Visual` nodes, then tweak the exported values on the
   root (engine, gears, brakes, steering) and on each wheel (radius, springs, grip,
   which wheels steer/drive). Set `paint_color` on the `Body` node for a new color.
@@ -101,11 +109,14 @@ tools/blender/make_car.py   Regenerates the car + wheel models: blender -b -P to
 ```
 godot --path . --headless --fixed-fps 120 res://scenes/dev/physics_test.tscn -- --autotest=accel
     (scenarios: rest, accel, brake, turn, fastturn, handbrake, jump, wall, rollover)
+    add --vehicle=res://scenes/vehicles/bus.tscn to test another vehicle
 godot --path . -- --tour=/tmp/shots     screenshots from spawn points + viewpoints
 godot --path . -- --drive=/tmp/shots    autopilot lap of the highway, park, city, mountain
 godot --path . --headless -s res://scripts/dev/audio_check.gd   engine sound levels
 godot --path . -- --traffic=/tmp/shots  watch traffic 150 s, log speeds/stuck/crashes
 godot --path . -- --rampage=/tmp/shots  player drives wrong-way into traffic
+godot --path . -- --showcase=/tmp/shots one of each traffic vehicle in a filmed convoy
+godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end
 godot --path . --headless --fixed-fps 120 -- --bench     physics cost with/without traffic
 godot --path . --headless -s res://scripts/dev/traffic_graph_check.gd   lane graph sanity
 godot --path . --headless -s res://scripts/dev/terrain_road_check.gd    terrain poking through roads

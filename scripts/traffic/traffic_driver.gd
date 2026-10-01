@@ -29,6 +29,7 @@ var _wheelbase := 2.7
 var _max_accel := 2.2
 var _mass_scale := 1.0
 var _avoid_dead_ends := false
+var _curv_limit := PackedFloat32Array()
 
 var _net: TrafficNetwork
 ## Route legs: {"lane": Lane, "from": float, "to": float, "link": Dictionary}
@@ -39,6 +40,11 @@ var _tick := 0
 var _accel_cmd := 0.0
 var _stuck_time := 0.0
 var _wait_time := 0.0
+var _moving_time := 0.0
+var _reverse_time := 0.0
+var _reverse_from := Vector3.ZERO
+var _unstick_tries := 0
+var _last_steer := 0.0
 var _hold := false
 var _ray := PhysicsRayQueryParameters3D.new()
 var _samples_p := PackedVector3Array()
@@ -70,6 +76,11 @@ func setup(mgr: TrafficManager, lane: TrafficNetwork.Lane, s: float) -> void:
 	_max_accel = vehicle.ai_max_accel
 	_mass_scale = maxf(vehicle.mass / 1300.0, 1.0)
 	_avoid_dead_ends = _wheelbase > 3.2
+	# Tightest path curvature this vehicle can follow at each speed (1 m/s
+	# steps), keeping 20% of the steering lock in reserve for corrections.
+	_curv_limit.resize(41)
+	for sp in 41:
+		_curv_limit[sp] = tan(deg_to_rad(0.8 * vehicle.max_steer_for_speed(sp))) / _wheelbase
 	vehicle.auto_reverse = false
 	vehicle.impact.connect(_on_impact)
 	_ray.exclude = [vehicle.get_rid()]
@@ -214,6 +225,10 @@ func _physics_process(dt: float) -> void:
 		_lose("off lane %.1fm on lane %d" % [lateral, lane.id])
 		return
 
+	if _reverse_time > 0.0:
+		_back_up(dt)
+		return
+
 	_tick += 1
 	if _tick % 4 == 0:
 		_accel_cmd = _plan_speed()
@@ -241,18 +256,60 @@ func _physics_process(dt: float) -> void:
 		throttle = clampf(0.1 + _accel_cmd * 0.3 + v * 0.006, 0.0, 1.0)
 	elif _accel_cmd < -0.5:
 		brake = clampf(-_accel_cmd / 8.0, 0.05, 1.0)
-	_pedals(throttle, brake, clampf(steer, -1.0, 1.0))
+	_last_steer = clampf(steer, -1.0, 1.0)
+	_pedals(throttle, brake, _last_steer)
 
-	# Give up if we've been trying to move but can't (wedged against something).
+	# Wedged against something (wants to move but can't): back up a little and
+	# try again, like a real driver. Give up after a few attempts.
 	if _accel_cmd > 0.5 and v < 0.3 and not _hold:
 		_stuck_time += dt
 	else:
 		_stuck_time = 0.0
+	if v > 3.0:
+		_moving_time += dt
+		if _moving_time > 6.0:
+			_unstick_tries = 0
+	else:
+		_moving_time = 0.0
 	_wait_time = _wait_time + dt if v < 0.3 else 0.0
-	if _stuck_time > 6.0:
-		_lose("stuck (wants %.1f m/s2, blocker '%s', grounded %d, gear %d, throttle %.2f)" % [_accel_cmd, blocker, vehicle.grounded_wheels, vehicle.gear, vehicle.throttle_input])
+	if _stuck_time > 2.5:
+		if _unstick_tries < 3 and _rear_clearance() > 2.5:
+			_unstick_tries += 1
+			_stuck_time = 0.0
+			_reverse_time = _rng.randf_range(1.0, 1.8)
+			_reverse_from = vehicle.global_position
+		elif _stuck_time > 5.0:
+			_lose("stuck (wants %.1f m/s2, blocker '%s', tries %d)" % [_accel_cmd, blocker, _unstick_tries])
 	elif _wait_time > 60.0:
 		_lose("waited 60s for " + blocker)
+
+
+func _back_up(dt: float) -> void:
+	_reverse_time -= dt
+	var moved := vehicle.global_position.distance_to(_reverse_from)
+	if _rear_clearance() < 1.0 or moved > 3.0:
+		_reverse_time = 0.0
+	if _reverse_time <= 0.0:
+		vehicle.gear = 1
+		_pedals(0.0, 0.5, 0.0)
+		return
+	vehicle.gear = -1
+	# In reverse, the brake pedal drives backwards. Counter-steer to open a gap.
+	_pedals(0.0, 0.45, -_last_steer * 0.6)
+
+
+## Free space behind the rear bumper (m), up to 4 m.
+func _rear_clearance() -> float:
+	var space := vehicle.get_world_3d().direct_space_state
+	var best := 4.0
+	var back := vehicle.global_basis.z
+	for side in [0.0, -_half_width + 0.1, _half_width - 0.1]:
+		_ray.from = vehicle.global_transform * Vector3(side, 0.55, vehicle.body_rear - 0.3)
+		_ray.to = _ray.from + back * 4.3
+		var hit := space.intersect_ray(_ray)
+		if not hit.is_empty():
+			best = minf(best, (hit["position"] as Vector3).distance_to(_ray.from) - 0.3)
+	return best
 
 
 func _pedals(throttle: float, brake: float, steer: float) -> void:
@@ -363,7 +420,8 @@ func _plan_speed() -> float:
 			_samples_dir.append(lane.dirs[idx])
 			var k := lane.curv[idx]
 			if k > 0.004:
-				v0 = minf(v0, sqrt(LAT_ACCEL / k + 2.0 * COMFORT_DECEL * sd))
+				var vc := minf(sqrt(LAT_ACCEL / k), _speed_for_curvature(k))
+				v0 = minf(v0, sqrt(vc * vc + 2.0 * COMFORT_DECEL * sd))
 			idx += 1
 		d = end_d
 		if i + 1 < _plan.size():
@@ -435,7 +493,8 @@ func _plan_speed() -> float:
 	var fwd := -vehicle.global_basis.z
 	var reach := 3.5 + v * 0.5
 	var space := vehicle.get_world_3d().direct_space_state
-	var corner := _half_width - 0.1
+	# Corner rays sit just outside the body so corner-to-corner overlaps count.
+	var corner := _half_width + 0.05
 	for side in [0.0, -corner, corner]:
 		_ray.from = vehicle.global_transform * Vector3(side, 0.55, -_front + 0.3)
 		_ray.to = _ray.from + fwd * reach
@@ -488,11 +547,13 @@ func _in_corridor(p: Vector3) -> bool:
 		var dz := q.z - p.z
 		if dx * dx + dz * dz < (_half_width + 0.45) * (_half_width + 0.45):
 			return true
-	# Also the stretch between the car and the first sample.
+	# Also the short stretch between the car and the first path sample (only
+	# that far: straight ahead of a turning car is usually off the path).
+	var first := _samples_d[0] if not _samples_d.is_empty() else 3.0
 	var my := vehicle.global_position
 	var l := Vector2(p.x - my.x, p.z - my.z)
 	var f := Vector2(-vehicle.global_basis.z.x, -vehicle.global_basis.z.z).normalized()
-	return l.dot(f) > 0.0 and absf(l.cross(f)) < _half_width + 0.45 and l.length() < _front + 4.0
+	return l.dot(f) > 0.0 and absf(l.cross(f)) < _half_width + 0.45 and l.length() < maxf(first, _front) + 0.5
 
 
 ## True if `other` is an AI car that is itself stopped waiting for us and we
@@ -504,6 +565,16 @@ func _yields_to_me(other: Vehicle) -> bool:
 	if other.linear_velocity.length() > 1.0 or vehicle.linear_velocity.length() > 1.0:
 		return false
 	return vehicle.get_instance_id() < other.get_instance_id()
+
+
+## Fastest speed at which our steering can still follow curvature `k`.
+func _speed_for_curvature(k: float) -> float:
+	if k <= _curv_limit[40]:
+		return INF
+	var sp := 40
+	while sp > 1 and _curv_limit[sp] < k:
+		sp -= 1
+	return maxf(float(sp), 1.5)
 
 
 func _idm(v: float, v0: float, gap: float, v_lead: float) -> float:
