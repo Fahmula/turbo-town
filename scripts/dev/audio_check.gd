@@ -26,4 +26,22 @@ func _init() -> void:
 				clipped += 1
 		print("%-24s rms=%.3f peak=%.3f clipped=%d" % [c[0], sqrt(sum / 11025.0), peak, clipped])
 	a.free()
+	# Every vehicle's engine profile at idle, mid revs and near the redline.
+	print("")
+	for id in ["sports_car", "sedan", "van", "box_truck", "bus", "pickup", "buggy", "monster_truck"]:
+		var car := (load("res://scenes/vehicles/%s.tscn" % id) as PackedScene).instantiate() as Vehicle
+		var audio := car.get_node("Audio") as VehicleAudio
+		var line := "%-14s" % id
+		for c in [[car.idle_rpm, 0.0], [car.redline_rpm * 0.55, 1.0], [car.redline_rpm * 0.92, 1.0]]:
+			var freq: float = c[0] / 60.0 * audio.cylinders * 0.5
+			var buf := audio.synth(22050, freq, c[1], 0.0, 0.0)
+			var peak := 0.0
+			var sum := 0.0
+			for i in range(11025, buf.size()):
+				var v := absf(buf[i].x)
+				peak = maxf(peak, v)
+				sum += v * v
+			line += "  %4.0frpm rms=%.3f peak=%.2f" % [c[0], sqrt(sum / 11025.0), peak]
+		print(line)
+		car.free()
 	quit()

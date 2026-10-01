@@ -6,6 +6,20 @@ extends AudioStreamPlayer
 
 @export var engine_volume := 0.55
 @export var cylinders := 8
+@export_group("Engine character")
+## Half-rate burble (big V8s lope at idle).
+@export_range(0.0, 1.0) var lope := 0.6
+## Tone: >1 brighter/raspier, <1 duller/deeper.
+@export_range(0.3, 2.0) var brightness := 1.0
+## Deep sine an octave down (trucks, buses, the monster truck).
+@export_range(0.0, 1.0) var rumble := 0.0
+## Diesel clatter on every firing.
+@export_range(0.0, 1.0) var diesel := 0.0
+## Turbo / supercharger whine that rises with revs and throttle.
+@export_range(0.0, 1.0) var whine := 0.0
+## Extra buzz (small, high-revving engines).
+@export_range(0.0, 1.0) var rasp := 0.0
+@export_group("")
 @export var tire_volume := 0.35
 @export var wind_volume := 0.25
 @export var horn_enabled := true
@@ -29,6 +43,9 @@ var _impact_phase := 0.0
 var _horn := false
 var _horn_phase_a := 0.0
 var _horn_phase_b := 0.0
+var _sub_phase := 0.0
+var _whine_phase := 0.0
+var _clatter_lp := 0.0
 var _rng := RandomNumberGenerator.new()
 
 
@@ -93,6 +110,15 @@ func synth(frames: int, target_freq: float, target_load: float, target_skid: flo
 	var hb := _horn_phase_b
 	var horn_on := _horn
 	var ev := engine_volume
+	var lope_amt := lope
+	var bright := brightness
+	var rum := rumble
+	var dsl := diesel
+	var whn := whine
+	var rsp := rasp
+	var sub := _sub_phase
+	var whp := _whine_phase
+	var clp := _clatter_lp
 	var tv := tire_volume
 	var wv := wind_volume * 3.0
 	var inv_rate := 1.0 / MIX_RATE
@@ -107,11 +133,24 @@ func synth(frames: int, target_freq: float, target_load: float, target_skid: flo
 		phase += freq * inv_rate
 		if phase > 1.0:
 			phase -= 1.0
-		var pulse := 1.0 - 2.0 * phase + 0.6 * sin(TAU * phase * 0.5) + noise * (0.08 + 0.18 * eload)
-		var cutoff := 0.05 + 0.2 * eload + freq * inv_rate * 2.0
+		var pulse := 1.0 - 2.0 * phase + lope_amt * sin(TAU * phase * 0.5) + noise * (0.08 + 0.18 * eload + rsp * 0.3)
+		var cutoff := minf((0.05 + 0.2 * eload + freq * inv_rate * 2.0) * bright, 0.9)
 		lp += (pulse - lp) * cutoff
 		lp2 += (lp - lp2) * cutoff
 		var s := lp2 * (0.35 + 0.65 * eload) * ev
+		if rum > 0.0:
+			sub = fmod(sub + freq * 0.5 * inv_rate, 1.0)
+			s += sin(TAU * sub) * rum * (0.45 + 0.55 * eload) * ev * 0.55
+		if dsl > 0.0:
+			# Sharp noise tick at the start of each firing.
+			clp += (noise - clp) * 0.5
+			var tick := 1.0 - phase
+			tick *= tick
+			tick *= tick
+			s += (noise - clp) * tick * dsl * ev * 0.6
+		if whn > 0.0:
+			whp = fmod(whp + freq * 7.0 * inv_rate, 1.0)
+			s += sin(TAU * whp) * whn * eload * eload * 0.07
 
 		# Tire squeal: band-passed noise.
 		tlp += (noise - tlp) * 0.35
@@ -150,4 +189,7 @@ func synth(frames: int, target_freq: float, target_load: float, target_skid: flo
 	_impact_phase = imp_ph
 	_horn_phase_a = ha
 	_horn_phase_b = hb
+	_sub_phase = sub
+	_whine_phase = whp
+	_clatter_lp = clp
 	return buf

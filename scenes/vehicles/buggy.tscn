@@ -137,6 +137,9 @@ transform = Transform3D(1.1351, 0, 0, 0, 1.1351, 0, 0, 0, 1.1351, 0, 0, 0)
 [node name="Audio" type="AudioStreamPlayer" parent="."]
 script = ExtResource("6_audio")
 cylinders = 4
+lope = 0.05
+brightness = 1.4
+rasp = 0.6
 
 [node name="Effects" type="Node" parent="."]
 script = ExtResource("7_fx")

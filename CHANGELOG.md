@@ -24,6 +24,10 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   A/D to barrel roll. Let go and the car turns itself level to land.
 - RECORDS page with your best combos, biggest air, longest drift and more.
 
+### Sounds
+- Every vehicle sounds different now: rumbling diesel truck and bus, burbly
+  V8 pickup, buzzy buggy, and a monster truck with a supercharger whine.
+
 ### Crashes
 - Bumpers and spoilers can fall off in big crashes, lights break, the glass
   cracks and a smashed engine smokes, loses power and pulls to one side.

@@ -165,6 +165,11 @@ transform = Transform3D(1.2162, 0, 0, 0, 1.2162, 0, 0, 0, 1.2162, 0, 0, 0)
 
 [node name="Audio" type="AudioStreamPlayer" parent="."]
 script = ExtResource("6_audio")
+cylinders = 6
+lope = 0.2
+brightness = 0.7
+rumble = 0.35
+diesel = 0.6
 
 [node name="Effects" type="Node" parent="."]
 script = ExtResource("7_fx")
