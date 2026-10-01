@@ -40,6 +40,7 @@ func _enter_tree() -> void:
 		_bind("teleport_%d" % (i + 1), [KEY_1 + i], [], [])
 	_bind("change_vehicle", [KEY_V], [JOY_BUTTON_DPAD_DOWN], [])
 	_bind("toggle_map", [KEY_M], [JOY_BUTTON_DPAD_LEFT], [])
+	_bind("instant_replay", [KEY_P], [JOY_BUTTON_X], [])
 
 	# Menus (the garage). Sticks need a firm push so they don't drift.
 	_bind("menu_left", [KEY_A, KEY_LEFT], [JOY_BUTTON_DPAD_LEFT], [[JOY_AXIS_LEFT_X, -1.0]], 0.5)

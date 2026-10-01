@@ -14,6 +14,7 @@ extends Node
 ##   --landmarks=<dir> drive through the tunnel, over the bridge, down the runway (+ shots)
 ##   --night=<dir>    sunset / night / cycle: lights switch, screenshots
 ##   --damage=<dir>   crash tests: parts falling off, broken lights/glass, pull, repair
+##   --replay=<dir>   pausing freezes everything, instant replay, slow-motion crash cam
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -46,6 +47,9 @@ func _ready() -> void:
 			_dir = OS.get_user_data_dir()
 		elif arg.begins_with("--damage="):
 			_mode = "damage"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--replay="):
+			_mode = "replay"
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--night="):
 			_mode = "night"
@@ -116,6 +120,8 @@ func _run() -> void:
 		push_error("dev tools: main scene is not Game")
 		get_tree().quit()
 		return
+	# Automatic crash cams would pause the other tests mid-crash.
+	Settings.set_value("crash_cam", _mode == "replay")
 	if _mode == "tour":
 		await _tour(game)
 	elif _mode == "fx":
@@ -156,6 +162,8 @@ func _run() -> void:
 		await _night(game)
 	elif _mode == "damage":
 		await _damage(game)
+	elif _mode == "replay":
+		await _replay(game)
 	elif _mode == "spawncheck":
 		await _spawncheck(game)
 	else:
@@ -1964,3 +1972,139 @@ func _damage(game: Game) -> void:
 	game.traffic.set_enabled(true)
 	await _wait_s(1.0)
 	_check(true, "no errors")
+
+
+func _replay(game: Game) -> void:
+	var v := game.vehicle
+	Settings.set_value("crash_cam", false)  # until part 3
+	# 1) Pausing freezes the car: no drift, and no kick when the game resumes.
+	game.teleport_to(4)
+	await _wait_s(1.5)
+	var parked := v.global_position
+	await _tap("pause")
+	_check(game.state == Game.State.PAUSED, "pause menu open")
+	await _wait(240)
+	_check(v.global_position.distance_to(parked) < 0.05, "parked car stays put while paused (%.2f m)" % v.global_position.distance_to(parked))
+	game._enter_driving()
+	await _wait_s(0.5)
+	_check(v.linear_velocity.length() < 0.5 and v.global_position.distance_to(parked) < 0.2,
+		"no kick on resume (moved %.2f m, %.2f m/s)" % [v.global_position.distance_to(parked), v.linear_velocity.length()])
+	# Same while driving.
+	var hw := game.world.roads.highway
+	game.teleport_to(1)
+	await _wait_s(0.5)
+	Input.action_press("accelerate")
+	await _wait_s(4.0)
+	var kmh := v.speed_kmh
+	game._enter_pause()
+	await _wait(240)
+	game._enter_driving()
+	await _wait_s(0.1)
+	Input.action_release("accelerate")
+	_check(absf(v.speed_kmh - kmh) < 6.0 and v.angular_velocity.length() < 1.5,
+		"driving: same speed after a pause (%.0f -> %.0f km/h, spin %.2f)" % [kmh, v.speed_kmh, v.angular_velocity.length()])
+
+	# 2) Instant replay while driving along the highway with traffic around.
+	var rp := game.replay
+	Input.action_press("accelerate")
+	await _wait_s(5.0)
+	await _tap("instant_replay")
+	Input.action_release("accelerate")
+	_check(game.state == Game.State.REPLAY and get_tree().paused and rp._camera.current and rp._overlay.visible,
+		"P: replay playing, game paused, replay camera on")
+	# The live state when the replay started, and the state right after it.
+	var live: Transform3D = rp._restore[0][1]
+	var live_speed: float = (rp._restore[0][2] as Vector3).length() * 3.6
+	var others := {}
+	for r: Array in rp._restore.slice(1):
+		others[r[0]] = r[1]
+	var after := {}
+	rp.finished.connect(func() -> void:
+		after["pos"] = v.global_position
+		after["kmh"] = v.linear_velocity.length() * 3.6
+		var ok := true
+		for o in others:
+			if is_instance_valid(o) and (not o.visible or o.global_position.distance_to((others[o] as Transform3D).origin) > 0.01):
+				ok = false
+		after["traffic"] = ok, CONNECT_ONE_SHOT)
+	await _wait_real(1.5)
+	await _shot("replay_instant")
+	_check(v.global_position.distance_to(live.origin) > 15.0, "car shown back in time (%.0f m behind)" % v.global_position.distance_to(live.origin))
+	var moved := 0
+	for o in others:
+		if is_instance_valid(o) and o.visible and o.global_position.distance_to((others[o] as Transform3D).origin) > 1.0:
+			moved += 1
+	_check(moved > 0, "traffic replayed too (%d cars)" % moved)
+	await _wait_real(2.0)
+	await _shot("replay_instant_2")
+	await _tap("menu_accept")
+	_check(game.state == Game.State.DRIVING and not get_tree().paused and game.camera.current, "Enter/A skips back to driving")
+	_check((after["pos"] as Vector3).distance_to(live.origin) < 0.01 and absf(float(after["kmh"]) - live_speed) < 0.1,
+		"car back exactly where it was (%.3f m, %.1f -> %.1f km/h)" % [(after["pos"] as Vector3).distance_to(live.origin), live_speed, after["kmh"]])
+	_check(after["traffic"], "traffic back where it was")
+	# A replay left to play out ends by itself.
+	await _wait_s(1.0)
+	game.start_replay()
+	var t0 := Time.get_ticks_msec()
+	while game.state == Game.State.REPLAY and Time.get_ticks_msec() - t0 < 15000:
+		await get_tree().process_frame
+	_check(game.state == Game.State.DRIVING, "replay ends on its own (%.1f s)" % ((Time.get_ticks_msec() - t0) / 1000.0))
+
+	# The car drives on smoothly after a replay (empty road, gas held throughout).
+	game.traffic.set_enabled(false)
+	game.teleport_to(1)
+	await _wait_s(0.5)
+	Input.action_press("accelerate")
+	await _wait_s(4.0)
+	var before := [v.speed_kmh, v.global_position]
+	game.start_replay()
+	await _wait_real(1.0)
+	game.replay.stop()
+	var resumed := v.global_position
+	await _wait_s(0.5)
+	_check(v.speed_kmh >= float(before[0]) - 1.0 and v.angular_velocity.length() < 0.5 and resumed.distance_to(before[1]) < 0.01,
+		"drives on smoothly after a replay (%.0f -> %.0f km/h, spin %.2f)" % [before[0], v.speed_kmh, v.angular_velocity.length()])
+	Input.action_release("accelerate")
+
+	# 3) Crash cam: a big crash plays back in slow motion.
+	Settings.set_value("crash_cam", true)
+	await _wait_s(0.5)
+	var got_cam := [false]
+	var watch := func() -> void:
+		if game.state == Game.State.REPLAY:
+			got_cam[0] = true
+	get_tree().process_frame.connect(watch)
+	_ram_wall.call(game, 75.0)
+	var t1 := Time.get_ticks_msec()
+	while game.state != Game.State.REPLAY and Time.get_ticks_msec() - t1 < 15000:
+		await get_tree().process_frame
+	_check(game.state == Game.State.REPLAY and rp._title.text == "CRASH CAM" and rp._speed < 0.5, "big crash: slow-motion crash cam")
+	await _wait_real(2.5)
+	await _shot("replay_crash")
+	await _wait_real(2.0)
+	await _shot("replay_crash_2")
+	t1 = Time.get_ticks_msec()
+	while game.state == Game.State.REPLAY and Time.get_ticks_msec() - t1 < 15000:
+		await get_tree().process_frame
+	_check(game.state == Game.State.DRIVING, "crash cam ends by itself (%.1f s)" % ((Time.get_ticks_msec() - t1) / 1000.0))
+	await _wait_s(2.0)
+	# Another crash straight after doesn't show it again.
+	got_cam[0] = false
+	await _ram_wall(game, 75.0)
+	await _wait_s(1.5)
+	_check(not got_cam[0], "no second crash cam straight away")
+	# And it can be switched off.
+	game._last_crash_cam = -INF
+	Settings.set_value("crash_cam", false)
+	await _ram_wall(game, 75.0)
+	await _wait_s(1.5)
+	_check(not got_cam[0], "crash cam setting off: no crash cam")
+	get_tree().process_frame.disconnect(watch)
+	Settings.set_value("crash_cam", true)
+
+
+## Waits `seconds` of real time (game time stands still in a replay).
+func _wait_real(seconds: float) -> void:
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < seconds * 1000.0:
+		await get_tree().process_frame

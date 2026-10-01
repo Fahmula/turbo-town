@@ -13,6 +13,8 @@ extends Node
 
 signal damage_changed(total: float)
 signal part_lost(part_name: String)
+## A crash got worse; severity 0..1 (1 = a really big hit).
+signal crashed(severity: float)
 
 ## Node whose MeshInstance3D descendants get deformed (the body model).
 @export var body_path: NodePath = ^"../Body"
@@ -168,6 +170,7 @@ func _on_impact(strength: float, world_pos: Vector3, _normal: Vector3) -> void:
 				_detach(part_name)
 	_update_driving()
 	damage_changed.emit(total_damage)
+	crashed.emit(t)
 
 
 ## Steering pull and power loss from a smashed front; engine smoke.

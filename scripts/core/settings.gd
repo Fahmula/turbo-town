@@ -20,6 +20,7 @@ const DEFAULTS := {
 	"master_volume": 0.8,
 	"vibration": true,
 	"minimap": true,
+	"crash_cam": true,  # slow-motion replay of big crashes
 	"time_of_day": 0,  # 0 day, 1 sunset, 2 night, 3 cycle
 	"assists": true,
 	"vehicle": "sports_car",

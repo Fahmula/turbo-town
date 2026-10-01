@@ -13,6 +13,7 @@ const HELP_TEXT := """[b]CONTROLS[/b]
       Space + W/S flip, Space + A/D barrel roll
 [color=#ffd54a]R[/color]   flip car upright
 [color=#ffd54a]V[/color]   garage: change vehicle / paint
+[color=#ffd54a]P[/color]   instant replay
 [color=#ffd54a]Backspace[/color]   back to spawn point
 [color=#ffd54a]1 - 9 / Tab[/color]   teleport: City, Highway, Stunt Park,
       Mountain, Dirt Fields, Beach, Airfield, Harbour, Lighthouse

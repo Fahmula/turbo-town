@@ -17,6 +17,7 @@ const CONTROLS := [
 	["Flip car upright", "R", "Y"],
 	["Horn", "E", "L3 (press left stick)"],
 	["Garage: change vehicle", "V", "D-pad down"],
+	["Instant replay", "P", "X"],
 	["Back to spawn point", "Backspace", "View"],
 	["Teleport", "1-9, Tab", "D-pad right"],
 	["Camera view", "C", "RB"],
@@ -228,6 +229,7 @@ func _build_settings() -> Control:
 	_cycle_row(grid, "Driving assists", "assists", ["Off (drift mode)", "On"])
 	_cycle_row(grid, "Vibration", "vibration", ["Off", "On"])
 	_cycle_row(grid, "Minimap", "minimap", ["Off", "On"])
+	_cycle_row(grid, "Crash cam", "crash_cam", ["Off", "On"])
 	_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"])
 
 	grid.add_child(UiKit.label("Volume", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))

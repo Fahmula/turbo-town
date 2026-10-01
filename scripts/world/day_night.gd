@@ -140,7 +140,7 @@ func _make_stars() -> void:
 	_star_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_star_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_star_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	_star_mat.fog_disabled = true
+	_star_mat.disable_fog = true
 	mesh.material = _star_mat
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D

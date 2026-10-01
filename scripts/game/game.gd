@@ -2,9 +2,18 @@ class_name Game
 extends Node3D
 ## Top-level game flow: title screen, pause menu, the garage (changing
 ## vehicle), spawning/teleporting the player, respawn after falling in the
-## sea, applying settings, and wiring the HUD to vehicle events.
+## sea, applying settings, the replay / crash cam, and wiring the HUD to
+## vehicle events.
 
-enum State { TITLE, DRIVING, PAUSED, GARAGE }
+enum State { TITLE, DRIVING, PAUSED, GARAGE, REPLAY }
+
+## Crash cam: how big a crash (0..1) triggers it, how long to keep recording
+## after the hit, and the least time between two automatic crash cams.
+const CRASH_CAM_SEVERITY := 0.5
+const CRASH_CAM_AFTER := 1.1
+const CRASH_CAM_BEFORE := 1.7
+const CRASH_CAM_SPEED := 0.35
+const CRASH_CAM_COOLDOWN := 20.0
 
 @export var world: WorldBuilder
 @export var vehicle: Vehicle
@@ -22,15 +31,25 @@ var stunts: StuntTracker
 var world_map: WorldMap
 var race: RaceManager
 var day_night: DayNight
+var replay: Replay
 ## Start on the title screen. Off for dev/test runs (they pass command-line
 ## args) so they start driving straight away.
 var show_title := OS.get_cmdline_user_args().is_empty()
 var _garage_from := State.DRIVING
 var _lost_timer := 0.0
+var _crash_wait := -1.0
+var _crash_time := 0.0
+var _crash_pos := Vector3.ZERO
+var _last_crash_cam := -INF
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Gameplay (world, traffic, the car...) stops while the tree is paused;
+	# menus, the HUD and the replay set themselves to keep running.
+	for child in get_children():
+		if child.process_mode == Node.PROCESS_MODE_INHERIT:
+			child.process_mode = Node.PROCESS_MODE_PAUSABLE
 	picker = VehiclePicker.new()
 	picker.name = "VehiclePicker"
 	add_child(picker)
@@ -43,9 +62,16 @@ func _ready() -> void:
 	title_camera = MenuCamera.new()
 	title_camera.name = "TitleCamera"
 	add_child(title_camera)
+	replay = Replay.new()
+	replay.name = "Replay"
+	replay.game = self
+	add_child(replay)
+	replay.finished.connect(_on_replay_finished)
+	vehicle.vehicle_reset.connect(replay.mark_cut)
 
 	stunts = StuntTracker.new()
 	stunts.name = "Stunts"
+	stunts.process_mode = Node.PROCESS_MODE_PAUSABLE
 	stunts.traffic = traffic
 	add_child(stunts)
 	stunts.trick.connect(_on_trick)
@@ -65,6 +91,7 @@ func _ready() -> void:
 	hud.minimap.visible = Settings.get_value("minimap")
 	race = RaceManager.new()
 	race.name = "Races"
+	race.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(race)
 	race.setup(self)
 	race.finished.connect(_on_race_finished)
@@ -80,6 +107,7 @@ func _ready() -> void:
 	GraphicsQuality.apply(Settings.get_value("graphics"), get_viewport(), world)
 	day_night = DayNight.new()
 	day_night.name = "DayNight"
+	day_night.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(day_night)
 	day_night.setup(world)
 	day_night.night_changed.connect(func(_on: bool) -> void: _fit_headlights())
@@ -120,6 +148,10 @@ func _physics_process(dt: float) -> void:
 			respawn()
 	else:
 		_lost_timer = 0.0
+	if _crash_wait >= 0.0:
+		_crash_wait -= dt
+		if _crash_wait < 0.0 and state == State.DRIVING and not race.is_active():
+			start_replay(true)
 
 
 func _on_trick(trick_name: String, _points: int) -> void:
@@ -137,10 +169,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.physical_keycode == KEY_F10:
 		get_tree().quit()
 		return
+	if state == State.REPLAY:
+		for skip in ["menu_accept", "menu_back", "pause", "instant_replay"]:
+			if event.is_action_pressed(skip):
+				replay.stop()
+				get_viewport().set_input_as_handled()
+				return
 	if state != State.DRIVING:
 		return  # menus and the garage read their own input
 	if event.is_action_pressed("pause"):
 		_enter_pause()
+	elif event.is_action_pressed("instant_replay"):
+		if not start_replay():
+			hud.show_toast("Nothing to replay yet")
 	elif event.is_action_pressed("change_vehicle"):
 		open_garage()
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -187,6 +228,44 @@ func _on_race_finished(r: Dictionary, t: float, medal: int, best: bool) -> void:
 	if best:
 		msg += "   NEW BEST TIME!"
 	hud.show_toast(msg, 5.0)
+
+
+# --- Replay / crash cam ------------------------------------------------------
+
+## Instant replay of the last few seconds, or (`crash`) the slow-motion crash
+## cam around the last big crash. False if there's nothing to show.
+func start_replay(crash := false) -> bool:
+	if state != State.DRIVING:
+		return false
+	var ok := false
+	if crash:
+		ok = replay.play_range(_crash_time - CRASH_CAM_BEFORE, _crash_time + CRASH_CAM_AFTER, CRASH_CAM_SPEED, _crash_pos)
+	else:
+		ok = replay.play_last(8.0, 1.0)
+	if not ok:
+		return false
+	_crash_wait = -1.0
+	state = State.REPLAY
+	get_tree().paused = true
+	hud.visible = false
+	return true
+
+
+func _on_replay_finished() -> void:
+	if state == State.REPLAY:
+		state = State.PAUSED  # so _enter_driving doesn't treat it as the title
+		_enter_driving()
+
+
+func _on_crash(severity: float) -> void:
+	if severity < CRASH_CAM_SEVERITY or _crash_wait >= 0.0 or not Settings.get_value("crash_cam"):
+		return
+	if state != State.DRIVING or race.is_active() or replay.now - _last_crash_cam < CRASH_CAM_COOLDOWN:
+		return
+	_last_crash_cam = replay.now
+	_crash_time = replay.now
+	_crash_pos = vehicle.global_position
+	_crash_wait = CRASH_CAM_AFTER
 
 
 # --- States -----------------------------------------------------------------
@@ -317,6 +396,7 @@ func change_vehicle(index: int, color: Color, place_here := true) -> void:
 	remove_child(old)
 	old.queue_free()
 	car.name = "PlayerCar"
+	car.process_mode = Node.PROCESS_MODE_PAUSABLE
 	# Put it in place before it enters the tree (see TrafficManager._spawn).
 	if not spot.is_empty():
 		car.transform = spot["xform"]
@@ -333,6 +413,8 @@ func change_vehicle(index: int, color: Color, place_here := true) -> void:
 		traffic.set_player(car)
 	stunts.vehicle = car
 	car.vehicle_reset.connect(race.on_teleport)
+	car.vehicle_reset.connect(replay.mark_cut)
+	replay.clear()
 	_watch_damage(car)
 	_fit_headlights()
 	if not place_here:
@@ -381,6 +463,7 @@ func _watch_damage(v: Vehicle) -> void:
 	var dmg := v.get_node_or_null("Damage") as VehicleDamage
 	if dmg and not dmg.part_lost.is_connected(_on_part_lost):
 		dmg.part_lost.connect(_on_part_lost)
+		dmg.crashed.connect(_on_crash)
 
 
 func _on_part_lost(part_name: String) -> void:

@@ -24,6 +24,14 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   A/D to barrel roll. Let go and the car turns itself level to land.
 - RECORDS page with your best combos, biggest air, longest drift and more.
 
+### Replays
+- Press P (X on a gamepad) for an instant replay of the last 8 seconds, with
+  TV-style camera angles.
+- CRASH CAM: big crashes play back in slow motion. Press Enter / A to skip, or
+  switch it off in Settings.
+- Fixed: after pausing, the car could jump forward or get a big kick when the
+  game carried on, and the race clock kept running in the pause menu.
+
 ### Sounds
 - Every vehicle sounds different now: rumbling diesel truck and bus, burbly
   V8 pickup, buzzy buggy, and a monster truck with a supercharger whine.

@@ -23,6 +23,7 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 | In the air: flip / barrel roll | Space + W S / A D | A + RT LT / left stick |
 | Flip car upright | R | Y (Triangle) |
 | Garage: change vehicle / paint | V | D-pad down |
+| Instant replay | P | X (Square) |
 | Back to spawn point | Backspace | Back / Select |
 | Teleport | 1-9, Tab = next | D-pad right |
 | Camera view (chase / far / hood) | C | RB |
@@ -51,6 +52,11 @@ wipeout (landing on the roof) or a big crash. Let go of a flip/roll and the car
 turns itself level to land. Best combos and records: RECORDS in the menus
 (saved to `user://records.cfg`).
 
+**Replays**: press P (X on a gamepad) to watch the last 8 seconds again, with
+TV-style camera cuts. Big crashes play back by themselves in slow motion (the
+crash cam; switch it off in Settings). Enter / A skips. The game is paused while
+a replay plays and carries on exactly where it was.
+
 **Races**: six checkpoint races (City Sprint, Highway Loop, Mountain Climb,
 Trail Climb, Dirt Rally, Beach Dash). Drive into a green start circle and stop, or pick one
 on the RACES page. 3-2-1-GO, then drive through the gates in order: the next
@@ -61,7 +67,7 @@ puts you back at the last gate; END RACE in the pause menu stops it.
 **Settings** (title screen or pause menu): traffic amount (few / normal / busy),
 graphics quality (low / medium / high), time of day (day / sunset / night /
 day & night cycle), speed units, driving assists, gamepad vibration, minimap,
-fullscreen and volume. Saved to `user://settings.cfg`
+crash cam, fullscreen and volume. Saved to `user://settings.cfg`
 (`~/.local/share/godot/app_userdata/Turbo Town/` on Linux and the Steam Deck).
 
 ## Project layout
@@ -147,6 +153,14 @@ tools/blender/vehicle_kit.py           Shared modelling helpers for the scripts
   was hit and the glass cracks when the car is badly smashed; a smashed front
   costs up to half the engine power, pulls the steering slightly and smokes.
   Any reset (R, respawn, teleport, garage) repairs the car.
+* **Replay** (`scripts/game/replay.gd`): records the player's body and wheel
+  transforms and nearby traffic 60 times a second (10 s ring buffer), then
+  poses them from the recording while the tree is paused and puts the live
+  state back afterwards. Damage, debris and props aren't recorded. The crash
+  cam is triggered by `VehicleDamage.crashed` (severity >= 0.5).
+* **Pausing**: `Game` processes always (menus, input), so it sets its gameplay
+  children (world, traffic, the player car, camera, stunts, races) to
+  pausable; anything that should run in menus sets its own process mode.
 * **Input**: all bindings are registered in `scripts/core/input_setup.gd`. Any
   action you define in Project Settings > Input Map overrides the default.
 
@@ -187,6 +201,7 @@ godot --path . -- --trail=/tmp/shots    buggy + pickup drive the mountain trail 
 godot --path . -- --landmarks=/tmp/shots drive the tunnel, bridge, runway and a pier (+ views)
 godot --path . -- --night=/tmp/shots    sunset / night / cycle checks and screenshots
 godot --path . -- --damage=/tmp/shots   crash into walls: parts off, lights/glass, pull, power, repair
+godot --path . -- --replay=/tmp/shots   pausing freezes the car, instant replay, crash cam (pass/fail)
 godot --path . --headless --fixed-fps 120 -- --spawncheck   60 traffic spawns, none may crash
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)
