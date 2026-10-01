@@ -781,6 +781,19 @@ func _on_driver_impact(d: TrafficDriver, cb: Callable) -> void:
 			cb.call(dd, st, p))
 
 
+## Presses and releases a gamepad button the way a real controller does
+## (a joypad event, not an action), so the bindings themselves are tested.
+func _pad(button: JoyButton) -> void:
+	for pressed in [true, false]:
+		var ev := InputEventJoypadButton.new()
+		ev.device = 0
+		ev.button_index = button
+		ev.pressed = pressed
+		ev.pressure = 1.0 if pressed else 0.0
+		Input.parse_input_event(ev)
+		await _wait(3)
+
+
 func _check(ok: bool, what: String) -> void:
 	print("  %s  %s" % ["ok  " if ok else "FAIL", what])
 
@@ -938,6 +951,41 @@ func _garage(game: Game) -> void:
 func _menus(game: Game) -> void:
 	var tm := game.traffic
 	await _wait(30)
+	# With a gamepad only (real joypad events): A presses the focused button,
+	# B goes back, Start pauses, the D-pad moves between buttons.
+	game._enter_title()
+	await _wait(30)
+	await _pad(JOY_BUTTON_A)
+	await _wait(5)
+	_check(game.state == Game.State.DRIVING, "gamepad A on DRIVE! starts the game")
+	await _pad(JOY_BUTTON_START)
+	await _wait(5)
+	_check(game.state == Game.State.PAUSED and game.menu.page == "pause", "gamepad Start opens the pause menu")
+	for i in 3:
+		await _pad(JOY_BUTTON_DPAD_DOWN)
+	await _pad(JOY_BUTTON_A)
+	await _wait(5)
+	_check(game.menu.page == "settings", "gamepad D-pad down + A opens settings")
+	await _pad(JOY_BUTTON_B)
+	await _wait(5)
+	_check(game.menu.page == "pause", "gamepad B goes back to the pause menu")
+	await _pad(JOY_BUTTON_B)
+	await _wait(5)
+	_check(game.state == Game.State.DRIVING and not get_tree().paused, "gamepad B resumes driving")
+	# Garage from the pause menu with the pad: A opens it, B backs out, B resumes.
+	await _pad(JOY_BUTTON_START)
+	await _pad(JOY_BUTTON_DPAD_DOWN)
+	await _pad(JOY_BUTTON_DPAD_DOWN)
+	await _pad(JOY_BUTTON_A)
+	await _wait(10)
+	_check(game.state == Game.State.GARAGE and game.picker.is_open, "gamepad A opens the garage from the pause menu")
+	await _pad(JOY_BUTTON_B)
+	await _wait(10)
+	_check(game.state == Game.State.PAUSED and game.menu.page == "pause", "gamepad B leaves the garage, back to the pause menu")
+	await _pad(JOY_BUTTON_B)
+	await _wait(5)
+	_check(game.state == Game.State.DRIVING, "gamepad B resumes driving again")
+
 	# Title screen (dev runs normally skip it).
 	game._enter_title()
 	await _wait(90)

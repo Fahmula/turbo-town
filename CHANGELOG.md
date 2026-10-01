@@ -9,6 +9,10 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Fixes
+- Menus work with a gamepad again: A presses the highlighted button and B goes
+  back (before, you could move between buttons but not pick one).
+
 ## [0.3.0] - 2026-10-01
 
 A huge update: a garage full of vehicles, stunts and combos, races, day and

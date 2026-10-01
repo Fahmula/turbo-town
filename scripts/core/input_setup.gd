@@ -50,6 +50,24 @@ func _enter_tree() -> void:
 	_bind("menu_accept", [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE], [JOY_BUTTON_A], [])
 	_bind("menu_back", [KEY_ESCAPE, KEY_BACKSPACE], [JOY_BUTTON_B], [])
 
+	# Menu buttons use Godot's built-in ui_* actions. Up/down/left/right come
+	# with the D-pad and stick, but accept and cancel are keyboard-only, so
+	# add A / B or a gamepad can move between buttons but not press them.
+	_add_button("ui_accept", JOY_BUTTON_A)
+	_add_button("ui_cancel", JOY_BUTTON_B)
+
+
+## Adds a gamepad button (any controller, like Godot's own ui_* bindings) to
+## an existing action, unless it already has it.
+func _add_button(action: StringName, button: JoyButton) -> void:
+	if not InputMap.has_action(action):
+		return
+	var ev := InputEventJoypadButton.new()
+	ev.device = -1  # all devices
+	ev.button_index = button
+	if not InputMap.action_has_event(action, ev):
+		InputMap.action_add_event(action, ev)
+
 
 func _bind(action: StringName, keys: Array, buttons: Array, axes: Array, deadzone := DEADZONE) -> void:
 	if InputMap.has_action(action):
