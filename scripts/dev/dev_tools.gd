@@ -905,7 +905,9 @@ func _garage(game: Game) -> void:
 	var here := game.vehicle.global_position
 	game.change_vehicle(4, Color.YELLOW)
 	await _wait(5)
-	_check(not is_instance_valid(tv) or tv.is_queued_for_deletion(), "traffic car overlapping the bus was removed")
+	# Removed = freed, or put back in the traffic pool (out of the tree).
+	_check(not is_instance_valid(tv) or tv.is_queued_for_deletion() or (not tv.is_inside_tree() and not tm.vehicles.has(tv)),
+		"traffic car overlapping the bus was removed")
 	_check(game.vehicle.global_position.distance_to(here) < 1.5, "bus placed where the car was")
 	await _wait(60)
 	_check(game.vehicle.linear_velocity.length() < 2.0, "no physics explosion (speed %.1f)" % game.vehicle.linear_velocity.length())
