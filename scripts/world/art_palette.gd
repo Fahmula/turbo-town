@@ -19,8 +19,11 @@ const CONCRETE_STAINED := Color(0.557, 0.541, 0.51)
 ## Aprons, quays and forecourts.
 const PAVING := Color(0.64, 0.62, 0.58)
 const SIDEWALK := Color(0.741, 0.722, 0.682)
+const CURB := Color(0.659, 0.639, 0.604)
 const LOT := Color(0.68, 0.66, 0.62)
 const PLAZA := Color(0.8, 0.74, 0.64)
+## Flat roof membranes.
+const ROOF := Color(0.431, 0.424, 0.408)
 
 # Natural ground (pairs are blended by noise)
 const GRASS_DARK := Color(0.31, 0.44, 0.2)
@@ -55,4 +58,20 @@ const FACADES := [
 	Color(0.557, 0.29, 0.227), Color(0.561, 0.71, 0.682), Color(0.886, 0.812, 0.604),
 	Color(0.88, 0.86, 0.81), Color(0.66, 0.64, 0.6), Color(0.8, 0.62, 0.58),
 	Color(0.52, 0.58, 0.64),
+]
+
+## New-style buildings (BuildingKit), by facade style (ART_BIBLE.md §5).
+const STUCCO_WALLS := [
+	Color(0.847, 0.8, 0.706), Color(0.788, 0.541, 0.439), Color(0.561, 0.71, 0.682),
+	Color(0.886, 0.812, 0.604), Color(0.88, 0.86, 0.81), Color(0.8, 0.62, 0.58),
+]
+const LIMESTONE_WALLS := [Color(0.784, 0.718, 0.604), Color(0.82, 0.78, 0.7), Color(0.7, 0.68, 0.64)]
+const BRICK_WALLS := [Color(0.557, 0.29, 0.227), Color(0.47, 0.27, 0.21), Color(0.7, 0.58, 0.44)]
+const MULLIONS := [Color(0.227, 0.247, 0.267), Color(0.55, 0.57, 0.6)]
+const PANEL_WALLS := [Color(0.86, 0.85, 0.81), Color(0.66, 0.64, 0.6), Color(0.52, 0.58, 0.64)]
+const TRIM_WHITE := Color(0.91, 0.894, 0.855)
+## Shop fascias and awnings: muted accents.
+const SHOP_ACCENTS := [
+	Color(0.55, 0.2, 0.17), Color(0.18, 0.3, 0.45), Color(0.22, 0.38, 0.27),
+	Color(0.72, 0.52, 0.2), Color(0.28, 0.28, 0.3),
 ]

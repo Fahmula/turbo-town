@@ -10,6 +10,9 @@ enum Kind { CITY, HIGHWAY, COUNTRY, TRAIL }
 ## instead of embankments.
 const EMBANKMENT_MAX := 5.0
 const DECK_DEPTH := 1.2
+## New-style bridge decks (ArtZone): fascia beam depth and deck slab depth.
+const FASCIA_DEPTH := 1.3
+const SLAB_DEPTH := 0.35
 
 
 class Road:
@@ -411,13 +414,16 @@ func build(parent: Node3D) -> void:
 	parent.add_child(root)
 
 	var decks := {Kind.CITY: MeshBuilder.new(), Kind.HIGHWAY: MeshBuilder.new(), Kind.COUNTRY: MeshBuilder.new()}
+	# New style (ArtZone preview): decks, and the overpass undersides (no collision).
+	var env_decks := {Kind.CITY: MeshBuilder.new(), Kind.HIGHWAY: MeshBuilder.new(), Kind.COUNTRY: MeshBuilder.new()}
+	var structure := MeshBuilder.new()
 	var trails := MeshBuilder.new()
 	var markers := MeshBuilder.new()
 	for r in roads:
 		if r.kind == Kind.TRAIL:
 			_add_trail(trails, markers, r)
 		else:
-			_add_deck(decks[r.kind], r)
+			_add_deck(decks[r.kind], env_decks[r.kind], structure, r)
 	root.add_child(trails.build_node("Trails", load("res://assets/materials/props.tres"), true, 0.85))
 	root.add_child(markers.build_node("TrailMarkers", load("res://assets/materials/props.tres"), false))
 	for r in roads:
@@ -435,22 +441,43 @@ func build(parent: Node3D) -> void:
 	root.add_child(decks[Kind.CITY].build_node("CityRoads", _mat_city, true, 1.0))
 	root.add_child(decks[Kind.HIGHWAY].build_node("Highway", _mat_highway, true, 1.0))
 	root.add_child(decks[Kind.COUNTRY].build_node("CountryRoads", _mat_country, true, 1.0))
+	var env_mats := {
+		Kind.CITY: load("res://assets/materials/env/road_city.tres"),
+		Kind.HIGHWAY: load("res://assets/materials/env/road_highway.tres"),
+		Kind.COUNTRY: load("res://assets/materials/env/road_country.tres"),
+	}
+	var env_names := {Kind.CITY: "CityRoadsEnv", Kind.HIGHWAY: "HighwayEnv", Kind.COUNTRY: "CountryRoadsEnv"}
+	for kind: Kind in env_decks:
+		if not (env_decks[kind] as MeshBuilder).is_empty():
+			root.add_child((env_decks[kind] as MeshBuilder).build_node(env_names[kind], env_mats[kind], true, 1.0))
+	if not structure.is_empty():
+		var smi := MeshInstance3D.new()
+		smi.name = "OverpassStructure"
+		smi.mesh = structure.build_mesh(load("res://assets/materials/env/concrete.tres"))
+		root.add_child(smi)
 
 	var inter := MeshBuilder.new()
+	var env_inter := MeshBuilder.new()
 	var hw := MapLayout.CITY_ROAD_WIDTH * 0.5
 	for it in intersections:
 		var c := Vector3(it.x, 0, it.y)
 		var flags := int(it.z)
 		var col := Color(float(flags & 1), float((flags >> 1) & 1), float((flags >> 2) & 1), float((flags >> 3) & 1))
-		inter.add_quad(c + Vector3(-hw, 0, hw), c + Vector3(hw, 0, hw), c + Vector3(hw, 0, -hw), c + Vector3(-hw, 0, -hw), col,
+		var target := env_inter if ArtZone.has_point(c) else inter
+		target.add_quad(c + Vector3(-hw, 0, hw), c + Vector3(hw, 0, hw), c + Vector3(hw, 0, -hw), c + Vector3(-hw, 0, -hw), col,
 			Vector2(-hw, hw), Vector2(hw, hw), Vector2(hw, -hw), Vector2(-hw, -hw))
 	root.add_child(inter.build_node("Intersections", _mat_intersection, true, 1.0))
+	if not env_inter.is_empty():
+		root.add_child(env_inter.build_node("IntersectionsEnv", load("res://assets/materials/env/junction.tres"), true, 1.0))
 
 	_build_barriers(root)
 	_build_pillars(root)
 
 
-func _add_deck(mb: MeshBuilder, r: Road) -> void:
+## Road deck: the top surface plus side walls. Segments inside the ArtZone go
+## to `env` (new style, with stop lines, bridge-deck joints and fascias) and
+## the undersides of their bridge sections to `structure`.
+func _add_deck(mb: MeshBuilder, env: MeshBuilder, structure: MeshBuilder, r: Road) -> void:
 	var hw := r.width * 0.5
 	var n := r.points.size()
 	var rights := MeshBuilder._path_rights(r.points, r.closed)
@@ -458,6 +485,7 @@ func _add_deck(mb: MeshBuilder, r: Road) -> void:
 	var side := Color(1, 1, 1, 0)
 	var seg_count := n if r.closed else n - 1
 	var total := r.total_length()
+	env.set_uv2(_stop_lines(r))
 	for i in seg_count:
 		var i1 := (i + 1) % n
 		var p0 := r.points[i]
@@ -468,7 +496,20 @@ func _add_deck(mb: MeshBuilder, r: Road) -> void:
 		var r0 := p0 + rights[i] * hw
 		var l1 := p1 - rights[i1] * hw
 		var r1 := p1 + rights[i1] * hw
-		var depth := DECK_DEPTH if (r.elevated[i] or r.elevated[i1]) else 0.6
+		var bridge := r.elevated[i] or r.elevated[i1]
+		if ArtZone.has_point((p0 + p1) * 0.5):
+			var depth := FASCIA_DEPTH if bridge else 0.6
+			var down := Vector3.DOWN * depth
+			env.add_quad(l0, r0, r1, l1, Color(1, 1, 0, 1) if bridge else top,
+				Vector2(-hw, d0), Vector2(hw, d0), Vector2(hw, d1), Vector2(-hw, d1))
+			env.add_quad(r0 + down, r1 + down, r1, r0, side, Vector2(d0, depth), Vector2(d1, depth), Vector2(d1, 0), Vector2(d0, 0))
+			env.add_quad(l1 + down, l0 + down, l0, l1, side, Vector2(d1, depth), Vector2(d0, depth), Vector2(d0, 0), Vector2(d1, 0))
+			if bridge:
+				_add_deck_underside(structure, p0, p1, rights[i], rights[i1], hw)
+			else:
+				env.add_quad(l0 + down, l1 + down, r1 + down, r0 + down, side)
+			continue
+		var depth := DECK_DEPTH if bridge else 0.6
 		var down := Vector3.DOWN * depth
 		mb.add_quad(l0, r0, r1, l1, top, Vector2(-hw, d0), Vector2(hw, d0), Vector2(hw, d1), Vector2(-hw, d1))
 		mb.add_quad(r0 + down, r1 + down, r1, r0, side)
@@ -480,10 +521,91 @@ func _add_deck(mb: MeshBuilder, r: Road) -> void:
 			var l := p - rights[end] * hw
 			var rr := p + rights[end] * hw
 			var down := Vector3.DOWN * 0.6
+			var target := env if ArtZone.has_point(p) else mb
 			if end == 0:
-				mb.add_quad(rr + down, rr, l, l + down, side)
+				target.add_quad(rr + down, rr, l, l + down, side, Vector2(0, 0.6), Vector2(0, 0), Vector2(r.width, 0), Vector2(r.width, 0.6))
 			else:
-				mb.add_quad(l + down, l, rr, rr + down, side)
+				target.add_quad(l + down, l, rr, rr + down, side, Vector2(0, 0.6), Vector2(0, 0), Vector2(r.width, 0), Vector2(r.width, 0.6))
+
+
+## Where the stop lines go on a road (UV2 for road_surface.gdshader): x for
+## traffic leaving the road at its start, y for traffic leaving at its end,
+## as distances from the start (0 = no line). They sit just ahead of where
+## TrafficNetwork makes cars stop at red lights.
+func _stop_lines(r: Road) -> Vector2:
+	if r.kind != Kind.CITY or r.closed:
+		return Vector2.ZERO
+	var total := r.total_length()
+	var s := 0.0
+	var e := 0.0
+	if _signalized_at(r.points[0]):
+		s = 3.4
+	if _signalized_at(r.points[r.points.size() - 1]):
+		e = total - 3.4
+	# Avenues stopping at the highway junctions.
+	if r.name == "AvenueEast" or r.name == "AvenueWest":
+		e = total - TrafficNetwork.HJ_AVE_STOP + 0.6
+	elif r.name == "AvenueEastOuter" or r.name == "AvenueWestOuter":
+		s = TrafficNetwork.HJ_AVE_STOP - 0.6
+	return Vector2(s, e)
+
+
+func _signalized_at(p: Vector3) -> bool:
+	for it in intersections:
+		if Vector2(it.x - p.x, it.y - p.z).length() < 7.5:
+			var flags := int(it.z)
+			var count := 0
+			for b in 4:
+				if flags & (1 << b):
+					count += 1
+			return count >= 3
+	return false
+
+
+## Under a bridge deck: the fascia beams' inner faces and bottoms, the soffit
+## and five girders, visual only (concrete, no collision).
+func _add_deck_underside(mb: MeshBuilder, p0: Vector3, p1: Vector3, rt0: Vector3, rt1: Vector3, hw: float) -> void:
+	var soffit := Vector3.DOWN * SLAB_DEPTH
+	var bottom := Vector3.DOWN * FASCIA_DEPTH
+	var fascia_w := 0.4
+	var shade := ArtPalette.CONCRETE_STAINED
+	shade.a = 0.0
+	var col := ArtPalette.CONCRETE.darkened(0.08)
+	col.a = 0.0
+	var pt := func(p: Vector3, rt: Vector3, x: float, dn: Vector3) -> Vector3: return p + rt * x + dn
+	# Soffit between the fascia beams, facing down.
+	var si := hw - fascia_w
+	mb.add_quad(pt.call(p0, rt0, -si, soffit), pt.call(p1, rt1, -si, soffit), pt.call(p1, rt1, si, soffit), pt.call(p0, rt0, si, soffit), shade)
+	for s: float in [-1.0, 1.0]:
+		# Fascia beam bottom and inner face.
+		var xo := s * hw
+		var xi := s * si
+		var a := pt.call(p0, rt0, xo, bottom) as Vector3
+		var b := pt.call(p1, rt1, xo, bottom) as Vector3
+		var c := pt.call(p1, rt1, xi, bottom) as Vector3
+		var d := pt.call(p0, rt0, xi, bottom) as Vector3
+		if s > 0.0:
+			mb.add_quad(a, d, c, b, col)
+			mb.add_quad(d, pt.call(p0, rt0, xi, soffit), pt.call(p1, rt1, xi, soffit), c, shade)
+		else:
+			mb.add_quad(a, b, c, d, col)
+			mb.add_quad(c, pt.call(p1, rt1, xi, soffit), pt.call(p0, rt0, xi, soffit), d, shade)
+	# Girders.
+	var gw := 0.25
+	var gd := Vector3.DOWN * (FASCIA_DEPTH - 0.15)
+	for k in 5:
+		var x := lerpf(-si + 2.6, si - 2.6, k / 4.0)
+		var l0 := pt.call(p0, rt0, x - gw, soffit) as Vector3
+		var r0 := pt.call(p0, rt0, x + gw, soffit) as Vector3
+		var l1 := pt.call(p1, rt1, x - gw, soffit) as Vector3
+		var r1 := pt.call(p1, rt1, x + gw, soffit) as Vector3
+		var lb0 := pt.call(p0, rt0, x - gw, gd) as Vector3
+		var rb0 := pt.call(p0, rt0, x + gw, gd) as Vector3
+		var lb1 := pt.call(p1, rt1, x - gw, gd) as Vector3
+		var rb1 := pt.call(p1, rt1, x + gw, gd) as Vector3
+		mb.add_quad(rb0, rb1, r1, r0, shade)  # right face
+		mb.add_quad(lb1, lb0, l0, l1, shade)  # left face
+		mb.add_quad(lb0, lb1, rb1, rb0, col)  # bottom
 
 
 ## A dirt ribbon a few cm above the shaped terrain, with darker wheel ruts,
@@ -519,6 +641,7 @@ func _add_trail(mb: MeshBuilder, markers: MeshBuilder, r: Road) -> void:
 
 func _build_barriers(root: Node3D) -> void:
 	var mb := MeshBuilder.new()
+	var env := MeshBuilder.new()
 	# Jersey barrier cross-section (across, up), left to right over the top.
 	var profile := PackedVector2Array([
 		Vector2(-0.32, 0.0), Vector2(-0.24, 0.22), Vector2(-0.12, 0.72), Vector2(-0.1, 0.85),
@@ -528,16 +651,55 @@ func _build_barriers(root: Node3D) -> void:
 		ArtPalette.CONCRETE_STAINED, ArtPalette.CONCRETE, ArtPalette.CONCRETE, ArtPalette.CONCRETE_TOP,
 		ArtPalette.CONCRETE, ArtPalette.CONCRETE, ArtPalette.CONCRETE_STAINED,
 	])
+	# New style (ArtZone): the real New Jersey shape, 0.81 m tall: a short
+	# toe, a 55° lower slope and an 84° upper face, softened top edges and a
+	# stained base. Alpha 0.5 = barrier joints in concrete.gdshader.
+	var jersey := PackedVector2Array([
+		Vector2(-0.305, 0.0), Vector2(-0.305, 0.075), Vector2(-0.126, 0.33), Vector2(-0.078, 0.78),
+		Vector2(-0.05, 0.81), Vector2(0.05, 0.81), Vector2(0.078, 0.78), Vector2(0.126, 0.33),
+		Vector2(0.305, 0.075), Vector2(0.305, 0.0),
+	])
+	var stained := Color(ArtPalette.CONCRETE_STAINED, 0.5)
+	var conc := Color(ArtPalette.CONCRETE, 0.5)
+	var top := Color(ArtPalette.CONCRETE_TOP, 0.5)
+	var jersey_colors := PackedColorArray([
+		stained, stained.lerp(conc, 0.4), conc, conc, top, top, conc, conc, stained.lerp(conc, 0.4), stained,
+	])
 	for r in roads:
 		if not r.barriers:
 			continue
 		var hw := r.width * 0.5
 		var rights := MeshBuilder._path_rights(r.points, r.closed)
 		for offset in [-(hw - 0.35), 0.0, hw - 0.35]:
-			var runs := _split_runs(r, offset, rights)
-			for run in runs:
-				_add_colored_extrusion(mb, run, profile, profile_colors)
+			for run in _split_runs(r, offset, rights):
+				for part in _split_by_zone(run):
+					if ArtZone.has_point(part[part.size() / 2]):
+						env.add_sweep(part, jersey, jersey_colors, 32.0)
+					else:
+						_add_colored_extrusion(mb, part, profile, profile_colors)
 	root.add_child(mb.build_node("Barriers", _mat_barrier, true, 0.6))
+	if not env.is_empty():
+		root.add_child(env.build_node("BarriersEnv", load("res://assets/materials/env/concrete.tres"), true, 0.6))
+
+
+## Splits a polyline where it crosses the ArtZone edge (the parts share the
+## crossing point, so they join up).
+static func _split_by_zone(run: PackedVector3Array) -> Array[PackedVector3Array]:
+	var parts: Array[PackedVector3Array] = []
+	var cur := PackedVector3Array()
+	var inside := ArtZone.has_point(run[0])
+	for p in run:
+		var now := ArtZone.has_point(p)
+		if now != inside and cur.size() > 0:
+			cur.append(p)
+			if cur.size() > 1:
+				parts.append(cur)
+			cur = PackedVector3Array()
+			inside = now
+		cur.append(p)
+	if cur.size() > 1:
+		parts.append(cur)
+	return parts
 
 
 ## Splits a road edge line into runs, skipping barrier gaps. Closed roads
@@ -601,6 +763,7 @@ func _add_colored_extrusion(mb: MeshBuilder, path: PackedVector3Array, profile: 
 
 func _build_pillars(root: Node3D) -> void:
 	var mb := MeshBuilder.new()
+	var env := MeshBuilder.new()
 	var body := StaticBody3D.new()
 	body.name = "BridgePillars"
 	var col := ArtPalette.CONCRETE
@@ -628,6 +791,9 @@ func _build_pillars(root: Node3D) -> void:
 			continue
 		next_d = r.dist[i] + 24.0
 		var basis := Basis.looking_at(rights[i].cross(Vector3.UP), Vector3.UP)
+		if ArtZone.has_point(p):
+			_add_pier(env, body, p, basis, ground)
+			continue
 		for off in [-7.0, 7.0]:
 			var q: Vector3 = p + rights[i] * off
 			var h := top - ground + 0.5
@@ -646,7 +812,38 @@ func _build_pillars(root: Node3D) -> void:
 	mi.name = "Mesh"
 	mi.mesh = mb.build_mesh(_mat_concrete)
 	body.add_child(mi)
+	if not env.is_empty():
+		var emi := MeshInstance3D.new()
+		emi.name = "MeshEnv"
+		emi.mesh = env.build_mesh(load("res://assets/materials/env/concrete.tres"))
+		body.add_child(emi)
 	root.add_child(body)
+
+
+## New-style pier (ArtZone): two bevelled columns on footings under a cap
+## beam that carries the deck girders. Local X = across the deck.
+func _add_pier(mb: MeshBuilder, body: StaticBody3D, p: Vector3, basis: Basis, ground: float) -> void:
+	var cast := Color(ArtPalette.CONCRETE, 1.0)
+	var stained := Color(ArtPalette.CONCRETE_STAINED, 1.0)
+	var cap_top := p.y - (FASCIA_DEPTH - 0.15)
+	var cap_h := 1.3
+	var cap := Transform3D(basis, Vector3(p.x, cap_top - cap_h * 0.5, p.z))
+	mb.add_bevel_box(cap, Vector3(highway.width - 4.0, cap_h, 2.0), 0.12, cast, cast.darkened(0.12), false)
+	var col_top := cap_top - cap_h
+	for off: float in [-7.0, 7.0]:
+		var q := p + basis.x * off
+		var base := ground - 0.4
+		var h := col_top - base
+		var size := Vector3(1.9, h, 1.5)
+		var xf := Transform3D(basis, Vector3(q.x, base + h * 0.5, q.z))
+		mb.add_bevel_box(xf, size, 0.1, cast, stained)
+		mb.add_bevel_box(Transform3D(basis, Vector3(q.x, ground - 0.15, q.z)), Vector3(3.4, 0.5, 3.0), 0.06, stained)
+		var cs := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = size
+		cs.shape = shape
+		cs.transform = xf
+		body.add_child(cs)
 
 
 func _near_road(list: Array[Road], q: Vector3, margin: float) -> bool:

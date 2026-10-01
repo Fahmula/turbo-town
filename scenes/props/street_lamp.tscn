@@ -1,0 +1,39 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/kit_prop.gd" id="1_prop"]
+[ext_resource type="Script" path="res://scripts/world/night_light.gd" id="2_night"]
+
+[sub_resource type="CylinderShape3D" id="shape"]
+radius = 0.14
+height = 6.5
+
+[node name="StreetLamp" type="RigidBody3D" node_paths=PackedStringArray("model")]
+collision_layer = 4
+collision_mask = 7
+mass = 120.0
+sleeping = true
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 1.5, 0)
+script = ExtResource("1_prop")
+kind = "lamp"
+model = NodePath("Model")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.25, 0)
+shape = SubResource("shape")
+
+[node name="Model" type="MeshInstance3D" parent="."]
+visibility_range_end = 250.0
+visibility_range_end_margin = 20.0
+visibility_range_fade_mode = 1
+
+[node name="Lamp" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.05, -1.45)
+visible = false
+light_color = Color(1, 0.886, 0.69, 1)
+light_energy = 2.5
+distance_fade_enabled = true
+distance_fade_begin = 70.0
+distance_fade_length = 25.0
+omni_range = 16.0
+script = ExtResource("2_night")

@@ -15,6 +15,12 @@ extends Node
 ##   --night=<dir>    sunset / night / cycle: lights switch, screenshots
 ##   --damage=<dir>   crash tests: parts falling off, broken lights/glass, pull, repair
 ##   --replay=<dir>   pausing freezes everything, instant replay, slow-motion crash cam
+##   --artzone=<dir>  environment art preview: fixed views at day / sunset / night
+##                    and Low / High, plus draw calls per view (add --legacy-art
+##                    for the same views in the old style; --views=a,b limits the
+##                    views, --quick shoots day on High only, --profile hides one
+##                    family of new-style meshes at a time and prints what it cost,
+##                    --stress renders at 2x resolution so fill costs dominate)
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -97,6 +103,9 @@ func _ready() -> void:
 		elif arg.begins_with("--fx="):
 			_mode = "fx"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--artzone="):
+			_mode = "artzone"
+			_dir = arg.split("=")[1]
 	if _mode == "":
 		queue_free()
 		return
@@ -177,6 +186,8 @@ func _run() -> void:
 		await _replay(game)
 	elif _mode == "spawncheck":
 		await _spawncheck(game)
+	elif _mode == "artzone":
+		await _artzone(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -2283,3 +2294,135 @@ func _wait_real(seconds: float) -> void:
 	var t0 := Time.get_ticks_msec()
 	while Time.get_ticks_msec() - t0 < seconds * 1000.0:
 		await get_tree().process_frame
+
+
+## Environment art preview (ArtZone): screenshots from fixed views inside the
+## zone, at day / sunset / night on High and day on Low, with the HUD hidden
+## and traffic off so before/after runs (--legacy-art) match. Prints draw
+## calls, objects, primitives and GPU time per view (High, day).
+func _artzone(game: Game) -> void:
+	var tm := game.traffic
+	tm.set_enabled(false)
+	game.hud.visible = false
+	var cam := game.camera
+	var v := game.vehicle
+	var vp_rid := get_viewport().get_viewport_rid()
+	RenderingServer.viewport_set_measure_render_time(vp_rid, true)
+	var north := Basis.looking_at(Vector3.FORWARD, Vector3.UP)
+	var east := Basis.looking_at(Vector3.RIGHT, Vector3.UP)
+	# [name, camera position, look at, player car transform (or null), also on Low]
+	var views := [
+		["avenue_chase", Vector3(2.4, 2.4, -30.0), Vector3(2.4, 1.4, -62.0), Transform3D(north, Vector3(2.4, 0.6, -38.0)), true],
+		["intersection", Vector3(10.0, 1.7, -60.0), Vector3(-6.0, 1.2, -80.0), null, true],
+		["sidewalk", Vector3(-3.6, 1.6, -92.0), Vector3(-9.0, 4.0, -140.0), null, false],
+		["downtown_street", Vector3(9.0, 2.4, 2.0), Vector3(42.0, 3.0, 2.0), Transform3D(east, Vector3(16.0, 0.6, 2.0)), true],
+		["downtown_up", Vector3(4.0, 1.5, -3.0), Vector3(38.0, 28.0, 30.0), null, false],
+		["plaza", Vector3(-28.0, 2.0, -3.0), Vector3(-42.0, 2.0, -40.0), null, false],
+		["park", Vector3(38.0, 1.7, -77.0), Vector3(36.0, 3.0, -120.0), null, false],
+		["overpass_under", Vector3(2.5, 1.8, -212.0), Vector3(0.0, 6.0, -255.0), null, true],
+		["overpass_deck", Vector3(-45.0, 11.5, -244.0), Vector3(20.0, 9.6, -244.5), null, true],
+		["hill_junction", Vector3(6.0, 3.5, -280.0), Vector3(25.0, 6.0, -322.0), null, false],
+		["aerial", Vector3(95.0, 70.0, 15.0), Vector3(-10.0, 0.0, -110.0), null, true],
+		["aerial_overpass", Vector3(60.0, 32.0, -185.0), Vector3(0.0, 5.0, -258.0), null, false],
+	]
+	var times := ["day", "sunset", "night"]
+	var only: PackedStringArray = []
+	var quick := false
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--views="):
+			only = arg.split("=")[1].split(",")
+		quick = quick or arg == "--quick"
+	for q in ([GraphicsQuality.HIGH] if quick else [GraphicsQuality.HIGH, GraphicsQuality.LOW]):
+		Settings.set_value("graphics", q)
+		for t in (range(3) if q == GraphicsQuality.HIGH and not quick else [0]):
+			Settings.set_value("time_of_day", t)
+			for view: Array in views:
+				if q == GraphicsQuality.LOW and not view[4]:
+					continue
+				if not only.is_empty() and not only.has(view[0]):
+					continue
+				cam.set_process(true)
+				if view[3] != null:
+					v.teleport(view[3])
+				else:
+					v.teleport(Transform3D(north, Vector3(2.4, 0.6, -38.0)))
+				await _wait(20)
+				cam.set_process(false)
+				cam.global_position = view[1]
+				cam.look_at(view[2], Vector3.UP)
+				if OS.get_cmdline_user_args().has("--stress"):
+					# Render at 2x resolution so per-pixel (fill) costs dominate the GPU time.
+					get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+					get_viewport().scaling_3d_scale = 2.0
+				await _wait(12)
+				var tag := "%s_%s_%s" % [view[0], times[t], "high" if q == GraphicsQuality.HIGH else "low"]
+				if OS.get_cmdline_user_args().has("--profile") and q == GraphicsQuality.HIGH and t == 0:
+					await _profile_families(game, view[0])
+				if q == GraphicsQuality.HIGH and t == 0:
+					var calls := 0
+					var objs := 0
+					var prims := 0
+					var gpu := 0.0
+					for k in 30:
+						await RenderingServer.frame_post_draw
+						calls += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+						objs += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
+						prims += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
+						gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp_rid)
+					print("ARTZONE %-16s %4d draw calls, %4d objects, %7d primitives, gpu %.2f ms" % [
+						view[0], calls / 30, objs / 30, prims / 30, gpu / 30.0])
+				await _shot(tag)
+	cam.set_process(true)
+	game.hud.visible = true
+	Settings.set_value("graphics", GraphicsQuality.HIGH)
+	Settings.set_value("time_of_day", 0)
+
+
+## Render cost of one view: averages over `frames`.
+func _render_stats(frames: int) -> Array:
+	var vp_rid := get_viewport().get_viewport_rid()
+	var calls := 0
+	var prims := 0
+	var gpu := 0.0
+	for k in frames:
+		await RenderingServer.frame_post_draw
+		calls += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+		prims += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
+		gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp_rid)
+	return [calls / frames, prims / frames, gpu / frames]
+
+
+## Hides one family of new-style meshes at a time and prints what it cost
+## (draw calls, primitives, GPU time) in the current view.
+func _profile_families(game: Game, view: String) -> void:
+	var world := game.world
+	var families := {
+		"facades": func(n: Node) -> bool: return n.name == &"FacadesEnv",
+		"roof_clutter": func(n: Node) -> bool: return n.name == &"BuildingClutterEnv",
+		"paving": func(n: Node) -> bool: return n.name == &"PavingEnv" or n.get_parent().name == &"PavingEnv",
+		"roads_env": func(n: Node) -> bool: return n.get_parent() != null and String(n.get_parent().name).ends_with("Env") and String(n.get_parent().name).contains("Road"),
+		"trees_env": func(n: Node) -> bool: return n is MultiMeshInstance3D and (String(n.name).begins_with("broadleaf") or String(n.name).begins_with("conifer")),
+		"kit_props": func(n: Node) -> bool: return n is MeshInstance3D and (n.get_parent() is KitProp or (n.get_parent() is TrafficLightProp and (n.get_parent() as TrafficLightProp).model == n)),
+		"terrain": func(n: Node) -> bool: return n is MeshInstance3D and String(n.name).begins_with("Chunk_"),
+		"sky_off": func(n: Node) -> bool: return false,
+	}
+	var base: Array = await _render_stats(40)
+	print("PROFILE %-16s all            %4d calls %8d prims %.2f ms" % [view, base[0], base[1], base[2]])
+	var meshes := world.find_children("*", "GeometryInstance3D", true, false)
+	for fam: String in families:
+		var hidden: Array[GeometryInstance3D] = []
+		for n in meshes:
+			if (families[fam] as Callable).call(n) and (n as GeometryInstance3D).visible:
+				(n as GeometryInstance3D).visible = false
+				hidden.append(n)
+		var env := (world.get_node("WorldEnvironment") as WorldEnvironment).environment
+		var bg := env.background_mode
+		if fam == "sky_off":
+			env.background_mode = Environment.BG_COLOR
+		await _wait(3)
+		var st: Array = await _render_stats(40)
+		print("PROFILE %-16s -%-13s %+5d calls %+8d prims %+.2f ms (%d nodes)" % [view, fam, st[0] - base[0], st[1] - base[1], st[2] - base[2], hidden.size()])
+		for n in hidden:
+			n.visible = true
+		env.background_mode = bg
+		await _wait(3)

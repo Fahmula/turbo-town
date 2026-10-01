@@ -1,0 +1,10 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/foliage.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://assets/textures/foliage/leaves_conifer.png" id="2_leaves"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/leaves = ExtResource("2_leaves")
+shader_parameter/sway = 0.035

@@ -23,7 +23,16 @@ const PROP_SCENES := {
 	"parked_sedan": preload("res://scenes/props/parked_sedan.tscn"),
 	"parked_van": preload("res://scenes/props/parked_van.tscn"),
 	"ramp": preload("res://scenes/props/ramp.tscn"),
+	# New style (ArtZone preview).
+	"street_lamp": preload("res://scenes/props/street_lamp.tscn"),
+	"traffic_signal": preload("res://scenes/props/traffic_signal.tscn"),
+	"hydrant": preload("res://scenes/props/hydrant.tscn"),
+	"bin": preload("res://scenes/props/street_bin.tscn"),
+	"bench": preload("res://scenes/props/bench.tscn"),
+	"cabinet": preload("res://scenes/props/signal_cabinet.tscn"),
 }
+## Legacy props replaced by a new-style scene inside the ArtZone.
+const ENV_PROPS := {"lamp": "street_lamp", "traffic_light": "traffic_signal"}
 
 ## Build the map in the editor viewport as well (turn off if the editor gets slow).
 @export var preview_in_editor := true
@@ -53,6 +62,7 @@ func _rebuild_preview() -> void:
 
 func _build() -> void:
 	var t0 := Time.get_ticks_msec()
+	ArtZone.publish()
 	terrain = TerrainBuilder.new()
 	terrain.generate_base()
 	roads = RoadBuilder.new(terrain)
@@ -90,6 +100,8 @@ func _spawn_props(parent: Node3D, list: Array[Dictionary]) -> void:
 			# Mix of parked vehicle types.
 			var r := rng.randf()
 			key = "parked_sedan" if r < 0.45 else ("parked_van" if r < 0.65 else "parked_car")
+		if ENV_PROPS.has(key) and ArtZone.has_point((s["xform"] as Transform3D).origin):
+			key = ENV_PROPS[key]
 		var scene: PackedScene = PROP_SCENES.get(key)
 		if scene == null:
 			push_warning("Unknown prop scene: %s" % key)

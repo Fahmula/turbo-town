@@ -1,7 +1,8 @@
 @tool
 class_name NatureBuilder
 extends RefCounted
-## Trees (MultiMesh + trunk colliders), rocks, clouds and the sea.
+## Trees (MultiMesh + trunk colliders), rocks and the sea. (Clouds are in the
+## sky shader, assets/shaders/sky.gdshader.)
 
 var _terrain: TerrainBuilder
 var _rng := RandomNumberGenerator.new()
@@ -25,14 +26,18 @@ func build(parent: Node3D, city_tree_spots: Array[Vector3]) -> void:
 	for p in city_tree_spots:
 		round_spots.append(_tree_xform(p, 0.85, 1.15))
 	_scatter_trees(round_spots, pine_spots)
+	# New style inside the ArtZone.
+	var env_round := _take_zone(round_spots)
+	var env_pine := _take_zone(pine_spots)
 
 	var body := StaticBody3D.new()
 	body.name = "TreeTrunks"
 	root.add_child(body)
 	_add_tree_multimesh(root, body, _make_round_tree(), round_spots, 0.35)
 	_add_tree_multimesh(root, body, _make_pine_tree(), pine_spots, 0.35)
+	_add_env_trees(root, body, ["broadleaf_a", "broadleaf_b"], env_round, 0.25)
+	_add_env_trees(root, body, ["conifer"], env_pine, 0.25)
 	_add_rocks(root)
-	_add_clouds(root)
 	_add_sea(root)
 
 
@@ -72,6 +77,69 @@ func _scatter_trees(round_spots: Array[Transform3D], pine_spots: Array[Transform
 			pine_spots.append(_tree_xform(p, 0.8, 1.4))
 		else:
 			round_spots.append(_tree_xform(p, 0.8, 1.3))
+
+
+## Removes and returns the transforms inside the ArtZone.
+func _take_zone(list: Array[Transform3D]) -> Array[Transform3D]:
+	var inside: Array[Transform3D] = []
+	var outside: Array[Transform3D] = []
+	for xf in list:
+		if ArtZone.has_point(xf.origin):
+			inside.append(xf)
+		else:
+			outside.append(xf)
+	list.assign(outside)
+	return inside
+
+
+## New-style trees (TreeKit): one MultiMesh per variant per 128 m chunk, so
+## culling works and far chunks switch to the solid LOD mesh. Each tree gets
+## a slight colour variation; trunks keep cylinder colliders.
+func _add_env_trees(root: Node3D, body: StaticBody3D, kinds: Array, xforms: Array[Transform3D], trunk_radius: float) -> void:
+	if xforms.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 404
+	var chunks := {}
+	for i in xforms.size():
+		var xf := xforms[i]
+		var key := Vector3i(floori(xf.origin.x / 128.0), floori(xf.origin.z / 128.0), i % kinds.size())
+		if not chunks.has(key):
+			chunks[key] = []
+		(chunks[key] as Array).append(xf)
+		var cs := CollisionShape3D.new()
+		var shape := CylinderShape3D.new()
+		var s := xf.basis.get_scale().x
+		shape.radius = trunk_radius * s
+		shape.height = 4.0 * s
+		cs.shape = shape
+		cs.position = xf.origin + Vector3.UP * 2.0 * s
+		body.add_child(cs)
+	for key: Vector3i in chunks:
+		var list: Array = chunks[key]
+		var kind: String = kinds[key.z]
+		for lod in 2:
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_colors = true
+			mm.mesh = TreeKit.mesh(kind if lod == 0 else kind + "_far")
+			mm.instance_count = list.size()
+			for i in list.size():
+				mm.set_instance_transform(i, list[i])
+				var v := rng.randf_range(0.94, 1.06)
+				var hue := rng.randf_range(-0.03, 0.03)
+				mm.set_instance_color(i, Color(v * (1.0 + hue), v, v * (1.0 - hue), 1.0))
+			var mmi := MultiMeshInstance3D.new()
+			mmi.name = "%s_%d_%d_%s" % [kind, key.x, key.y, "near" if lod == 0 else "far"]
+			mmi.multimesh = mm
+			if lod == 0:
+				mmi.visibility_range_end = 170.0
+				mmi.visibility_range_end_margin = 20.0
+			else:
+				mmi.visibility_range_begin = 170.0
+				mmi.visibility_range_begin_margin = 20.0
+			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			root.add_child(mmi)
 
 
 func _add_tree_multimesh(root: Node3D, body: StaticBody3D, mesh: Mesh, xforms: Array[Transform3D], trunk_radius: float) -> void:
@@ -142,24 +210,6 @@ func _add_rocks(root: Node3D) -> void:
 	mi.mesh = mb.build_mesh(load("res://assets/materials/props.tres"))
 	body.add_child(mi)
 	root.add_child(body)
-
-
-func _add_clouds(root: Node3D) -> void:
-	var mb := MeshBuilder.new()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 31
-	for k in 26:
-		var c := Vector3(rng.randf_range(-900, 900), rng.randf_range(110, 170), rng.randf_range(-900, 900))
-		var puffs := rng.randi_range(3, 6)
-		for p in puffs:
-			var off := Vector3(rng.randf_range(-22, 22), rng.randf_range(-3, 5), rng.randf_range(-10, 10))
-			var r := rng.randf_range(10, 20)
-			mb.add_blob(c + off, Vector3(r * 1.3, r * 0.6, r), Color(1, 1, 1), 3, 7, 0.15, rng)
-	var mi := MeshInstance3D.new()
-	mi.name = "Clouds"
-	mi.mesh = mb.build_mesh(load("res://assets/materials/cloud.tres"))
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(mi)
 
 
 func _add_sea(root: Node3D) -> void:

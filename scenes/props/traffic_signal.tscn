@@ -1,0 +1,27 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/traffic/traffic_light_prop.gd" id="1_light"]
+
+[sub_resource type="CylinderShape3D" id="shape"]
+radius = 0.16
+height = 5.8
+
+[node name="TrafficSignal" type="RigidBody3D" node_paths=PackedStringArray("model")]
+collision_layer = 4
+collision_mask = 7
+mass = 150.0
+sleeping = true
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 1.2, 0)
+script = ExtResource("1_light")
+model = NodePath("Model")
+kit_kind = "signal"
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.9, 0)
+shape = SubResource("shape")
+
+[node name="Model" type="MeshInstance3D" parent="."]
+visibility_range_end = 250.0
+visibility_range_end_margin = 20.0
+visibility_range_fade_mode = 1

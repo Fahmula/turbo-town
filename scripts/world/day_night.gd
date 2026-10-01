@@ -19,8 +19,8 @@ const KEYS := [
 	[0.0, Color(0.027, 0.043, 0.102), Color(0.102, 0.133, 0.22), Color(0.55, 0.65, 1.0), 0.22, Color(0.3, 0.38, 0.62), 0.35, Color(0.07, 0.09, 0.15)],
 	[5.0, Color(0.027, 0.043, 0.102), Color(0.102, 0.133, 0.22), Color(0.55, 0.65, 1.0), 0.22, Color(0.3, 0.38, 0.62), 0.35, Color(0.07, 0.09, 0.15)],
 	[6.5, Color(0.25, 0.32, 0.58), Color(0.95, 0.68, 0.5), Color(1.0, 0.62, 0.38), 0.9, Color(0.58, 0.56, 0.72), 0.5, Color(0.88, 0.7, 0.6)],
-	[8.5, Color(0.239, 0.486, 0.788), Color(0.839, 0.89, 0.925), Color(1.0, 0.95, 0.86), 1.4, Color(0.62, 0.74, 0.95), 0.65, Color(0.8, 0.86, 0.92)],
-	[16.5, Color(0.239, 0.486, 0.788), Color(0.839, 0.89, 0.925), Color(1.0, 0.95, 0.86), 1.4, Color(0.62, 0.74, 0.95), 0.65, Color(0.8, 0.86, 0.92)],
+	[8.5, Color(0.239, 0.486, 0.788), Color(0.839, 0.89, 0.925), Color(1.0, 0.95, 0.86), 1.4, Color(0.86, 0.88, 0.92), 0.9, Color(0.8, 0.86, 0.92)],
+	[16.5, Color(0.239, 0.486, 0.788), Color(0.839, 0.89, 0.925), Color(1.0, 0.95, 0.86), 1.4, Color(0.86, 0.88, 0.92), 0.9, Color(0.8, 0.86, 0.92)],
 	[17.9, Color(0.227, 0.29, 0.549), Color(0.949, 0.651, 0.42), Color(1.0, 0.6, 0.35), 1.2, Color(0.55, 0.55, 0.75), 0.5, Color(0.92, 0.66, 0.5)],
 	[19.8, Color(0.027, 0.043, 0.102), Color(0.102, 0.133, 0.22), Color(0.55, 0.65, 1.0), 0.22, Color(0.3, 0.38, 0.62), 0.35, Color(0.07, 0.09, 0.15)],
 	[24.0, Color(0.027, 0.043, 0.102), Color(0.102, 0.133, 0.22), Color(0.55, 0.65, 1.0), 0.22, Color(0.3, 0.38, 0.62), 0.35, Color(0.07, 0.09, 0.15)],
@@ -35,11 +35,8 @@ var is_night := false
 
 var _sun: DirectionalLight3D
 var _env: Environment
-var _sky: ProceduralSkyMaterial
+var _sky: ShaderMaterial
 var _buildings: ShaderMaterial
-var _clouds: BaseMaterial3D
-var _cloud_day := Color.WHITE
-var _cloud_glow := Color.BLACK
 var _stars: MultiMeshInstance3D
 var _star_mat: StandardMaterial3D
 
@@ -50,12 +47,8 @@ func setup(world: Node) -> void:
 	if we:
 		_env = we.environment
 		if _env.sky:
-			_sky = _env.sky.sky_material as ProceduralSkyMaterial
+			_sky = _env.sky.sky_material as ShaderMaterial
 	_buildings = load("res://assets/materials/building.tres") as ShaderMaterial
-	_clouds = load("res://assets/materials/cloud.tres") as BaseMaterial3D
-	if _clouds:
-		_cloud_day = _clouds.albedo_color
-		_cloud_glow = _clouds.emission
 	_make_stars()
 
 
@@ -96,21 +89,23 @@ func _apply() -> void:
 		_sun.light_color = k[2]
 		_sun.light_energy = k[3]
 	if _sky:
-		_sky.sky_top_color = k[0]
-		_sky.sky_horizon_color = k[1]
-		_sky.ground_horizon_color = k[1]
-		_sky.ground_bottom_color = (k[1] as Color).lerp(GROUND_BOUNCE * clampf(k[3] / 1.4, 0.1, 1.0), 0.75)
+		_sky.set_shader_parameter("sky_top_color", k[0])
+		_sky.set_shader_parameter("sky_horizon_color", k[1])
+		_sky.set_shader_parameter("ground_horizon_color", k[1])
+		_sky.set_shader_parameter("ground_bottom_color", (k[1] as Color).lerp(GROUND_BOUNCE * clampf(k[3] / 1.4, 0.1, 1.0), 0.75))
+		# Clouds: lit by the sun's colour (warm at sunset, dim grey-blue under
+		# the moon), shaded with the horizon's colour.
+		var light_amount := clampf(k[3] / 1.4, 0.12, 1.0)
+		_sky.set_shader_parameter("cloud_light", Color.WHITE.lerp(k[2], 0.5) * light_amount)
+		_sky.set_shader_parameter("cloud_shade", (k[1] as Color) * 0.84)
 	if _env:
 		_env.ambient_light_color = k[4]
 		_env.ambient_light_energy = k[5]
 		_env.fog_light_color = k[6]
 	var night_amount := smoothstep(3.0, -6.0, elev)
+	RenderingServer.global_shader_parameter_set("night", night_amount)
 	if _buildings:
 		_buildings.set_shader_parameter("night", night_amount)
-	if _clouds:
-		# Clouds pick up the sky's colour: grey-blue at night, pink at sunset.
-		_clouds.albedo_color = _cloud_day.lerp(Color(0.12, 0.14, 0.22), night_amount).lerp((k[1] as Color) * 1.15, 0.25 * (1.0 - night_amount) * smoothstep(20.0, 2.0, absf(elev)))
-		_clouds.emission = _cloud_glow.lerp(Color(0.02, 0.025, 0.05), night_amount)
 	if _stars:
 		_stars.visible = night_amount > 0.05
 		_star_mat.albedo_color = Color(1, 1, 1, night_amount)

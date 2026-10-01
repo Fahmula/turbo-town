@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/road_surface.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://assets/textures/ground/ground_detail.png" id="2_detail"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/detail = ExtResource("2_detail")
+shader_parameter/half_width = 4.5
+shader_parameter/median_half = 0.0
+shader_parameter/lanes_per_side = 1
+shader_parameter/lane_width = 4.0
+shader_parameter/center_style = 2
+shader_parameter/wear = 0.7
+shader_parameter/street = false

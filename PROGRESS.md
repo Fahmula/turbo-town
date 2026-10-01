@@ -164,8 +164,13 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 ### Art: stylized realism (rules in ART_BIBLE.md; order from its §31; start only when the owner asks)
 - [x] Art bible: visual direction, palette, materials, budgets, Steam Deck rules (ART_BIBLE.md)
 - [x] Lighting, atmosphere and palette regrade (DayNight keys, AgX, aerial fog, terrain/asphalt/building colours in `ArtPalette`)
-- [ ] Smooth shading and bevels for world geometry; soft clouds
-- [ ] Roads: asphalt variation, marking wear, paving, barriers, overpass detail
+- [~] Smooth shading and bevels for world geometry; soft clouds (clouds done: sky shader; MeshBuilder
+      smooth helpers in use in the preview zone)
+- [~] Environment upgrade, preview first (`ArtZone`, city spine + north overpass; `--artzone=<dir>` shots,
+      `--legacy-art` for before/after): roads, junctions, kerbs and paving, Jersey barriers and overpass,
+      buildings (`BuildingKit`), street furniture (`StreetKit`), trees (`TreeKit`), terrain detail.
+      Waiting for the owner's OK on the look before rolling out to the whole map
+- [~] Roads: asphalt variation, marking wear, paving, barriers, overpass detail (preview zone)
 - [x] Vehicles remodelled with deformation-ready topology, interiors, better wheels; clearcoat paint
       (all eight on `body_kit.py` loft bodies, one design language per class; four wheel types;
       `PaintPalette` garage colours + weighted traffic mix; garage racing stripes; dents only touch
@@ -173,8 +178,8 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - [ ] Vehicle draw-call trim if the Deck needs it: the fleet costs ~+85 draw calls at the highway
       spawn (ART_BIBLE.md §27); candidates: merge Interior into Trim, distance-cull parked cars
 - [ ] Damage 3.0: crumple stiffness, scrape/primer/bare-metal layer, structure behind lost parts
-- [ ] Buildings: facade base/middle/top, districts, roof clutter, chunked meshes
-- [ ] Vegetation: card-based trees, palms, chunked MultiMeshes with LOD
+- [~] Buildings: facade base/middle/top, districts, roof clutter, chunked meshes (preview zone; not chunked yet)
+- [~] Vegetation: card-based trees, palms, chunked MultiMeshes with LOD (preview zone; no palms yet)
 - [ ] UI: font, type scale, icons, gamepad prompts
 - [ ] Effects: lit smoke, surface-coloured dust, water splash, landing puffs
 
@@ -210,3 +215,5 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - 2026-10-01 — v0.3: per-vehicle engine sounds.
 - 2026-10-01 — Art step 1: lighting, atmosphere and palette regrade toward stylized realism; fixed speckled windows.
 - 2026-10-01 — Art step 4 (dev): the whole vehicle fleet remodelled, new wheels, paint palette, garage stripes.
+- 2026-10-01 — Environment upgrade preview (dev): new roads, buildings, props, trees and terrain in the city
+  spine and north overpass (`ArtZone`); sky shader clouds and neutral daytime shadows for the whole map.

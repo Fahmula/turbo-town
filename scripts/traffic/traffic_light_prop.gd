@@ -9,6 +9,10 @@ extends Prop
 @export var red_lamp: MeshInstance3D
 @export var amber_lamp: MeshInstance3D
 @export var green_lamp: MeshInstance3D
+## New style: one StreetKit mesh whose lenses light by the instance uniform
+## `signal` (street_props.gdshader), instead of three lamp meshes.
+@export var model: MeshInstance3D
+@export var kit_kind := ""
 
 var _mats: Array[StandardMaterial3D] = []
 var _colors := [Color(1.0, 0.12, 0.08), Color(1.0, 0.65, 0.05), Color(0.1, 1.0, 0.35)]
@@ -18,7 +22,11 @@ var _state := -1
 func _ready() -> void:
 	super._ready()
 	add_to_group("traffic_lights")
+	if model and kit_kind != "":
+		model.mesh = StreetKit.mesh(kit_kind)
 	for lamp in [red_lamp, amber_lamp, green_lamp]:
+		if lamp == null:
+			continue
 		var m := StandardMaterial3D.new()
 		m.roughness = 0.3
 		(lamp as MeshInstance3D).material_override = m
@@ -31,6 +39,11 @@ func set_state(state: int) -> void:
 	if state == _state:
 		return
 	_state = state
+	if model:
+		model.set_instance_shader_parameter("signal", [TrafficNetwork.SignalState.RED, TrafficNetwork.SignalState.AMBER,
+			TrafficNetwork.SignalState.GREEN].find(state))
+	if _mats.is_empty():
+		return
 	var lit := [state == TrafficNetwork.SignalState.RED, state == TrafficNetwork.SignalState.AMBER, state == TrafficNetwork.SignalState.GREEN]
 	for i in 3:
 		var m := _mats[i]

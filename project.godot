@@ -46,3 +46,18 @@ common/physics_interpolation=true
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
 textures/default_filters/anisotropic_filtering_level=3
 anti_aliasing/quality/msaa_3d=2
+
+[shader_globals]
+
+night={
+"type": "float",
+"value": 0.0
+}
+art_zone={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+quality={
+"type": "int",
+"value": 2
+}

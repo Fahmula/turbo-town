@@ -121,6 +121,7 @@ tools/blender/make_buggy.py    Buggy
 tools/blender/make_monster.py  Monster truck
 tools/blender/make_wheels.py   All four wheel types (sports, sedan, steel, off-road)
 tools/blender/body_kit.py      Shared loft body builder and modelling helpers
+tools/textures/make_textures.py  Ground detail, cloud and leaf textures:  python3 tools/textures/make_textures.py
 ```
 
 ## How things work
@@ -217,6 +218,8 @@ godot --path . -- --park=/tmp/shots     loop-the-loop (4 vehicles) and the wall-
 godot --path . -- --trail=/tmp/shots    buggy + pickup drive the mountain trail to the summit
 godot --path . -- --landmarks=/tmp/shots drive the tunnel, bridge, runway and a pier (+ views)
 godot --path . -- --night=/tmp/shots    sunset / night / cycle checks and screenshots
+godot --path . -- --artzone=/tmp/shots  environment art preview: fixed views, day/sunset/night, Low/High, draw calls
+    add --legacy-art for the same views in the old style, --views=a,b --quick --stress --profile to narrow/measure
 godot --path . -- --damage=/tmp/shots   crash into walls: parts off, lights/glass, pull, power, repair
     add --vehicle=<id> (sedan, van, box_truck, bus, pickup, buggy, monster_truck) to run a main-game test in another vehicle
 godot --path . -- --replay=/tmp/shots   pausing freezes the car, instant replay, crash cam (pass/fail)
