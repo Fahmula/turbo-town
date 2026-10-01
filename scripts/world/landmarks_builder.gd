@@ -1,3 +1,4 @@
+@tool
 class_name LandmarksBuilder
 extends RefCounted
 ## One-off landmarks that make the map easier to read: highway exit gantries,

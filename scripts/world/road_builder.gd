@@ -1,3 +1,4 @@
+@tool
 class_name RoadBuilder
 extends RefCounted
 ## Defines the road network (as polylines with heights), cuts it into the

@@ -1,3 +1,4 @@
+@tool
 class_name WorldBuilder
 extends Node3D
 ## Builds the whole map at startup from MapLayout: terrain, roads, city,
@@ -5,6 +6,11 @@ extends Node3D
 ##
 ## Generation takes ~1-2 s. Everything is deterministic (fixed seeds), so the
 ## map is identical every run.
+##
+## It runs in the editor too, so the island shows in the 3D viewport when
+## main.tscn or world.tscn is open. The generated nodes have no owner, so they
+## are never saved into the scene. After changing map_layout.gd or a builder,
+## press "Rebuild map preview" in this node's inspector.
 
 const PROP_SCENES := {
 	"cone": preload("res://scenes/props/traffic_cone.tscn"),
@@ -19,6 +25,10 @@ const PROP_SCENES := {
 	"ramp": preload("res://scenes/props/ramp.tscn"),
 }
 
+## Build the map in the editor viewport as well (turn off if the editor gets slow).
+@export var preview_in_editor := true
+@export_tool_button("Rebuild map preview", "Reload") var rebuild_preview := _rebuild_preview
+
 ## Array of {"name": String, "xform": Transform3D}
 var spawn_points: Array[Dictionary] = []
 var terrain: TerrainBuilder
@@ -26,6 +36,22 @@ var roads: RoadBuilder
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint() and not preview_in_editor:
+		return
+	_build()
+
+
+## Editor: throws away the generated map and builds it again.
+func _rebuild_preview() -> void:
+	for child in get_children():
+		if child.owner == null:  # generated, not part of the saved scene
+			remove_child(child)
+			child.queue_free()
+	spawn_points.clear()
+	_build()
+
+
+func _build() -> void:
 	var t0 := Time.get_ticks_msec()
 	terrain = TerrainBuilder.new()
 	terrain.generate_base()

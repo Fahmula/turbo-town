@@ -1,3 +1,4 @@
+@tool
 class_name MapLayout
 extends RefCounted
 ## Every number that defines the map lives here, so the world can be reshaped

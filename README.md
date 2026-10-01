@@ -126,7 +126,12 @@ tools/blender/vehicle_kit.py           Shared modelling helpers for the scripts
   can be switched off with **T**.
 * **Map**: generated from code at startup (~0.4 s) using the numbers in
   `scripts/world/map_layout.gd`. It's deterministic, so it's the same every run.
-  The map is not visible in the editor viewport — run the game to see it.
+  The builders are `@tool` scripts, so the island is also built in the editor:
+  open `scenes/main.tscn` (or `scenes/world/world.tscn`) to see it in the 3D
+  viewport. Those nodes have no owner, so they're never saved into the scene.
+  To change the map, edit `map_layout.gd` or a builder in `scripts/world/`,
+  then press **Rebuild map preview** in the World node's Inspector (untick
+  *Preview In Editor* if the editor ever feels slow).
 * **AI traffic**: ~22 cars live around the player. They are ordinary
   `Vehicle`s driven by a `TrafficDriver` instead of the player controller, so
   they crash, dent and flip like your car. Each driver follows a random route
@@ -151,7 +156,8 @@ tools/blender/vehicle_kit.py           Shared modelling helpers for the scripts
   (`ai_speed_factor`, `ai_max_accel` on the root).
 * **Damage**: crash severity is the car's change of velocity over a quarter of a
   second. Each car shares its model's mesh until its first dent, then gets its
-  own copy; the surface data is read from the GPU once per model and cached. Dents follow the hits (smooth falloff, normals bent so they show);
+  own copy; the surface data is read from the GPU once per model and cached.
+  Dents follow the hits (smooth falloff, normals bent so they show);
   bumpers and spoilers lose health from nearby hits and fall off as debris
   (the models export them as separate meshes); lights break at the end that
   was hit and the glass cracks when the car is badly smashed; a smashed front

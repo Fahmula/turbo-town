@@ -1,3 +1,4 @@
+@tool
 class_name TerrainBuilder
 extends RefCounted
 ## Island heightfield: procedural hills + mountain, flattened under roads and

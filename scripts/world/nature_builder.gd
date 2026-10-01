@@ -1,3 +1,4 @@
+@tool
 class_name NatureBuilder
 extends RefCounted
 ## Trees (MultiMesh + trunk colliders), rocks, clouds and the sea.

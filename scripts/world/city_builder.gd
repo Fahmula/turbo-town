@@ -1,3 +1,4 @@
+@tool
 class_name CityBuilder
 extends RefCounted
 ## City blocks: raised sidewalks with beveled curbs, stylized buildings,

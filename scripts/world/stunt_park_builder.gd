@@ -1,3 +1,4 @@
+@tool
 class_name StuntParkBuilder
 extends RefCounted
 ## The stunt park south of the city: a big concrete pad full of ramps, a gap
