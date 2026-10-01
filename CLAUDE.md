@@ -15,6 +15,10 @@ Art direction: ART_BIBLE.md.
   ART_BIBLE.md in the same commit.
 - The style reference images are in `reference images/stylized-realism/`
   (local only). They're other games' art, so never commit them.
+- **The art migration (ART_BIBLE.md §31) happens on the `dev` branch.** Commit
+  and push art work there (`origin dev`). Merge `dev` into `main` only when the
+  owner says so. Small fixes for the released game still go on `main`; merge
+  `main` into `dev` afterwards so `dev` keeps them.
 
 ## Git and releases
 
