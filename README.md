@@ -140,6 +140,13 @@ tools/blender/vehicle_kit.py           Shared modelling helpers for the scripts
   sports cars, sedans, vans, delivery trucks and buses; each vehicle scene sets
   its own paint palette (`paint_palette` on its `Body` node) and AI speed
   (`ai_speed_factor`, `ai_max_accel` on the root).
+* **Damage**: crash severity is the car's change of velocity over a quarter of a
+  second. Dents follow the hits (smooth falloff, normals bent so they show);
+  bumpers and spoilers lose health from nearby hits and fall off as debris
+  (the models export them as separate meshes); lights break at the end that
+  was hit and the glass cracks when the car is badly smashed; a smashed front
+  costs up to half the engine power, pulls the steering slightly and smokes.
+  Any reset (R, respawn, teleport, garage) repairs the car.
 * **Input**: all bindings are registered in `scripts/core/input_setup.gd`. Any
   action you define in Project Settings > Input Map overrides the default.
 
@@ -179,6 +186,7 @@ godot --path . -- --park=/tmp/shots     loop-the-loop (4 vehicles) and the wall-
 godot --path . -- --trail=/tmp/shots    buggy + pickup drive the mountain trail to the summit
 godot --path . -- --landmarks=/tmp/shots drive the tunnel, bridge, runway and a pier (+ views)
 godot --path . -- --night=/tmp/shots    sunset / night / cycle checks and screenshots
+godot --path . -- --damage=/tmp/shots   crash into walls: parts off, lights/glass, pull, power, repair
 godot --path . --headless --fixed-fps 120 -- --spawncheck   60 traffic spawns, none may crash
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)

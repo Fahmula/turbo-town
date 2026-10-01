@@ -226,3 +226,34 @@ def add_tube(name, p0, p1, radius, mat, verts=10):
     obj.rotation_mode = "QUATERNION"
     obj.rotation_quaternion = mathutils.Vector((0, 0, 1)).rotation_difference(d.normalized())
     return obj
+
+
+# Parts the game can knock off, by object-name prefix. Each group becomes its
+# own object in the .glb (named after the group); everything else is the body.
+DETACHABLE = {
+    "FrontBumper": ("FrontBumper", "Bumper"),
+    "RearBumper": ("RearBumper",),
+    "Spoiler": ("Wing",),
+}
+
+
+def join_and_export(parts, body_name, filename, detach=DETACHABLE):
+    """Joins `parts` into one body object, except the detachable groups, which
+    are joined into separate objects, then exports them all together."""
+    groups = {k: [] for k in detach}
+    body = []
+    for p in parts:
+        for k, prefixes in detach.items():
+            if any(p.name.startswith(x) for x in prefixes):
+                groups[k].append(p)
+                break
+        else:
+            body.append(p)
+    objs = [join(body, body_name)]
+    smooth_by_angle(objs[0], math.radians(35))
+    for k, ps in groups.items():
+        if ps:
+            o = join(ps, k)
+            smooth_by_angle(o, math.radians(35))
+            objs.append(o)
+    export(objs, filename)

@@ -73,6 +73,7 @@ func _ready() -> void:
 	menu.races = race.races
 	_load_choice()
 	stunts.vehicle = vehicle
+	_watch_damage(vehicle)
 	vehicle.traction_control = Settings.get_value("assists")
 	hud.speedometer.use_mph = Settings.get_value("units_mph")
 	Settings.changed.connect(_on_setting_changed)
@@ -332,6 +333,7 @@ func change_vehicle(index: int, color: Color, place_here := true) -> void:
 		traffic.set_player(car)
 	stunts.vehicle = car
 	car.vehicle_reset.connect(race.on_teleport)
+	_watch_damage(car)
 	_fit_headlights()
 	if not place_here:
 		return
@@ -373,6 +375,16 @@ func _find_room(car: Vehicle, old: Vehicle) -> Dictionary:
 				traffic.remove_vehicle(v)
 			return {"xform": xform}
 	return {}
+
+
+func _watch_damage(v: Vehicle) -> void:
+	var dmg := v.get_node_or_null("Damage") as VehicleDamage
+	if dmg and not dmg.part_lost.is_connected(_on_part_lost):
+		dmg.part_lost.connect(_on_part_lost)
+
+
+func _on_part_lost(part_name: String) -> void:
+	hud.show_toast("%s FELL OFF!" % part_name, 2.0)
 
 
 ## Real headlights on the player's vehicle (only after dark; traffic cars

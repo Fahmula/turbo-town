@@ -97,9 +97,7 @@ def build_car():
     for sx in (-0.6, 0.6):
         parts.append(add_box("WingPost", (sx, -1.96, 0.66), (0.06, 0.12, 0.24), trim))
 
-    car = join(parts, "CarBody")
-    smooth_by_angle(car, math.radians(35))
-    export([car], "car_body.glb")
+    join_and_export(parts, "CarBody", "car_body.glb")
 
 
 def build_wheel():

@@ -24,6 +24,11 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   A/D to barrel roll. Let go and the car turns itself level to land.
 - RECORDS page with your best combos, biggest air, longest drift and more.
 
+### Crashes
+- Bumpers and spoilers can fall off in big crashes, lights break, the glass
+  cracks and a smashed engine smokes, loses power and pulls to one side.
+  Press R (or respawn) to fix your car.
+
 ### Day and night
 - Pick day, sunset, night or a day-and-night cycle in Settings. At night the
   windows light up, street lamps come on, your car has headlights and the

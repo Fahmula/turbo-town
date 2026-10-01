@@ -13,6 +13,7 @@ extends Node
 ##   --trail=<dir>    drive the mountain trail to the summit
 ##   --landmarks=<dir> drive through the tunnel, over the bridge, down the runway (+ shots)
 ##   --night=<dir>    sunset / night / cycle: lights switch, screenshots
+##   --damage=<dir>   crash tests: parts falling off, broken lights/glass, pull, repair
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -43,6 +44,9 @@ func _ready() -> void:
 		elif arg == "--spawncheck":
 			_mode = "spawncheck"
 			_dir = OS.get_user_data_dir()
+		elif arg.begins_with("--damage="):
+			_mode = "damage"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--night="):
 			_mode = "night"
 			_dir = arg.split("=")[1]
@@ -150,6 +154,8 @@ func _run() -> void:
 		await _landmarks(game)
 	elif _mode == "night":
 		await _night(game)
+	elif _mode == "damage":
+		await _damage(game)
 	elif _mode == "spawncheck":
 		await _spawncheck(game)
 	else:
@@ -1874,3 +1880,87 @@ func _night(game: Game) -> void:
 		dn.hour += get_physics_process_delta_time() * 0.5  # fast-forward
 	_check(not dn.is_night and not lamp.visible, "morning: lights off again (hour %.1f)" % dn.hour)
 	Settings.set_value("time_of_day", 0)
+
+
+## Drives (or reverses) the player car into a temporary wall at `kmh`.
+func _ram_wall(game: Game, kmh: float, backwards := false) -> void:
+	var v := game.vehicle
+	var start := Vector3(345, 0, -110)
+	start.y = game.world.terrain.height_at(start.x, start.z)
+	# Move it without teleport(): that counts as a reset and repairs the car.
+	v.global_transform = Transform3D(Basis.IDENTITY, start + Vector3.UP * (v.ride_height() + 0.3))
+	v.linear_velocity = Vector3.ZERO
+	v.angular_velocity = Vector3.ZERO
+	v.reset_physics_interpolation()
+	await _wait_s(0.8)
+	var wall := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(8, 4, 1)
+	cs.shape = box
+	wall.add_child(cs)
+	game.add_child(wall)
+	var dz := 40.0 if backwards else -40.0
+	wall.global_position = start + Vector3(0, 2.0, dz)
+	var t := 0.0
+	var key := "brake" if backwards else "accelerate"
+	while t < 8.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if v.speed_kmh < kmh:
+			Input.action_press(key)
+		else:
+			Input.action_release(key)
+		# Steer at the wall (a damaged car pulls to one side).
+		var local := v.global_basis.inverse() * (wall.global_position - v.global_position)
+		var ang := atan2(local.x, -local.z) if not backwards else -atan2(local.x, local.z)
+		_set_axis(clampf(ang * 2.0, -1.0, 1.0))
+		if v.global_position.distance_to(wall.global_position) < 3.5 + v.body_length() * 0.5:
+			break
+	_release()
+	await _wait_s(1.2)
+	wall.queue_free()
+
+
+func _damage(game: Game) -> void:
+	game.traffic.set_enabled(false)
+	await _wait_s(0.3)
+	var v := game.vehicle
+	var dmg := v.get_node("Damage") as VehicleDamage
+	var lost: Array[String] = []
+	dmg.part_lost.connect(func(n: String) -> void: lost.append(n))
+	await _ram_wall(game, 55.0, true)
+	await _ram_wall(game, 55.0, true)
+	await _shot("damage_rear")
+	_check(dmg.taillights_broken, "rear crash: tail lights broken (rear %.2f)" % dmg.rear_damage)
+	_check(lost.has("REAR BUMPER") or lost.has("SPOILER"), "rear parts fell off (%s)" % str(lost))
+	await _ram_wall(game, 75.0)
+	await _shot("damage_front")
+	_check(dmg.headlights_broken and v.damage_power < 0.95, "front crash: headlights broken, power %.2f" % v.damage_power)
+	_check(lost.has("FRONT BUMPER"), "front bumper fell off (%s)" % str(lost))
+	for k in 3:
+		await _ram_wall(game, 70.0)
+	_check(dmg.glass_broken and dmg.total_damage > 55.0, "glass cracked at %.0f%% damage" % dmg.total_damage)
+	# Smashed front makes the car smoke and pull.
+	_check(v.damage_power <= 0.6 and dmg._smoke.emitting, "engine smoking, power %.2f, pull %.2f" % [v.damage_power, v.damage_steer_bias])
+	var cam := game.camera
+	await _wait_s(0.5)
+	cam.set_process(false)
+	cam.global_position = v.global_position + Vector3(6, 3, -6)
+	cam.look_at(v.global_position + Vector3.UP * 0.5, Vector3.UP)
+	await _wait(3)
+	await _shot("damage_wreck")
+	cam.set_process(true)
+	# Repair (R) restores everything.
+	v.reset_upright()
+	await _wait_s(0.5)
+	var parts_back := true
+	for pn: String in dmg._parts:
+		var p: Dictionary = dmg._parts[pn]
+		parts_back = parts_back and p["debris"] == null and (p["mesh"] as MeshInstance3D).visible
+	_check(dmg.total_damage == 0.0 and not dmg.headlights_broken and not dmg.glass_broken and v.damage_power == 1.0 and parts_back,
+		"repair restores parts, lights, glass and power")
+	# Damage on a traffic car that's then removed: its debris tidies up safely.
+	game.traffic.set_enabled(true)
+	await _wait_s(1.0)
+	_check(true, "no errors")

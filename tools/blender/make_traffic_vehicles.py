@@ -47,9 +47,7 @@ def build_sedan():
     parts.append(add_box("Grille", (0, 2.29, 0.12), (0.8, 0.05, 0.16), m["chrome"]))
     parts.append(add_box("FrontBumper", (0, 2.22, -0.06), (1.84, 0.18, 0.14), m["trim"], bevel=0.03))
     parts.append(add_box("RearBumper", (0, -2.24, -0.05), (1.84, 0.18, 0.14), m["trim"], bevel=0.03))
-    car = join(parts, "SedanBody")
-    smooth_by_angle(car, math.radians(35))
-    export([car], "sedan_body.glb")
+    join_and_export(parts, "SedanBody", "sedan_body.glb")
 
 
 def build_van():
@@ -82,9 +80,7 @@ def build_van():
     parts.append(add_box("FrontBumper", (0, 2.4, -0.06), (1.96, 0.2, 0.2), m["trim"], bevel=0.03))
     parts.append(add_box("RearBumper", (0, -2.5, -0.06), (1.96, 0.2, 0.2), m["trim"], bevel=0.03))
     parts.append(add_box("DoorLine", (0.992, 0.2, 0.7), (0.02, 0.02, 1.3), m["trim"]))
-    van = join(parts, "VanBody")
-    smooth_by_angle(van, math.radians(35))
-    export([van], "van_body.glb")
+    join_and_export(parts, "VanBody", "van_body.glb")
 
 
 def build_truck():
@@ -119,9 +115,7 @@ def build_truck():
     parts.append(add_box("DoorSeam", (0, -3.81, 1.7), (0.03, 0.02, 2.2), m["trim"]))
     for sx in (-0.35, 0.35):
         parts.append(add_box("Handle", (sx, -3.815, 1.45), (0.05, 0.03, 0.5), m["chrome"]))
-    truck = join(parts, "TruckBody")
-    smooth_by_angle(truck, math.radians(35))
-    export([truck], "truck_body.glb")
+    join_and_export(parts, "TruckBody", "truck_body.glb")
 
 
 def build_bus():
@@ -158,9 +152,7 @@ def build_bus():
     parts.append(add_box("FrontBumper", (0, 4.26, -0.1), (2.5, 0.2, 0.3), m["trim"], bevel=0.04))
     parts.append(add_box("RearBumper", (0, -4.46, -0.1), (2.5, 0.2, 0.3), m["trim"], bevel=0.04))
     parts.append(add_box("RoofUnit", (0, -1.5, 2.7), (1.4, 1.6, 0.25), m["trim"], bevel=0.04))
-    bus = join(parts, "BusBody")
-    smooth_by_angle(bus, math.radians(35))
-    export([bus], "bus_body.glb")
+    join_and_export(parts, "BusBody", "bus_body.glb")
 
 
 def build_steel_wheel():

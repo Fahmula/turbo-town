@@ -81,6 +81,10 @@ var horn_input := false
 ## 0..1: how much of the mid-air leveling to use this tick (the player's air
 ## controls turn it down while they're steering in the air).
 var air_assist_scale := 1.0
+## Set by VehicleDamage: a smashed front pulls the steering (fraction of full
+## lock, + = right) and loses engine power (1 = healthy).
+var damage_steer_bias := 0.0
+var damage_power := 1.0
 
 # --- Read-only state ---
 var wheels: Array[VehicleWheel] = []
@@ -259,7 +263,7 @@ func max_steer_for_speed(speed: float) -> float:
 
 func _update_steering(dt: float) -> void:
 	var max_angle := max_steer_at_speed()
-	var target := -steer_input * max_angle
+	var target := -clampf(steer_input + damage_steer_bias, -1.0, 1.0) * max_angle
 	var rate := steer_speed if absf(target) > absf(steer_angle) else steer_return_speed
 	steer_angle = move_toward(steer_angle, target, rate * dt)
 	var rad := deg_to_rad(steer_angle)
@@ -310,7 +314,7 @@ func _update_drivetrain(dt: float) -> void:
 	if _shift_timer > 0.0:
 		_shift_timer -= dt
 	elif engine_rpm < redline_rpm:
-		torque = _torque_curve(engine_rpm / redline_rpm) * max_engine_torque * accel
+		torque = _torque_curve(engine_rpm / redline_rpm) * max_engine_torque * accel * damage_power
 	engine_load = accel if _shift_timer <= 0.0 else 0.0
 
 	var wheel_torque := torque * ratio * drivetrain_efficiency

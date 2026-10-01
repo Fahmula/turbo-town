@@ -20,6 +20,7 @@ var _acc := Vector3.ZERO
 var _paint_mats: Array[BaseMaterial3D] = []
 var _brake_mats: Array[BaseMaterial3D] = []
 var _reverse_mats: Array[BaseMaterial3D] = []
+var _rear_broken := false
 
 
 func _ready() -> void:
@@ -58,6 +59,13 @@ func _prepare_materials(mi: MeshInstance3D) -> void:
 				_reverse_mats.append(m)
 
 
+## Smashed tail lights stay dark (VehicleDamage).
+func set_rear_lights_broken(broken: bool) -> void:
+	_rear_broken = broken
+	for m in _brake_mats + _reverse_mats:
+		m.albedo_color = Color(0.2, 0.18, 0.18) if broken else Color(1, 1, 1)
+
+
 ## Repaints the car (works before or after it enters the tree).
 func set_paint_color(c: Color) -> void:
 	paint_color = c
@@ -81,9 +89,9 @@ func _physics_process(dt: float) -> void:
 	var pitch := clampf(-pitch_per_g * _acc.z / 9.81, -max_angle, max_angle)
 	rotation = Vector3(deg_to_rad(pitch), 0.0, deg_to_rad(roll))
 
-	var braking := _vehicle.is_braking
+	var braking := _vehicle.is_braking and not _rear_broken
 	for m in _brake_mats:
-		m.emission_energy_multiplier = 4.0 if braking else 0.8
-	var reversing := _vehicle.gear == -1
+		m.emission_energy_multiplier = 0.0 if _rear_broken else (4.0 if braking else 0.8)
+	var reversing := _vehicle.gear == -1 and not _rear_broken
 	for m in _reverse_mats:
 		m.emission_energy_multiplier = 2.5 if reversing else 0.0

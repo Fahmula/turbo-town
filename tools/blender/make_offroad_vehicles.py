@@ -59,9 +59,7 @@ def build_pickup():
     parts.append(add_box("FrontBumper", (0, 2.55, -0.08), (1.96, 0.18, 0.18), m["chrome"], bevel=0.03))
     parts.append(add_box("RearBumper", (0, -2.72, -0.06), (1.96, 0.16, 0.16), m["chrome"], bevel=0.03))
     parts.append(add_box("RearWindow", (0, -0.61, 1.0), (1.4, 0.03, 0.42), m["glass"]))
-    truck = join(parts, "PickupBody")
-    smooth_by_angle(truck, math.radians(35))
-    export([truck], "pickup_body.glb")
+    join_and_export(parts, "PickupBody", "pickup_body.glb")
 
 
 def build_buggy():
@@ -102,9 +100,7 @@ def build_buggy():
     parts.append(add_tube("WingPostR", (0.4, -1.45, 0.62), (0.4, -1.55, 1.08), 0.03, cage))
     parts.append(add_box("SteeringWheel", (-0.26, 0.05, 0.78), (0.3, 0.04, 0.3), m["trim"]))
     parts.append(add_box("Bumper", (0, 1.82, 0.1), (1.1, 0.1, 0.12), cage, bevel=0.02))
-    buggy = join(parts, "BuggyBody")
-    smooth_by_angle(buggy, math.radians(35))
-    export([buggy], "buggy_body.glb")
+    join_and_export(parts, "BuggyBody", "buggy_body.glb")
 
 
 def build_monster():
@@ -152,9 +148,7 @@ def build_monster():
     parts.append(add_box("LightBar", (0, 0.1, lift + 1.5), (1.4, 0.16, 0.12), m["trim"]))
     for k in range(4):
         parts.append(add_box("Spot", (-0.53 + k * 0.35, 0.19, lift + 1.5), (0.22, 0.03, 0.08), m["head"]))
-    truck = join(parts, "MonsterBody")
-    smooth_by_angle(truck, math.radians(35))
-    export([truck], "monster_body.glb")
+    join_and_export(parts, "MonsterBody", "monster_body.glb")
 
 
 def build_offroad_wheel():
