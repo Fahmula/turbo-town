@@ -19,7 +19,7 @@ const HELP_TEXT := """[b]CONTROLS[/b]
 [color=#ffd54a]T[/color]   assists on/off (drift mode)
 [color=#ffd54a]G[/color]   traffic on/off
 [color=#ffd54a]E[/color]   horn     [color=#ffd54a]U[/color]   km/h / mph
-[color=#ffd54a]H / F1[/color]   hide this help     [color=#ffd54a]Esc[/color]   pause"""
+[color=#ffd54a]H / F1[/color]   hide this help     [color=#ffd54a]Esc[/color]   menu"""
 
 var speedometer: Speedometer
 var _help: PanelContainer
@@ -28,7 +28,6 @@ var _toast_time := 0.0
 var _popup: Label
 var _popup_time := 0.0
 var _hint: Label
-var _pause_panel: PanelContainer
 var _help_timer := 14.0
 var _damage_label: Label
 var _damage: VehicleDamage
@@ -80,15 +79,6 @@ func _ready() -> void:
 	_hint.text = "Upside down? Press R to flip your car!"
 	_hint.visible = false
 	root.add_child(_hint)
-
-	_pause_panel = _make_panel()
-	var pl := _make_label(36, Color.WHITE)
-	pl.text = "PAUSED\n\nEsc - resume\nV - garage\nF10 - quit game"
-	_pause_panel.add_child(pl)
-	_pause_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_pause_panel.position = Vector2(-200, -140)
-	_pause_panel.visible = false
-	root.add_child(_pause_panel)
 
 	_damage_label = _make_label(18, Color(1, 0.75, 0.6))
 	_damage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -144,8 +134,10 @@ func toggle_help() -> void:
 	_help_timer = -1.0
 
 
-func set_paused(p: bool) -> void:
-	_pause_panel.visible = p
+## Shows the controls help, hiding it again after `seconds`.
+func show_help_for(seconds: float) -> void:
+	_help.visible = true
+	_help_timer = seconds
 
 
 func show_toast(text: String, duration := 2.5) -> void:

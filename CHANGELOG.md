@@ -16,6 +16,15 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - The camera pulls back for the truck and bus so you can see the road, and the
   hood camera sits on the roof of the tall vehicles.
 
+### Menus
+- New title screen with your car on show: Drive, Garage, Settings, Controls, Quit.
+- Esc / Start now opens a pause menu (resume, garage, settings, controls,
+  main menu, quit).
+- Settings: amount of traffic (few / normal / busy), graphics quality (pick Low
+  for longer battery on the Steam Deck), km/h or mph, driving assists,
+  vibration, fullscreen and volume. They're remembered.
+- Gamepads rumble when you crash or land a big jump.
+
 ## [0.2.0] - 2026-09-30
 
 First stable release for the Steam Deck. Drive around Turbo Town with a

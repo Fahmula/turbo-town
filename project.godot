@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+Settings="*res://scripts/core/settings.gd"
 InputSetup="*res://scripts/core/input_setup.gd"
 DevTools="*res://scripts/dev/dev_tools.gd"
 

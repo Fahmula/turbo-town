@@ -3,6 +3,7 @@ extends Node
 ##   --tour=<dir>     save screenshots from a set of viewpoints, then quit
 ##   --drive=<dir>    drive the player car with scripted input, snapping shots
 ##   --garage=<dir>   garage menu + changing into every vehicle (checks and shots)
+##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -29,6 +30,9 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--uturn="):
 			_mode = "uturn"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--menus="):
+			_mode = "menus"
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--garage="):
 			_mode = "garage"
@@ -82,6 +86,8 @@ func _run() -> void:
 		await _uturn(game)
 	elif _mode == "garage":
 		await _garage(game)
+	elif _mode == "menus":
+		await _menus(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -735,15 +741,123 @@ func _garage(game: Game) -> void:
 	await _wait(60)
 	_check(game.vehicle.linear_velocity.length() < 2.0, "no physics explosion (speed %.1f)" % game.vehicle.linear_velocity.length())
 
-	# 5) The choice is saved and restored.
-	game.persist_choice = true
-	game.settings_path = _dir.path_join("settings_test.cfg")
+	# 5) The choice is saved to disk and restored.
+	Settings.persist = true
+	Settings.path = _dir.path_join("settings_test.cfg")
 	game._save_choice(2, VehicleCatalog.COLORS[6])
+	Settings.persist = false
+	Settings.set_value("vehicle", "sports_car")  # in memory only
 	game.change_vehicle(0, Color.RED)
+	Settings.load_file()
 	game._load_choice()
 	game.teleport_to(0)
 	await _wait(10)
 	_check(game.vehicle.display_name == "Van" and (game.vehicle.get_node("Body") as VehicleBodyVisual).paint_color == VehicleCatalog.COLORS[6],
 		"saved choice (purple van) restored")
 	_check_wiring(game, "after load")
-	game.persist_choice = false
+	# A settings file from before the Settings autoload ([player] section).
+	var old_cfg := ConfigFile.new()
+	old_cfg.set_value("player", "vehicle", "box_truck")
+	old_cfg.set_value("player", "paint", VehicleCatalog.COLORS[3])
+	old_cfg.save(Settings.path)
+	Settings.load_file()
+	_check(Settings.get_value("vehicle") == "box_truck" and Settings.get_value("paint") == VehicleCatalog.COLORS[3], "old garage settings file migrated")
+
+
+func _menus(game: Game) -> void:
+	var tm := game.traffic
+	await _wait(30)
+	# Title screen (dev runs normally skip it).
+	game._enter_title()
+	await _wait(90)
+	_check(game.state == Game.State.TITLE and game.menu.page == "title" and not game.controller.enabled, "title screen shown, car input off")
+	_check(game.title_camera.current, "title camera orbits the car")
+	await _shot("menu_title")
+	# DRIVE! has focus: accept starts driving.
+	await _tap("ui_accept")
+	await _wait(5)
+	_check(game.state == Game.State.DRIVING and game.controller.enabled and game.camera.current and not game.menu.visible, "DRIVE! starts the game")
+
+	# Pause menu with Esc, settings page via focus navigation.
+	await _tap("pause")
+	await _wait(5)
+	_check(game.state == Game.State.PAUSED and get_tree().paused and game.menu.page == "pause", "Esc opens the pause menu")
+	await _shot("menu_pause")
+	await _tap("ui_down")
+	await _tap("ui_down")
+	await _tap("ui_accept")
+	await _wait(5)
+	_check(game.menu.page == "settings", "down, down, accept opens settings")
+	await _shot("menu_settings")
+	# First row (traffic) is focused: right = Busy.
+	var before := tm.max_cars
+	await _tap("ui_right")
+	_check(Settings.get_value("traffic_density") == 2 and tm.max_cars == Settings.TRAFFIC_CARS[2], "traffic busy: %d -> %d cars" % [before, tm.max_cars])
+	await _tap("ui_left")
+	await _tap("ui_left")
+	_check(Settings.get_value("traffic_density") == 0 and tm.max_cars == Settings.TRAFFIC_CARS[0], "traffic few")
+	await _wait(5)
+	_check(tm.drivers.size() <= Settings.TRAFFIC_CARS[0], "extra traffic removed (%d left)" % tm.drivers.size())
+	await _tap("ui_right")
+	# Graphics row: go Low, screenshot, back to High.
+	await _tap("ui_down")
+	await _tap("ui_left")
+	await _tap("ui_left")
+	_check(Settings.get_value("graphics") == 0 and game.get_viewport().scaling_3d_scale < 1.0, "graphics low applied")
+	await _tap("ui_cancel")
+	await _tap("ui_cancel")
+	await _wait(20)
+	await _shot("graphics_low")
+	await _tap("pause")
+	await _tap("ui_down")
+	await _tap("ui_down")
+	await _tap("ui_accept")
+	await _tap("ui_down")
+	await _tap("ui_right")
+	await _tap("ui_right")
+	_check(Settings.get_value("graphics") == 2 and game.get_viewport().scaling_3d_scale == 1.0, "graphics high again")
+	# Units row.
+	await _tap("ui_down")
+	await _tap("ui_right")
+	_check(game.hud.speedometer.use_mph, "units switched to mph")
+	await _tap("ui_left")
+	# Back to the pause menu, then the controls page.
+	await _tap("ui_cancel")
+	_check(game.menu.page == "pause", "back returns to the pause menu")
+	await _tap("ui_down")
+	await _tap("ui_down")
+	await _tap("ui_down")
+	await _tap("ui_accept")
+	await _wait(5)
+	_check(game.menu.page == "controls", "controls page")
+	await _shot("menu_controls")
+	await _tap("ui_cancel")
+	await _tap("ui_cancel")
+	await _wait(5)
+	_check(game.state == Game.State.DRIVING and not get_tree().paused, "back twice resumes driving")
+
+	# Garage from the pause menu, cancelled, returns to the pause menu.
+	await _tap("pause")
+	await _tap("ui_down")
+	await _tap("ui_accept")
+	await _wait(10)
+	_check(game.state == Game.State.GARAGE and game.picker.is_open, "garage from the pause menu")
+	await _tap("menu_back")
+	await _wait(5)
+	_check(game.state == Game.State.PAUSED and game.menu.page == "pause", "cancelling the garage returns to the pause menu")
+	# Main menu, then garage from the title: picking drives off.
+	for i in 4:
+		await _tap("ui_down")
+	await _tap("ui_accept")
+	await _wait(10)
+	_check(game.state == Game.State.TITLE and not get_tree().paused, "MAIN MENU goes back to the title screen")
+	game.open_garage()
+	await _wait(5)
+	await _tap("menu_right")
+	await _tap("menu_accept")
+	await _wait(10)
+	_check(game.state == Game.State.DRIVING and game.vehicle.display_name == "Sedan", "garage from the title: picking starts driving")
+	# Rumble with no gamepad connected must be harmless.
+	game.controller.rumble(1.0, 1.0, 0.2)
+	game.vehicle.impact.emit(50000.0, game.vehicle.global_position, Vector3.UP)
+	_check(true, "rumble without a gamepad")

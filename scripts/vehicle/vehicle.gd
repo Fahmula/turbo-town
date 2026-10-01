@@ -77,6 +77,7 @@ var throttle_input := 0.0
 var brake_input := 0.0
 var steer_input := 0.0
 var handbrake_input := false
+var horn_input := false
 
 # --- Read-only state ---
 var wheels: Array[VehicleWheel] = []

@@ -59,7 +59,7 @@ func _on_impact(strength: float, _pos: Vector3, _n: Vector3) -> void:
 func _process(_dt: float) -> void:
 	if _vehicle == null or _playback == null:
 		return
-	_horn = horn_enabled and Input.is_action_pressed("horn")
+	_horn = horn_enabled and _vehicle.horn_input
 	var rpm := _vehicle.engine_rpm
 	var target_freq := rpm / 60.0 * cylinders * 0.5
 	var target_load := _vehicle.engine_load

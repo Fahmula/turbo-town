@@ -57,6 +57,8 @@ var _initial_fill := true
 
 func _ready() -> void:
 	_rng.randomize()
+	max_cars = Settings.TRAFFIC_CARS[Settings.get_value("traffic_density")]
+	Settings.changed.connect(_on_setting_changed)
 	if world and not world.is_node_ready():
 		await world.ready
 	network = TrafficNetwork.new()
@@ -67,6 +69,20 @@ func _ready() -> void:
 		var p := player
 		player = null
 		set_player(p)
+
+
+func _on_setting_changed(key: String, value: Variant) -> void:
+	if key != "traffic_density":
+		return
+	max_cars = Settings.TRAFFIC_CARS[value]
+	# Fewer cars: drop the ones furthest from the player.
+	if drivers.size() > max_cars and player:
+		var ppos := player.global_position
+		var by_dist := drivers.duplicate()
+		by_dist.sort_custom(func(a: TrafficDriver, b: TrafficDriver) -> bool:
+			return a.vehicle.global_position.distance_squared_to(ppos) > b.vehicle.global_position.distance_squared_to(ppos))
+		for i in drivers.size() - max_cars:
+			_despawn(by_dist[i])
 
 
 ## Tells traffic which vehicle the player drives (after a vehicle change).

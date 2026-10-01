@@ -1,8 +1,10 @@
 class_name Game
 extends Node3D
-## Top-level game flow: spawning/teleporting the player car, respawn after
-## falling in the sea, pause, the garage (changing vehicle), and wiring the
-## HUD to vehicle events.
+## Top-level game flow: title screen, pause menu, the garage (changing
+## vehicle), spawning/teleporting the player, respawn after falling in the
+## sea, applying settings, and wiring the HUD to vehicle events.
+
+enum State { TITLE, DRIVING, PAUSED, GARAGE }
 
 @export var world: WorldBuilder
 @export var vehicle: Vehicle
@@ -11,28 +13,45 @@ extends Node3D
 @export var hud: Hud
 @export var traffic: TrafficManager
 
+var state := State.DRIVING
 var spawn_index := 0
 var picker: VehiclePicker
-## Remember the chosen vehicle between sessions. Off for dev/test runs (they
-## pass command-line args) so they always start in the default car.
-var persist_choice := OS.get_cmdline_user_args().is_empty()
-var settings_path := "user://settings.cfg"
+var menu: GameMenu
+var title_camera: MenuCamera
+## Start on the title screen. Off for dev/test runs (they pass command-line
+## args) so they start driving straight away.
+var show_title := OS.get_cmdline_user_args().is_empty()
+var _garage_from := State.DRIVING
 var _lost_timer := 0.0
 var _best_air := 0.0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	picker = VehiclePicker.new()
 	picker.name = "VehiclePicker"
 	add_child(picker)
 	picker.picked.connect(_on_vehicle_picked)
-	picker.cancelled.connect(_close_garage)
+	picker.cancelled.connect(_on_garage_cancelled)
+	menu = GameMenu.new()
+	menu.name = "Menu"
+	add_child(menu)
+	menu.action.connect(_on_menu_action)
+	title_camera = MenuCamera.new()
+	title_camera.name = "TitleCamera"
+	add_child(title_camera)
+
 	vehicle.landed.connect(_on_landed)
-	if persist_choice:
-		_load_choice()
+	_load_choice()
+	vehicle.traction_control = Settings.get_value("assists")
+	hud.speedometer.use_mph = Settings.get_value("units_mph")
+	Settings.changed.connect(_on_setting_changed)
+	GraphicsQuality.apply(Settings.get_value("graphics"), get_viewport(), world)
 	teleport_to(0)
+	if show_title:
+		_enter_title()
+	else:
+		_enter_driving()
 
 
 func teleport_to(index: int) -> void:
@@ -42,7 +61,8 @@ func teleport_to(index: int) -> void:
 	var sp: Dictionary = world.spawn_points[spawn_index]
 	vehicle.teleport(sp["xform"])
 	camera.snap()
-	hud.show_toast(sp["name"])
+	if state == State.DRIVING:
+		hud.show_toast(sp["name"])
 
 
 func _physics_process(dt: float) -> void:
@@ -76,23 +96,16 @@ func _on_landed(airtime: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if picker.is_open:
-		return  # the garage reads its own input
-	if event.is_action_pressed("change_vehicle"):
-		open_garage()
-		return
-	if event.is_action_pressed("pause"):
-		var p := not get_tree().paused
-		get_tree().paused = p
-		hud.set_paused(p)
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if p else Input.MOUSE_MODE_CAPTURED
-		return
 	if event is InputEventKey and event.pressed and event.physical_keycode == KEY_F10:
 		get_tree().quit()
 		return
-	if get_tree().paused:
-		return
-	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	if state != State.DRIVING:
+		return  # menus and the garage read their own input
+	if event.is_action_pressed("pause"):
+		_enter_pause()
+	elif event.is_action_pressed("change_vehicle"):
+		open_garage()
+	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event.is_action_pressed("respawn"):
 		teleport_to(spawn_index)
@@ -104,9 +117,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		traffic.set_enabled(not traffic.enabled)
 		hud.show_toast("Traffic ON" if traffic.enabled else "Traffic OFF")
 	elif event.is_action_pressed("toggle_units"):
-		hud.speedometer.use_mph = not hud.speedometer.use_mph
+		Settings.set_value("units_mph", not Settings.get_value("units_mph"))
 	elif event.is_action_pressed("toggle_traction_control"):
-		vehicle.traction_control = not vehicle.traction_control
+		Settings.set_value("assists", not Settings.get_value("assists"))
 		hud.show_toast("Assists ON" if vehicle.traction_control else "Assists OFF - drift mode!")
 	else:
 		for i in 6:
@@ -115,32 +128,99 @@ func _unhandled_input(event: InputEvent) -> void:
 				break
 
 
-# --- Garage / changing vehicle -------------------------------------------------
+# --- States -----------------------------------------------------------------
+
+func _enter_title() -> void:
+	state = State.TITLE
+	get_tree().paused = false
+	controller.enabled = false
+	hud.visible = false
+	title_camera.target = vehicle
+	title_camera.current = true
+	menu.set_ride_name(vehicle.display_name)
+	menu.show_page("title")
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _enter_driving() -> void:
+	var from_title := state == State.TITLE
+	state = State.DRIVING
+	get_tree().paused = false
+	controller.enabled = true
+	hud.visible = true
+	camera.current = true
+	menu.close()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if from_title:
+		camera.snap()
+		hud.show_help_for(14.0)
+
+
+func _enter_pause() -> void:
+	state = State.PAUSED
+	get_tree().paused = true
+	hud.visible = false
+	menu.show_page("pause")
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _on_menu_action(action_name: String) -> void:
+	match action_name:
+		"drive", "resume":
+			_enter_driving()
+		"garage":
+			open_garage()
+		"title":
+			_enter_title()
+		"quit":
+			get_tree().quit()
+
+
+func _on_setting_changed(key: String, value: Variant) -> void:
+	match key:
+		"assists":
+			vehicle.traction_control = value
+		"units_mph":
+			hud.speedometer.use_mph = value
+		"graphics":
+			GraphicsQuality.apply(value, get_viewport(), world)
+
+
+# --- Garage / changing vehicle -----------------------------------------------
 
 func open_garage() -> void:
+	_garage_from = state
+	state = State.GARAGE
 	get_tree().paused = true
-	hud.set_paused(false)
 	hud.visible = false
+	menu.close()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	picker.open(VehicleCatalog.index_of_vehicle(vehicle), _paint_of(vehicle))
 
 
-func _close_garage() -> void:
-	get_tree().paused = false
-	hud.visible = true
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+func _on_garage_cancelled() -> void:
+	match _garage_from:
+		State.TITLE:
+			_enter_title()
+		State.PAUSED:
+			_enter_pause()
+		_:
+			_enter_driving()
 
 
 func _on_vehicle_picked(index: int, color: Color) -> void:
-	_close_garage()
 	if index == VehicleCatalog.index_of_vehicle(vehicle):
 		var body := vehicle.get_node_or_null("Body") as VehicleBodyVisual
 		if body:
 			body.set_paint_color(color)
 	else:
 		change_vehicle(index, color)
-	hud.show_toast(VehicleCatalog.ENTRIES[index]["name"])
 	_save_choice(index, color)
+	# Coming from the title screen, picking a vehicle starts the game.
+	if _garage_from == State.TITLE:
+		state = State.TITLE
+	_enter_driving()
+	hud.show_toast(VehicleCatalog.ENTRIES[index]["name"])
 
 
 ## Replaces the player's vehicle with catalog entry `index`, parked upright where
@@ -164,6 +244,7 @@ func change_vehicle(index: int, color: Color, place_here := true) -> void:
 	vehicle = car
 	controller.vehicle = car
 	camera.set_target(car)
+	title_camera.target = car
 	hud.set_vehicle(car)
 	if traffic:
 		traffic.set_player(car)
@@ -216,21 +297,14 @@ func _paint_of(v: Vehicle) -> Color:
 
 
 func _save_choice(index: int, color: Color) -> void:
-	if not persist_choice:
-		return
-	var cfg := ConfigFile.new()
-	cfg.load(settings_path)  # keep anything else stored there
-	cfg.set_value("player", "vehicle", VehicleCatalog.ENTRIES[index]["id"])
-	cfg.set_value("player", "paint", color)
-	cfg.save(settings_path)
+	Settings.set_value("vehicle", VehicleCatalog.ENTRIES[index]["id"])
+	Settings.set_value("paint", color)
 
 
+## Puts the player in the vehicle + paint stored in the settings.
 func _load_choice() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(settings_path) != OK:
-		return
-	var index := VehicleCatalog.index_of_id(cfg.get_value("player", "vehicle", ""))
-	var color: Color = cfg.get_value("player", "paint", _paint_of(vehicle))
+	var index := VehicleCatalog.index_of_id(Settings.get_value("vehicle"))
+	var color: Color = Settings.get_value("paint")
 	if index < 0:
 		return
 	if index == VehicleCatalog.index_of_vehicle(vehicle):

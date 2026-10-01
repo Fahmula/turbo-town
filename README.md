@@ -4,7 +4,9 @@ A stylized driving sandbox made in Godot 4.7. Drive around a small city, a ring
 highway with overpasses, a mountain road, dirt fields, a beach and a stunt park
 full of ramps.
 
-Open the folder in Godot and press **Play (F5)**.
+Open the folder in Godot and press **Play (F5)**. The game opens on the title
+screen (DRIVE! / GARAGE / SETTINGS / CONTROLS / QUIT); Esc or Start opens the
+pause menu while driving.
 
 Feature checklist, backlog and known issues: see [PROGRESS.md](PROGRESS.md).
 Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING.md).
@@ -29,7 +31,7 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 | Horn | E | L3 |
 | km/h ↔ mph | U | |
 | Help | H / F1 | |
-| Pause | Esc | Start |
+| Pause menu | Esc | Start / Menu |
 
 Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields, 6 Beach.
 
@@ -37,6 +39,11 @@ Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields
 bus and a paint colour. Left/right = vehicle, up/down = paint, Enter / A =
 drive, Esc / B = back. The game is paused while it's open, and the choice is
 remembered next time the game starts.
+
+**Settings** (title screen or pause menu): traffic amount (few / normal / busy),
+graphics quality (low / medium / high), speed units, driving assists, gamepad
+vibration, fullscreen and volume. Saved to `user://settings.cfg`
+(`~/.local/share/godot/app_userdata/Turbo Town/` on Linux and the Steam Deck).
 
 ## Project layout
 
@@ -62,9 +69,12 @@ scripts/
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
              landmark builders, mesh_builder.gd (geometry helper)
   props/     prop.gd, ramp.gd (@tool, editable in the editor)
-  ui/        hud.gd, speedometer.gd, vehicle_picker.gd (the garage menu)
-  game/      game.gd (spawning, teleports, respawn, pause, changing vehicle)
-  core/      input_setup.gd (all key/gamepad bindings)
+  ui/        hud.gd, speedometer.gd, vehicle_picker.gd (the garage), game_menu.gd
+             (title/pause/settings/controls pages), ui_kit.gd (shared menu look)
+  game/      game.gd (title/driving/pause/garage states, spawning, teleports,
+             respawn, changing vehicle), graphics_quality.gd (low/medium/high)
+  core/      input_setup.gd (all key/gamepad bindings), settings.gd (Settings
+             autoload: saved player settings)
   dev/       autotest.gd, dev_tools.gd, audio_check.gd (testing helpers)
 assets/      models (.glb from Blender), shaders, materials
 tools/blender/make_car.py              Sports car + wheel:  blender -b -P tools/blender/make_car.py
@@ -127,6 +137,7 @@ godot --path . -- --traffic=/tmp/shots  watch traffic 150 s, log speeds/stuck/cr
 godot --path . -- --rampage=/tmp/shots  player drives wrong-way into traffic
 godot --path . -- --showcase=/tmp/shots one of each traffic vehicle in a filmed convoy
 godot --path . -- --garage=/tmp/shots   garage menu + changing into every vehicle (pass/fail checks)
+godot --path . -- --menus=/tmp/shots    title/pause/settings/controls menus driven by input (pass/fail)
 godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end
 godot --path . --headless --fixed-fps 120 -- --bench     physics cost with/without traffic
 godot --path . --headless -s res://scripts/dev/traffic_graph_check.gd   lane graph sanity
