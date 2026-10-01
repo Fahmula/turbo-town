@@ -23,6 +23,9 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   headlights, seats inside and new six-spoke wheels.
 - New van: a modern people-carrier with big windows, black bumpers and sills,
   twin rear doors, seats inside and new steel wheels.
+- New pickup: a big American-style truck with a chrome grille and bumpers, a
+  crew cab, an open load bed with a tailgate, chunky off-road wheels and
+  optional racing stripes.
 - Garage: 12 new paint colours that look like real car paint (some sparkle
   like metallic paint), plus fun ones like lime and pink, and racing stripes
   you can switch on for the sports car (X key or the Y button).

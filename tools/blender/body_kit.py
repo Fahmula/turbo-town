@@ -633,8 +633,11 @@ class LoftBody:
             row = self.s.bumper_row
             front = split_part(shell, "FrontBumper", lambda c: c.y > fy and c.z < self.row_height(c.y, row) + 1e-4)
             rear = split_part(shell, "RearBumper", lambda c: c.y < ry and c.z < self.row_height(c.y, row) + 1e-4)
-            thicken(front, 0.018)
-            thicken(rear, 0.018)
+            front = front if front.bm.faces else None    # e.g. a cab with no rear bumper
+            rear = rear if rear.bm.faces else None
+            for part in (front, rear):
+                if part:
+                    thicken(part, 0.018)
         return shell, front, rear, ys
 
     def inner_cabin(self, shell, m, ys, y_front, y_back, every=2):
