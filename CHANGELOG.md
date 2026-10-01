@@ -32,9 +32,13 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   window band, glass doors, an air-con unit on the roof and an engine grille.
 - New monster truck: a retro show truck high on a tube chassis with chrome
   shocks, a roll bar, exhaust stacks, a roof light bar and optional stripes.
+- New buggy: a classic dune buggy with an open cockpit and bucket seats, a full
+  roll cage with a light bar, round headlights, an engine you can see, a rear
+  wing and optional stripes. Crashes can now knock off its rear bar too.
 - Garage: 12 new paint colours that look like real car paint (some sparkle
   like metallic paint), plus fun ones like lime and pink, and racing stripes
-  you can switch on for the sports car (X key or the Y button).
+  you can switch on for the sports car, pickup, buggy and monster truck (X key
+  or the Y button).
 - Traffic now looks like a real town: mostly white, black, grey and silver
   cars, some blue and red ones, and the odd bright colour.
 
