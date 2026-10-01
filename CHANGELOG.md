@@ -9,8 +9,11 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
-First stable release (planned as 0.2.0). Everything below is what the game
-contains so far.
+## [0.2.0] - 2026-09-30
+
+First stable release for the Steam Deck. Drive around Turbo Town with a
+gamepad or keyboard: a city full of traffic, a highway, a mountain road, a
+beach and a stunt park.
 
 ### Driving
 - Sports car with raycast suspension, a slip-based tire model, 5-speed automatic
