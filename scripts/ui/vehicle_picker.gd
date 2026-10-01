@@ -1,18 +1,22 @@
 class_name VehiclePicker
 extends CanvasLayer
 ## Garage menu: browse the drivable vehicles on a spinning turntable, pick a
-## paint colour and drive off. Works with keyboard, gamepad and mouse.
+## paint colour (and racing stripes, on vehicles that have them) and drive
+## off. Works with keyboard, gamepad and mouse.
 ## Game pauses the world while it's open and does the actual vehicle swap.
 
-signal picked(index: int, color: Color)
+signal picked(index: int, color: Color, stripes: bool)
 signal cancelled
 
 const ACCENT := Color(1.0, 0.84, 0.29)
-const HINT_TEXT := "[center][color=#ffd54a]Left / Right[/color]  vehicle      [color=#ffd54a]Up / Down[/color]  paint      [color=#ffd54a]Enter[/color] or [color=#ffd54a](A)[/color]  drive!      [color=#ffd54a]Esc[/color] or [color=#ffd54a](B)[/color]  back[/center]"
+const HINT_TEXT := "[center][color=#ffd54a]Left / Right[/color]  vehicle      [color=#ffd54a]Up / Down[/color]  paint      %s[color=#ffd54a]Enter[/color] or [color=#ffd54a](A)[/color]  drive!      [color=#ffd54a]Esc[/color] or [color=#ffd54a](B)[/color]  back[/center]"
+const STRIPES_HINT := "[color=#ffd54a]X[/color] or [color=#ffd54a](Y)[/color]  stripes      "
 
 var is_open := false
 var index := 0
 var color_index := 0
+## Racing stripes chosen (only shown on vehicles whose model has them).
+var stripes := false
 
 var _opened_frame := -1
 var _viewport: SubViewport
@@ -27,6 +31,9 @@ var _weight_label: Label
 ## Per stat: the five bar segments.
 var _stat_cells: Array[Array] = []
 var _swatches: Array[Panel] = []
+var _stripes_row: HBoxContainer
+var _stripes_button: Button
+var _hints: RichTextLabel
 
 
 func _ready() -> void:
@@ -74,8 +81,9 @@ func _ready() -> void:
 	hints.scroll_active = false
 	hints.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hints.add_theme_font_size_override("normal_font_size", 17)
-	hints.text = HINT_TEXT
+	hints.text = HINT_TEXT % ""
 	col.add_child(hints)
+	_hints = hints
 
 
 func _make_preview() -> Control:
@@ -99,6 +107,17 @@ func _make_preview() -> Control:
 	env.tonemap_agx_contrast = 1.4
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.1
+	# Metal rims, chrome and metallic paint need something to reflect (with
+	# nothing they go black): a soft studio sky, used for reflections only.
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.32, 0.4, 0.55)
+	sky_mat.sky_horizon_color = Color(0.78, 0.82, 0.88)
+	sky_mat.ground_horizon_color = Color(0.45, 0.47, 0.5)
+	sky_mat.ground_bottom_color = Color(0.14, 0.15, 0.17)
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env.sky = sky
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	var world_env := WorldEnvironment.new()
 	world_env.environment = env
 	_viewport.add_child(world_env)
@@ -177,7 +196,7 @@ func _make_info() -> Control:
 	paint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	info.add_child(paint)
 	var swatch_grid := GridContainer.new()
-	swatch_grid.columns = 5
+	swatch_grid.columns = 6
 	swatch_grid.add_theme_constant_override("h_separation", 10)
 	swatch_grid.add_theme_constant_override("v_separation", 10)
 	info.add_child(swatch_grid)
@@ -190,6 +209,19 @@ func _make_info() -> Control:
 				_set_color(i))
 		swatch_grid.add_child(sw)
 		_swatches.append(sw)
+
+	_stripes_row = HBoxContainer.new()
+	_stripes_row.add_theme_constant_override("separation", 12)
+	info.add_child(_stripes_row)
+	var stripes_label := _label("RACING STRIPES", 16, Color(1, 1, 1, 0.85))
+	stripes_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_stripes_row.add_child(stripes_label)
+	_stripes_button = Button.new()
+	_stripes_button.focus_mode = Control.FOCUS_NONE
+	_stripes_button.custom_minimum_size = Vector2(96, 36)
+	_stripes_button.add_theme_font_size_override("font_size", 18)
+	_stripes_button.pressed.connect(func() -> void: _set_stripes(not stripes))
+	_stripes_row.add_child(_stripes_button)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -223,9 +255,10 @@ func _arrow_button(dir: int) -> Button:
 	return b
 
 
-func open(current: int, paint: Color) -> void:
+func open(current: int, paint: Color, stripes_on := false) -> void:
 	index = clampi(current, 0, VehicleCatalog.count() - 1)
 	color_index = VehicleCatalog.closest_color(paint)
+	stripes = stripes_on
 	is_open = true
 	visible = true
 	# Ignore the key press that opened the garage.
@@ -257,6 +290,8 @@ func _process(dt: float) -> void:
 		_set_color(color_index - 1)
 	elif Input.is_action_just_pressed("menu_down"):
 		_set_color(color_index + 1)
+	elif Input.is_action_just_pressed("menu_extra") and _stripes_row.visible:
+		_set_stripes(not stripes)
 	elif Input.is_action_just_pressed("menu_accept"):
 		_confirm()
 	elif Input.is_action_just_pressed("menu_back") or Input.is_action_just_pressed("pause"):
@@ -278,11 +313,30 @@ func _set_color(i: int) -> void:
 	_refresh_swatches()
 
 
+func _set_stripes(on: bool) -> void:
+	stripes = on
+	if _car:
+		var body := _car.get_node_or_null("Body") as VehicleBodyVisual
+		if body:
+			body.set_stripes(on)
+	_refresh_stripes()
+
+
+func _refresh_stripes() -> void:
+	_stripes_button.text = "ON" if stripes else "OFF"
+	var bg := ACCENT if stripes else Color(1, 1, 1, 0.12)
+	for st in ["normal", "hover", "pressed"]:
+		_stripes_button.add_theme_stylebox_override(st, _box(bg, 10, 4))
+	var fg := Color(0.08, 0.1, 0.18) if stripes else Color.WHITE
+	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
+		_stripes_button.add_theme_color_override(c, fg)
+
+
 func _confirm() -> void:
 	var i := index
 	var c := VehicleCatalog.COLORS[color_index]
 	close()
-	picked.emit(i, c)
+	picked.emit(i, c, stripes)
 
 
 ## Puts the selected vehicle on the turntable and updates the text.
@@ -302,6 +356,10 @@ func _show_vehicle() -> void:
 	var body := car.get_node_or_null("Body") as VehicleBodyVisual
 	if body:
 		body.paint_color = VehicleCatalog.COLORS[color_index]
+		body.stripes = stripes
+	_stripes_row.visible = body != null and body.has_stripes()
+	_hints.text = HINT_TEXT % (STRIPES_HINT if _stripes_row.visible else "")
+	_refresh_stripes()
 	for child in car.get_children():
 		if child is VehicleWheel:
 			(child as VehicleWheel).pose_at_rest(car.mass / 4.0)

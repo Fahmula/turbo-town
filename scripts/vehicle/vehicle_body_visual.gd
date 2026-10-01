@@ -4,11 +4,15 @@ extends Node3D
 ## (stylized "weight transfer"), recolours the paint and drives brake/reverse
 ## lights. Put this on the node that holds the body model (not the wheels).
 ## Materials are found by name in the imported model: "Paint", "TailLight",
-## "ReverseLight".
+## "ReverseLight". A mesh named "Stripes" (material "Stripe") is the optional
+## racing stripes: hidden unless `stripes` is on (only the player's garage
+## choice turns it on, never traffic).
 
-@export var paint_color := Color(0.93, 0.22, 0.14)
-## Colours the traffic spawner picks from for this vehicle (empty = its default mix).
+@export var paint_color := Color(0.784, 0.137, 0.106)
+## Colours the traffic spawner picks from for this vehicle, uniformly (empty =
+## the weighted PaintPalette.TRAFFIC mix).
 @export var paint_palette: Array[Color] = []
+@export var stripes := false
 @export var roll_per_g := 3.5
 @export var pitch_per_g := 2.2
 @export var max_angle := 6.0
@@ -20,6 +24,8 @@ var _acc := Vector3.ZERO
 var _paint_mats: Array[BaseMaterial3D] = []
 var _brake_mats: Array[BaseMaterial3D] = []
 var _reverse_mats: Array[BaseMaterial3D] = []
+var _stripe_meshes: Array[MeshInstance3D] = []
+var _stripe_mats: Array[BaseMaterial3D] = []
 var _rear_broken := false
 
 
@@ -27,6 +33,7 @@ func _ready() -> void:
 	_vehicle = get_parent() as Vehicle
 	for mi in find_children("*", "MeshInstance3D", true, false):
 		_prepare_materials(mi as MeshInstance3D)
+	set_stripes(stripes)
 	if _vehicle:
 		_vehicle.vehicle_reset.connect(func() -> void:
 			_acc = Vector3.ZERO
@@ -36,9 +43,18 @@ func _ready() -> void:
 func _prepare_materials(mi: MeshInstance3D) -> void:
 	if mi.mesh == null:
 		return
+	var is_stripes := mi.name == &"Stripes"
+	if is_stripes:
+		_stripe_meshes.append(mi)
 	for i in mi.mesh.get_surface_count():
 		var mat := mi.get_active_material(i) as BaseMaterial3D
 		if mat == null:
+			continue
+		if is_stripes:
+			var sm := paint_material(mat, PaintPalette.stripe_color(paint_color))
+			sm.metallic = 0.0
+			mi.set_surface_override_material(i, sm)
+			_stripe_mats.append(sm)
 			continue
 		match mat.resource_name:
 			"Paint":
@@ -59,14 +75,30 @@ func _prepare_materials(mi: MeshInstance3D) -> void:
 
 
 ## Car paint (ART_BIBLE.md §13): the model's "Paint" material in `col` with
-## a glossy clear coat. Parked-car props use it too, so all paint matches.
+## a glossy clear coat, metallic if PaintPalette lists it so. Parked-car
+## props use it too, so all paint matches.
 static func paint_material(base: BaseMaterial3D, col: Color) -> BaseMaterial3D:
 	var m := base.duplicate() as BaseMaterial3D
 	m.albedo_color = col
+	m.metallic = PaintPalette.metallic_of(col)
 	m.clearcoat_enabled = true
 	m.clearcoat = 1.0
 	m.clearcoat_roughness = 0.08
 	return m
+
+
+## True if this model has optional racing stripes (works before _ready).
+func has_stripes() -> bool:
+	if not _stripe_meshes.is_empty():
+		return true
+	return not find_children("Stripes", "MeshInstance3D", true, false).is_empty()
+
+
+## Shows or hides the racing stripes (if the model has them).
+func set_stripes(on: bool) -> void:
+	stripes = on
+	for mi in _stripe_meshes:
+		mi.visible = on
 
 
 ## Smashed tail lights stay dark (VehicleDamage).
@@ -79,8 +111,12 @@ func set_rear_lights_broken(broken: bool) -> void:
 ## Repaints the car (works before or after it enters the tree).
 func set_paint_color(c: Color) -> void:
 	paint_color = c
+	var metal := PaintPalette.metallic_of(c)
 	for m in _paint_mats:
 		m.albedo_color = c
+		m.metallic = metal
+	for m in _stripe_mats:
+		m.albedo_color = PaintPalette.stripe_color(c)
 
 
 func _physics_process(dt: float) -> void:

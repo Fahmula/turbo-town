@@ -343,38 +343,25 @@ inline.
 
 ### Vehicle paints
 
-The player palette keeps today's ten hues (`VehicleCatalog.COLORS`) with values
-tuned toward real car paints. The garage swatches stay in the same order.
+**Source of truth: `scripts/vehicle/paint_palette.gd` (`PaintPalette`).** Owner
+decision (2026-10-01): garage colours are believable car paints plus a few
+fun brighter ones; traffic is mostly white, black, grey and silver, with blue
+and red fairly common and other colours rare.
 
-| Slot | Today | Target hex | Godot `Color` | Finish |
-|---|---|---|---|---|
-| Red | `(0.93, 0.22, 0.14)` | `#C8231B` | `(0.784, 0.137, 0.106)` | solid |
-| Orange | `(1.0, 0.55, 0.15)` | `#E0661B` | `(0.878, 0.400, 0.106)` | solid |
-| Yellow | `(1.0, 0.8, 0.12)` | `#E8B51E` | `(0.910, 0.710, 0.118)` | solid |
-| Green | `(0.3, 0.8, 0.35)` | `#2E7D3E` | `(0.180, 0.490, 0.243)` | metallic |
-| Teal | `(0.2, 0.75, 0.8)` | `#1D8C8F` | `(0.114, 0.549, 0.561)` | metallic |
-| Blue | `(0.22, 0.5, 0.95)` | `#2355C4` | `(0.137, 0.333, 0.769)` | metallic |
-| Violet | `(0.6, 0.38, 0.9)` | `#6A2FA8` | `(0.416, 0.184, 0.659)` | metallic (Ref 1) |
-| Pink | `(0.97, 0.45, 0.65)` | `#D45683` | `(0.831, 0.337, 0.514)` | solid |
-| White | `(0.95, 0.95, 0.93)` | `#E6E6E1` | `(0.902, 0.902, 0.882)` | solid (pearl) |
-| Graphite | `(0.16, 0.17, 0.2)` | `#2A2C30` | `(0.165, 0.173, 0.188)` | metallic |
-
-**Traffic paints** (per-vehicle `paint_palette` on the `Body` node): use real
-street proportions. At least 70% neutrals, 20–25% muted colours, at most 10%
-bright. That way the player's car pops.
-
-| Name | Hex | Godot `Color` |
-|---|---|---|
-| silver | `#A9ADB2` | `(0.663, 0.678, 0.698)` |
-| grey | `#6B6E73` | `(0.420, 0.431, 0.451)` |
-| black | `#1E1F22` | `(0.118, 0.122, 0.133)` |
-| white | `#E6E6E1` | `(0.902, 0.902, 0.882)` |
-| navy | `#22324F` | `(0.133, 0.196, 0.310)` |
-| dark red | `#7A1E1E` | `(0.478, 0.118, 0.118)` |
-| beige | `#B9AC92` | `(0.725, 0.675, 0.573)` |
-
-Buses and delivery trucks use fixed liveries for invented companies (city
-yellow for buses, as today).
+- **Garage** (`PaintPalette.GARAGE`, 12 swatches, six per row): red, sunset
+  orange, yellow, lime, racing green, teal, bright blue, midnight purple,
+  pink, white, silver, graphite. `GARAGE_METALLIC` marks the metallic ones
+  (green, teal, blue, purple, silver, graphite). Saves from before snap to the
+  closest new colour when loaded.
+- **Traffic** (`PaintPalette.TRAFFIC`, weighted): white 22, black 16,
+  silver 16, dark grey 8, grey 6, blue 5, navy 4, red 5, dark red 3, dark
+  green 3, champagne 3, brown 2, then yellow, orange, teal, purple and lime
+  at 0.5–1.5 each. Vehicles without their own `paint_palette` use this mix,
+  and so do the parked-car props (`traffic_paint`).
+- **Per-type palettes** (uniform pick, on the scene's `Body` node): vans are
+  mostly white; delivery truck cabs and buses carry fleet liveries.
+- **Finish:** `VehicleBodyVisual.paint_material()` looks up the metallic
+  amount by colour and always adds the clear coat (§13).
 
 ### UI
 
@@ -729,8 +716,18 @@ shoulders and a slightly lighter sidewall; off-road tyres get chunky tread as
 geometry. **The visual radius must match the physics wheel radius** in the
 vehicle scene.
 
-**Liveries:** racing stripes and graphics are a hero/player option, not a
+**Liveries:** racing stripes and graphics are a hero/player option, never a
 traffic default. Buses and trucks carry invented company liveries.
+
+**Racing stripes (garage option):** a model may include a separate mesh named
+`Stripes` (material `Stripe`), projected onto the body with dense sampling
+along its length so it never dips under curved panels.
+- `VehicleBodyVisual` hides it unless `stripes` is on, and gives it a
+  contrasting colour (`PaintPalette.stripe_color`).
+- Only the player's garage choice turns it on (saved as `stripes`). Traffic
+  and parked cars never show it.
+- The garage shows the toggle (X / gamepad Y) only for vehicles that have
+  stripes.
 
 **Reference dimensions (metres).** The vehicle scenes (`scenes/vehicles/*.tscn`)
 are the authority for wheel positions and radii.
@@ -1221,9 +1218,13 @@ headless. The `.glb` is a build output. To change a model, change the script,
 rerun it, and commit both.
 
 **Existing pipeline:**
-- **New-style bodies:** `tools/blender/body_kit.py` (loft bodies, projected
-  decal patches, lathe wheels, materials, export), used by `make_car.py` (the
-  sports car and its wheel).
+- **New-style bodies:** `tools/blender/body_kit.py`. It provides
+  `BodySpec`/`LoftBody` (a spec-driven loft: profiles, cabin regions, window
+  list, door and shut lines, bumper split, inner cabin), projected decal
+  patches, lathe and spoke helpers, materials and export. Each vehicle has
+  its own `make_<vehicle>.py`, starting with `make_car.py` (sports car).
+- **Wheels:** `make_wheels.py` builds all four types (sports, sedan, steel,
+  off-road) at a 0.37 m base radius; scenes scale them uniformly.
 - **Legacy:** `vehicle_kit.py`, with `make_traffic_vehicles.py` and
   `make_offroad_vehicles.py`. These get replaced as each vehicle migrates.
 
@@ -1585,9 +1586,9 @@ Cheapest and biggest wins first:
 
 - **Font:** Barlow is suggested. It needs a download of OFL font files.
 - **Fire and explosions in crashes:** off unless the owner wants them.
-- **Traffic colours:** realistic, mostly neutral traffic (this bible) versus
-  today's colourful traffic.
-- **Player paint list:** today's ten hues kept, with the tuned values in §5.
+- ~~Traffic colours~~ and ~~player paint list~~: decided 2026-10-01 (§5).
+- ~~Racing stripes~~: decided 2026-10-01, a garage option, never on traffic
+  (§12).
 - **When to start the migration** (§31), and in what order.
 
 ---

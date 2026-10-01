@@ -51,13 +51,9 @@ const ENTRIES := [
 ## Stat keys and the labels shown for them.
 const STATS := [["speed", "SPEED"], ["accel", "ACCELERATION"], ["handling", "HANDLING"], ["smash", "SMASH POWER"]]
 
-## Paint colours the player can choose from (same list for every vehicle).
-const COLORS: Array[Color] = [
-	Color(0.93, 0.22, 0.14), Color(1.0, 0.55, 0.15), Color(1.0, 0.8, 0.12),
-	Color(0.3, 0.8, 0.35), Color(0.2, 0.75, 0.8), Color(0.22, 0.5, 0.95),
-	Color(0.6, 0.38, 0.9), Color(0.97, 0.45, 0.65), Color(0.95, 0.95, 0.93),
-	Color(0.16, 0.17, 0.2),
-]
+## Paint colours the player can choose from (same list for every vehicle;
+## finishes and the traffic mix live in PaintPalette).
+const COLORS: Array[Color] = PaintPalette.GARAGE
 
 
 static func count() -> int:

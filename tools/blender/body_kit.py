@@ -349,8 +349,10 @@ class Surface:
 def patch(surface, part, mat, outline, center, direction, up, lift=0.004, grid=4):
     """Projects a flat shape onto the shell along `direction`. `outline(u, v)`
     maps the unit square to local (s, t) metres in the projection plane
-    through `center` (s along `up` x `direction`, t along `up`). Patches that
-    miss the shell are skipped."""
+    through `center` (s along `up` x `direction`, t along `up`). `grid` is
+    the subdivision (an int, or (across, along) for long thin strips).
+    Patches that miss the shell are skipped."""
+    gu, gv = (grid, grid) if isinstance(grid, int) else grid
     d = mathutils.Vector(direction).normalized()
     upv = mathutils.Vector(up)
     upv = (upv - d * upv.dot(d)).normalized()
@@ -358,19 +360,21 @@ def patch(surface, part, mat, outline, center, direction, up, lift=0.004, grid=4
     c = mathutils.Vector(center)
     bm = bmesh.new()
     rows = []
-    for a in range(grid + 1):
+    for a in range(gu + 1):
         row = []
-        for b in range(grid + 1):
-            s, t = outline(a / grid, b / grid)
+        for b in range(gv + 1):
+            s, t = outline(a / gu, b / gv)
             p = c + side * s + upv * t
             loc, nrm = surface.hit(p - d * 2.0, d)
             if loc is None:
                 bm.free()
                 return False
+            if nrm.dot(d) > 0.0:
+                nrm = -nrm          # hit a back face (e.g. a bumper's inner skin)
             row.append(bm.verts.new(loc + nrm * lift))
         rows.append(row)
-    for a in range(grid):
-        for b in range(grid):
+    for a in range(gu):
+        for b in range(gv):
             bm.faces.new([rows[a][b], rows[a + 1][b], rows[a + 1][b + 1], rows[a][b + 1]])
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     # Face the patch outward like the surface under it.
@@ -430,3 +434,265 @@ def export(objs, filename):
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True)
     total = sum(len(o.data.vertices) for o in objs)
     print("exported", path, "objects", [o.name for o in objs], "blender verts", total)
+
+
+# ------------------------------------------------------------- loft body ---
+
+class BodySpec:
+    """Everything that makes one vehicle's loft body. Set attributes, then
+    build with LoftBody. Defaults are the sports car's. All positions are
+    Blender metres (front = +Y, z = 0 at wheel-centre height)."""
+
+    def __init__(self, **kw):
+        self.y_nose, self.y_tail = 2.20, -2.20
+        self.nose0, self.tail0 = 2.02, -2.06      # plan-view rounding starts
+        self.nose_p, self.tail_p = 2.4, 3.0       # rounding shape (higher = squarer)
+        self.floor = -0.24                        # underbody height
+        self.axles = []                           # [(y, arch radius)]
+        self.width = None                         # curve: half width at door middle
+        self.shoulder = None                      # curve: belt / fender line
+        self.crown = lambda y: 0.0                # curve: top centre above the edges
+        self.roof_w = lambda y: 0.6               # curve: roof half width
+        self.roof_edge = None                     # curve: cabin roof edge (side view)
+        self.ws_base, self.roof_front, self.roof_rear, self.rw_base = 0.62, -0.02, -0.72, -1.58
+        self.glass_top = 0.85                     # roof edge height where the cabin is "full"
+        self.windows = []                         # [(y_front, y_back)] side glass
+        self.pillar_mat = "Trim"                  # between windows
+        self.door_lines = []                      # [(y0, y1)] thin dark gaps on the sides
+        self.top_lines = []                       # [(y0, y1)] gaps across the top
+        self.bumper_split = (1.80, -1.80)         # rows below point 4 ahead/behind -> bumpers
+        self.shoulder_inset = 0.04
+        self.hood_edge_inset = 0.11
+        self.bulge = 0.012
+        self.rocker_mat = "Trim"
+        self.frit = True                          # dark band round windscreen / rear window
+        self.belt_molding = True
+        self.station_step = 0.14
+        self.arch_step = 0.09
+        self.keep = []                            # extra station positions
+        self.nose_samples = (0.3, 0.55, 0.72, 0.85, 0.93, 0.98, 1.0)
+        self.tail_samples = (0.35, 0.6, 0.8, 0.92, 0.98, 1.0)
+        self.side_mat = "Paint"
+        self.section_override = None              # fn(body, y) -> points, for odd shapes
+        self.material_override = None            # fn(body, j, y) -> key or "" (= default)
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+
+class LoftBody:
+    """Builds a BodySpec into a shell with the standard 19-point section
+    (see section()) and the material rules of ART_BIBLE.md §12-13."""
+
+    def __init__(self, spec):
+        self.s = spec
+
+    # Plan-view rounding at the ends: 1 inside, falling to 0 at the tips.
+    def wrap(self, y):
+        s = self.s
+        if y > s.nose0:
+            t = (y - s.nose0) / (s.y_nose - s.nose0)
+            return max(0.0, 1.0 - t ** s.nose_p) ** (1 / s.nose_p)
+        if y < s.tail0:
+            t = (s.tail0 - y) / (s.tail0 - s.y_tail)
+            return max(0.0, 1.0 - t ** s.tail_p) ** (1 / s.tail_p)
+        return 1.0
+
+    def arch(self, y):
+        for ay, r in self.s.axles:
+            dy = y - ay
+            if abs(dy) <= r + 1e-6:
+                return math.sqrt(max(r * r - dy * dy, 0.0)), 1.0
+        return self.s.floor, 0.0
+
+    def has_cabin(self, y):
+        return self.s.roof_edge is not None and self.s.rw_base < y < self.s.ws_base
+
+    def region(self, y):
+        s = self.s
+        if s.roof_edge is None:
+            return "hood"
+        if y > s.ws_base:
+            return "hood"
+        if y > s.roof_front:
+            return "ws"
+        if y > s.roof_rear:
+            return "roof"
+        if y > s.rw_base:
+            return "rw"
+        return "deck"
+
+    def section(self, _i, y):
+        s = self.s
+        if s.section_override:
+            return s.section_override(self, y)
+        yc = min(max(y, s.tail0), s.nose0)
+        k = self.wrap(y)
+        w = s.width(yc)
+        z_sh = s.shoulder(y)
+        z_re = z_sh + 0.004
+        g = 0.0
+        if self.has_cabin(y):
+            z_re = max(z_re, s.roof_edge(y))
+            g = smoothstep(0.0, 1.0, (z_re - z_sh) / (s.glass_top - z_sh))
+        z_rc = z_re + s.crown(y)
+        w_sh = w - s.shoulder_inset
+        w_re = lerp(w_sh - s.hood_edge_inset, s.roof_w(y), g)
+        band = lerp(0.008, 0.045, smoothstep(0.0, 0.12, g))
+        zb, a = self.arch(y)
+        off3 = lerp(0.035, 0.012, a)
+        off4 = lerp(0.10, 0.03, a)
+        p = [(0.0, zb), (w - 0.07, zb), (w - 0.012, zb + off3), (w - 0.002 + 0.006 * a, zb + off4)]
+        z4 = zb + off4
+        z7 = z_sh - 0.035
+        p.append((w + s.bulge - 0.005, lerp(z4, z7, 0.33)))
+        p.append((w + s.bulge, lerp(z4, z7, 0.70)))
+        p.append((w_sh + 0.012, z7))
+        p8 = (w_sh - 0.01, z_sh)
+        p13 = (w_re, z_re)
+        p.append(p8)
+        lx, lz = p13[0] - p8[0], p13[1] - p8[1]
+        ln = max(math.hypot(lx, lz), 1e-4)
+        for f in (min(0.03 / ln, 0.2), 0.45, 0.75, 1.0 - min(band / ln, 0.4)):
+            p.append((p8[0] + lx * f, p8[1] + lz * f))
+        p.append(p13)
+        u_band = min(band / max(w_re, 1e-3), 0.25)
+        for u in (u_band, 0.3, 0.5, 0.7, 0.86, 1.0):
+            x = w_re * (1.0 - u)
+            z = z_re + (z_rc - z_re) * (1.0 - (1.0 - u) ** 2)
+            p.append((x, z))
+        return [(x * k, z) for (x, z) in p]
+
+    def material_key(self, j, y):
+        """Material name for the face at section segment j, station mid y."""
+        s = self.s
+        if s.material_override:
+            key = s.material_override(self, j, y)
+            if key:
+                return key
+        reg = self.region(y)
+        cabin = reg in ("ws", "roof", "rw")
+        in_window = any(within(y, w) for w in s.windows)
+        glass_span = (s.windows[0][0], s.windows[-1][1]) if s.windows else None
+        in_span = glass_span is not None and within(y, glass_span)
+        if j == 0:
+            return "Trim"                                   # underbody
+        if j <= 2:
+            return s.rocker_mat                             # sills / lower lips
+        if j <= 6:
+            if j >= 3 and any(within(y, d) for d in s.door_lines):
+                return "Trim"
+            return s.side_mat
+        if j == 7:
+            return "Trim" if (in_span and s.belt_molding) else s.side_mat
+        if j <= 10:
+            if in_window:
+                return "Glass"
+            return s.pillar_mat if in_span else s.side_mat
+        if j <= 12:
+            return "Paint" if cabin else "Trim"             # pillars / shut gaps
+        if any(within(y, d) for d in s.top_lines):
+            return "Trim"
+        if reg in ("ws", "rw"):
+            return "Trim" if (j == 13 and s.frit) else "Glass"
+        return "Paint"
+
+    def stations(self):
+        s = self.s
+        keep = [s.nose0, s.tail0, s.bumper_split[0], s.bumper_split[1]] + list(s.keep)
+        if s.roof_edge is not None:
+            keep += [s.ws_base, s.roof_front, s.roof_rear, s.rw_base]
+        for w in s.windows:
+            keep += list(w)
+        for d in s.door_lines + s.top_lines:
+            keep += list(d)
+        refine = []
+        for ay, r in s.axles:
+            keep += [ay + r + 0.006, ay + r, ay - r, ay - r - 0.006]
+            refine.append((ay + r, ay - r, s.arch_step))
+        keep += [s.nose0 + t * (s.y_nose - s.nose0) for t in s.nose_samples]
+        keep += [s.tail0 - t * (s.tail0 - s.y_tail) for t in s.tail_samples]
+        return stations(s.y_nose, s.y_tail, s.station_step, keep=keep, refine=refine)
+
+    def row_height(self, y, row=4):
+        return self.section(0, y)[row][1]
+
+    def build(self, m, name="Body", bumpers=True):
+        """The shell plus (optionally) front and rear bumper parts, which are
+        the rows below section point 4 beyond bumper_split, thickened."""
+        ys = self.stations()
+        shell = Part(name, [])
+        loft(shell, ys, self.section, lambda _i, j, y0, y1: m[self.material_key(j, (y0 + y1) * 0.5)])
+        front = rear = None
+        if bumpers:
+            fy, ry = self.s.bumper_split
+            front = split_part(shell, "FrontBumper", lambda c: c.y > fy and c.z < self.row_height(c.y) + 1e-4)
+            rear = split_part(shell, "RearBumper", lambda c: c.y < ry and c.z < self.row_height(c.y) + 1e-4)
+            thicken(front, 0.018)
+            thicken(rear, 0.018)
+        return shell, front, rear, ys
+
+    def inner_cabin(self, shell, m, ys, y_front, y_back, every=2):
+        """Dark inward-facing door cards, pillars and headliner, so the see-
+        through glass doesn't show out through the far side."""
+        inner = [y for y in ys if y_front > y > y_back][::every]
+
+        def inner_section(i, y):
+            pts = self.section(i, y)
+            out = []
+            for j, (x, z) in enumerate(pts):
+                a = pts[max(j - 1, 0)]
+                b = pts[min(j + 1, len(pts) - 1)]
+                tx, tz = b[0] - a[0], b[1] - a[1]
+                ln = max(math.hypot(tx, tz), 1e-5)
+                nx, nz = tz / ln, -tx / ln
+                out.append((max(x - nx * 0.018, 0.0), z - nz * 0.018))
+            return out
+
+        def inner_mat(_i, j, y0, y1):
+            y = (y0 + y1) * 0.5
+            if 3 <= j <= 6:
+                return m["Interior"]
+            if 11 <= j and self.region(y) == "roof":
+                return m["Interior"]
+            if j in (11, 12):
+                return m["Interior"]
+            return None
+        tmp = Part("inner", list(shell.mats))
+        loft(tmp, inner, inner_section, inner_mat)
+        bmesh.ops.reverse_faces(tmp.bm, faces=tmp.bm.faces[:])
+        merge(shell, tmp)
+
+
+def within(y, rng):
+    return min(rng) < y < max(rng)
+
+
+def merge(dst, src):
+    """Moves all of `src`'s geometry into `dst` (keeping materials)."""
+    vmap = {v: dst.bm.verts.new(v.co) for v in src.bm.verts}
+    for f in src.bm.faces:
+        nf = dst.bm.faces.new([vmap[v] for v in f.verts])
+        nf.material_index = dst.slot(src.mats[f.material_index])
+        nf.smooth = f.smooth
+    src.bm.free()
+
+
+def torus(part, mat, center, ring_r, tube_r, seg=16, tseg=5, tilt=0.0, axis="X"):
+    """A ring (steering wheels, tyres of toys...). Lies in the XZ plane,
+    tilted about X by `tilt` radians."""
+    bm = bmesh.new()
+    rings = []
+    for a in range(seg):
+        ang = 2 * math.pi * a / seg
+        ring = []
+        for b in range(tseg):
+            t = 2 * math.pi * b / tseg
+            r = ring_r + tube_r * math.cos(t)
+            ring.append(bm.verts.new((r * math.cos(ang), tube_r * math.sin(t), r * math.sin(ang))))
+        rings.append(ring)
+    for a in range(seg):
+        r0, r1 = rings[a], rings[(a + 1) % seg]
+        for b in range(tseg):
+            bm.faces.new([r0[b], r1[b], r1[(b + 1) % tseg], r0[(b + 1) % tseg]])
+    bm.transform(mathutils.Matrix.Translation(center) @ mathutils.Matrix.Rotation(tilt, 4, axis))
+    _append(part, bm, mat)

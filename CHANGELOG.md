@@ -19,6 +19,11 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   and seats and a steering wheel inside, real headlights and tail lights, new
   alloy wheels and glossy paint. Its dents, falling-off bumpers and wing work
   as before.
+- Garage: 12 new paint colours that look like real car paint (some sparkle
+  like metallic paint), plus fun ones like lime and pink, and racing stripes
+  you can switch on for the sports car (X key or the Y button).
+- Traffic now looks like a real town: mostly white, black, grey and silver
+  cars, some blue and red ones, and the odd bright colour.
 
 ### Fixes
 - Building windows no longer flicker with a "TV static" pattern, day or night.

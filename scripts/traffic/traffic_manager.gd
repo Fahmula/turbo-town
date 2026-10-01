@@ -32,11 +32,6 @@ signal traffic_toggled(on: bool)
 @export var despawn_distance := 330.0
 ## Spare cars kept per vehicle type for reuse.
 @export var pool_per_type := 4
-@export var paint_colors: Array[Color] = [
-	Color(0.25, 0.55, 0.95), Color(0.98, 0.78, 0.2), Color(0.3, 0.8, 0.45),
-	Color(0.95, 0.95, 0.93), Color(0.6, 0.4, 0.9), Color(0.2, 0.22, 0.26),
-	Color(1.0, 0.55, 0.2), Color(0.35, 0.85, 0.9), Color(0.95, 0.45, 0.6),
-]
 
 var network: TrafficNetwork
 var drivers: Array[TrafficDriver] = []
@@ -359,8 +354,10 @@ func _spawn(lane: TrafficNetwork.Lane, s: float, scene: PackedScene = null) -> T
 	car.visible = true
 	var body := car.get_node_or_null("Body") as VehicleBodyVisual
 	if body:
-		var palette: Array[Color] = body.paint_palette if not body.paint_palette.is_empty() else paint_colors
-		var paint := palette[_rng.randi() % palette.size()]
+		# A vehicle's own palette (bus and truck liveries, white vans...) or
+		# the weighted real-world mix (mostly white, black, grey, silver).
+		var palette: Array[Color] = body.paint_palette
+		var paint := palette[_rng.randi() % palette.size()] if not palette.is_empty() else PaintPalette.pick_traffic(_rng)
 		if body.is_node_ready():
 			body.set_paint_color(paint)
 		else:

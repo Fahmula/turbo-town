@@ -53,7 +53,7 @@ shape = SubResource("Box_0")
 
 [node name="Body" type="Node3D" parent="."]
 script = ExtResource("3_visual")
-paint_palette = Array[Color]([Color(1, 0.78, 0.1, 1), Color(1, 0.78, 0.1, 1), Color(0.9, 0.25, 0.2, 1), Color(0.25, 0.55, 0.9, 1)])
+paint_palette = Array[Color]([Color(0.91, 0.71, 0.118, 1), Color(0.91, 0.71, 0.118, 1), Color(0.68, 0.11, 0.09, 1), Color(0.16, 0.29, 0.55, 1)])
 
 [node name="Model" parent="Body" instance=ExtResource("4_body")]
 

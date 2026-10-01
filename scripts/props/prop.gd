@@ -8,12 +8,24 @@ extends RigidBody3D
 @export var random_colors: Array[Color] = []
 @export var color_mesh: MeshInstance3D
 @export var paint_material_name := "Paint"
+## Parked cars: paint from the weighted traffic mix (PaintPalette) instead of
+## `random_colors`.
+@export var traffic_paint := false
 
 
 func _ready() -> void:
-	if random_colors.is_empty():
+	# Parked cars share the vehicles' models: optional racing stripes stay off.
+	for stripes in find_children("Stripes", "MeshInstance3D", true, false):
+		(stripes as MeshInstance3D).visible = false
+	if random_colors.is_empty() and not traffic_paint:
 		return
-	var col: Color = random_colors.pick_random()
+	var col: Color
+	if traffic_paint:
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		col = PaintPalette.pick_traffic(rng)
+	else:
+		col = random_colors.pick_random()
 	if color_mesh:
 		_recolor(color_mesh, 0, col)
 	for node in find_children("*", "MeshInstance3D", true, false):

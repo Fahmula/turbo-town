@@ -24,7 +24,8 @@ const DEFAULTS := {
 	"time_of_day": 0,  # 0 day, 1 sunset, 2 night, 3 cycle
 	"assists": true,
 	"vehicle": "sports_car",
-	"paint": Color(0.93, 0.22, 0.14),
+	"paint": Color(0.784, 0.137, 0.106),
+	"stripes": false,  # racing stripes on the player's vehicle (garage)
 }
 
 const TRAFFIC_LABELS := ["Few", "Normal", "Busy"]
