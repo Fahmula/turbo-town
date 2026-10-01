@@ -42,8 +42,7 @@ func _prepare_materials(mi: MeshInstance3D) -> void:
 			continue
 		match mat.resource_name:
 			"Paint":
-				var m := mat.duplicate() as BaseMaterial3D
-				m.albedo_color = paint_color
+				var m := paint_material(mat, paint_color)
 				mi.set_surface_override_material(i, m)
 				_paint_mats.append(m)
 			"TailLight":
@@ -57,6 +56,17 @@ func _prepare_materials(mi: MeshInstance3D) -> void:
 				m.emission = Color(1, 1, 1)
 				mi.set_surface_override_material(i, m)
 				_reverse_mats.append(m)
+
+
+## Car paint (ART_BIBLE.md §13): the model's "Paint" material in `col` with
+## a glossy clear coat. Parked-car props use it too, so all paint matches.
+static func paint_material(base: BaseMaterial3D, col: Color) -> BaseMaterial3D:
+	var m := base.duplicate() as BaseMaterial3D
+	m.albedo_color = col
+	m.clearcoat_enabled = true
+	m.clearcoat = 1.0
+	m.clearcoat_roughness = 0.08
+	return m
 
 
 ## Smashed tail lights stay dark (VehicleDamage).

@@ -48,6 +48,7 @@ var _meshes: Array[MeshInstance3D] = []
 var _sources: Array[ArrayMesh] = []  # per mesh: the model's own (shared) mesh
 var _originals: Array = []  # per mesh: Array of surface arrays
 var _offsets: Array = []    # per mesh: Array of PackedVector3Array (per surface), empty until dented
+var _current: Array = []    # per mesh: per surface [positions, normals] as shown, empty until dented
 var _materials: Array = []  # per mesh: Array of Material
 ## name -> {"mesh", "parent", "xform", "health", "debris"}
 var _parts := {}
@@ -62,6 +63,8 @@ static var _broken_light: StandardMaterial3D
 ## Surface arrays per model mesh, read once and shared by every vehicle using
 ## it: reading them back from the GPU takes milliseconds.
 static var _arrays_cache := {}
+## Per model mesh: each surface's bounding box, to skip far surfaces quickly.
+static var _bounds_cache := {}
 static var _cracked_glass: StandardMaterial3D
 
 
@@ -95,6 +98,14 @@ func _register(mi: MeshInstance3D) -> void:
 		for i in src.get_surface_count():
 			surfaces.append(src.surface_get_arrays(i))
 		_arrays_cache[src] = surfaces
+		var bounds: Array[AABB] = []
+		for arrays: Array in surfaces:
+			var vs: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var box := AABB(vs[0], Vector3.ZERO) if vs.size() > 0 else AABB()
+			for v in vs:
+				box = box.expand(v)
+			bounds.append(box)
+		_bounds_cache[src] = bounds
 	var mats: Array = []
 	for i in src.get_surface_count():
 		mats.append(mi.get_active_material(i))
@@ -106,6 +117,7 @@ func _register(mi: MeshInstance3D) -> void:
 	_sources.append(src)
 	_originals.append(surfaces)
 	_offsets.append([])
+	_current.append([])
 	_materials.append(mats)
 	if String(mi.name) in DETACHABLE:
 		_parts[String(mi.name)] = {"mesh": mi, "parent": mi.get_parent(), "xform": mi.transform, "health": 1.0, "debris": null}
@@ -199,38 +211,56 @@ func _dent(m: int, world_pos: Vector3, depth: float, radius: float) -> void:
 	var surfaces: Array = _originals[m]
 	if (_offsets[m] as Array).is_empty():
 		for s in surfaces.size():
+			var arrays: Array = surfaces[s]
 			var zero := PackedVector3Array()
-			zero.resize(((surfaces[s] as Array)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
+			zero.resize((arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
 			_offsets[m].append(zero)
+			_current[m].append([(arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).duplicate(),
+				(arrays[Mesh.ARRAY_NORMAL] as PackedVector3Array).duplicate()])
+	# Only vertices inside the dent change; everything else keeps the
+	# position and normal it already has (in _current), so a dent costs
+	# little more than the vertices it actually moves.
+	var bounds: Array = _bounds_cache.get(_sources[m], [])
+	var reach := radius + max_total_dent
+	var changed := false
+	for s in surfaces.size():
+		if s < bounds.size() and not (bounds[s] as AABB).grow(reach).has_point(p):
+			continue
+		var base: PackedVector3Array = (surfaces[s] as Array)[Mesh.ARRAY_VERTEX]
+		var base_n: PackedVector3Array = (surfaces[s] as Array)[Mesh.ARRAY_NORMAL]
+		var off: PackedVector3Array = _offsets[m][s]
+		var verts: PackedVector3Array = _current[m][s][0]
+		var norms: PackedVector3Array = _current[m][s][1]
+		var hit := false
+		for i in verts.size():
+			var d2 := verts[i].distance_squared_to(p)
+			if d2 >= r2:
+				continue
+			# Smoothstep falloff: no crease at the dent's edge.
+			var f := smoothstep(radius, 0.0, sqrt(d2))
+			var o := off[i] + push * depth * f
+			if o.length() > max_total_dent:
+				o = o.normalized() * max_total_dent
+			off[i] = o
+			verts[i] = base[i] + o
+			if i < norms.size():
+				# Tilt the normal into the dent so it shows in the lighting.
+				norms[i] = (base_n[i] + o * 2.5).normalized() if o.length() > 0.001 else base_n[i]
+			hit = true
+		if hit:
+			_offsets[m][s] = off
+			_current[m][s] = [verts, norms]
+			changed = true
+	if not changed:
+		return
 	# A new mesh for this car only (others share the model's), swapped in
 	# whole so the surface material overrides (paint, broken lights) stay.
 	var mesh := ArrayMesh.new()
 	for s in surfaces.size():
 		var arrays: Array = (surfaces[s] as Array).duplicate()
-		var base: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		var base_n: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-		var off: PackedVector3Array = _offsets[m][s]
-		var verts := base.duplicate()
-		var norms := base_n.duplicate()
-		for i in verts.size():
-			var v := base[i] + off[i]
-			var d2 := v.distance_squared_to(p)
-			if d2 < r2:
-				# Smoothstep falloff: no crease at the dent's edge.
-				var f := smoothstep(radius, 0.0, sqrt(d2))
-				var o := off[i] + push * depth * f
-				if o.length() > max_total_dent:
-					o = o.normalized() * max_total_dent
-				off[i] = o
-			verts[i] = base[i] + off[i]
-			var dent_amount := off[i].length()
-			if dent_amount > 0.001 and i < norms.size():
-				# Tilt the normal into the dent so it shows in the lighting.
-				norms[i] = (base_n[i] + off[i].normalized() * dent_amount * 2.5).normalized()
-		_offsets[m][s] = off
-		arrays[Mesh.ARRAY_VERTEX] = verts
-		if not norms.is_empty():
-			arrays[Mesh.ARRAY_NORMAL] = norms
+		arrays[Mesh.ARRAY_VERTEX] = _current[m][s][0]
+		if not (_current[m][s][1] as PackedVector3Array).is_empty():
+			arrays[Mesh.ARRAY_NORMAL] = _current[m][s][1]
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		mesh.surface_set_material(s, _materials[m][s])
 	_swap_mesh(mi, mesh)
@@ -362,6 +392,7 @@ func repair() -> void:
 		if _meshes[m].mesh != _sources[m]:
 			_swap_mesh(_meshes[m], _sources[m])
 		_offsets[m] = []
+		_current[m] = []
 	for part_name: String in _parts:
 		_reattach(part_name, true)
 		_parts[part_name]["health"] = 1.0

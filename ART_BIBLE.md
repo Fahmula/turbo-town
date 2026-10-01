@@ -199,8 +199,8 @@ those rows describe the game after it.
 | Palette | **Migrated (step 1).** World colours follow §5 and live in `ArtPalette` (`scripts/world/art_palette.gd`). Vehicle paints are not done yet (step 4). | Naturalistic palette (§5). |
 | Lighting | **Migrated (step 1).** Warm sun, cool ambient, AgX tonemap, aerial fog, 15:00 day preset (§9, §11). | More sun/shadow contrast, cooler shadows, more aerial haze. |
 | Sky | Colours **migrated (step 1)**: paler, hazier horizon. Clouds are still faceted meshes (step 2). | A paler, hazier horizon and soft clouds. |
-| Vehicles | Bodies of 1.6–2.6k tris, 8 cm arch gaps, opaque glass, no interior, racing stripes on the sports car. | §12–13. |
-| Damage | Vertex dents (smoothstep falloff, bent normals). Bumpers and spoiler fall off. Lights and glass break. Smoke and sparks. | Add a scrape/primer/bare-metal layer, crumple stiffness, and structure behind lost parts (§14). |
+| Vehicles | **Sports car migrated (step 4 prototype):** a loft body from `body_kit.py` with real arches, interior, see-through glass, alloy wheels and clear-coat paint. The other seven vehicles are still legacy: 1.6–2.6k-tri extruded bodies, 8 cm arch gaps, opaque glass, no interior. | §12–13. |
+| Damage | Vertex dents (smoothstep falloff, bent normals); since step 4 a dent only touches the vertices it moves. Bumpers and spoiler fall off. Lights and glass break. Smoke and sparks. | Add a scrape/primer/bare-metal layer, crumple stiffness, and structure behind lost parts (§14). |
 | UI | Dark navy rounded panels, yellow accent, outlined default font, built in code with `UiKit`. | Keep the colours and layout. Add a real font, a type scale and icons (§20–22). |
 
 Treat legacy assets as placeholders. Match them when you add to a family that
@@ -758,7 +758,11 @@ are the authority for wheel positions and radii.
 | `TailLight` | `VehicleBodyVisual` brake emission; `VehicleDamage` | red lens |
 | `ReverseLight` | `VehicleBodyVisual` reverse emission | white lens |
 | `Glass` | `VehicleDamage` swaps it to cracked glass | tinted glass |
-| `Trim`, `Chrome`, `Stripe`, `Tire`, `Rim`, `Hub`, `Cage`, `Frame`, `Box` | fixed looks | per §6 |
+| `Trim`, `Chrome`, `Interior`, `Stripe`, `Tire`, `Rim`, `Hub`, `Cage`, `Frame`, `Box` | fixed looks | per §6 (`Interior`: dark cabin parts) |
+
+**Detachable meshes are matched by exact name:** `FrontBumper`, `RearBumper`,
+`Spoiler`. A wing exported as "Wing" silently never falls off (it happened once;
+the legacy pipeline renamed it on export, `body_kit` does not).
 
 New names are fine for fixed materials. Add them to this table.
 
@@ -768,16 +772,19 @@ New names are fine for fixed materials. Add them to this table.
   clearcoat 1.0, clearcoat roughness 0.05–0.12.
 - **Metallic:** metallic 0.4–0.6, roughness 0.3–0.4, same clearcoat.
 - **Matte** (rare; buggy or monster truck): roughness 0.55–0.7, no clearcoat.
-- **Define the paint look in one place.** Today `VehicleBodyVisual._prepare_materials`
-  duplicates each model's `Paint`. When adding clearcoat or flake, put it there
-  or in a shared `car_paint.tres` so every vehicle changes together. The finish
-  (solid or metallic) belongs with the palette entry, not with each model.
+- **The paint look is defined in one place:** `VehicleBodyVisual.paint_material()`
+  (clear coat 1.0 at roughness 0.08 since step 4). Vehicles and parked-car
+  props both use it, so every car changes together. The finish (solid or
+  metallic) belongs with the palette entry, not with each model.
 
 **Other vehicle materials**
 
-- **Glass.** Target: alpha-blended tint `#1E2833` at alpha 0.65–0.8, roughness
-  0.03–0.08, metallic 0, but only once the vehicle has an interior. Until then
-  keep glass opaque and dark. Cracked glass is an opaque, whitish spiderweb.
+- **Glass.** Alpha-blended tint `#1E2833` at alpha 0.72, roughness 0.05,
+  metallic 0, but only on vehicles that have an interior (new-style bodies:
+  the Blender material's alpha exports as glTF `BLEND`). Legacy bodies keep
+  opaque, dark glass. A see-through cabin also needs inward-facing door
+  cards, headliner and pillars, or you see out through the far side (backface
+  culling). Cracked glass is an opaque, whitish spiderweb.
 - **Lights:** lens albedo near white, red or amber, roughness 0.05–0.15.
   Emission energies today: headlight 2.0 (in the model), tail running light
   0.8, brake 4.0, reverse 2.5. Daytime running lights about 1.5.
@@ -851,12 +858,19 @@ explosions unless the owner asks.
 - **Deformable meshes** are every `MeshInstance3D` under the vehicle's `Body`
   node (`VehicleDamage.body_path`). GDScript processes *all* their vertices on
   every dent pass. **Limit: ≤ 6,000 vertices across them (hard cap); aim for
-  3,000–5,000.** Measured 2026-10-01 on the dev machine: about 0.15 µs per
-  vertex per pass (the sports car's 2,252 vertices take 0.33 ms per pass). One
-  crash runs several passes, and the Deck's CPU is slower. Going over the cap
-  needs a code change first, such as excluding interior and underbody meshes
-  or moving dents into a vertex shader. Plan that change; don't silently
-  exceed the cap.
+  3,000–5,000.** Count the *exported* vertices (the .glb's POSITION counts,
+  after normal and material splits), not Blender's.
+  Measured on the dev machine, in a window (headless runs skip the GPU upload
+  and read about 3× too low):
+  - Before step 4: about 0.5 µs per vertex per pass, because every vertex was
+    recomputed on every dent. The old sports car (2,252 vertices) took 1.2 ms.
+  - Since step 4, `_dent` only touches vertices inside the dent, skips
+    far-away surfaces, and keeps everything else as it was. The new sports car
+    (5,749 vertices) takes 1.2–1.3 ms per pass.
+
+  One crash runs several passes, and the Deck's CPU is slower. Going over the
+  cap needs a code change first. Plan that change; don't silently exceed the
+  cap.
 - **Topology:** deformable panels need evenly spaced vertices, about 8–15 cm
   apart on large panels (doors, bonnet, roof, sides), quads where possible.
   **No big n-gons or triangle fans.** Today `extrude_profile` closes each side
@@ -1206,9 +1220,24 @@ sizes 14–64, with outlines.
 headless. The `.glb` is a build output. To change a model, change the script,
 rerun it, and commit both.
 
-**Existing pipeline:** `tools/blender/vehicle_kit.py` (helpers),
-`make_car.py`, `make_traffic_vehicles.py`, `make_offroad_vehicles.py`. Run from
-the project root:
+**Existing pipeline:**
+- **New-style bodies:** `tools/blender/body_kit.py` (loft bodies, projected
+  decal patches, lathe wheels, materials, export), used by `make_car.py` (the
+  sports car and its wheel).
+- **Legacy:** `vehicle_kit.py`, with `make_traffic_vehicles.py` and
+  `make_offroad_vehicles.py`. These get replaced as each vehicle migrates.
+
+How the loft works: cross-sections at stations front to back, each a list of
+right-half points from the bottom centre to the top centre, mirrored. Face
+materials are chosen by station and segment, so windows, pillars, shut lines
+and bumpers are regions of one quad grid. Arches come from raising the
+section's bottom over the wheels, and the nose and tail round off in plan
+view. Lessons:
+- Never recalculate normals on open shells; the winding is authored.
+- Check vertex counts on the exported .glb.
+- Preview headless with a Workbench render before importing into Godot.
+
+Run from the project root:
 
 ```bash
 blender -b -P tools/blender/make_car.py
@@ -1363,8 +1392,12 @@ window):
   so desktop GPU times swing with the laptop's power state: only compare A/B
   runs made back to back.
 - Vehicle bodies 1.6–2.6k tris with 8–12 surfaces; wheels ~830 tris with 3
-  surfaces each.
-- Dent cost about 0.15 µs per vertex per pass (desktop CPU).
+  surfaces each. The new sports car: 7,952 tris, 5,749 vertices, 14 surfaces;
+  its wheel 2,620 tris, 3 surfaces.
+- After the sports car (step 4 prototype): 648 draw calls and 1,896 objects
+  without traffic. The model has a couple more surfaces than before, and the
+  parked cars in the lots use it too.
+- Dent cost: see §14 (windowed, about 1.2 ms per pass for a car).
 
 **Budgets** (busiest view, High)
 
@@ -1534,8 +1567,10 @@ Cheapest and biggest wins first:
    `MeshBuilder`; trees, rocks; soft clouds in the sky.
 3. **Roads:** asphalt variation, marking wear, sidewalk paving, Jersey barriers,
    overpass detail, drainage streaks.
-4. **Vehicles:** remodel every body with deformation-ready topology, interiors
-   and better wheels; clearcoat car paint; glass.
+4. **Vehicles** (in progress): remodel every body with deformation-ready
+   topology, interiors and better wheels; clearcoat car paint; glass. The
+   sports car prototype was done 2026-10-01 (`body_kit.py`, `make_car.py`),
+   along with faster dents and clear coat for all paint. Seven vehicles to go.
 5. **Damage 3.0:** crumple stiffness, the scrape/primer/bare-metal layer,
    structure behind detachable parts, a cracked-glass pattern.
 6. **Buildings:** facade grammar (base, middle, top), districts, roof clutter,
@@ -1562,3 +1597,5 @@ Cheapest and biggest wins first:
   images; baseline measured at v0.3.1).
 - 2026-10-01: step 1 done; §3, §5, §6, §7, §9–§11, §15, §27, §28 and §31
   updated with the tested values.
+- 2026-10-01: step 4 sports car prototype; §3, §13, §14 (corrected dent-cost
+  measurements), §24, §27 and §31 updated.

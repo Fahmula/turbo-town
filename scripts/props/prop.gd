@@ -23,13 +23,18 @@ func _ready() -> void:
 		for i in mi.mesh.get_surface_count():
 			var mat := mi.get_active_material(i)
 			if mat and mat.resource_name == paint_material_name:
-				_recolor(mi, i, col)
+				_recolor(mi, i, col, true)
 
 
-func _recolor(mi: MeshInstance3D, surface: int, col: Color) -> void:
+## `car_paint`: the vehicles' paint look (clear coat), so parked cars match.
+func _recolor(mi: MeshInstance3D, surface: int, col: Color, car_paint := false) -> void:
 	var mat := mi.get_active_material(surface) as BaseMaterial3D
 	if mat == null:
 		return
-	var m := mat.duplicate() as BaseMaterial3D
-	m.albedo_color = col
+	var m: BaseMaterial3D
+	if car_paint:
+		m = VehicleBodyVisual.paint_material(mat, col)
+	else:
+		m = mat.duplicate() as BaseMaterial3D
+		m.albedo_color = col
 	mi.set_surface_override_material(surface, m)

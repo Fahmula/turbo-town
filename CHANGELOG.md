@@ -15,10 +15,15 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   brick and stucco buildings, and grey asphalt and concrete roads.
 - Golden sunsets, and at night the city windows glow like warm rooms (some
   cool-white offices too).
+- A brand-new sports car: a curved, realistic body with see-through windows
+  and seats and a steering wheel inside, real headlights and tail lights, new
+  alloy wheels and glossy paint. Its dents, falling-off bumpers and wing work
+  as before.
 
 ### Fixes
 - Building windows no longer flicker with a "TV static" pattern, day or night.
 - On Low graphics, shadows no longer draw stripes across the road at sunset.
+- Crashes cost less: dents only rework the part of the car that was hit.
 
 ## [0.3.1] - 2026-10-01
 
