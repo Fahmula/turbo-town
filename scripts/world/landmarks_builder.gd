@@ -105,7 +105,7 @@ func _build_gas_station(root: Node3D, c: Vector3) -> void:
 	var shop := MeshBuilder.new()
 	# Forecourt pad.
 	var y := 0.02
-	mb.add_quad(c + Vector3(-28, y, -16), c + Vector3(-28, y, 16), c + Vector3(28, y, 16), c + Vector3(28, y, -16), Color(0.62, 0.63, 0.66))
+	mb.add_quad(c + Vector3(-28, y, -16), c + Vector3(-28, y, 16), c + Vector3(28, y, 16), c + Vector3(28, y, -16), ArtPalette.PAVING)
 	# Canopy on four pillars.
 	var red := Color(0.92, 0.25, 0.2)
 	for px in [-9.0, 9.0]:
@@ -128,7 +128,7 @@ func _build_gas_station(root: Node3D, c: Vector3) -> void:
 			_collider(body, pump, Vector3(0.9, 1.8, 0.7))
 	# Little shop behind the canopy.
 	var shop_xf := Transform3D(Basis.IDENTITY, c + Vector3(0, 2.2, -13))
-	shop.add_box(shop_xf, Vector3(16, 4.4, 5), Color(0.97, 0.9, 0.7), true)
+	shop.add_box(shop_xf, Vector3(16, 4.4, 5), Color(0.88, 0.83, 0.7), true)
 	_collider(body, shop_xf, Vector3(16, 4.4, 5))
 	# Tall price sign.
 	var pole := Transform3D(Basis.IDENTITY, c + Vector3(24, 5, 12))
@@ -207,8 +207,8 @@ func _build_airport(root: Node3D) -> void:
 	var y := a.y + 0.02
 	var length := a.distance_to(b)
 	var mid := (a + b) * 0.5
-	var asphalt := Color(0.24, 0.25, 0.28)
-	var white := Color(0.95, 0.95, 0.93)
+	var asphalt := ArtPalette.ASPHALT_DARK
+	var white := ArtPalette.ROAD_WHITE
 	# Runway (runs east-west).
 	mb.add_quad(Vector3(a.x, y, a.z - hw), Vector3(a.x, y, a.z + hw), Vector3(b.x, y, b.z + hw), Vector3(b.x, y, b.z - hw), asphalt)
 	_collider(body, Transform3D(Basis.IDENTITY, Vector3(mid.x, a.y - 0.5, mid.z)), Vector3(length, 1.0, hw * 2.0))
@@ -231,7 +231,7 @@ func _build_airport(root: Node3D) -> void:
 	# Apron, taxiway.
 	var ac := MapLayout.APRON_CENTER
 	var asz := MapLayout.APRON_SIZE
-	var concrete := Color(0.62, 0.63, 0.66)
+	var concrete := ArtPalette.PAVING
 	mb.add_quad(ac + Vector3(-asz.x * 0.5, 0.02, -asz.y * 0.5), ac + Vector3(-asz.x * 0.5, 0.02, asz.y * 0.5),
 		ac + Vector3(asz.x * 0.5, 0.02, asz.y * 0.5), ac + Vector3(asz.x * 0.5, 0.02, -asz.y * 0.5), concrete)
 	_collider(body, Transform3D(Basis.IDENTITY, ac + Vector3(0, -0.5, 0)), Vector3(asz.x, 1.0, asz.y))
@@ -244,12 +244,12 @@ func _build_airport(root: Node3D) -> void:
 	var back := ac.z - asz.y * 0.5
 	for hx in [ac.x - 28.0, ac.x + 6.0]:
 		var c := Vector3(hx, ac.y, back - 10.0)
-		var wall := Color(0.82, 0.84, 0.88)
+		var wall := Color(0.76, 0.76, 0.74)
 		_solid_box(mb, body, Transform3D(Basis.IDENTITY, c + Vector3(0, 5, -9.5)), Vector3(26, 10, 1), wall)
 		_solid_box(mb, body, Transform3D(Basis.IDENTITY, c + Vector3(-12.5, 5, 0)), Vector3(1, 10, 20), wall)
 		_solid_box(mb, body, Transform3D(Basis.IDENTITY, c + Vector3(12.5, 5, 0)), Vector3(1, 10, 20), wall)
-		_solid_box(mb, body, Transform3D(Basis.IDENTITY, c + Vector3(0, 10.4, 0)), Vector3(27, 0.8, 21), Color(0.3, 0.5, 0.85))
-		mb.add_quad(c + Vector3(-12, 0.03, -9), c + Vector3(-12, 0.03, 10), c + Vector3(12, 0.03, 10), c + Vector3(12, 0.03, -9), Color(0.5, 0.52, 0.56))
+		_solid_box(mb, body, Transform3D(Basis.IDENTITY, c + Vector3(0, 10.4, 0)), Vector3(27, 0.8, 21), Color(0.36, 0.42, 0.48))
+		mb.add_quad(c + Vector3(-12, 0.03, -9), c + Vector3(-12, 0.03, 10), c + Vector3(12, 0.03, 10), c + Vector3(12, 0.03, -9), Color(0.55, 0.54, 0.51))
 	_label(root, "TURBO AIRFIELD", Vector3(ac.x - 11.0, ac.y + 12.6, back - 10.0), 220, Color(1.0, 0.85, 0.25), 0.0)
 	# Control tower at the east end of the apron.
 	var tw := Vector3(ac.x + asz.x * 0.5 - 6.0, ac.y, back - 6.0)
@@ -307,7 +307,7 @@ func _build_tunnel(root: Node3D) -> void:
 		var p0 := inner[k]
 		var p1 := inner[k + 1]
 		var m := (p0 + p1) * 0.5
-		var col := Color(0.78, 0.78, 0.75) if m.y > 1.2 else Color(0.95, 0.75, 0.2)
+		var col := Color(0.78, 0.78, 0.75) if m.y > 1.2 else Color(0.85, 0.65, 0.18)
 		StuntParkBuilder._quad(mb, Vector3(p0.x, p0.y, z0), Vector3(p1.x, p1.y, z0), Vector3(p1.x, p1.y, z1), Vector3(p0.x, p0.y, z1),
 			Vector3(-m.x, 3.0 - m.y, 0), col)
 	# Outside: a grassy hill over the tube.
@@ -320,7 +320,7 @@ func _build_tunnel(root: Node3D) -> void:
 		var x1 := -hill + 2.0 * hill * (k + 1) / steps
 		var y0: float = outer.call(x0)
 		var y1: float = outer.call(x1)
-		var g := Color(0.38, 0.64, 0.3) if (k / 3) % 2 == 0 else Color(0.42, 0.68, 0.32)
+		var g := ArtPalette.GRASS_DARK.lerp(ArtPalette.GRASS_LIGHT, 0.3 if (k / 3) % 2 == 0 else 0.5)
 		StuntParkBuilder._quad(mb, Vector3(x0, y0, z0), Vector3(x1, y1, z0), Vector3(x1, y1, z1), Vector3(x0, y0, z1),
 			Vector3((x0 + x1) * 0.5, 6.0, 0), g)
 		# The hill's ends, around the tunnel mouth.
@@ -329,7 +329,7 @@ func _build_tunnel(root: Node3D) -> void:
 		for e: Array in [[z0, -1.0], [z1, 1.0]]:
 			var z: float = e[0]
 			StuntParkBuilder._quad(mb, Vector3(x0, b0, z), Vector3(x1, b1, z), Vector3(x1, y1, z), Vector3(x0, y0, z),
-				Vector3(0, 0, e[1]), Color(0.58, 0.56, 0.52))
+				Vector3(0, 0, e[1]), Color(0.52, 0.5, 0.47))
 	var node := mb.build_node("Tunnel", _props_mat, true, 1.0)
 	root.add_child(node)
 	# Concrete portals and signs.
@@ -379,11 +379,11 @@ func _build_harbor(root: Node3D) -> void:
 	var y := qa.y
 	var edge := qa.x - 18.0
 	var inner := qa.x + 18.0
-	var concrete := Color(0.66, 0.67, 0.68)
+	var concrete := ArtPalette.PAVING
 	mb.add_quad(Vector3(edge, y, qa.z), Vector3(edge, y, qb.z), Vector3(inner, y, qb.z), Vector3(inner, y, qa.z), concrete)
 	_collider(body, Transform3D(Basis.IDENTITY, Vector3((edge + inner) * 0.5, y - 0.5, (qa.z + qb.z) * 0.5)), Vector3(inner - edge, 1.0, absf(qb.z - qa.z)))
 	# Quay wall down into the water, with a yellow edge.
-	_solid_box(mb, body, Transform3D(Basis.IDENTITY, Vector3(edge - 0.6, y - 2.4, (qa.z + qb.z) * 0.5)), Vector3(1.2, 5.0, absf(qb.z - qa.z)), Color(0.55, 0.55, 0.56))
+	_solid_box(mb, body, Transform3D(Basis.IDENTITY, Vector3(edge - 0.6, y - 2.4, (qa.z + qb.z) * 0.5)), Vector3(1.2, 5.0, absf(qb.z - qa.z)), Color(0.5, 0.49, 0.47))
 	mb.add_box(Transform3D(Basis.IDENTITY, Vector3(edge + 0.3, y + 0.06, (qa.z + qb.z) * 0.5)), Vector3(0.6, 0.12, absf(qb.z - qa.z)), Color(1.0, 0.8, 0.15))
 	# Wooden piers with moored boats.
 	var wood := Color(0.55, 0.4, 0.26)
@@ -402,7 +402,7 @@ func _build_harbor(root: Node3D) -> void:
 		k += 1
 	# Crane.
 	var cr := Vector3(qa.x - 10.0, y, (qa.z + qb.z) * 0.5 - 10.0)
-	var yellow := Color(1.0, 0.75, 0.1)
+	var yellow := Color(0.88, 0.66, 0.12)
 	_solid_box(mb, body, Transform3D(Basis.IDENTITY, cr + Vector3(0, 12, 0)), Vector3(2.2, 24, 2.2), yellow)
 	mb.add_box(Transform3D(Basis.IDENTITY, cr + Vector3(-12, 24.6, 0)), Vector3(34, 1.4, 1.6), yellow)
 	mb.add_box(Transform3D(Basis.IDENTITY, cr + Vector3(5, 24.0, 0)), Vector3(4, 3, 2.4), Color(0.4, 0.42, 0.45))
@@ -410,7 +410,7 @@ func _build_harbor(root: Node3D) -> void:
 	mb.add_box(Transform3D(Basis.IDENTITY, cr + Vector3(-24, 17.0, 0)), Vector3(0.12, 14, 0.12), Color(0.2, 0.2, 0.22))
 	mb.add_box(Transform3D(Basis.IDENTITY, cr + Vector3(-24, 9.6, 0)), Vector3(1.4, 0.8, 1.4), Color(0.9, 0.3, 0.2))
 	# Container stacks.
-	var cols := [Color(0.85, 0.25, 0.2), Color(0.2, 0.5, 0.85), Color(0.3, 0.7, 0.35), Color(0.95, 0.65, 0.15), Color(0.6, 0.35, 0.7)]
+	var cols := [Color(0.68, 0.24, 0.18), Color(0.2, 0.38, 0.6), Color(0.26, 0.5, 0.32), Color(0.8, 0.55, 0.18), Color(0.45, 0.3, 0.5)]
 	var ci := 0
 	for row in 3:
 		for col in 4:
@@ -479,7 +479,7 @@ func _build_islet(root: Node3D) -> void:
 		var u := (x - xe) / (xw - xe)
 		return lerpf(ye, yw, u) + 3.2 * sin(PI * u)
 	var segs := 40
-	var deck := Color(0.5, 0.52, 0.56)
+	var deck := Color(0.52, 0.51, 0.49)
 	var rail := Color(0.95, 0.95, 0.95)
 	for k in segs:
 		var x0 := lerpf(xe, xw, float(k) / segs)

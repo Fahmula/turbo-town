@@ -2,8 +2,8 @@ shader_type spatial;
 // City intersection square: plain asphalt with zebra crossings on the sides
 // that have a road. UV = metres from the centre. COLOR.rgba = N, E, S, W flags.
 
-uniform vec4 asphalt_color : source_color = vec4(0.30, 0.31, 0.35, 1.0);
-uniform vec4 white_line : source_color = vec4(0.96, 0.96, 0.93, 1.0);
+uniform vec4 asphalt_color : source_color = vec4(0.275, 0.278, 0.290, 1.0);
+uniform vec4 white_line : source_color = vec4(0.894, 0.886, 0.855, 1.0);
 uniform float half_size = 6.0;
 uniform float band = 2.4;
 uniform float stripe = 0.6;

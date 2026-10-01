@@ -94,8 +94,11 @@ func _make_preview() -> Control:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.8, 0.88, 1.0)
 	env.ambient_light_energy = 0.75
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_white = 6.0
+	# Same tone mapping as the world (world.tscn) so paint looks the same here.
+	env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	env.tonemap_agx_contrast = 1.4
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.1
 	var world_env := WorldEnvironment.new()
 	world_env.environment = env
 	_viewport.add_child(world_env)

@@ -4,17 +4,12 @@ extends RefCounted
 ## City blocks: raised sidewalks with beveled curbs, stylized buildings,
 ## parks, a plaza and parking lots, plus spawn requests for street props.
 
-const PALETTE := [
-	Color(0.95, 0.56, 0.45), Color(0.97, 0.82, 0.52), Color(0.56, 0.76, 0.92),
-	Color(0.70, 0.86, 0.62), Color(0.92, 0.91, 0.86), Color(0.78, 0.46, 0.36),
-	Color(0.66, 0.64, 0.78), Color(0.99, 0.70, 0.32), Color(0.95, 0.70, 0.78),
-	Color(0.50, 0.80, 0.78),
-]
-const SIDEWALK_COLOR := Color(0.83, 0.82, 0.79)
-const LOT_COLOR := Color(0.74, 0.73, 0.70)
-const GRASS_COLOR := Color(0.43, 0.72, 0.33)
-const PLAZA_COLOR := Color(0.88, 0.80, 0.68)
-const ASPHALT_COLOR := Color(0.33, 0.34, 0.38)
+const PALETTE := ArtPalette.FACADES
+const SIDEWALK_COLOR := ArtPalette.SIDEWALK
+const LOT_COLOR := ArtPalette.LOT
+const GRASS_COLOR := ArtPalette.LAWN
+const PLAZA_COLOR := ArtPalette.PLAZA
+const ASPHALT_COLOR := ArtPalette.ASPHALT
 
 var _terrain: TerrainBuilder
 var _rng := RandomNumberGenerator.new()
@@ -218,7 +213,7 @@ func _add_buildings(bmb: MeshBuilder, details: MeshBuilder, body: StaticBody3D, 
 
 
 func _add_awning(details: MeshBuilder, fp: Rect2, base_y: float) -> void:
-	var colors := [Color(0.9, 0.2, 0.2), Color(0.2, 0.6, 0.9), Color(0.2, 0.7, 0.4), Color(1.0, 0.6, 0.1)]
+	var colors := [Color(0.72, 0.2, 0.18), Color(0.18, 0.36, 0.55), Color(0.2, 0.45, 0.3), Color(0.85, 0.55, 0.15)]
 	var col: Color = colors[_rng.randi() % colors.size()]
 	var side := _rng.randi() % 4
 	var y := base_y + 3.0
@@ -240,7 +235,7 @@ func _add_awning(details: MeshBuilder, fp: Rect2, base_y: float) -> void:
 	for s in stripes:
 		var p0 := a.lerp(b, float(s) / stripes)
 		var p1 := a.lerp(b, float(s + 1) / stripes)
-		var c := col if s % 2 == 0 else Color(0.97, 0.97, 0.95)
+		var c := col if s % 2 == 0 else Color(0.9, 0.89, 0.85)
 		details.add_quad(p1, p0, p0 + out * depth + drop, p1 + out * depth + drop, c)
 		details.add_quad(p0, p1, p1 + out * depth + drop, p0 + out * depth + drop, c)
 
@@ -255,7 +250,7 @@ func _add_park(paint: MeshBuilder, details: MeshBuilder, x0: float, z0: float, x
 	_flat_quad(paint, cx - 1.5, z0, cx + 1.5, z1, y, PLAZA_COLOR)
 	_flat_quad(paint, x0, cz - 1.5, x1, cz + 1.5, y + 0.002, PLAZA_COLOR)
 	# Pond.
-	details.add_prism(Vector3(cx + 12, y - 0.05, cz + 12), 6.0, 6.0, 0.08, 10, Color(0.3, 0.65, 0.85))
+	details.add_prism(Vector3(cx + 12, y - 0.05, cz + 12), 6.0, 6.0, 0.08, 10, ArtPalette.POND)
 	for k in 22:
 		var p := Vector3(_rng.randf_range(x0 + 3, x1 - 3), MapLayout.CURB_HEIGHT, _rng.randf_range(z0 + 3, z1 - 3))
 		if absf(p.x - cx) < 3.5 or absf(p.z - cz) < 3.5:
@@ -282,7 +277,7 @@ func _add_plaza(paint: MeshBuilder, details: MeshBuilder, body: StaticBody3D, x0
 	# Fountain in the middle.
 	var c := Vector3(cx, y, cz)
 	details.add_prism(c, 7.0, 7.0, 0.7, 16, Color(0.85, 0.84, 0.8))
-	details.add_prism(c + Vector3(0, 0.7, 0), 6.3, 6.3, 0.02, 16, Color(0.35, 0.7, 0.9))
+	details.add_prism(c + Vector3(0, 0.7, 0), 6.3, 6.3, 0.02, 16, ArtPalette.FOUNTAIN)
 	details.add_prism(c, 1.0, 0.8, 3.5, 8, Color(0.85, 0.84, 0.8))
 	details.add_prism(c + Vector3(0, 3.5, 0), 2.4, 2.4, 0.3, 12, Color(0.85, 0.84, 0.8))
 	var cs := CollisionShape3D.new()
@@ -308,7 +303,7 @@ func _add_plaza(paint: MeshBuilder, details: MeshBuilder, body: StaticBody3D, x0
 
 func _add_parking(paint: MeshBuilder, x0: float, z0: float, x1: float, z1: float) -> void:
 	var y := MapLayout.CURB_HEIGHT + 0.012
-	var white := Color(0.95, 0.95, 0.92)
+	var white := ArtPalette.ROAD_WHITE
 	var stall_w := 2.9
 	var stall_d := 5.5
 	# Rows of stalls facing each other, with aisles between.

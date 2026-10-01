@@ -9,7 +9,7 @@ const HALF := MapLayout.TERRAIN_HALF_SIZE
 
 const BLOCK_COLORS := {
 	"buildings": Color(0.72, 0.74, 0.8),
-	"park": Color(0.42, 0.68, 0.32),
+	"park": ArtPalette.LAWN,
 	"plaza": Color(0.86, 0.82, 0.74),
 	"parking": Color(0.6, 0.62, 0.66),
 }
