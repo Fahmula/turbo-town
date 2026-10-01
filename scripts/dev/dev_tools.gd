@@ -20,10 +20,14 @@ extends Node
 
 var _dir := ""
 var _mode := ""
+## --vehicle=<catalog id>: start the test in that vehicle (e.g. --damage on the bus).
+var _vehicle_id := ""
 
 
 func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--vehicle=") and not arg.contains("res://"):
+			_vehicle_id = arg.split("=")[1]
 		if arg.begins_with("--tour="):
 			_mode = "tour"
 			_dir = arg.split("=")[1]
@@ -122,6 +126,13 @@ func _run() -> void:
 		return
 	# Automatic crash cams would pause the other tests mid-crash.
 	Settings.set_value("crash_cam", _mode == "replay")
+	if _vehicle_id != "":
+		var vi := VehicleCatalog.index_of_id(_vehicle_id)
+		if vi < 0:
+			push_error("dev tools: unknown vehicle id '%s'" % _vehicle_id)
+		else:
+			game.change_vehicle(vi, Color.RED, false)
+			await _wait(30)
 	if _mode == "tour":
 		await _tour(game)
 	elif _mode == "fx":

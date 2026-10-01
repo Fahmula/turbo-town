@@ -19,6 +19,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   and seats and a steering wheel inside, real headlights and tail lights, new
   alloy wheels and glossy paint. Its dents, falling-off bumpers and wing work
   as before.
+- New sedan: a proper family car with six side windows, chrome trim, big
+  headlights, seats inside and new six-spoke wheels.
 - Garage: 12 new paint colours that look like real car paint (some sparkle
   like metallic paint), plus fun ones like lime and pink, and racing stripes
   you can switch on for the sports car (X key or the Y button).

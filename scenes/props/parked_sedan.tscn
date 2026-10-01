@@ -2,13 +2,13 @@
 
 [ext_resource type="Script" path="res://scripts/props/prop.gd" id="1_prop"]
 [ext_resource type="PackedScene" path="res://assets/models/sedan_body.glb" id="2_body"]
-[ext_resource type="PackedScene" path="res://assets/models/wheel.glb" id="3_wheel"]
+[ext_resource type="PackedScene" path="res://assets/models/wheel_sedan.glb" id="3_wheel"]
 
 [sub_resource type="BoxShape3D" id="shape_0"]
-size = Vector3(1.86, 0.62, 4.62)
+size = Vector3(1.84, 0.72, 4.64)
 
 [sub_resource type="BoxShape3D" id="shape_1"]
-size = Vector3(1.5, 0.52, 2.59)
+size = Vector3(1.5, 0.6, 2.4)
 
 [node name="ParkedSedan" type="RigidBody3D"]
 collision_layer = 4
@@ -21,11 +21,11 @@ script = ExtResource("1_prop")
 traffic_paint = true
 
 [node name="Shape0" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.53, 0.01)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.53, 0)
 shape = SubResource("shape_0")
 
 [node name="Shape1" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.06, 0.345)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.17, 0.42)
 shape = SubResource("shape_1")
 
 [node name="Model" parent="." instance=ExtResource("2_body")]
