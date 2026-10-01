@@ -106,9 +106,40 @@ func _extra_props() -> Array[Dictionary]:
 		p.y = terrain.height_at(p.x, p.z) - 0.1
 		list.append({"scene": "ramp", "xform": Transform3D(Basis(Vector3.UP, PI * 0.5), p),
 			"shape": 1, "length": 8.0 + k * 2.0, "height": 2.0 + k, "width": 7.0, "color": Color(0.75, 0.55, 0.35)})
+	list.append_array(_highway_junction_lights())
 	# Beach barrels.
 	for k in 6:
 		list.append({"scene": "barrel", "xform": Transform3D(Basis.IDENTITY, Vector3(-360, roads.beach_height, -12 + k * 4.0))})
+	return list
+
+
+## Traffic lights for the two highway/avenue junctions (east, then west — the
+## same order TrafficNetwork gives their signals, after the city intersections).
+func _highway_junction_lights() -> Array[Dictionary]:
+	var list: Array[Dictionary] = []
+	var ring := MapLayout.HIGHWAY_HALF_EXTENT
+	var hw := MapLayout.highway_width() * 0.5
+	var k := 0
+	for x in [ring, -ring]:
+		var sig := roads.intersections.size() + k
+		k += 1
+		var p := Vector3(x, 0, 0)
+		var out := Vector3(signf(x), 0, 0)  # from the city outwards along the avenue
+		var t_in := Vector3(0, 0, signf(x))  # inner carriageway travel direction
+		# [travel direction, position]
+		var approaches := [
+			[t_in, p - out * (hw + 1.2) - t_in * (TrafficNetwork.HJ_STOP + 1.0)],
+			[-t_in, p + out * (hw + 1.2) + t_in * (TrafficNetwork.HJ_STOP + 1.0)],
+			[out, p - out * (hw + TrafficNetwork.HJ_AVE_STOP + 0.8) + out.cross(Vector3.UP) * 7.3],
+			[-out, p + out * (hw + TrafficNetwork.HJ_AVE_STOP + 0.8) - out.cross(Vector3.UP) * 7.3],
+		]
+		for a in approaches:
+			var t: Vector3 = a[0]
+			var pos: Vector3 = a[1]
+			pos.y = terrain.height_at(pos.x, pos.z)
+			var r := t.cross(Vector3.UP)
+			list.append({"scene": "traffic_light", "xform": Transform3D(Basis(r, Vector3.UP, -t), pos),
+				"signal": [sig, 0 if absf(t.z) > absf(t.x) else 1]})
 	return list
 
 

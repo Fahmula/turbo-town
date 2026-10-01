@@ -47,14 +47,21 @@ class Lane:
 	var links: Array[Dictionary] = []
 	## Links grouped by position: [{"at": float, "links": Array}], sorted.
 	var link_groups: Array[Dictionary] = []
-	var signal_id := -1
-	var signal_axis := 0
-	var stop_at := -1.0
+	## Traffic-light stop lines along this lane: {"id": signal, "axis": 0/1, "at": s}.
+	var stops: Array[Dictionary] = []
 	## Connectors that cross or merge into other traffic check this point.
 	var yield_point := Vector3.INF
 	var take_chance := 0.35
 	## Ends in a tight U-turn loop (long vehicles avoid these roads).
 	var dead_end := false
+	## Same-direction neighbours on multi-lane roads (-1 if none). Left is
+	## towards the median (the faster lanes).
+	var left_id := -1
+	var right_id := -1
+	## Room (m) to move right of the lane centre to pull over, and left of it
+	## (into the oncoming lane) to pass something parked. 0 = not allowed.
+	var pull_room := 0.0
+	var pass_room := 0.0
 
 	func finalize() -> void:
 		dist.resize(points.size())
@@ -188,6 +195,14 @@ func build(roads: RoadBuilder) -> void:
 				lane.index = k
 				lane.lane_count = offsets.size()
 				lane.speed = speeds[k]
+				# Room between a ~2 m wide car and the road edge.
+				if k == offsets.size() - 1:
+					lane.pull_room = clampf(r.width * 0.5 - offsets[k] - 1.3, 0.0, 2.0)
+					if r.kind == RoadBuilder.Kind.HIGHWAY:
+						lane.pull_room = 1.2
+				if offsets.size() == 1:
+					lane.pass_room = offsets[k] * 2.0 + 1.0
+		_link_neighbours(ri)
 
 	_connect_city_intersections(roads)
 
@@ -199,14 +214,29 @@ func build(roads: RoadBuilder) -> void:
 	_connect_junction(Vector3(loop_start.x, 0, loop_start.y), 10.0, 8.0, 8.0, false, false, 13.0)
 	var summit_start: Vector2 = MapLayout.SUMMIT_ROAD[0]
 	_connect_junction(Vector3(summit_start.x, 0, summit_start.y), 7.0, 10.0, 10.0, false, false, 13.0)
-	# Highway at-grade junctions: right-in / right-out from the outer lanes only.
+	# Highway junctions with the east/west avenues (signal ids follow the city
+	# intersections: east first, then west — WorldBuilder places their lights).
 	for x in [ring, -ring]:
-		_connect_junction(Vector3(x, 0, 0), 16.0, 8.0, 8.0, true, true, 22.0)
+		_connect_highway_junction(Vector3(x, 0, 0))
 
 	_connect_dead_ends()
 	for lane in lanes:
 		_group_links(lane)
 	print("Traffic network: %d lanes in %d ms" % [lanes.size(), Time.get_ticks_msec() - t0])
+
+
+func _link_neighbours(road_index: int) -> void:
+	var by_key := {}
+	for lane in lanes:
+		if lane.road == road_index:
+			by_key["%s%d" % [lane.reverse, lane.index]] = lane
+	for lane in lanes:
+		if lane.road != road_index:
+			continue
+		var left: Lane = by_key.get("%s%d" % [lane.reverse, lane.index - 1])
+		var right: Lane = by_key.get("%s%d" % [lane.reverse, lane.index + 1])
+		lane.left_id = left.id if left else -1
+		lane.right_id = right.id if right else -1
 
 
 func _add_lane(pts: PackedVector3Array, closed: bool) -> Lane:
@@ -282,6 +312,11 @@ static func _turn_kind(d0: Vector3, d1: Vector3) -> int:
 	return 1 if d0.cross(d1).y < 0.0 else 2
 
 
+## Signal axis of a travel direction: 0 = north/south, 1 = east/west.
+static func _axis(dir: Vector3) -> int:
+	return 0 if absf(dir.z) > absf(dir.x) else 1
+
+
 static func _flat_dist(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()
 
@@ -309,9 +344,7 @@ func _connect_city_intersections(roads: RoadBuilder) -> void:
 		for a in incoming:
 			var da := a.dir_at(a.length)
 			if signalized:
-				a.signal_id = idx
-				a.signal_axis = 0 if absf(da.z) > absf(da.x) else 1
-				a.stop_at = a.length - RIGHT_TURN_EXTRA - 0.5
+				a.stops.append({"id": idx, "axis": _axis(da), "at": a.length - RIGHT_TURN_EXTRA - 0.5})
 			for b in outgoing:
 				var kind := _turn_kind(da, b.dir_at(0.0))
 				if kind == 3:
@@ -320,6 +353,62 @@ func _connect_city_intersections(roads: RoadBuilder) -> void:
 				# enough for a car's turning circle.
 				var extra := RIGHT_TURN_EXTRA if kind == 1 else 0.0
 				_connector(a, a.length - extra, b, extra, p if kind == 2 else Vector3.INF)
+
+
+## Distances (m) along the highway / avenue for the signalized highway junctions.
+const HJ_STOP := 12.5        ## highway stop line before the junction centre
+const HJ_RIGHT_OFF := 11.0   ## right turns leave the highway this far before the centre
+const HJ_LEFT_OFF := 8.0     ## left turns leave the highway this far before the centre
+const HJ_ON := 13.0          ## turns join the highway this far after the centre
+const HJ_AVE_STOP := 9.0     ## avenue stop line before the highway edge
+const HJ_AVE_RIGHT := 8.0    ## avenue right turns start this far before the highway edge
+
+
+## Full signalized junction where an avenue crosses the highway at grade:
+## straight across, plus left and right turns on and off in both directions
+## (right turns use the outer lane, left turns the lane next to the median).
+func _connect_highway_junction(p: Vector3) -> void:
+	var sig := signals.size()
+	signals.append({"pos": p, "offset": 0.0, "signalized": true, "highway": true})
+	var ave_in: Array[Lane] = []
+	var ave_out: Array[Lane] = []
+	var hwy: Array[Lane] = []
+	for lane in lanes:
+		if lane.connector:
+			continue
+		if lane.closed:
+			if lane.lane_count > 1 and _flat_dist(lane.point_at(lane.closest_distance(p)), p) < 16.0:
+				hwy.append(lane)
+			continue
+		if _flat_dist(lane.points[lane.points.size() - 1], p) < 16.0:
+			ave_in.append(lane)
+		if _flat_dist(lane.points[0], p) < 16.0:
+			ave_out.append(lane)
+	for h in hwy:
+		var sc := h.closest_distance(p)
+		h.stops.append({"id": sig, "axis": _axis(h.dir_at(sc)), "at": h.wrap_s(sc - HJ_STOP)})
+	for a in ave_in:
+		var da := a.dir_at(a.length)
+		a.stops.append({"id": sig, "axis": _axis(da), "at": a.length - HJ_AVE_STOP})
+		for b in ave_out:
+			if b.road != a.road and _turn_kind(da, b.dir_at(0.0)) == 0:
+				_connector(a, a.length, b, 0.0)
+		for h in hwy:
+			var sc := h.closest_distance(p)
+			var kind := _turn_kind(da, h.dir_at(sc))
+			if kind == 1 and h.index == h.lane_count - 1:
+				_connector(a, a.length - HJ_AVE_RIGHT, h, h.wrap_s(sc + HJ_ON))
+			elif kind == 2 and h.index == 0:
+				_connector(a, a.length, h, h.wrap_s(sc + HJ_ON), p)
+	for h in hwy:
+		var sc := h.closest_distance(p)
+		var dh := h.dir_at(sc)
+		for b in ave_out:
+			var kind := _turn_kind(dh, b.dir_at(0.0))
+			if kind == 1 and h.index == h.lane_count - 1:
+				_connector(h, h.wrap_s(sc - HJ_RIGHT_OFF), b, minf(6.0, b.length))
+			elif kind == 2 and h.index == 0:
+				_connector(h, h.wrap_s(sc - HJ_LEFT_OFF), b, minf(2.0, b.length), p)
 
 
 ## Joins lanes that end/start near `p`, and lanes passing by it.
@@ -418,18 +507,30 @@ func _u_turn(a: Lane, b: Lane) -> void:
 	c.links.append({"at": c.length, "to": b.id, "to_at": minf(back, b.length)})
 
 
+## Groups a lane's links into decision points. All the turns at the end of
+## a lane (right turns start a few metres before the others) form one choice.
 func _group_links(lane: Lane) -> void:
 	lane.link_groups.clear()
 	var sorted := lane.links.duplicate()
 	sorted.sort_custom(func(x: Dictionary, y: Dictionary) -> bool: return x["at"] < y["at"])
+	var end_zone := lane.length - 12.0
 	for l in sorted:
-		if lane.link_groups.is_empty() or absf(lane.link_groups.back()["at"] - l["at"]) > 0.5:
+		var last: Dictionary = lane.link_groups.back() if not lane.link_groups.is_empty() else {}
+		var same: bool = not last.is_empty() and (absf(last["at"] - l["at"]) <= 0.5
+			or (not lane.closed and last["at"] >= end_zone and l["at"] >= end_zone))
+		if not same:
 			lane.link_groups.append({"at": l["at"], "links": []})
 		lane.link_groups.back()["links"].append(l)
 	if lane.road >= 0 and not lane.closed:
 		lane.take_chance = 1.0
 	elif lane.closed:
 		lane.take_chance = 0.3
+
+
+## True if `link` starts a left turn (connector curving left).
+func is_left_turn(link: Dictionary) -> bool:
+	var lane := lanes[link["to"]]
+	return lane.connector and lane.length > 4.0 and _turn_kind(lane.dir_at(0.0), lane.dir_at(lane.length)) == 2
 
 
 ## True if following `link` puts a vehicle onto a road that dead-ends.

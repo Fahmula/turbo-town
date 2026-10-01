@@ -16,6 +16,16 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - The camera pulls back for the truck and bus so you can see the road, and the
   hood camera sits on the roof of the tall vehicles.
 
+### Traffic
+- Highway traffic changes lanes: cars overtake slow trucks and buses and keep right.
+- Honk (E / L3) behind a car and it pulls over or moves a lane over to let you pass.
+- Park in a car's lane and it drives around you when the other lane is clear,
+  instead of just waiting and honking.
+- The highway has proper junctions with traffic lights where the east and west
+  avenues cross it: cars get on and off in both directions or go straight across.
+- Fixed: city traffic only ever turned right at intersections. Now cars go
+  straight and turn left too.
+
 ### Menus
 - New title screen with your car on show: Drive, Garage, Settings, Controls, Quit.
 - Esc / Start now opens a pause menu (resume, garage, settings, controls,

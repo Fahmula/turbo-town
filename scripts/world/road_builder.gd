@@ -159,7 +159,8 @@ func _define_highway() -> void:
 		pts.append(p)
 	highway = _add_road("Highway", Kind.HIGHWAY, pts, MapLayout.highway_width(), 12.0, true)
 	highway.barriers = true
-	var gap := MapLayout.CITY_ROAD_WIDTH * 0.5 + 2.0
+	# Open the barriers where the east/west avenues cross (turning curves too).
+	var gap := MapLayout.CITY_ROAD_WIDTH * 0.5 + 9.0
 	for d in [total * 0.25, total * 0.75]:
 		highway.barrier_gaps.append(Vector2(d - gap, d + gap))
 

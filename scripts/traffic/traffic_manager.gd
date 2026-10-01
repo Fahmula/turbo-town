@@ -50,6 +50,8 @@ const AMBER := 2.5
 const ALL_RED := 1.2
 
 var _rng := RandomNumberGenerator.new()
+var _horn_was_on := false
+var _horn_repeat := 0.0
 var _manage_timer := 0.0
 var _light_timer := 0.0
 var _initial_fill := true
@@ -176,6 +178,7 @@ func _physics_process(dt: float) -> void:
 		return
 	time += dt
 	_update_signals(dt)
+	_check_player_horn(dt)
 	_light_timer -= dt
 	if _light_timer <= 0.0:
 		_light_timer = 0.2
@@ -198,6 +201,19 @@ func _physics_process(dt: float) -> void:
 		for k in 6:
 			if _try_spawn(false):
 				break
+
+
+## Drivers near a honking player react (pull over, move right, hurry up).
+func _check_player_horn(dt: float) -> void:
+	var on := player != null and player.horn_input
+	_horn_repeat -= dt
+	if on and (not _horn_was_on or _horn_repeat <= 0.0):
+		_horn_repeat = 1.5
+		var ppos := player.global_position
+		for d in drivers:
+			if is_instance_valid(d.vehicle) and d.vehicle.global_position.distance_squared_to(ppos) < 40.0 * 40.0:
+				d.on_player_horn(player)
+	_horn_was_on = on
 
 
 func _is_visible(p: Vector3) -> bool:

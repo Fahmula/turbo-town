@@ -15,6 +15,11 @@ const COMFORT_DECEL := 3.0
 const HEADWAY := 1.3
 const MIN_GAP := 2.5
 const LAT_ACCEL := 3.2
+## Sideways speed (m/s) when blending into a new lane / pulling over.
+const LANE_CHANGE_RATE := 1.3
+const PULL_RATE := 1.0
+## Speed cap (m/s) while pulling over for a honking player or passing a parked car.
+const CREEP_SPEED := 4.5
 
 var vehicle: Vehicle
 var manager: TrafficManager
@@ -61,6 +66,22 @@ var _blocked_by_player := 0.0
 var blocker := ""
 ## The vehicle we're currently waiting for, if any.
 var blocker_vehicle: Vehicle = null
+
+# Lane changes, pulling over and passing. Offsets are metres to the right of
+# the planned path; the steering target and the path checks are shifted by them.
+var _lc_offset := 0.0
+var _lc_cooldown := 3.0
+var _lane_check := 0.0
+var _pull_offset := 0.0
+var _pull_time := 0.0
+var _hurry_time := 0.0
+var _still_blocked := 0.0
+var _bypass_stalled := 0.0
+## Passing a parked vehicle: {"obj": Vehicle, "lane": Lane, "from": s, "to": s, "offset": m}
+var _bypass := {}
+## Counters for the dev tests.
+var lane_changes := 0
+var passes := 0
 
 
 func setup(mgr: TrafficManager, lane: TrafficNetwork.Lane, s: float) -> void:
@@ -134,6 +155,11 @@ func _update_audio(dt: float) -> void:
 		_honk_cooldown = _rng.randf_range(3.0, 6.0)
 
 
+## Position along the current lane (m).
+func lane_s() -> float:
+	return _s
+
+
 func current_lane() -> TrafficNetwork.Lane:
 	return _plan[0]["lane"] if not _plan.is_empty() else null
 
@@ -158,14 +184,25 @@ func _make_leg(lane: TrafficNetwork.Lane, from: float) -> Dictionary:
 		var mandatory := not lane.closed and k == ordered.size() - 1
 		var links: Array = g["links"]
 		if _avoid_dead_ends:
-			# Long vehicles can't make the tight U-turns at dead ends.
-			var ok := links.filter(func(l: Dictionary) -> bool: return not _net.leads_to_dead_end(l))
+			# Long vehicles can't make the tight U-turns at dead ends, and their
+			# tail swings into waiting cars on left turns: avoid both if possible.
+			var ok := links.filter(func(l: Dictionary) -> bool: return not _net.leads_to_dead_end(l) and not _net.is_left_turn(l))
+			if ok.is_empty() and mandatory:
+				ok = links.filter(func(l: Dictionary) -> bool: return not _net.leads_to_dead_end(l))
 			if not ok.is_empty():
 				links = ok
 			elif not mandatory:
 				continue
 		if mandatory or _rng.randf() < lane.take_chance:
-			return {"lane": lane, "from": from, "to": from + ordered[k][0], "link": links[_rng.randi() % links.size()]}
+			# Links in a group can start at slightly different spots (right
+			# turns begin earlier): the leg ends where the chosen one starts.
+			var link: Dictionary = links[_rng.randi() % links.size()]
+			var ahead: float = link["at"] - base
+			if lane.closed:
+				ahead = fposmod(ahead, lane.length)
+				if ahead < 0.5:
+					ahead += lane.length
+			return {"lane": lane, "from": from, "to": from + ahead, "link": link}
 	if lane.closed:
 		return {"lane": lane, "from": from, "to": from + lane.length, "link": {"to": lane.id, "to_at": from + lane.length}}
 	return {"lane": lane, "from": from, "to": lane.length, "link": {}}
@@ -229,6 +266,7 @@ func _physics_process(dt: float) -> void:
 		_back_up(dt)
 		return
 
+	_lane_logic(dt)
 	_tick += 1
 	if _tick % 4 == 0:
 		_accel_cmd = _plan_speed()
@@ -237,6 +275,9 @@ func _physics_process(dt: float) -> void:
 	var v := maxf(vehicle.forward_speed, 0.0)
 	var ld := clampf(3.0 + _wheelbase * 0.8 + v * 0.45, 6.0, 24.0)
 	var target := _path_point(ld)
+	var lat := _offset_at(ld, _s + ld, _plan[0]["lane"])
+	if lat != 0.0:
+		target += (_path_point(ld + 1.0) - target).cross(Vector3.UP).normalized() * lat
 	if _nudge > 0.0:
 		target += vehicle.global_basis.x * _nudge
 	var xf := vehicle.global_transform
@@ -348,6 +389,8 @@ func _plan_speed() -> float:
 	_samples_p.clear()
 	_samples_d.clear()
 	_samples_dir.clear()
+	if _pull_time > 0.0 or not _bypass.is_empty():
+		v0 = CREEP_SPEED
 	var s := _s
 	var d := 0.0
 	for i in _plan.size():
@@ -357,16 +400,21 @@ func _plan_speed() -> float:
 		var lane: TrafficNetwork.Lane = leg["lane"]
 		var leg_to: float = leg["to"]
 		var end_d := d + (leg_to - s)
-		var lim := lane.speed * cruise_factor
+		var lim := lane.speed * cruise_factor * (1.2 if _hurry_time > 0.0 else 1.0)
 		v0 = minf(v0, sqrt(lim * lim + 2.0 * COMFORT_DECEL * maxf(d, 0.0)))
 
-		# Traffic light at the end of this lane.
-		if lane.signal_id >= 0 and s <= lane.stop_at + 0.5 and leg_to >= lane.stop_at - 0.1:
-			var stop_d := d + (lane.stop_at - s) - _front
+		# Traffic lights along this leg.
+		for stop: Dictionary in lane.stops:
+			var stop_s: float = stop["at"]
+			if lane.closed:
+				stop_s = s + fposmod(stop_s - s + 0.5, lane.length) - 0.5
+			if stop_s < s - 0.5 or stop_s > leg_to + 0.1:
+				continue
+			var stop_d := d + (stop_s - s) - _front
 			if stop_d > -1.0:
-				if stop_d < 50.0:
-					manager.request_signal(lane.signal_id, lane.signal_axis)
-				var st := manager.signal_state(lane.signal_id, lane.signal_axis)
+				if stop_d < 50.0 + v * 2.0:
+					manager.request_signal(stop["id"], stop["axis"])
+				var st := manager.signal_state(stop["id"], stop["axis"])
 				var must_stop := st == TrafficNetwork.SignalState.RED
 				if st == TrafficNetwork.SignalState.AMBER:
 					must_stop = stop_d > v * v / (2.0 * 5.0) + 1.0
@@ -415,7 +463,11 @@ func _plan_speed() -> float:
 			var sd := d + rel
 			if sd > horizon:
 				break
-			_samples_p.append(lane.points[idx])
+			var sp := lane.points[idx]
+			var off := _offset_at(sd, s + rel, lane)
+			if off != 0.0:
+				sp += lane.dirs[idx].cross(Vector3.UP).normalized() * off
+			_samples_p.append(sp)
 			_samples_d.append(sd)
 			_samples_dir.append(lane.dirs[idx])
 			var k := lane.curv[idx]
@@ -433,6 +485,8 @@ func _plan_speed() -> float:
 	var count := _samples_p.size()
 	for other in manager.vehicles:
 		if other == vehicle or not is_instance_valid(other):
+			continue
+		if not _bypass.is_empty() and other == _bypass["obj"]:
 			continue
 		var op := other.global_position
 		var straight := op.distance_to(my_pos)
@@ -457,6 +511,8 @@ func _plan_speed() -> float:
 		if best_i < 0 or _samples_d[best_i] < 2.0 or _yields_to_me(other):
 			continue
 		var gap := _samples_d[best_i] - _front - other.body_length() * 0.5
+		if other.body_length() > 6.0:
+			gap -= 2.5  # room for a long vehicle's tail to swing when it turns
 		var lead_v := maxf(other.linear_velocity.dot(_samples_dir[best_i]), 0.0)
 		var a := _idm(v, INF, maxf(gap, 0.1), lead_v)
 		if a < best:
@@ -467,8 +523,14 @@ func _plan_speed() -> float:
 	# Static obstacles (walls, knocked-over lamp posts...) along the path.
 	var ray_len := minf(horizon, 25.0)
 	_ray.from = vehicle.global_transform * Vector3(0, 0.55, -_front)
-	_ray.to = _path_point(ray_len) + Vector3.UP * 0.55
+	var ray_end := _path_point(ray_len)
+	var ray_off := _offset_at(ray_len, _s + ray_len, _plan[0]["lane"])
+	if ray_off != 0.0:
+		ray_end += (_path_point(ray_len + 1.0) - ray_end).cross(Vector3.UP).normalized() * ray_off
+	_ray.to = ray_end + Vector3.UP * 0.55
 	var hit := vehicle.get_world_3d().direct_space_state.intersect_ray(_ray)
+	if not hit.is_empty() and not _bypass.is_empty() and hit["collider"] == _bypass["obj"]:
+		hit = {}
 	if not hit.is_empty():
 		var col: Object = hit["collider"]
 		var nrm: Vector3 = hit["normal"]
@@ -499,7 +561,7 @@ func _plan_speed() -> float:
 		_ray.from = vehicle.global_transform * Vector3(side, 0.55, -_front + 0.3)
 		_ray.to = _ray.from + fwd * reach
 		hit = space.intersect_ray(_ray)
-		if hit.is_empty():
+		if hit.is_empty() or (not _bypass.is_empty() and hit["collider"] == _bypass["obj"]):
 			continue
 		var col: Object = hit["collider"]
 		var blocking := false
@@ -602,11 +664,12 @@ func _must_yield(point: Vector3) -> bool:
 		var to := point - op
 		to.y = 0.0
 		var dist := to.length()
-		if dist > 50.0:
-			continue
 		var vel := other.linear_velocity
 		vel.y = 0.0
 		var speed := vel.length()
+		# Fast traffic (highway) has to be seen from further away.
+		if dist > maxf(50.0, speed * 5.0):
+			continue
 		if dist < 5.0 and speed > 1.0:
 			_yield_to = other.name
 			return true
@@ -616,6 +679,244 @@ func _must_yield(point: Vector3) -> bool:
 				_yield_to = other.name
 				return true
 	return false
+
+
+# ========================================== lane changes, pulling over ==
+
+## Metres right of the planned path at `ahead` metres along it (lane `lane`,
+## lane position `lane_s`): the lane-change blend and pull-over offset shrink
+## the way the car will actually move, plus the passing manoeuvre's shape.
+func _offset_at(ahead: float, lane_s: float, lane: TrafficNetwork.Lane) -> float:
+	var travel := ahead / maxf(vehicle.forward_speed, 3.0)
+	var off := move_toward(_lc_offset, 0.0, LANE_CHANGE_RATE * travel)
+	var pull_goal := _pull_goal()
+	off += move_toward(_pull_offset, pull_goal, PULL_RATE * travel)
+	if not _bypass.is_empty() and lane == _bypass["lane"]:
+		var a: float = _bypass["from"]
+		var e: float = _bypass["to"]
+		var full: float = _bypass["offset"]
+		if lane_s >= a and lane_s < e:
+			off += full * smoothstep(a, a + 7.0, lane_s)
+		elif lane_s >= e:
+			off += full * (1.0 - smoothstep(e, e + 9.0, lane_s))
+	return off
+
+
+func _pull_goal() -> float:
+	if _pull_time <= 0.0 or _plan.is_empty():
+		return 0.0
+	return (_plan[0]["lane"] as TrafficNetwork.Lane).pull_room
+
+
+func _lane_logic(dt: float) -> void:
+	_lc_cooldown -= dt
+	_lc_offset = move_toward(_lc_offset, 0.0, LANE_CHANGE_RATE * dt)
+	_pull_time -= dt
+	_pull_offset = move_toward(_pull_offset, _pull_goal(), PULL_RATE * dt)
+	_hurry_time -= dt
+	var lane: TrafficNetwork.Lane = _plan[0]["lane"]
+	if not _bypass.is_empty():
+		var obj: Vehicle = _bypass["obj"] if is_instance_valid(_bypass["obj"]) else null
+		if lane != _bypass["lane"] or _s > float(_bypass["to"]) + 10.0 or obj == null \
+				or obj.global_position.distance_to(_bypass["obj_pos"]) > 2.0:
+			_bypass = {}
+		elif vehicle.forward_speed < 0.5 and blocker != "":
+			# Something (oncoming traffic) is in the way: give up, back off.
+			_bypass_stalled += dt
+			if _bypass_stalled > 1.5:
+				_bypass = {}
+				if _rear_clearance() > 2.0:
+					_reverse_time = 1.2
+					_reverse_from = vehicle.global_position
+		else:
+			_bypass_stalled = 0.0
+	# Waiting behind something that isn't going anywhere (the player parked in
+	# our lane, a wreck)?
+	var parked := blocker_vehicle != null and is_instance_valid(blocker_vehicle) \
+		and blocker_vehicle.linear_velocity.length() < 0.4 and _is_parked(blocker_vehicle)
+	if parked and vehicle.forward_speed < 1.0 and _bypass.is_empty():
+		_still_blocked += dt
+	else:
+		_still_blocked = 0.0
+
+	_lane_check -= dt
+	if _lane_check > 0.0:
+		return
+	_lane_check = 0.5
+	if _still_blocked > 3.0:
+		if _change_lane(-1, true) or _change_lane(1, true) or _try_bypass(blocker_vehicle):
+			_still_blocked = 0.0
+		return
+	_consider_lane_change()
+
+
+## Parked = the player (stopped) or a traffic car that gave up after a crash.
+func _is_parked(v: Vehicle) -> bool:
+	if v == manager.player:
+		return true
+	var d := manager.driver_of(v)
+	return d != null and d.state == State.LOST
+
+
+func _consider_lane_change() -> void:
+	var lane: TrafficNetwork.Lane = _plan[0]["lane"]
+	if _lc_cooldown > 0.0 or vehicle.forward_speed < 8.0 or lane.connector:
+		return
+	if lane.left_id < 0 and lane.right_id < 0:
+		return
+	var desired := lane.speed * cruise_factor
+	var lead_gap := INF
+	var lead_v := INF
+	if blocker.begins_with("car") and blocker_vehicle != null and is_instance_valid(blocker_vehicle):
+		lead_v = blocker_vehicle.linear_velocity.length()
+		lead_gap = blocker_vehicle.global_position.distance_to(vehicle.global_position)
+	elif blocker != "":
+		return  # lights, junctions, obstacles: stay put
+	# Catching up with a slower car: overtake on the left (rarely on the right).
+	if lead_gap < 50.0 and lead_v < desired - 2.0:
+		if _change_lane(-1, false) or (_rng.randf() < 0.25 and _change_lane(1, false)):
+			return
+	if lead_gap < 35.0:
+		return
+	# Free road: keep right now and then (trucks and buses more eagerly),
+	# and once in a while move left just for variety.
+	var heavy := vehicle.ai_speed_factor < 0.9
+	if lane.right_id >= 0 and _rng.randf() < (0.15 if heavy else 0.03):
+		_change_lane(1, false)
+	elif lane.left_id >= 0 and not heavy and _rng.randf() < 0.012:
+		_change_lane(-1, false)
+
+
+## Moves to the neighbouring lane on the left (dir -1) or right (+1) if
+## there's a safe gap. `urgent`: we're stopped behind something parked.
+func _change_lane(dir: int, urgent: bool) -> bool:
+	var lane: TrafficNetwork.Lane = _plan[0]["lane"]
+	var id := lane.left_id if dir < 0 else lane.right_id
+	if id < 0 or lane.connector:
+		return false
+	# Not right before a junction/exit we're planning to take.
+	if float(_plan[0]["to"]) - _s < (25.0 if urgent else 70.0):
+		return false
+	var target := _net.lanes[id]
+	var hint := _s * target.length / maxf(lane.length, 1.0)
+	var st := target.project(vehicle.global_position, hint, 40.0)
+	if not _lane_is_clear(target, st, maxf(vehicle.forward_speed, 0.0)):
+		return false
+	var q := target.point_at(st)
+	var right := target.dir_at(st).cross(Vector3.UP).normalized()
+	_lc_offset = (vehicle.global_position - q).dot(right)
+	_plan = [_make_leg(target, st)]
+	_s = st
+	_extend_plan()
+	_lc_cooldown = _rng.randf_range(7.0, 12.0)
+	_bypass = {}
+	lane_changes += 1
+	return true
+
+
+## Is there a big enough gap in `target` around lane position `st`?
+func _lane_is_clear(target: TrafficNetwork.Lane, st: float, v: float) -> bool:
+	var my := vehicle.global_position
+	for other in manager.vehicles:
+		if other == vehicle or not is_instance_valid(other):
+			continue
+		var op := other.global_position
+		if op.distance_squared_to(my) > 100.0 * 100.0:
+			continue
+		var so := target.project(op, st, 100.0)
+		var q := target.point_at(so)
+		if Vector2(q.x - op.x, q.z - op.z).length() > other.body_half_width + 1.6:
+			# Not in that lane, unless it's moving into it right now (from the
+			# lane on its other side, say).
+			var od := manager.driver_of(other)
+			if od == null or od.current_lane() != target:
+				continue
+		var ov := other.linear_velocity.dot(target.dir_at(so))
+		var rel := so - st
+		if rel >= 0.0:
+			if rel - _front - other.body_rear < 6.0 + maxf(v - ov, 0.0) * 1.5:
+				return false
+		elif -rel - vehicle.body_rear - other.body_front < 5.0 + maxf(ov - v, 0.0) * 2.5:
+			return false
+	return true
+
+
+## Starts passing parked vehicle `obj` on the left through the oncoming lane
+## (two-lane roads), if the way is clear.
+func _try_bypass(obj: Vehicle) -> bool:
+	var leg: Dictionary = _plan[0]
+	var lane: TrafficNetwork.Lane = leg["lane"]
+	# Long vehicles can't swing out and back in on a two-lane street.
+	if obj == null or lane.connector or lane.pass_room <= 0.0 or _avoid_dead_ends:
+		return false
+	var op := obj.global_position
+	var so := lane.project(op, _s + 8.0, 25.0)
+	var right := lane.dir_at(so).cross(Vector3.UP).normalized()
+	var lat := (op - lane.point_at(so)).dot(right)
+	var off := -(obj.body_half_width + _half_width + 0.8 - lat)
+	if off > -0.3 or off < -lane.pass_room:
+		return false
+	var to := so + obj.body_length() * 0.5 + vehicle.body_rear + 2.5
+	if to + 10.0 > float(leg["to"]):
+		return false  # would still be on the wrong side at the junction
+	if not _passing_clear(lane, to + 10.0 - _s, off, obj):
+		return false
+	_bypass = {"obj": obj, "obj_pos": op, "lane": lane, "from": _s, "to": to, "offset": off}
+	_bypass_stalled = 0.0
+	passes += 1
+	return true
+
+
+## No oncoming traffic or obstacles along a pass of `length` metres at `off`.
+func _passing_clear(lane: TrafficNetwork.Lane, length: float, off: float, obj: Vehicle) -> bool:
+	var my := vehicle.global_position
+	var fwd := lane.dir_at(_s)
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var right := fwd.cross(Vector3.UP)
+	for other in manager.vehicles:
+		if other == vehicle or other == obj or not is_instance_valid(other):
+			continue
+		var rel := other.global_position - my
+		var ahead := rel.dot(fwd)
+		var side := rel.dot(right)
+		if ahead < -3.0 or ahead > length + 110.0 or side > -1.0 or side < off - 3.5:
+			continue
+		if ahead < length + 8.0:
+			return false  # something in the passing lane right here
+		var closing := -other.linear_velocity.dot(fwd)
+		if closing > 0.5 and (ahead - length) / closing < length / CREEP_SPEED + 3.0:
+			return false
+	# Walls, posts, parked props along the passing line.
+	var space := vehicle.get_world_3d().direct_space_state
+	for side_off in [off, off - _half_width + 0.2]:
+		_ray.from = my + right * side_off * 0.5 + Vector3.UP * 0.6
+		_ray.to = lane.point_at(_s + length) + right * side_off + Vector3.UP * 0.6
+		var hit := space.intersect_ray(_ray)
+		if not hit.is_empty() and hit["collider"] != obj and (hit["normal"] as Vector3).y < 0.6:
+			return false
+	return true
+
+
+## The player honked near us (called by the TrafficManager).
+func on_player_horn(player: Vehicle) -> void:
+	if state != State.DRIVING or _pull_time > 0.0 or _hurry_time > 0.0:
+		return
+	var rel := player.global_position - vehicle.global_position
+	var fwd := -vehicle.global_basis.z
+	var behind := -rel.dot(fwd)
+	if behind < 2.0 or behind > 35.0 or absf(rel.dot(vehicle.global_basis.x)) > 4.5:
+		return
+	if (-player.global_basis.z).dot(fwd) < 0.5:
+		return  # not coming the same way
+	if vehicle.forward_speed > 3.0:
+		# Let them through: a lane to the right, or pull over and slow down.
+		if not _change_lane(1, false) and (_plan[0]["lane"] as TrafficNetwork.Lane).pull_room > 0.0:
+			_pull_time = 5.0
+	elif blocker == "" or blocker.begins_with("car"):
+		_hurry_time = 6.0
+	if _rng.randf() < 0.3:
+		get_tree().create_timer(0.6).timeout.connect(honk)
 
 
 # ============================================================ crash state ==

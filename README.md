@@ -102,6 +102,11 @@ tools/blender/vehicle_kit.py           Shared modelling helpers for both scripts
   with 3+ roads have demand-actuated traffic lights; left turns and merges give
   way. Hit a traffic car hard and it gets stunned, then drives on or gives up;
   wrecks are removed once you look away. Cars you block will honk at you.
+  On the highway cars change lanes (overtake on the left, keep right) after a
+  gap check; the east/west avenues cross it at signalized junctions with turns
+  on and off in both directions. Honk and the car ahead pulls over or moves a
+  lane right; park in a lane and traffic drives around you through the
+  oncoming lane when it's clear (trucks and buses wait instead).
   Tweak `max_cars`, spawn distances, and the vehicle mix (`car_scenes` +
   `car_weights`) on the `Traffic` node in `main.tscn`. Traffic is a mix of
   sports cars, sedans, vans, delivery trucks and buses; each vehicle scene sets
@@ -138,6 +143,9 @@ godot --path . -- --rampage=/tmp/shots  player drives wrong-way into traffic
 godot --path . -- --showcase=/tmp/shots one of each traffic vehicle in a filmed convoy
 godot --path . -- --garage=/tmp/shots   garage menu + changing into every vehicle (pass/fail checks)
 godot --path . -- --menus=/tmp/shots    title/pause/settings/controls menus driven by input (pass/fail)
+godot --path . -- --lanes=/tmp/shots    passing a parked player, horn reactions, highway lane changes
+godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
+godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)
 godot --path . --headless --fixed-fps 120 -- --uturn=/tmp   car U-turns at a dead end
 godot --path . --headless --fixed-fps 120 -- --bench     physics cost with/without traffic
 godot --path . --headless -s res://scripts/dev/traffic_graph_check.gd   lane graph sanity

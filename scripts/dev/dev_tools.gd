@@ -4,6 +4,8 @@ extends Node
 ##   --drive=<dir>    drive the player car with scripted input, snapping shots
 ##   --garage=<dir>   garage menu + changing into every vehicle (checks and shots)
 ##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
+##   --lanes=<dir>    traffic passing a parked player, horn reactions, highway lane changes
+##   --junction=<dir> the signalized highway/avenue junction: turns used, crashes, jams
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -30,6 +32,15 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--uturn="):
 			_mode = "uturn"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--corner="):
+			_mode = "corner"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--junction="):
+			_mode = "junction"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--lanes="):
+			_mode = "lanes"
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--menus="):
 			_mode = "menus"
@@ -88,6 +99,12 @@ func _run() -> void:
 		await _garage(game)
 	elif _mode == "menus":
 		await _menus(game)
+	elif _mode == "lanes":
+		await _lanes(game)
+	elif _mode == "junction":
+		await _junction(game)
+	elif _mode == "corner":
+		await _corner(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -861,3 +878,274 @@ func _menus(game: Game) -> void:
 	game.controller.rumble(1.0, 1.0, 0.2)
 	game.vehicle.impact.emit(50000.0, game.vehicle.global_position, Vector3.UP)
 	_check(true, "rumble without a gamepad")
+
+
+## Distance of `v` from the centre of `lane` (m, + = right of it).
+func _lane_side(lane: TrafficNetwork.Lane, v: Vehicle, hint: float) -> float:
+	var s := lane.project(v.global_position, hint, 30.0)
+	var right := lane.dir_at(s).cross(Vector3.UP).normalized()
+	return (v.global_position - lane.point_at(s)).dot(right)
+
+
+## Puts the player car on `lane` at `s`, facing along it, and stops it.
+func _park_player(game: Game, lane: TrafficNetwork.Lane, s: float, side := 0.0) -> void:
+	var dir := lane.dir_at(s)
+	dir.y = 0.0
+	var right := dir.normalized().cross(Vector3.UP)
+	game.vehicle.teleport(Transform3D(Basis.looking_at(dir.normalized(), Vector3.UP),
+		lane.point_at(s) + right * side + Vector3.UP * (game.vehicle.ride_height() + 0.1)))
+
+
+func _lanes(game: Game) -> void:
+	var tm := game.traffic
+	var cam := game.camera
+	tm.set_enabled(false)
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(40, 0.8, 330)))
+	await _wait(10)
+
+	# 1) A car passes the player parked in its lane (south avenue, northbound).
+	var d := tm.spawn_near(VehicleCatalog.scene(1), Vector3(1.8, 0, 292))
+	var lane := d.current_lane()
+	var ps := d.lane_s() + 26.0
+	print("  avenue lane %d length %.0f, car at s=%.0f, player at s=%.0f" % [lane.id, lane.length, d.lane_s(), ps])
+	_park_player(game, lane, ps)
+	var bumps := [0]
+	game.vehicle.impact.connect(func(st: float, _p: Vector3, _n: Vector3) -> void:
+		if st > 2000.0:
+			bumps[0] += 1)
+	var t := 0.0
+	var passed := false
+	var shot_taken := false
+	while t < 30.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if not is_instance_valid(d):
+			break
+		if d.passes > 0 and not shot_taken and d.vehicle.global_position.distance_to(game.vehicle.global_position) < 5.0:
+			shot_taken = true
+			cam.set_process(false)
+			var back := -lane.dir_at(ps)
+			cam.global_position = game.vehicle.global_position + back * 14.0 + Vector3.UP * 7.0 + back.cross(Vector3.UP) * 4.0
+			cam.look_at(game.vehicle.global_position, Vector3.UP)
+			await _shot("lanes_bypass")
+			cam.set_process(true)
+		var ds := lane.project(d.vehicle.global_position, ps, 40.0)
+		if ds > ps + 12.0 and absf(_lane_side(lane, d.vehicle, ds)) < 1.0:
+			passed = true
+			break
+	_check(passed and bumps[0] == 0, "car passes the parked player (%.1fs, %d bumps, state %s, blocker '%s')" % [t, bumps[0], ["DRIVING", "STUNNED", "LOST"][d.state], d.blocker])
+	tm._despawn(d)
+	await _wait(5)
+
+	# 2) Honk behind a car on a two-lane street: it pulls over and slows.
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(40, 0.8, 330)))
+	d = tm.spawn_near(VehicleCatalog.scene(1), Vector3(1.8, 0, 300))
+	lane = d.current_lane()
+	await _wait(60)
+	var follow := func(dd: TrafficDriver) -> void:
+		var fwd := -dd.vehicle.global_basis.z
+		game.vehicle.global_transform = Transform3D(dd.vehicle.global_basis, dd.vehicle.global_position - fwd * 10.0)
+		game.vehicle.linear_velocity = dd.vehicle.linear_velocity
+	follow.call(d)
+	await get_tree().physics_frame
+	var v_before := d.vehicle.forward_speed
+	Input.action_press("horn")
+	for i in 12:
+		follow.call(d)
+		await get_tree().physics_frame
+	Input.action_release("horn")
+	t = 0.0
+	var max_side := 0.0
+	while t < 3.5:
+		follow.call(d)
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		max_side = maxf(max_side, _lane_side(lane, d.vehicle, d.lane_s()))
+	_check(max_side > 1.0 and d.vehicle.forward_speed < 6.0,
+		"honk: car pulls over %.1f m and slows %.0f -> %.0f km/h" % [max_side, v_before * 3.6, d.vehicle.forward_speed * 3.6])
+	await _shot("lanes_pull_over")
+	tm._despawn(d)
+	await _wait(5)
+
+	# 3) Honk behind a car in the middle highway lane: it moves right.
+	var hw_lane: TrafficNetwork.Lane = null
+	for l in tm.network.lanes:
+		if l.closed and l.lane_count == 3 and l.index == 1 and not l.reverse:
+			hw_lane = l
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(290, 0.8, -60)))
+	await _wait(5)
+	d = tm.spawn_near(VehicleCatalog.scene(2), hw_lane.point_at(120.0))
+	await _wait(120)
+	var lc_before := d.lane_changes
+	var middle := d.current_lane()
+	follow.call(d)
+	Input.action_press("horn")
+	for i in 12:
+		follow.call(d)
+		await get_tree().physics_frame
+	Input.action_release("horn")
+	for i in 120:
+		follow.call(d)
+		await get_tree().physics_frame
+	_check(d.lane_changes > lc_before and d.current_lane().id == middle.right_id,
+		"honk on the highway: car moves a lane right (lane %d -> %d)" % [middle.id, d.current_lane().id])
+	tm._despawn(d)
+
+	# 4) Highway traffic for 90 s: lane changes happen, nobody crashes or gets lost.
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(290, 0.8, -60)))
+	tm.set_enabled(true)
+	await _wait(30)
+	var crashes := [0]
+	var lost := 0
+	var watched := {}
+	var total_changes := 0
+	t = 0.0
+	var next_shot := 20.0
+	while t < 90.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		var on_highway := 0
+		for dr: TrafficDriver in tm.drivers:
+			if not watched.has(dr):
+				watched[dr] = dr.lane_changes
+				dr.vehicle.impact.connect(func(st: float, _p: Vector3, _n: Vector3) -> void:
+					if st > 9000.0:
+						crashes[0] += 1)
+			total_changes += dr.lane_changes - int(watched[dr])
+			watched[dr] = dr.lane_changes
+			if dr.current_lane() and dr.current_lane().lane_count == 3:
+				on_highway += 1
+			if dr.state == TrafficDriver.State.LOST and not dr.has_meta("counted"):
+				dr.set_meta("counted", true)
+				lost += 1
+				print("  LOST %s at %s: %s" % [dr.vehicle.display_name, dr.vehicle.global_position.round(), dr.lost_reason])
+				await _photo_vehicle(game, dr.vehicle, "lanes_lost_%d" % lost)
+		if int(t * 120.0) % 1200 == 0:
+			print("  t=%.0f highway cars %d, lane changes so far %d" % [t, on_highway, total_changes])
+		if t > next_shot:
+			next_shot += 25.0
+			# Film a car that's changing lanes right now, if any.
+			for dr: TrafficDriver in tm.drivers:
+				if absf(dr._lc_offset) > 1.5 and dr.vehicle.global_position.distance_to(game.vehicle.global_position) < 250.0:
+					await _photo_vehicle(game, dr.vehicle, "lanes_change_%d" % int(t))
+					break
+	print("  highway 90 s: %d cars seen, %d lane changes, %d crash impacts, %d lost" % [watched.size(), total_changes, crashes[0], lost])
+	_check(total_changes >= 3 and crashes[0] == 0 and lost == 0, "highway lane changes without crashes")
+
+
+func _junction(game: Game) -> void:
+	var tm := game.traffic
+	var cam := game.camera
+	var p := Vector3(MapLayout.HIGHWAY_HALF_EXTENT, 0, 0)
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, p + Vector3(32, 0.8, 30)))
+	await _wait(60)
+	# Which junction connectors get used.
+	var moves := {}
+	for lane in tm.network.lanes:
+		if lane.connector and lane.points[0].distance_to(p) < 40.0:
+			var a := lane.dir_at(0.0)
+			var b := lane.dir_at(lane.length)
+			var kind: String = ["straight", "right", "left", "uturn"][TrafficNetwork._turn_kind(a, b)]
+			var from_hwy := absf(a.z) > absf(a.x)
+			moves[lane.id] = ("highway " if from_hwy else "avenue ") + kind
+	var used := {}
+	var seen_on := {}
+	var crashes := [0]
+	var lost := 0
+	var t := 0.0
+	var feed := 0.0
+	var shot_i := 0
+	cam.set_process(false)
+	while t < 150.0:
+		await get_tree().physics_frame
+		var dt := get_physics_process_delta_time()
+		t += dt
+		feed -= dt
+		if feed <= 0.0:
+			feed = 6.0
+			# Keep cars coming from both avenues towards the junction.
+			var hl := TrafficNetwork.HIGHWAY_OFFSETS
+			for q in [p + Vector3(-45, 0, 1.8), p + Vector3(45, 0, -1.8),
+					p + Vector3(-hl[2], 0, -80), p + Vector3(hl[2], 0, 80),
+					p + Vector3(-hl[0], 0, -90), p + Vector3(hl[0], 0, 90)]:
+				var clear := true
+				for v in tm.vehicles:
+					if is_instance_valid(v) and v.global_position.distance_to(q) < 14.0:
+						clear = false
+				if clear:
+					var d := tm.spawn_near(tm.car_scenes[tm._rng.randi() % 3], q)
+					if d:
+						d.vehicle.impact.connect(func(st: float, _p: Vector3, _n: Vector3) -> void:
+							if st > 9000.0:
+								crashes[0] += 1)
+		for d: TrafficDriver in tm.drivers:
+			var lane := d.current_lane()
+			if lane and moves.has(lane.id):
+				if seen_on.get(d) != lane.id:
+					seen_on[d] = lane.id
+					used[moves[lane.id]] = used.get(moves[lane.id], 0) + 1
+			if d.state == TrafficDriver.State.LOST and not d.has_meta("counted") and d.vehicle.global_position.distance_to(p) < 80.0:
+				d.set_meta("counted", true)
+				lost += 1
+				print("  LOST %s at %s: %s" % [d.vehicle.display_name, d.vehicle.global_position.round(), d.lost_reason])
+		if t > 20.0 + shot_i * 40.0:
+			cam.global_position = p + Vector3(-40, 45, 40)
+			cam.look_at(p, Vector3.UP)
+			await _shot("junction_aerial_%d" % shot_i)
+			cam.global_position = p + Vector3(-36, 4, 14)
+			cam.look_at(p + Vector3(0, 1, -4), Vector3.UP)
+			await _shot("junction_street_%d" % shot_i)
+			shot_i += 1
+	cam.set_process(true)
+	var keys := used.keys()
+	keys.sort()
+	for k in keys:
+		print("  %-18s %d" % [k, used[k]])
+	print("  junction 150 s: %d crash impacts, %d lost nearby" % [crashes[0], lost])
+	_check(used.size() >= 5 and crashes[0] == 0 and lost == 0, "junction: %d kinds of moves, no crashes or jams" % used.size())
+
+
+## Each traffic vehicle laps part of the highway with forced lane changes,
+## logging the worst body roll (looking for cars that tip over on their own).
+func _corner(game: Game) -> void:
+	var tm := game.traffic
+	tm.set_enabled(false)
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(-20, 0.8, -20)))
+	var lane0: TrafficNetwork.Lane = null
+	for l in tm.network.lanes:
+		if l.closed and l.lane_count == 3 and l.index == 0 and not l.reverse:
+			lane0 = l
+	for scene in tm.car_scenes:
+		var start := lane0.point_at(lane0.closest_distance(Vector3(250, 0, 60)))
+		var d := tm.spawn_near(scene, start)
+		var v := d.vehicle
+		var t := 0.0
+		var worst_up := 1.0
+		var worst_t := 0.0
+		var max_speed := 0.0
+		var flips := 0
+		var next_change := 3.0
+		while t < 40.0 and is_instance_valid(d):
+			await get_tree().physics_frame
+			var dt := get_physics_process_delta_time()
+			t += dt
+			game.vehicle.global_position = v.global_position + Vector3(0, 30, 0)  # keep it "near the player"
+			game.vehicle.linear_velocity = Vector3.ZERO
+			if v.global_basis.y.y < worst_up:
+				worst_up = v.global_basis.y.y
+				worst_t = t
+			max_speed = maxf(max_speed, v.speed_kmh)
+			if d.state == TrafficDriver.State.LOST:
+				flips += 1
+				print("    LOST at t=%.1f: %s (speed %.0f, lane %d, lc_offset %.1f)" % [t, d.lost_reason, v.speed_kmh, d.current_lane().id, d._lc_offset])
+				break
+			if t > next_change:
+				next_change += 4.0
+				d._lc_cooldown = 0.0
+				if not d._change_lane(1, false):
+					d._change_lane(-1, false)
+		print("  %-15s worst up.y %.2f at t=%.1f, max %.0f km/h, lane changes %d%s" % [v.display_name, worst_up, worst_t, max_speed,
+			d.lane_changes if is_instance_valid(d) else -1, " LOST" if flips else ""])
+		if is_instance_valid(d):
+			tm._despawn(d)
+		await _wait(5)
