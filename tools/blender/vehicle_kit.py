@@ -213,3 +213,16 @@ def standard_materials(paint_rgb):
         "tail": make_material("TailLight", srgb((0.9, 0.08, 0.06)), rough=0.2, emission=(1.0, 0.05, 0.02), strength=1.0),
         "reverse": make_material("ReverseLight", srgb((0.95, 0.95, 0.95)), rough=0.2),
     }
+
+
+def add_tube(name, p0, p1, radius, mat, verts=10):
+    """A cylinder from point p0 to point p1 (roll cages, exhausts, links)."""
+    import mathutils
+    a = mathutils.Vector(p0)
+    b = mathutils.Vector(p1)
+    d = b - a
+    obj = add_cylinder(name, (0, 0, 0), radius, d.length, mat, verts=verts, axis="Z")
+    obj.location = (a + b) / 2
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = mathutils.Vector((0, 0, 1)).rotation_difference(d.normalized())
+    return obj

@@ -31,6 +31,21 @@ const ENTRIES := [
 		"name": "Bus", "blurb": "Huge and heavy. Pushes everything out of the way!",
 		"speed": 2, "accel": 1, "handling": 1, "smash": 5,
 	},
+	{
+		"id": "pickup", "scene": "res://scenes/vehicles/pickup.tscn",
+		"name": "Pickup", "blurb": "Tough and handy. Good on the road and on the dirt.",
+		"speed": 4, "accel": 3, "handling": 3, "smash": 3,
+	},
+	{
+		"id": "buggy", "scene": "res://scenes/vehicles/buggy.tscn",
+		"name": "Buggy", "blurb": "Light, bouncy and quick. Made for jumps and dirt!",
+		"speed": 4, "accel": 5, "handling": 4, "smash": 1,
+	},
+	{
+		"id": "monster_truck", "scene": "res://scenes/vehicles/monster_truck.tscn",
+		"name": "Monster Truck", "blurb": "GIANT wheels! Drive right over the cars!",
+		"speed": 3, "accel": 3, "handling": 2, "smash": 5,
+	},
 ]
 
 ## Stat keys and the labels shown for them.

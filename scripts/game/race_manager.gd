@@ -164,7 +164,8 @@ func _check_start_circles(v: Vehicle) -> void:
 		if inside and not _inside[i] and allowed:
 			_armed = i
 			_stopped_time = 0.0
-			game.hud.show_toast("RACE: %s - stop in the circle to start" % races[i]["name"], 2.5)
+			if v.linear_velocity.length() < 8.0:  # not when just cruising past
+				game.hud.show_toast("RACE: %s - stop in the circle to start" % races[i]["name"], 2.5)
 		elif not inside and _armed == i:
 			_armed = -1
 		_inside[i] = inside

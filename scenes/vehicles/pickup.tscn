@@ -1,0 +1,151 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle.gd" id="1_vehicle"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_wheel.gd" id="2_wheel"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_body_visual.gd" id="3_visual"]
+[ext_resource type="PackedScene" path="res://assets/models/pickup_body.glb" id="4_body"]
+[ext_resource type="PackedScene" path="res://assets/models/wheel_offroad.glb" id="5_wheel"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_audio.gd" id="6_audio"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_effects.gd" id="7_fx"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_damage.gd" id="8_damage"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_body"]
+friction = 0.45
+bounce = 0.05
+
+[sub_resource type="BoxShape3D" id="Box_0"]
+size = Vector3(1.94, 0.76, 3.22)
+
+[sub_resource type="BoxShape3D" id="Box_1"]
+size = Vector3(1.94, 0.78, 2.06)
+
+[sub_resource type="BoxShape3D" id="Box_2"]
+size = Vector3(1.8, 0.73, 1.65)
+
+[node name="Pickup" type="RigidBody3D"]
+collision_layer = 2
+collision_mask = 7
+mass = 1800
+physics_material_override = SubResource("PhysicsMaterial_body")
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 0.18, -0.1)
+inertia = Vector3(3600, 4000, 1000)
+script = ExtResource("1_vehicle")
+display_name = "Pickup"
+driver_eye = Vector3(0, 1.5, -0.15)
+max_engine_torque = 480
+redline_rpm = 5800
+idle_rpm = 750
+gear_ratios = PackedFloat32Array(3.9, 2.4, 1.6, 1.2, 0.95)
+final_drive = 3.9
+shift_up_rpm = 5300
+shift_down_rpm = 2400
+max_brake_torque = 3000
+max_steer_angle = 36
+high_speed_steer_angle = 6
+steer_falloff_speed = 45
+anti_roll_front = 9000
+anti_roll_rear = 5000
+drag_coefficient = 0.55
+downforce_coefficient = 0.2
+ai_speed_factor = 0.95
+ai_max_accel = 1.9
+
+[node name="Shape0" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.24, -0.97)
+shape = SubResource("Box_0")
+
+[node name="Shape1" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.27, 1.65)
+shape = SubResource("Box_1")
+
+[node name="Shape2" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.97, -0.22)
+shape = SubResource("Box_2")
+
+[node name="Body" type="Node3D" parent="."]
+script = ExtResource("3_visual")
+paint_color = Color(0.85, 0.2, 0.15, 1)
+paint_palette = Array[Color]([Color(0.85, 0.2, 0.15, 1), Color(0.95, 0.95, 0.93, 1), Color(0.15, 0.25, 0.5, 1), Color(0.7, 0.72, 0.75, 1), Color(0.25, 0.5, 0.3, 1), Color(0.16, 0.17, 0.2, 1), Color(1, 0.55, 0.15, 1)])
+
+[node name="Model" parent="Body" instance=ExtResource("4_body")]
+
+
+[node name="WheelFL" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.86, 0.195, -1.6)
+script = ExtResource("2_wheel")
+steers = true
+radius = 0.4
+suspension_travel = 0.3
+spring_stiffness = 42000
+compression_damping = 3600
+rebound_damping = 4400
+bump_stop_stiffness = 200000
+grip = 1.12
+
+[node name="Visual" type="Node3D" parent="WheelFL"]
+
+[node name="Model" parent="WheelFL/Visual" instance=ExtResource("5_wheel")]
+transform = Transform3D(-1.0811, 0, 0, 0, 1.0811, 0, 0, 0, -1.0811, 0, 0, 0)
+
+[node name="WheelFR" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.86, 0.195, -1.6)
+script = ExtResource("2_wheel")
+steers = true
+radius = 0.4
+suspension_travel = 0.3
+spring_stiffness = 42000
+compression_damping = 3600
+rebound_damping = 4400
+bump_stop_stiffness = 200000
+grip = 1.12
+
+[node name="Visual" type="Node3D" parent="WheelFR"]
+
+[node name="Model" parent="WheelFR/Visual" instance=ExtResource("5_wheel")]
+transform = Transform3D(1.0811, 0, 0, 0, 1.0811, 0, 0, 0, 1.0811, 0, 0, 0)
+
+[node name="WheelRL" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.86, 0.195, 1.6)
+script = ExtResource("2_wheel")
+driven = true
+has_handbrake = true
+radius = 0.4
+suspension_travel = 0.3
+spring_stiffness = 42000
+compression_damping = 3600
+rebound_damping = 4400
+bump_stop_stiffness = 200000
+grip = 1.12
+
+[node name="Visual" type="Node3D" parent="WheelRL"]
+
+[node name="Model" parent="WheelRL/Visual" instance=ExtResource("5_wheel")]
+transform = Transform3D(-1.0811, 0, 0, 0, 1.0811, 0, 0, 0, -1.0811, 0, 0, 0)
+
+[node name="WheelRR" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.86, 0.195, 1.6)
+script = ExtResource("2_wheel")
+driven = true
+has_handbrake = true
+radius = 0.4
+suspension_travel = 0.3
+spring_stiffness = 42000
+compression_damping = 3600
+rebound_damping = 4400
+bump_stop_stiffness = 200000
+grip = 1.12
+
+[node name="Visual" type="Node3D" parent="WheelRR"]
+
+[node name="Model" parent="WheelRR/Visual" instance=ExtResource("5_wheel")]
+transform = Transform3D(1.0811, 0, 0, 0, 1.0811, 0, 0, 0, 1.0811, 0, 0, 0)
+
+[node name="Audio" type="AudioStreamPlayer" parent="."]
+script = ExtResource("6_audio")
+
+[node name="Effects" type="Node" parent="."]
+script = ExtResource("7_fx")
+
+[node name="Damage" type="Node" parent="."]
+script = ExtResource("8_damage")

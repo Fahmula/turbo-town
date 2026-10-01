@@ -47,6 +47,11 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - Press M (D-pad left) for a map of the whole island with the numbered
   teleport spots.
 
+### New vehicles
+- Pickup truck (it shows up in traffic too), a light and bouncy dune buggy,
+  and a MONSTER TRUCK with giant wheels that can drive right over cars.
+  Pick them in the garage.
+
 ### Menus
 - New title screen with your car on show: Drive, Garage, Settings, Controls, Quit.
 - Esc / Start now opens a pause menu (resume, garage, settings, controls,

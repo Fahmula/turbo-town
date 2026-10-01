@@ -382,9 +382,18 @@ func _traffic(game: Game) -> void:
 		for d in tm.drivers:
 			if not seen.has(d):
 				seen[d] = true
-				d.vehicle.impact.connect(func(st: float, _p: Vector3, _n: Vector3) -> void:
+				var dd := d
+				d.vehicle.impact.connect(func(st: float, p: Vector3, _n: Vector3) -> void:
 					if st > 9000.0:
-						impacts[0] += 1)
+						impacts[0] += 1
+						if is_instance_valid(dd):
+							var other := ""
+							for o in tm.vehicles:
+								if is_instance_valid(o) and o != dd.vehicle and o.global_position.distance_to(dd.vehicle.global_position) < 7.0:
+									var od := tm.driver_of(o)
+									other += " %s(%.0fkmh%s)" % [o.display_name, o.speed_kmh, (" lc%.1f" % od._lc_offset) if od else " player"]
+							print("  CRASH %.0f %s at %s %.0fkmh lane %d lc %.1f blocker '%s' near:%s" % [st, dd.vehicle.display_name,
+								p.round(), dd.vehicle.speed_kmh, dd.current_lane().id if dd.current_lane() else -1, dd._lc_offset, dd.blocker, other]))
 			if d.state == TrafficDriver.State.DRIVING:
 				speed_sum += d.vehicle.speed_kmh
 				speed_n += 1

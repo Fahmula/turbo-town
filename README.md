@@ -38,8 +38,8 @@ Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING
 
 Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields, 6 Beach.
 
-**Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck or
-bus and a paint colour. Left/right = vehicle, up/down = paint, Enter / A =
+**Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck,
+bus, pickup, buggy or monster truck and a paint colour. Left/right = vehicle, up/down = paint, Enter / A =
 drive, Esc / B = back. The game is paused while it's open, and the choice is
 remembered next time the game starts.
 
@@ -68,8 +68,9 @@ vibration, fullscreen and volume. Saved to `user://settings.cfg`
 scenes/
   main.tscn                 Game root: world + player car + camera + HUD
   vehicles/sports_car.tscn  The default player car (physics, wheels, visuals, audio, FX, damage)
-  vehicles/sedan.tscn, van.tscn, box_truck.tscn, bus.tscn   Used by traffic and
-                            drivable from the garage (every vehicle scene is both)
+  vehicles/sedan.tscn, van.tscn, box_truck.tscn, bus.tscn, pickup.tscn   Used by
+                            traffic and drivable from the garage (every vehicle scene is both)
+  vehicles/buggy.tscn, monster_truck.tscn   Garage-only (AWD, long-travel suspension)
   world/world.tscn          Environment, sun, and the WorldBuilder that generates the map
   props/                    Cone, barrel, crate, bowling pin, lamp, traffic light,
                             parked car, and the parametric Ramp
@@ -102,7 +103,8 @@ scripts/
 assets/      models (.glb from Blender), shaders, materials
 tools/blender/make_car.py              Sports car + wheel:  blender -b -P tools/blender/make_car.py
 tools/blender/make_traffic_vehicles.py Sedan, van, truck, bus + steel wheel (same command)
-tools/blender/vehicle_kit.py           Shared modelling helpers for both scripts
+tools/blender/make_offroad_vehicles.py Pickup, buggy, monster truck + knobbly wheel
+tools/blender/vehicle_kit.py           Shared modelling helpers for the scripts
 ```
 
 ## How things work
