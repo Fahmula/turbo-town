@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-01
+
 ### Fixes
 - Menus work with a gamepad again: A presses the highlighted button and B goes
   back (before, you could move between buttons but not pick one).
