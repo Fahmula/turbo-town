@@ -39,3 +39,20 @@ Art direction: ART_BIBLE.md.
   Those lines become the release notes.
 - `.godot/`, `build/`, `dist/` and `reference images/` are gitignored. Don't
   commit caches, builds or secrets.
+
+## Choosing a model (Sonnet 5.5 vs Opus 5.5)
+
+The owner wants to save session limits: **Sonnet 5.5 is the default model.**
+Opus 5.5 costs about twice as much per token, so use it only where it pays off.
+
+- **Sonnet is fine** for jobs that are clear and easy to check: small UI or
+  text tweaks, adding content (props, colours, vehicles from the existing
+  kit), obvious bugs, running tests, docs, releases.
+- **Opus is worth it** for open-ended or tricky work: new features or systems,
+  bugs whose cause isn't known (or a fix that didn't work), traffic AI, car
+  physics, performance, and planning big batches of work.
+- **Before starting a task, say which model it suits** in one line. If you're
+  Sonnet and the task is in the Opus list, suggest switching (the owner picks
+  the model in the app's model menu) before diving in. If you're Opus and the
+  hard part is done and the rest is routine, say so, so the owner can switch
+  back to Sonnet.
