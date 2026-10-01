@@ -20,7 +20,8 @@ extends Node
 ##                    for the same views in the old style; --views=a,b limits the
 ##                    views, --quick shoots day on High only, --profile hides one
 ##                    family of new-style meshes at a time and prints what it cost,
-##                    --stress renders at 2x resolution so fill costs dominate)
+##                    --stress renders at 2x resolution so fill costs dominate,
+##                    --traffic-on keeps traffic running for the shots)
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -2302,7 +2303,8 @@ func _wait_real(seconds: float) -> void:
 ## calls, objects, primitives and GPU time per view (High, day).
 func _artzone(game: Game) -> void:
 	var tm := game.traffic
-	tm.set_enabled(false)
+	var with_traffic := OS.get_cmdline_user_args().has("--traffic-on")
+	tm.set_enabled(with_traffic)
 	game.hud.visible = false
 	var cam := game.camera
 	var v := game.vehicle
@@ -2347,6 +2349,8 @@ func _artzone(game: Game) -> void:
 				else:
 					v.teleport(Transform3D(north, Vector3(2.4, 0.6, -38.0)))
 				await _wait(20)
+				if with_traffic:
+					await _wait_s(6.0)  # let traffic fill in around the player
 				cam.set_process(false)
 				cam.global_position = view[1]
 				cam.look_at(view[2], Vector3.UP)
