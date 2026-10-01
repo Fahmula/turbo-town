@@ -140,6 +140,9 @@ def vehicle_materials(paint=(0.784, 0.137, 0.106)):
         "TailLight": material("TailLight", (0.7, 0.05, 0.04), rough=0.15, emission=(1.0, 0.05, 0.02), strength=1.0),
         "ReverseLight": material("ReverseLight", (0.95, 0.95, 0.95), rough=0.15),
         "Interior": material("Interior", (0.17, 0.17, 0.18), rough=0.85),
+        # Opaque dark glass for windows painted onto the body (rear doors,
+        # no interior behind them). Not "Glass", so it never cracks.
+        "GlassDark": material("GlassDark", (0.09, 0.115, 0.14), rough=0.06),
     }
 
 
@@ -460,7 +463,8 @@ class BodySpec:
         self.pillar_mat = "Trim"                  # between windows
         self.door_lines = []                      # [(y0, y1)] thin dark gaps on the sides
         self.top_lines = []                       # [(y0, y1)] gaps across the top
-        self.bumper_split = (1.80, -1.80)         # rows below point 4 ahead/behind -> bumpers
+        self.bumper_split = (1.80, -1.80)         # rows below `bumper_row` ahead/behind -> bumpers
+        self.bumper_row = 4                       # section point at the bumper's top edge
         self.shoulder_inset = 0.04
         self.hood_edge_inset = 0.11
         self.bulge = 0.012
@@ -611,6 +615,7 @@ class LoftBody:
             refine.append((ay + r, ay - r, s.arch_step))
         keep += [s.nose0 + t * (s.y_nose - s.nose0) for t in s.nose_samples]
         keep += [s.tail0 - t * (s.tail0 - s.y_tail) for t in s.tail_samples]
+        keep = [y for y in keep if s.y_tail <= y <= s.y_nose]   # e.g. a roof that runs to the end
         return stations(s.y_nose, s.y_tail, s.station_step, keep=keep, refine=refine)
 
     def row_height(self, y, row=4):
@@ -625,8 +630,9 @@ class LoftBody:
         front = rear = None
         if bumpers:
             fy, ry = self.s.bumper_split
-            front = split_part(shell, "FrontBumper", lambda c: c.y > fy and c.z < self.row_height(c.y) + 1e-4)
-            rear = split_part(shell, "RearBumper", lambda c: c.y < ry and c.z < self.row_height(c.y) + 1e-4)
+            row = self.s.bumper_row
+            front = split_part(shell, "FrontBumper", lambda c: c.y > fy and c.z < self.row_height(c.y, row) + 1e-4)
+            rear = split_part(shell, "RearBumper", lambda c: c.y < ry and c.z < self.row_height(c.y, row) + 1e-4)
             thicken(front, 0.018)
             thicken(rear, 0.018)
         return shell, front, rear, ys

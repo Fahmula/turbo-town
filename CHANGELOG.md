@@ -21,6 +21,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   as before.
 - New sedan: a proper family car with six side windows, chrome trim, big
   headlights, seats inside and new six-spoke wheels.
+- New van: a modern people-carrier with big windows, black bumpers and sills,
+  twin rear doors, seats inside and new steel wheels.
 - Garage: 12 new paint colours that look like real car paint (some sparkle
   like metallic paint), plus fun ones like lime and pink, and racing stripes
   you can switch on for the sports car (X key or the Y button).
