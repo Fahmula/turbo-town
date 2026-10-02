@@ -13,10 +13,20 @@ extends RigidBody3D
 @export var traffic_paint := false
 
 
+## Parked cars are drawn out to this distance (with a fade); beyond it
+## they're a few pixels and only cost triangles.
+const PARKED_CAR_RANGE := 200.0
+
+
 func _ready() -> void:
 	# Parked cars share the vehicles' models: optional racing stripes stay off.
 	for stripes in find_children("Stripes", "MeshInstance3D", true, false):
 		(stripes as MeshInstance3D).visible = false
+	if traffic_paint:
+		for gi in find_children("*", "GeometryInstance3D", true, false):
+			(gi as GeometryInstance3D).visibility_range_end = PARKED_CAR_RANGE
+			(gi as GeometryInstance3D).visibility_range_end_margin = 20.0
+			(gi as GeometryInstance3D).visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	if random_colors.is_empty() and not traffic_paint:
 		return
 	var col: Color
@@ -26,6 +36,12 @@ func _ready() -> void:
 		col = PaintPalette.pick_traffic(rng)
 	else:
 		col = random_colors.pick_random()
+	_apply_color(col)
+
+
+## Paints the prop: `color_mesh` surface 0 and every surface using the paint
+## material. (KitProp tints its one mesh instead.)
+func _apply_color(col: Color) -> void:
 	if color_mesh:
 		_recolor(color_mesh, 0, col)
 	for node in find_children("*", "MeshInstance3D", true, false):

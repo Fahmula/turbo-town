@@ -191,11 +191,10 @@ bible.
 As of v0.3.1 (2026-10-01), the game used a bright toy low-poly style. Step 1
 of the migration (§31: lighting, atmosphere and palette) and step 4 (the whole
 vehicle fleet) landed on `dev` the same day; those rows describe the game
-after them. The environment upgrade (step 3/6/7 together, §31) is in preview:
-everything inside `ArtZone` (`scripts/world/art_zone.gd`: the city's central
-spine at x −81..81 and the corridor north to the hill road, with the north
-highway overpass) is built in the new style, everything outside is still
-legacy. `--legacy-art` turns the zone off for before/after comparisons.
+after them. The environment upgrade (steps 3, 6 and 7 together, §31) was
+previewed in a small area and, once the owner approved it (2026-10-01), rolled
+out to the whole island: roads, city blocks, landmarks, stunt park, props,
+trees, terrain and sea. The legacy builder code is being removed next.
 
 | Area | Today | Target |
 |---|---|---|
@@ -1708,10 +1707,10 @@ Cheapest and biggest wins first:
 2. **Smooth shading and bevels for world geometry:** a smooth-normals option in
    `MeshBuilder`; trees, rocks; soft clouds in the sky.
 3. **Roads:** asphalt variation, marking wear, sidewalk paving, Jersey barriers,
-   overpass detail, drainage streaks. **In preview** (2026-10-01, on `dev`)
-   together with steps 6 and 7, the sky and the terrain, inside `ArtZone`: a
-   representative area that sets the quality target before the whole map
-   follows (the owner's call). Outside the zone everything is still legacy.
+   overpass detail, drainage streaks. **Done** (2026-10-01, on `dev`) together
+   with steps 6 and 7, the sky, the terrain and the sea: previewed in a
+   representative area first, then rolled out to the whole map once the owner
+   approved the look.
 4. ✅ **Vehicles** (done 2026-10-01 on `dev`): every body remodelled with
    deformation-ready topology, interiors and better wheels; clearcoat car
    paint; glass. The sports car prototype came first and set the quality bar
@@ -1737,8 +1736,6 @@ Cheapest and biggest wins first:
 - ~~Racing stripes~~: decided 2026-10-01, a garage option, never on traffic
   (§12).
 - **Next migration step** (§31), and when to merge `dev` into `main`.
-- **Environment preview** (`ArtZone`): approve the look before it rolls out
-  to the whole map.
 - **Guardrails** on the mountain and hill roads would stop cars driving off
   the road (gameplay). Wanted, and where?
 

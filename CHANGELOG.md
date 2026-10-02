@@ -10,12 +10,19 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 ## [Unreleased]
 
 ### Looks
-- A first look at the new, more detailed city (on the main avenue north from
-  the city centre, up to the highway bridge): worn asphalt with patches,
-  manholes, drains and stop lines; kerb stones and paving slabs; buildings
-  with shopfronts, awnings, cornices and rooftop machinery; glass office
-  towers; new street lamps and traffic lights, hydrants, bins and benches;
-  leafy trees; and a concrete highway bridge with real girders and pillars.
+- The whole island has a new, more detailed look to match the new cars:
+  - Roads: worn asphalt with patches, manholes, drains and stop lines; kerb
+    stones and paving slabs; real concrete barriers and highway bridges with
+    girders and pillars.
+  - Buildings with shopfronts, awnings, cornices and rooftop machinery, and
+    glass office towers downtown.
+  - New street lamps, traffic lights, hydrants, bins, benches and highway
+    signs.
+  - Leafy trees and pine trees, grassy hills with rocky slopes, a sea with
+    turquoise shallows and foam along the beach.
+  - New-look gas station, airfield, harbour, lighthouse, tunnel and stunt
+    park; cones, barrels, crates, bowling pins and ramps look like the real
+    thing.
 - Soft, sunlit clouds instead of blocky ones, glowing orange at sunset.
 - Shadows look natural instead of deep blue.
 

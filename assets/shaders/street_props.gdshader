@@ -12,13 +12,17 @@ shader_type spatial;
 //    8 / 9 / 10 signal lens red / amber / green (lit by `signal`)
 //    11 sign face (slightly glossy)       12 fabric (awnings)
 //    13 wood                              14 always-on glow (screens, beacons)
+//    15 deck panels (ramps): paint with a panel seam every 1.22 m along UV.y
 // instance uniform `signal`: which signal lens is lit (0 red, 1 amber,
 //    2 green, -1 none); set per traffic light with set_instance_shader_parameter.
+// instance uniform `tint`: multiplies painted parts (class 0), e.g. a
+//    random colour per oil drum.
 
 #include "res://assets/shaders/world_common.gdshaderinc"
 
 uniform sampler2D detail : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 instance uniform int signal = -1;
+instance uniform vec4 tint : source_color = vec4(1.0);
 
 varying vec3 world_pos;
 
@@ -70,7 +74,13 @@ void fragment() {
 		emit = col * (0.8 + 1.2 * night);
 	} else if (kind == 3) {
 		rough = 0.55;
+	} else if (kind == 15) {
+		float seam = grid_line(UV.y, 1.22, 0.012);
+		col *= 1.0 + (g - 0.5) * 0.16 * near;
+		col *= 1.0 - seam * 0.35;
+		rough = 0.62 + seam * 0.2;
 	} else {
+		col *= tint.rgb;
 		rough = 0.5 + (g - 0.5) * 0.1;
 	}
 	ALBEDO = col;

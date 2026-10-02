@@ -274,12 +274,12 @@ func _roof_clutter(fp: Rect2, y: float, tank: bool, mast: bool) -> void:
 		var basis := Basis(Vector3.UP, PI * 0.5 * rng.randi_range(0, 1))
 		clutter.add_bevel_box(Transform3D(basis, p), size, 0.05, Color(grey, PAINTED), Color(grey.darkened(0.25), PAINTED))
 		var fan := Transform3D(basis, p + Vector3(0, size.y * 0.5, 0))
-		clutter.add_lathe(fan, PackedVector2Array([Vector2(0.42, 0.0), Vector2(0.42, 0.06), Vector2(0.0, 0.06)]), 12,
+		clutter.add_lathe(fan, PackedVector2Array([Vector2(0.42, 0.0), Vector2(0.42, 0.06), Vector2(0.0, 0.06)]), 8,
 			PackedColorArray([Color(0.16, 0.16, 0.17, RUBBER)]))
 	# Vents.
 	for k in rng.randi_range(2, 5):
 		var p := Vector3(rng.randf_range(r.position.x, r.end.x), y, rng.randf_range(r.position.y, r.end.y))
-		clutter.add_lathe(Transform3D(Basis.IDENTITY, p), PackedVector2Array([Vector2(0.14, 0.0), Vector2(0.14, 0.7), Vector2(0.22, 0.72), Vector2(0.22, 0.82), Vector2(0.0, 0.86)]), 8,
+		clutter.add_lathe(Transform3D(Basis.IDENTITY, p), PackedVector2Array([Vector2(0.14, 0.0), Vector2(0.14, 0.7), Vector2(0.22, 0.72), Vector2(0.22, 0.82), Vector2(0.0, 0.86)]), 6,
 			PackedColorArray([Color(0.6, 0.61, 0.62, METAL)]))
 	# Timber water tank on legs (older buildings).
 	if tank:
@@ -289,7 +289,7 @@ func _roof_clutter(fp: Rect2, y: float, tank: bool, mast: bool) -> void:
 				clutter.add_bevel_box(Transform3D(Basis.IDENTITY, p + Vector3(lx, 1.0, lz)), Vector3(0.18, 2.0, 0.18), 0.02, Color(0.25, 0.25, 0.26, METAL))
 		var wood := Color(0.48, 0.36, 0.26, 13.0 / 15.0)
 		clutter.add_lathe(Transform3D(Basis.IDENTITY, p + Vector3(0, 2.0, 0)), PackedVector2Array([
-			Vector2(0.0, 0.0), Vector2(1.5, 0.0), Vector2(1.55, 2.6), Vector2(1.62, 2.65), Vector2(0.15, 3.6), Vector2(0.0, 3.65)]), 14,
+			Vector2(0.0, 0.0), Vector2(1.5, 0.0), Vector2(1.55, 2.6), Vector2(1.62, 2.65), Vector2(0.15, 3.6), Vector2(0.0, 3.65)]), 10,
 			PackedColorArray([wood.darkened(0.2), wood, wood, Color(0.3, 0.3, 0.31, METAL), Color(0.3, 0.3, 0.31, METAL)]), 25.0)
 	if mast:
 		var p := Vector3(fp.get_center().x, y, fp.get_center().y)

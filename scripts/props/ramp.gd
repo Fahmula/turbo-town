@@ -108,30 +108,52 @@ func _rebuild() -> void:
 			zs.append(-length - deck_length * float(k + 1) / steps)
 			ys.append(ys[ys.size() - 1])
 
-	var side_col := surface_color.darkened(0.25)
+	# Deck: painted plywood panels (seams every 1.22 m, street_props.gdshader
+	# class 15) with hazard-striped edges; the sides are a dark steel frame.
+	var deck := Color(surface_color, StreetKit.DECK)
+	var side_col := Color(0.24, 0.25, 0.26, StreetKit.PAINTED)
+	var side_low := Color(0.15, 0.155, 0.16, StreetKit.PAINTED)
 	var sw := minf(stripe_width, hw * 0.3)
+	# Normals along the profile: smooth on curves, hard where the slope meets the deck.
+	var seg_n: Array[Vector3] = []
+	for i in zs.size() - 1:
+		var d := Vector3(0, ys[i + 1] - ys[i], zs[i + 1] - zs[i])
+		seg_n.append(Vector3(0, -d.z, d.y).normalized())
 	var dist := 0.0
 	for i in zs.size() - 1:
 		var p0 := Vector3(0, ys[i], zs[i])
 		var p1 := Vector3(0, ys[i + 1], zs[i + 1])
+		var n0 := seg_n[i]
+		var n1 := seg_n[i]
+		if i > 0 and seg_n[i - 1].dot(seg_n[i]) > 0.9:
+			n0 = (seg_n[i - 1] + seg_n[i]).normalized()
+		if i < seg_n.size() - 1 and seg_n[i + 1].dot(seg_n[i]) > 0.9:
+			n1 = (seg_n[i + 1] + seg_n[i]).normalized()
+		var d0 := dist
 		dist += p0.distance_to(p1)
-		var stripe := stripe_color if int(dist / 1.2) % 2 == 0 else Color(0.97, 0.97, 0.95)
+		var stripe := Color(stripe_color if int(d0 / 1.2) % 2 == 0 else Color(0.92, 0.91, 0.87), StreetKit.DECK)
 		var xs := [-hw, -hw + sw, hw - sw, hw]
-		var cols := [stripe, surface_color, stripe]
+		var cols := [stripe, deck, stripe]
 		for k in 3:
 			var a := Vector3(xs[k], p0.y, p0.z)
 			var b := Vector3(xs[k + 1], p0.y, p0.z)
 			var c := Vector3(xs[k + 1], p1.y, p1.z)
-			var d := Vector3(xs[k], p1.y, p1.z)
-			mb.add_quad(a, b, c, d, cols[k])
+			var e := Vector3(xs[k], p1.y, p1.z)
+			var col: Color = cols[k]
+			mb.add_quad_ex(a, b, c, e, n0, n0, n1, n1, col, col, col, col,
+				Vector2(xs[k], d0), Vector2(xs[k + 1], d0), Vector2(xs[k + 1], dist), Vector2(xs[k], dist))
 		# Sides down to the ground.
-		mb.add_quad(Vector3(hw, 0, p0.z), Vector3(hw, 0, p1.z), Vector3(hw, p1.y, p1.z), Vector3(hw, p0.y, p0.z), side_col)
-		mb.add_quad(Vector3(-hw, 0, p1.z), Vector3(-hw, 0, p0.z), Vector3(-hw, p0.y, p0.z), Vector3(-hw, p1.y, p1.z), side_col)
+		mb.add_quad_ex(Vector3(hw, 0, p0.z), Vector3(hw, 0, p1.z), Vector3(hw, p1.y, p1.z), Vector3(hw, p0.y, p0.z),
+			Vector3.RIGHT, Vector3.RIGHT, Vector3.RIGHT, Vector3.RIGHT, side_low, side_low, side_col, side_col)
+		mb.add_quad_ex(Vector3(-hw, 0, p1.z), Vector3(-hw, 0, p0.z), Vector3(-hw, p0.y, p0.z), Vector3(-hw, p1.y, p1.z),
+			Vector3.LEFT, Vector3.LEFT, Vector3.LEFT, Vector3.LEFT, side_low, side_low, side_col, side_col)
 	# Back wall.
 	var last_z: float = zs[zs.size() - 1]
 	var last_y: float = ys[ys.size() - 1]
 	if last_y > 0.01:
-		mb.add_quad(Vector3(-hw, 0, last_z), Vector3(-hw, last_y, last_z), Vector3(hw, last_y, last_z), Vector3(hw, 0, last_z), side_col)
+		var back := Vector3.FORWARD
+		mb.add_quad_ex(Vector3(-hw, 0, last_z), Vector3(-hw, last_y, last_z), Vector3(hw, last_y, last_z), Vector3(hw, 0, last_z),
+			back, back, back, back, side_low, side_col, side_col, side_low)
 
-	_mesh_instance.mesh = mb.build_mesh(preload("res://assets/materials/props.tres"))
+	_mesh_instance.mesh = mb.build_mesh(StreetKit.material())
 	_collision.shape = mb.build_collision_shape()

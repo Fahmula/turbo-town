@@ -36,9 +36,11 @@ func build(parent: Node3D, intersections: Array[Vector3]) -> void:
 	var details := MeshBuilder.new()
 	var building_body := StaticBody3D.new()
 	building_body.name = "Buildings"
-	# New style (ArtZone preview): paved ground with collision, buildings.
+	# New style (ArtZone): paved ground with collision; buildings and their
+	# clutter in one pair of meshes per block, so blocks cull on their own.
 	var ground := MeshBuilder.new()
-	var kit := BuildingKit.new(ground, building_body)
+	var env_blocks := Node3D.new()
+	env_blocks.name = "BlocksEnv"
 
 	var g := MapLayout.CITY_GRID
 	var hw := MapLayout.CITY_ROAD_WIDTH * 0.5
@@ -50,7 +52,9 @@ func build(parent: Node3D, intersections: Array[Vector3]) -> void:
 			var z1 := g[j + 1] - hw
 			var type: String = MapLayout.BLOCK_TYPES[j][i]
 			if ArtZone.has((x0 + x1) * 0.5, (z0 + z1) * 0.5):
+				var kit := BuildingKit.new(ground, building_body)
 				_add_block_env(ground, kit, paint, details, building_body, type, x0, z0, x1, z1)
+				_add_block_meshes(env_blocks, kit, "Block_%d_%d" % [i, j])
 			else:
 				_add_block(slabs, paint, buildings, details, building_body, type, x0, z0, x1, z1)
 
@@ -60,11 +64,8 @@ func build(parent: Node3D, intersections: Array[Vector3]) -> void:
 	root.add_child(slabs.build_node("Sidewalks", load("res://assets/materials/props.tres"), true, 1.0))
 	if not ground.is_empty():
 		root.add_child(ground.build_node("PavingEnv", load("res://assets/materials/env/paving.tres"), true, 1.0))
-	if not kit.facade.is_empty():
-		var fmi := MeshInstance3D.new()
-		fmi.name = "FacadesEnv"
-		fmi.mesh = kit.facade.build_mesh(load("res://assets/materials/env/facade.tres"))
-		building_body.add_child(fmi)
+	if env_blocks.get_child_count() > 0:
+		root.add_child(env_blocks)
 	if not _bollards.is_empty():
 		var bmb := MeshBuilder.new()
 		var bbody := StaticBody3D.new()
@@ -76,11 +77,6 @@ func build(parent: Node3D, intersections: Array[Vector3]) -> void:
 		bm.mesh = bmb.build_mesh(StreetKit.material())
 		bbody.add_child(bm)
 		root.add_child(bbody)
-	if not kit.clutter.is_empty():
-		var cmi := MeshInstance3D.new()
-		cmi.name = "BuildingClutterEnv"
-		cmi.mesh = kit.clutter.build_mesh(load("res://assets/materials/env/street_props.tres"))
-		root.add_child(cmi)
 	var paint_node := paint.build_node("Paint", load("res://assets/materials/props.tres"))
 	root.add_child(paint_node)
 	var bmi := MeshInstance3D.new()
@@ -89,6 +85,27 @@ func build(parent: Node3D, intersections: Array[Vector3]) -> void:
 	building_body.add_child(bmi)
 	root.add_child(building_body)
 	root.add_child(details.build_node("Details", load("res://assets/materials/props.tres"), true, 1.0))
+
+
+## A block's buildings ("Facades") and its clutter ("Clutter": roof
+## machinery, awnings, fountains), the clutter dropped beyond 400 m.
+func _add_block_meshes(parent: Node3D, kit: BuildingKit, block_name: String) -> void:
+	var node := Node3D.new()
+	node.name = block_name
+	if not kit.facade.is_empty():
+		var fmi := MeshInstance3D.new()
+		fmi.name = "Facades"
+		fmi.mesh = kit.facade.build_mesh(load("res://assets/materials/env/facade.tres"))
+		node.add_child(fmi)
+	if not kit.clutter.is_empty():
+		var cmi := MeshInstance3D.new()
+		cmi.name = "Clutter"
+		cmi.mesh = kit.clutter.build_mesh(StreetKit.material())
+		cmi.visibility_range_end = 400.0
+		cmi.visibility_range_end_margin = 40.0
+		cmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		node.add_child(cmi)
+	parent.add_child(node)
 
 
 func _add_block(slabs: MeshBuilder, paint: MeshBuilder, bmb: MeshBuilder, details: MeshBuilder, body: StaticBody3D,
@@ -168,7 +185,7 @@ func _add_block_env(ground: MeshBuilder, kit: BuildingKit, paint: MeshBuilder, d
 		"plaza":
 			_add_plaza_env(kit.clutter, body, ix0, iz0, ix1, iz1)
 		"parking":
-			_add_parking(paint, ix0, iz0, ix1, iz1)
+			_add_parking(ground, ix0, iz0, ix1, iz1, Color(ArtPalette.ROAD_WHITE, 0.0))
 
 	var mx := (x0 + x1) * 0.5
 	var mz := (z0 + z1) * 0.5
@@ -557,9 +574,10 @@ func _add_plaza(paint: MeshBuilder, details: MeshBuilder, body: StaticBody3D, x0
 		prop_spawns.append({"scene": "cone", "xform": Transform3D(Basis.IDENTITY, Vector3(x0 + 5 + k * 6.0, y, cz + 14))})
 
 
-func _add_parking(paint: MeshBuilder, x0: float, z0: float, x1: float, z1: float) -> void:
+## Car park stall lines (and parked cars). `white`: the line colour; the
+## new-style lots pass alpha 0 (plain in paving.gdshader).
+func _add_parking(paint: MeshBuilder, x0: float, z0: float, x1: float, z1: float, white := ArtPalette.ROAD_WHITE) -> void:
 	var y := MapLayout.CURB_HEIGHT + 0.012
-	var white := ArtPalette.ROAD_WHITE
 	var stall_w := 2.9
 	var stall_d := 5.5
 	# Rows of stalls facing each other, with aisles between.

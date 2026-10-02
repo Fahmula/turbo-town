@@ -11,3 +11,8 @@ func _ready() -> void:
 	if model:
 		model.mesh = StreetKit.mesh(kind)
 	super._ready()
+
+
+func _apply_color(col: Color) -> void:
+	if model:
+		model.set_instance_shader_parameter("tint", col)

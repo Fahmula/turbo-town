@@ -17,6 +17,8 @@ re-running reproduces the same files. Outputs (PNG, committed):
       R  fair-weather cumulus coverage (billowy, mostly clear)
       G  fine detail used to erode the cloud edges
       B  thin high-altitude streaks (cirrus)
+  assets/textures/water/water_normal.png     512², tangent-space normal map of
+      gentle wind ripples (tileable; import as a normal map)
   assets/textures/foliage/leaves_broadleaf.png  512² RGBA, alpha-scissor leaf clusters
   assets/textures/foliage/leaves_conifer.png    512² RGBA, alpha-scissor needle sprays
       RGB  greyscale value variation (the tree's colour comes from vertex colour)
@@ -178,6 +180,25 @@ def make_clouds():
     save_rgba(OUT / "sky" / "clouds.png", cover, detail, streak, np.ones_like(cover))
 
 
+# -------------------------------------------------------------------- water --
+
+def make_water_normal():
+    rng = np.random.default_rng(91)
+    # Ripples: stretched noise at a few scales (wind from one side), as height.
+    h = value_noise(SIZE, 6, rng, 10) * 0.5 + value_noise(SIZE, 12, rng, 22) * 0.3 + fbm(SIZE, 24, 3, rng) * 0.2
+    h = wrap_blur(h, 1.2)
+    strength = 6.0
+    dx = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) * 0.5 * SIZE / 64.0 * strength
+    dy = (np.roll(h, -1, axis=0) - np.roll(h, 1, axis=0)) * 0.5 * SIZE / 64.0 * strength
+    n = np.stack([-dx, dy, np.ones_like(h)], axis=-1)
+    n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    rgb = n * 0.5 + 0.5
+    path = OUT / "water" / "water_normal.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(to_u8(rgb), "RGB").save(path, optimize=True)
+    print("wrote", path.relative_to(ROOT))
+
+
 # ------------------------------------------------------------------ foliage --
 
 def _leaf_poly(cx, cy, length, width, ang):
@@ -256,5 +277,6 @@ def make_leaves(name, seed, conifer):
 if __name__ == "__main__":
     make_ground_detail()
     make_clouds()
+    make_water_normal()
     make_leaves("broadleaf", 31, conifer=False)
     make_leaves("conifer", 32, conifer=True)

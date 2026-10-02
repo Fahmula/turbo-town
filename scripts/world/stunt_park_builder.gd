@@ -53,33 +53,24 @@ func _ramp(pos: Vector3, yaw: float, shape: int, length: float, height: float, w
 	})
 
 
+## The arena floor: concrete tiles (paving.gdshader) with hazard-orange
+## bands along the north and south edges.
 func _build_pad(root: Node3D) -> void:
 	var mn := MapLayout.PARK_MIN
 	var mx := MapLayout.PARK_MAX
 	var mb := MeshBuilder.new()
-	var tile := 10.0
 	var y := 0.03
-	var x := mn.x
-	while x < mx.x - 0.01:
-		var z := mn.y
-		while z < mx.y - 0.01:
-			var dark := (int((x - mn.x) / tile) + int((z - mn.y) / tile)) % 2 == 0
-			var col := Color(0.55, 0.54, 0.51) if dark else Color(0.6, 0.59, 0.56)
-			var x1 := minf(x + tile, mx.x)
-			var z1 := minf(z + tile, mx.y)
-			mb.add_quad(Vector3(x, y, z), Vector3(x, y, z1), Vector3(x1, y, z1), Vector3(x1, y, z), col)
-			z += tile
-		x += tile
-	# Orange edge band.
+	var floor_col := Color(0.62, 0.61, 0.58, 0.5)
+	mb.add_quad(Vector3(mn.x, y, mn.y), Vector3(mn.x, y, mx.y), Vector3(mx.x, y, mx.y), Vector3(mx.x, y, mn.y), floor_col)
 	var band := 1.2
-	var o := Color(1.0, 0.55, 0.15)
-	mb.add_quad(Vector3(mn.x, y + 0.005, mn.y), Vector3(mn.x, y + 0.005, mn.y + band), Vector3(mx.x, y + 0.005, mn.y + band), Vector3(mx.x, y + 0.005, mn.y), o)
-	mb.add_quad(Vector3(mn.x, y + 0.005, mx.y - band), Vector3(mn.x, y + 0.005, mx.y), Vector3(mx.x, y + 0.005, mx.y), Vector3(mx.x, y + 0.005, mx.y - band), o)
+	var o := Color(0.91, 0.42, 0.11, 0.0)
+	for z0: float in [mn.y, mx.y - band]:
+		mb.add_quad(Vector3(mn.x, y + 0.005, z0), Vector3(mn.x, y + 0.005, z0 + band), Vector3(mx.x, y + 0.005, z0 + band), Vector3(mx.x, y + 0.005, z0), o)
 	var body := StaticBody3D.new()
 	body.name = "Pad"
 	body.set_meta("surface_grip", 1.0)
 	var mi := MeshInstance3D.new()
-	mi.mesh = mb.build_mesh(load("res://assets/materials/props.tres"))
+	mi.mesh = mb.build_mesh(load("res://assets/materials/env/paving.tres"))
 	body.add_child(mi)
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
@@ -95,18 +86,21 @@ func _build_gate(root: Node3D) -> void:
 	var mb := MeshBuilder.new()
 	var body := StaticBody3D.new()
 	body.name = "Gate"
+	var red := Color(0.72, 0.18, 0.14, StreetKit.PAINTED)
 	for sx in [-1.0, 1.0]:
 		var xf := Transform3D(Basis.IDENTITY, Vector3(sx * 9.0, 4.0, z))
-		mb.add_box(xf, Vector3(1.2, 8.0, 1.2), Color(0.95, 0.3, 0.25))
+		mb.add_bevel_box(xf, Vector3(1.2, 8.0, 1.2), 0.1, red, Color(0.45, 0.12, 0.1, StreetKit.PAINTED))
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * 9.0, 0.2, z)), Vector3(1.8, 0.4, 1.8), 0.05, Color(ArtPalette.CONCRETE, StreetKit.CONCRETE))
 		var cs := CollisionShape3D.new()
 		var sh := BoxShape3D.new()
 		sh.size = Vector3(1.2, 8.0, 1.2)
 		cs.shape = sh
 		cs.transform = xf
 		body.add_child(cs)
-	mb.add_box(Transform3D(Basis.IDENTITY, Vector3(0, 8.6, z)), Vector3(20.0, 2.4, 1.0), Color(0.2, 0.55, 0.95))
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, 8.6, z)), Vector3(20.0, 2.4, 1.0), 0.1, Color(0.18, 0.36, 0.64, StreetKit.SIGN))
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, 7.32, z)), Vector3(20.0, 0.16, 1.02), 0.03, Color(0.9, 0.89, 0.86, StreetKit.PAINTED))
 	var mi := MeshInstance3D.new()
-	mi.mesh = mb.build_mesh(load("res://assets/materials/props.tres"))
+	mi.mesh = mb.build_mesh(StreetKit.material())
 	body.add_child(mi)
 	root.add_child(body)
 	for side in [1.0, -1.0]:
@@ -171,14 +165,23 @@ func _build_loop(root: Node3D) -> void:
 		var u := -hw + LOOP_WIDTH * k / 8.0
 		var e := maxf(absf(u) - 1.8, 0.0) / (hw - 1.8)
 		prof.append(Vector2(u, 1.2 * e * e))
+	# Surface normals across the U profile (2D: sideways, along the track normal).
+	var pn: Array[Vector2] = []
+	for k in prof.size():
+		var d := prof[mini(k + 1, prof.size() - 1)] - prof[maxi(k - 1, 0)]
+		pn.append(Vector2(-d.y, d.x).normalized())
+	var along := 0.0
 	for i in LOOP_STEPS:
 		var p0 := pts[i]
 		var p1 := pts[i + 1]
 		var n0 := loop_normal(i)
 		var n1 := loop_normal(i + 1)
-		var col := Color(0.25, 0.55, 0.95) if (i / 5) % 2 == 0 else Color(0.95, 0.95, 0.97)
-		var edge_col := Color(0.95, 0.3, 0.25) if (i / 5) % 2 == 0 else Color(0.97, 0.97, 0.97)
+		var seg := p0.distance_to(p1)
+		# Painted steel deck panels in blue and white blocks, red-and-white kerbs.
+		var col := Color(0.2, 0.42, 0.72, StreetKit.DECK) if (i / 5) % 2 == 0 else Color(0.9, 0.9, 0.88, StreetKit.DECK)
+		var edge_col := Color(0.72, 0.18, 0.14, StreetKit.DECK) if (i / 5) % 2 == 0 else Color(0.9, 0.9, 0.88, StreetKit.DECK)
 		var n_mid := (n0 + n1).normalized()
+		var steel := Color(0.3, 0.32, 0.34, StreetKit.PAINTED)
 		for k in prof.size() - 1:
 			var a := prof[k]
 			var b := prof[k + 1]
@@ -187,27 +190,33 @@ func _build_loop(root: Node3D) -> void:
 			var v10 := p1 + Vector3.RIGHT * a.x + n1 * a.y
 			var v11 := p1 + Vector3.RIGHT * b.x + n1 * b.y
 			var c := col if absf((a.x + b.x) * 0.5) < 1.9 else edge_col
-			_quad(mb, v00, v01, v11, v10, n_mid, c)
+			var na0 := (Vector3.RIGHT * pn[k].x + n0 * pn[k].y).normalized()
+			var nb0 := (Vector3.RIGHT * pn[k + 1].x + n0 * pn[k + 1].y).normalized()
+			var na1 := (Vector3.RIGHT * pn[k].x + n1 * pn[k].y).normalized()
+			var nb1 := (Vector3.RIGHT * pn[k + 1].x + n1 * pn[k + 1].y).normalized()
+			mb.add_quad_ex(v00, v01, v11, v10, na0, nb0, nb1, na1, c, c, c, c,
+				Vector2(a.x, along), Vector2(b.x, along), Vector2(b.x, along + seg), Vector2(a.x, along + seg))
 			# Underside.
-			_quad(mb, v00 - n0 * thick, v10 - n1 * thick, v11 - n1 * thick, v01 - n0 * thick, -n_mid, Color(0.35, 0.37, 0.42))
+			mb.add_quad_ex(v00 - n0 * thick, v10 - n1 * thick, v11 - n1 * thick, v01 - n0 * thick, -n0, -n1, -n1, -n0, steel, steel, steel, steel)
+		along += seg
 		# Close off the edges.
 		for side: float in [-1.0, 1.0]:
 			var e: Vector2 = prof[0] if side < 0.0 else prof[prof.size() - 1]
 			var t0: Vector3 = p0 + Vector3.RIGHT * e.x + n0 * e.y
 			var t1: Vector3 = p1 + Vector3.RIGHT * e.x + n1 * e.y
-			_quad(mb, t0 - n0 * thick, t1 - n1 * thick, t1, t0, Vector3.RIGHT * side, edge_col)
+			_quad(mb, t0 - n0 * thick, t1 - n1 * thick, t1, t0, Vector3.RIGHT * side, Color(0.3, 0.32, 0.34, StreetKit.PAINTED))
 	var top := pts[LOOP_STEPS / 2]
 	# Gantry holding up the top: pillars outside both lanes (the top of the
 	# loop is right above the way in), joined by a beam over the track.
-	var grey := Color(0.4, 0.42, 0.48)
+	var grey := Color(0.62, 0.64, 0.66, StreetKit.METAL)
 	var top_y := top.y + thick + 0.4
 	var left := LOOP_X - hw - 1.3
 	var right := LOOP_X + LOOP_SHIFT + hw + 1.3
 	for z in [top.z - 3.0, top.z + 3.0]:
-		mb.add_box(Transform3D(Basis.IDENTITY, Vector3(left, top_y * 0.5, z)), Vector3(0.7, top_y, 0.7), grey)
-		mb.add_box(Transform3D(Basis.IDENTITY, Vector3(right, top_y * 0.5, z)), Vector3(0.7, top_y, 0.7), grey)
-		mb.add_box(Transform3D(Basis.IDENTITY, Vector3((left + right) * 0.5, top_y + 0.35, z)), Vector3(right - left + 0.7, 0.7, 0.7), grey)
-	var node := mb.build_node("Loop", load("res://assets/materials/props.tres"), true, 1.0)
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(left, top_y * 0.5, z)), Vector3(0.7, top_y, 0.7), 0.06, grey)
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(right, top_y * 0.5, z)), Vector3(0.7, top_y, 0.7), 0.06, grey)
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3((left + right) * 0.5, top_y + 0.35, z)), Vector3(right - left + 0.7, 0.7, 0.7), 0.06, grey)
+	var node := mb.build_node("Loop", StreetKit.material(), true, 1.0)
 	_make_slick(node)
 	root.add_child(node)
 	var sign := Label3D.new()
@@ -254,25 +263,34 @@ func _build_bowl(root: Node3D) -> void:
 		var a1 := -PI * 0.5 + gap + (TAU - 2.0 * gap) * (i + 1) / segs
 		var d0 := Vector3(cos(a0), 0, sin(a0))
 		var d1 := Vector3(cos(a1), 0, sin(a1))
-		var col := Color(1.0, 0.6, 0.15) if (i / 3) % 2 == 0 else Color(1.0, 0.85, 0.3)
+		# Painted panels in orange and amber (playful, as the stunt park may be).
+		var col := Color(0.88, 0.5, 0.14, StreetKit.DECK) if (i / 3) % 2 == 0 else Color(0.9, 0.72, 0.28, StreetKit.DECK)
+		var along0 := TAU * (BOWL_FLOOR + BOWL_CURVE) * i / segs
+		var along1 := TAU * (BOWL_FLOOR + BOWL_CURVE) * (i + 1) / segs
 		for k in profile.size() - 1:
 			var q0 := profile[k]
 			var q1 := profile[k + 1]
 			var nk := normals[k]
-			var facing := d0 * nk.x + Vector3.UP * nk.y
+			var nk1 := normals[k + 1]
 			var v00 := c3 + d0 * q0.x + Vector3.UP * q0.y
 			var v01 := c3 + d0 * q1.x + Vector3.UP * q1.y
 			var v10 := c3 + d1 * q0.x + Vector3.UP * q0.y
 			var v11 := c3 + d1 * q1.x + Vector3.UP * q1.y
-			_quad(mb, v00, v10, v11, v01, facing, col)
-			# Outside skin.
+			var n00 := d0 * nk.x + Vector3.UP * nk.y
+			var n01 := d0 * nk1.x + Vector3.UP * nk1.y
+			var n10 := d1 * nk.x + Vector3.UP * nk.y
+			var n11 := d1 * nk1.x + Vector3.UP * nk1.y
+			mb.add_quad_ex(v00, v10, v11, v01, n00, n10, n11, n01, col, col, col, col,
+				Vector2(0, along0), Vector2(0, along1), Vector2(0, along1), Vector2(0, along0))
+			# Outside skin: dark steel.
 			var o := -(d0 * nk.x + Vector3.UP * nk.y) * thick
-			_quad(mb, v00 + o, v01 + o, v11 + o, v10 + o, -facing, Color(0.4, 0.42, 0.48))
-		# Rim on top.
+			var skin := Color(0.3, 0.32, 0.34, StreetKit.PAINTED)
+			_quad(mb, v00 + o, v01 + o, v11 + o, v10 + o, -n00, skin)
+		# Coping on top.
 		var r := BOWL_FLOOR + BOWL_CURVE
 		_quad(mb, c3 + d0 * r + Vector3.UP * top, c3 + d1 * r + Vector3.UP * top,
-			c3 + d1 * (r + thick) + Vector3.UP * top, c3 + d0 * (r + thick) + Vector3.UP * top, Vector3.UP, Color(0.95, 0.95, 0.97))
-	var node := mb.build_node("WallRide", load("res://assets/materials/props.tres"), true, 1.0)
+			c3 + d1 * (r + thick) + Vector3.UP * top, c3 + d0 * (r + thick) + Vector3.UP * top, Vector3.UP, Color(0.62, 0.64, 0.66, StreetKit.METAL))
+	var node := mb.build_node("WallRide", StreetKit.material(), true, 1.0)
 	node.set_meta("no_impact", true)  # (normal friction: scraping the wall helps you stick)
 	root.add_child(node)
 	var sign := Label3D.new()

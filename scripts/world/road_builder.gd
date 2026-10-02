@@ -419,13 +419,22 @@ func build(parent: Node3D) -> void:
 	var structure := MeshBuilder.new()
 	var trails := MeshBuilder.new()
 	var markers := MeshBuilder.new()
+	var env_trails := MeshBuilder.new()
+	var env_markers := MeshBuilder.new()
 	for r in roads:
 		if r.kind == Kind.TRAIL:
-			_add_trail(trails, markers, r)
+			if ArtZone.has_point(r.points[r.points.size() / 2]):
+				_add_trail(env_trails, env_markers, r, true)
+			else:
+				_add_trail(trails, markers, r)
 		else:
 			_add_deck(decks[r.kind], env_decks[r.kind], structure, r)
-	root.add_child(trails.build_node("Trails", load("res://assets/materials/props.tres"), true, 0.85))
-	root.add_child(markers.build_node("TrailMarkers", load("res://assets/materials/props.tres"), false))
+	if not trails.is_empty():
+		root.add_child(trails.build_node("Trails", load("res://assets/materials/props.tres"), true, 0.85))
+		root.add_child(markers.build_node("TrailMarkers", load("res://assets/materials/props.tres"), false))
+	if not env_trails.is_empty():
+		root.add_child(env_trails.build_node("TrailsEnv", load("res://assets/materials/env/paving.tres"), true, 0.85))
+		root.add_child(env_markers.build_node("TrailMarkersEnv", StreetKit.material(), false))
 	for r in roads:
 		if r.kind == Kind.TRAIL:
 			var sign := Label3D.new()
@@ -609,8 +618,9 @@ func _add_deck_underside(mb: MeshBuilder, p0: Vector3, p1: Vector3, rt0: Vector3
 
 
 ## A dirt ribbon a few cm above the shaped terrain, with darker wheel ruts,
-## and marker posts every 24 m on alternating sides.
-func _add_trail(mb: MeshBuilder, markers: MeshBuilder, r: Road) -> void:
+## and marker posts every 24 m on alternating sides. `env`: new style (plain
+## ground in paving.gdshader, StreetKit marker posts).
+func _add_trail(mb: MeshBuilder, markers: MeshBuilder, r: Road, env := false) -> void:
 	var hw := r.width * 0.5
 	var n := r.points.size()
 	var rights := MeshBuilder._path_rights(r.points, r.closed)
@@ -618,6 +628,9 @@ func _add_trail(mb: MeshBuilder, markers: MeshBuilder, r: Road) -> void:
 	# Across the trail: verge, rut, middle, rut, verge.
 	var cuts := [-1.0, -0.62, -0.38, 0.38, 0.62, 1.0]
 	var cols := [ArtPalette.DIRT, ArtPalette.DIRT_RUT, ArtPalette.DIRT.lightened(0.04), ArtPalette.DIRT_RUT, ArtPalette.DIRT]
+	if env:
+		for k in cols.size():
+			cols[k] = Color(cols[k], 0.0)
 	for i in n - 1:
 		var p0 := r.points[i] + lift
 		var p1 := r.points[i + 1] + lift
@@ -635,6 +648,9 @@ func _add_trail(mb: MeshBuilder, markers: MeshBuilder, r: Road) -> void:
 		next += 24.0
 		side = -side
 		var base := r.points[i] + rights[i] * (hw + 0.8) * side
+		if env:
+			StreetKit.add_marker(markers, Transform3D(Basis.IDENTITY, base))
+			continue
 		markers.add_box(Transform3D(Basis.IDENTITY, base + Vector3.UP * 0.5), Vector3(0.18, 1.0, 0.18), Color(0.95, 0.95, 0.9))
 		markers.add_box(Transform3D(Basis.IDENTITY, base + Vector3.UP * 1.1), Vector3(0.22, 0.25, 0.22), Color(1.0, 0.5, 0.1))
 
