@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-02
+
 ### Sound
 - New sound mix: the engine leads, tyres and gravel sit under it, and skids,
   brakes and crashes are still clear but no longer sharp or piercing. Crashes
