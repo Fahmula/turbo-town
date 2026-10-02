@@ -55,6 +55,8 @@ var forward_speed := 0.0
 var lateral_speed := 0.0
 ## 0..1, how much this tire is sliding (for skid sound/smoke/marks).
 var skid := 0.0
+## How fast the suspension is compressing (m/s, + = bump), for knock sounds.
+var compression_speed := 0.0
 ## Wheel angular speed (rad/s), visual only.
 var spin_speed := 0.0
 var is_left := false
@@ -131,6 +133,7 @@ func pose_at_rest(supported_mass: float) -> void:
 func reset_state() -> void:
 	_prev_compression = 0.0
 	compression = 0.0
+	compression_speed = 0.0
 	spin_speed = 0.0
 	skid = 0.0
 	grounded = false
@@ -153,6 +156,7 @@ func update_physics(dt: float, mass_share: float, traction_control: bool, tire_f
 		tire_load = 0.0
 		compression = 0.0
 		_prev_compression = 0.0
+		compression_speed = 0.0
 		skid = 0.0
 		contact_collider = null
 		# Free-spinning wheel: throttle spins it up, otherwise it slowly coasts down.
@@ -177,6 +181,7 @@ func update_physics(dt: float, mass_share: float, traction_control: bool, tire_f
 	var dist := origin.distance_to(contact_point)
 	compression = clampf(ray_len - dist, 0.0, ray_len)
 	var comp_speed := clampf((compression - _prev_compression) / dt, -max_damper_speed, max_damper_speed)
+	compression_speed = comp_speed
 	_prev_compression = compression
 	var spring := spring_stiffness * compression
 	var damper := comp_speed * (compression_damping if comp_speed > 0.0 else rebound_damping)

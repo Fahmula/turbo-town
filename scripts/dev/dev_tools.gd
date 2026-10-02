@@ -110,6 +110,9 @@ func _ready() -> void:
 		elif arg.begins_with("--lookdev="):
 			_mode = "lookdev"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--audio="):
+			_mode = "audio"
+			_dir = arg.split("=")[1]
 	if _mode == "":
 		queue_free()
 		return
@@ -194,6 +197,8 @@ func _run() -> void:
 		await _scenery(game)
 	elif _mode == "lookdev":
 		await _lookdev(game)
+	elif _mode == "audio":
+		await _audio(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -1105,8 +1110,16 @@ func _menus(game: Game) -> void:
 	await _tap("menu_back")
 	await _wait(5)
 	_check(game.state == Game.State.PAUSED and game.menu.page == "pause", "cancelling the garage returns to the pause menu")
-	# Main menu, then garage from the title: picking drives off.
+	# Credits, then main menu, then garage from the title: picking drives off.
 	for i in 6:
+		await _tap("ui_down")
+	await _tap("ui_accept")
+	await _wait(5)
+	_check(game.menu.page == "credits", "credits page")
+	await _tap("ui_cancel")
+	await _wait(5)
+	# Back on the pause menu, focus is on RESUME again.
+	for i in 7:
 		await _tap("ui_down")
 	await _tap("ui_accept")
 	await _wait(10)
@@ -2550,3 +2563,171 @@ func _smash_for_photo(v: Vehicle) -> void:
 	if dmg._parts.has("FrontBumper"):
 		dmg._detach("FrontBumper")
 	dmg._update_driving()
+
+
+# --------------------------------------------------------------- audio test --
+
+var _audio_log: Array[String] = []
+var _audio_events: Array[String] = []
+var _audio_t := 0.0
+## While set, every physics tick advances _audio_t and samples its state.
+var _audio_watch: VehicleAudio
+var _audio_seen := {}
+
+
+func _physics_process(dt: float) -> void:
+	if _audio_watch == null or not is_instance_valid(_audio_watch):
+		return
+	_audio_t += dt
+	var st := _audio_state(_audio_watch)
+	for k: String in st:
+		if st[k] is bool:
+			_audio_seen[k] = bool(_audio_seen.get(k, false)) or st[k]
+		else:
+			_audio_seen[k] = maxf(float(_audio_seen.get(k, 0.0)), float(st[k]))
+
+
+## Drives a scripted session and records what the game sounds like
+## (AudioEffectRecord on the master bus -> <dir>/session.wav), with a state
+## log (<dir>/session.csv: engine rpm/load, active voices, layer levels) and
+## the times of deliberate one-shots (<dir>/events.txt) so
+## tools/audio/check_recording.py can tell clicks from crashes. Then checks
+## the traffic voice budget. Run with --audio-driver Dummy so nothing plays
+## out loud (the dummy driver still mixes).
+##   --vehicle=<id> to test another vehicle
+func _audio(game: Game) -> void:
+	game.traffic.set_enabled(false)
+	var rec := AudioEffectRecord.new()
+	AudioServer.add_bus_effect(0, rec)
+	var v := game.vehicle
+	var audio := v.get_node("Audio") as VehicleAudio
+	_check(audio != null and audio.detail == VehicleAudio.Detail.FULL and audio.profile != null, "player has FULL vehicle audio with a profile")
+	# A long straight: the avenue north of the city centre.
+	var start := Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(2.4, 0.6, 140.0))
+	v.teleport(start.translated(Vector3.UP * v.ride_height()))
+	await _wait_s(0.5)
+	rec.set_recording_active(true)
+	_audio_t = 0.0
+	_audio_seen = {}
+	_audio_watch = audio
+	VehicleAudio.on_shot = func(path: String, _pos: Vector3) -> void:
+		_audio_events.append("%.2f shot %s" % [_audio_t, path.get_file()])
+	audio.start_engine()
+	_audio_events.append("0.00 startup")
+	var phases := [
+		[3.0, "idle", {}],
+		[9.0, "full throttle", {"accelerate": 1.0}],
+		[13.0, "coast", {}],
+		[16.5, "brake", {"brake": 1.0}],
+		[18.0, "idle", {}],
+		[19.2, "horn", {"horn": 1.0}],
+		[21.0, "throttle", {"accelerate": 1.0}],
+		[23.5, "handbrake slide", {"accelerate": 0.6, "handbrake": 1.0, "steer_right": 1.0}],
+		[26.0, "recover", {"brake": 1.0}],
+	]
+	for ph: Array in phases:
+		var keys: Dictionary = ph[2]
+		_audio_events.append("%.2f phase %s" % [_audio_t, ph[1]])
+		for k: String in keys:
+			Input.action_press(k, keys[k])
+		while _audio_t < float(ph[0]):
+			await get_tree().physics_frame
+		for k: String in keys:
+			Input.action_release(k)
+	_check(bool(_audio_seen.get("engine_on", false)) and float(_audio_seen.get("engine", 0)) <= 4.0,
+		"engine layers play, at most 4 at once (max %d)" % int(_audio_seen.get("engine", 0)))
+	_check(_audio_seen.get("roll", false), "tyre roll plays while moving")
+	_check(_audio_seen.get("squeal", false), "tyre squeal plays in the handbrake slide")
+	_check(_audio_seen.get("horn", false), "horn plays while held")
+	_check(not _audio_seen.get("bad", false), "no NaN/inf levels")
+	# Gravel: the dirt fields.
+	v.teleport(game.world.spawn_points[4]["xform"])
+	_audio_events.append("%.2f teleport dirt" % _audio_t)
+	await _wait_s(0.6)
+	_audio_events.append("%.2f phase gravel" % _audio_t)
+	Input.action_press("accelerate")
+	_audio_seen["gravel"] = false
+	await _wait_s(4.0)
+	Input.action_release("accelerate")
+	_check(_audio_seen.get("gravel", false), "gravel roll plays on the dirt fields")
+	# A crash: shots must fire.
+	_audio_events.append("%.2f phase crash run" % _audio_t)
+	var shots := [0]
+	var first := [true]
+	v.impact.connect(func(_s: float, _p: Vector3, _n: Vector3) -> void:
+		shots[0] += 1
+		if first[0]:
+			first[0] = false
+			_audio_events.append("%.2f impact" % _audio_t))
+	_audio_seen["shot"] = false
+	await _ram_wall(game, 55.0)
+	_check(shots[0] > 0 and _audio_seen.get("shot", false), "crash plays impact sounds (%d impacts)" % shots[0])
+	_audio_watch = null
+	VehicleAudio.on_shot = Callable()
+	rec.set_recording_active(false)
+	var wav := rec.get_recording()
+	if wav:
+		wav.save_to_wav(_dir.path_join("session.wav"))
+	var f := FileAccess.open(_dir.path_join("session.csv"), FileAccess.WRITE)
+	f.store_string("t,rpm,load,gear,speed,skid,voices,engine_layers,engine_gain_db\n" + "\n".join(_audio_log) + "\n")
+	f = FileAccess.open(_dir.path_join("events.txt"), FileAccess.WRITE)
+	f.store_string("\n".join(_audio_events) + "\n")
+	print("AUDIO player car: at most %d voices playing, recorded %.1f s" % [int(_audio_seen.get("voices", 0)), _audio_t])
+	AudioServer.remove_bus_effect(0, AudioServer.get_bus_effect_count(0) - 1)
+	await _audio_traffic(game)
+
+
+## Samples one vehicle's audio state; logs it to the CSV 20 times a second.
+func _audio_state(audio: VehicleAudio) -> Dictionary:
+	var voices := 0
+	var engine := 0
+	var engine_db := -80.0
+	var bad := false
+	for p in audio.find_children("*", "AudioStreamPlayer3D", false, false):
+		var pl := p as AudioStreamPlayer3D
+		if pl.playing and not pl.stream_paused:
+			voices += 1
+			if not is_finite(pl.volume_db) or not is_finite(pl.pitch_scale):
+				bad = true
+	for pl in audio._on + audio._off:
+		if pl.playing and not pl.stream_paused and pl.volume_db > -60.0:
+			engine += 1
+			engine_db = maxf(engine_db, pl.volume_db)
+	var on := func(k: String) -> bool:
+		var p: AudioStreamPlayer3D = audio._loops.get(k)
+		return p != null and p.playing and not p.stream_paused
+	var shot := false
+	for p in audio._shots:
+		shot = shot or p.playing
+	var v := audio.vehicle
+	var dt := get_physics_process_delta_time()
+	if int(_audio_t * 20.0) != int((_audio_t - dt) * 20.0):
+		_audio_log.append("%.2f,%.0f,%.2f,%d,%.1f,%.2f,%d,%d,%.1f" % [_audio_t, v.engine_rpm, v.engine_load, v.gear,
+			v.linear_velocity.length() * 3.6, v.get_skid_amount(), voices, engine, engine_db])
+	return {"voices": voices, "engine": engine, "engine_on": engine > 0, "squeal": on.call("squeal"), "horn": on.call("horn"),
+		"roll": on.call("roll"), "gravel": on.call("gravel"), "shot": shot, "bad": bad}
+
+
+## Traffic: voices stay within the budget and pass-bys are heard.
+func _audio_traffic(game: Game) -> void:
+	var tm := game.traffic
+	game.vehicle.teleport(Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(-6.0, 0.8, -60.0)))
+	tm.set_enabled(true)
+	await _wait_s(8.0)
+	var director := AudioDirector.instance
+	var max_voiced := 0
+	var max_players := 0
+	var t := 0.0
+	while t < 10.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		max_voiced = maxi(max_voiced, director.voiced_count() if director else 99)
+		var players := 0
+		for d in tm.drivers:
+			for p in d.vehicle.get_node("Audio").find_children("*", "AudioStreamPlayer3D", false, false):
+				if (p as AudioStreamPlayer3D).playing and not (p as AudioStreamPlayer3D).stream_paused:
+					players += 1
+		max_players = maxi(max_players, players)
+	_check(director != null and max_voiced <= AudioDirector.MAX_VOICES, "traffic engine voices within budget (%d cars, at most %d voiced, budget %d)" % [
+		tm.drivers.size(), max_voiced, AudioDirector.MAX_VOICES])
+	_check(max_players <= AudioDirector.MAX_VOICES * 3 + 6, "traffic players playing at once: %d" % max_players)

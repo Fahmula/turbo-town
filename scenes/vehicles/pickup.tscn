@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_audio.gd" id="6_audio"]
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_effects.gd" id="7_fx"]
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_damage.gd" id="8_damage"]
+[ext_resource type="Resource" path="res://assets/audio/profiles/pickup.tres" id="9_sound"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_body"]
 friction = 0.45
@@ -140,13 +141,9 @@ grip = 1.12
 [node name="Model" parent="WheelRR/Visual" instance=ExtResource("5_wheel")]
 transform = Transform3D(1.0811, 0, 0, 0, 1.0811, 0, 0, 0, 1.0811, 0, 0, 0)
 
-[node name="Audio" type="AudioStreamPlayer" parent="."]
+[node name="Audio" type="Node3D" parent="."]
 script = ExtResource("6_audio")
-engine_volume = 0.47
-cylinders = 8
-lope = 0.85
-brightness = 0.95
-rumble = 0.2
+profile = ExtResource("9_sound")
 
 [node name="Effects" type="Node" parent="."]
 script = ExtResource("7_fx")

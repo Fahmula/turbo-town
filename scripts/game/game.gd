@@ -62,6 +62,9 @@ func _ready() -> void:
 	title_camera = MenuCamera.new()
 	title_camera.name = "TitleCamera"
 	add_child(title_camera)
+	var director := AudioDirector.new()
+	director.name = "AudioDirector"
+	add_child(director)
 	replay = Replay.new()
 	replay.name = "Replay"
 	replay.game = self
@@ -114,6 +117,7 @@ func _ready() -> void:
 	day_night.set_mode(Settings.get_value("time_of_day"))
 	_fit_headlights()
 	_fit_reflection()
+	_start_engine(vehicle)
 	teleport_to(0)
 	if show_title:
 		_enter_title()
@@ -422,6 +426,7 @@ func change_vehicle(index: int, color: Color, place_here := true, stripes := fal
 	_watch_damage(car)
 	_fit_headlights()
 	_fit_reflection()
+	_start_engine(car)
 	if not place_here:
 		return
 	if spot.is_empty():
@@ -495,6 +500,14 @@ func _fit_headlights() -> void:
 			spot.light_color = Color(1.0, 0.95, 0.85)
 			lights.add_child(spot)
 	lights.visible = day_night.is_night
+
+
+## The player's vehicle gets the full sound and starts its engine.
+func _start_engine(v: Vehicle) -> void:
+	var audio := v.get_node_or_null("Audio") as VehicleAudio
+	if audio:
+		audio.set_detail(VehicleAudio.Detail.FULL)
+		audio.start_engine()
 
 
 ## Real reflections in the player car's paint and glass on Medium and High

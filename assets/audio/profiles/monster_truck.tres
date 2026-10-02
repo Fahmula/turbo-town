@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="VehicleSoundProfile" format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/audio/vehicle_sound_profile.gd" id="1"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/on_1000.wav" id="2"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/on_2000.wav" id="3"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/on_3000.wav" id="4"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/on_4000.wav" id="5"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/on_5000.wav" id="6"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/on_6000.wav" id="7"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/off_1000.wav" id="8"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/off_2000.wav" id="9"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/off_3000.wav" id="10"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/off_4000.wav" id="11"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/off_5000.wav" id="12"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/off_6000.wav" id="13"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/startup.wav" id="14"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/supercharger_whine.wav" id="15"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/shift.wav" id="16"]
+[ext_resource type="AudioStream" path="res://assets/audio/horn/air.wav" id="17"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/pop_1.wav" id="18"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/pop_2.wav" id="19"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/pop_3.wav" id="20"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/pop_4.wav" id="21"]
+
+[resource]
+script = ExtResource("1")
+engine_on = Array[AudioStream]([ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7")])
+engine_on_rpm = PackedFloat32Array(1000, 2000, 3000, 4000, 5000, 6000)
+engine_off = Array[AudioStream]([ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13")])
+engine_off_rpm = PackedFloat32Array(1000, 2000, 3000, 4000, 5000, 6000)
+rpm_scale = 1.0
+engine_volume_db = 0.0
+rpm_gain_db = 7.0
+load_gain_db = 5.0
+whine_rpm = 5200.0
+whine_volume_db = -18.0
+pops_volume_db = -8.0
+shift_volume_db = -14.0
+horn_volume_db = -3.0
+horn_pitch = 0.82
+size = 2.6
+startup = ExtResource("14")
+startup_catch = 1.42
+whine = ExtResource("15")
+shift = ExtResource("16")
+horn = ExtResource("17")
+pops = Array[AudioStream]([ExtResource("18"), ExtResource("19"), ExtResource("20"), ExtResource("21")])

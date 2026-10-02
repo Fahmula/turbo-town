@@ -66,6 +66,7 @@ func _ready() -> void:
 	_add_page(root, "controls", _build_controls())
 	_add_page(root, "records", _build_records())
 	_add_page(root, "races", _build_races())
+	_add_page(root, "credits", _build_credits())
 
 
 func _add_page(root: Control, page_name: String, node: Control) -> void:
@@ -169,6 +170,7 @@ func _build_title() -> Control:
 	_button(buttons, "SETTINGS", func() -> void: show_page("settings", true))
 	_button(buttons, "RECORDS", func() -> void: show_page("records", true))
 	_button(buttons, "CONTROLS", func() -> void: show_page("controls", true))
+	_button(buttons, "CREDITS", func() -> void: show_page("credits", true))
 	_button(buttons, "QUIT", func() -> void: action.emit("quit"))
 	_first_focus["title"] = drive
 	var gap2 := Control.new()
@@ -202,6 +204,7 @@ func _build_pause() -> Control:
 	_button(col, "SETTINGS", func() -> void: show_page("settings", true))
 	_button(col, "CONTROLS", func() -> void: show_page("controls", true))
 	_button(col, "RECORDS", func() -> void: show_page("records", true))
+	_button(col, "CREDITS", func() -> void: show_page("credits", true))
 	_button(col, "MAIN MENU", func() -> void: action.emit("title"))
 	_button(col, "QUIT GAME", func() -> void: action.emit("quit"))
 	_first_focus["pause"] = resume
@@ -305,6 +308,40 @@ func _build_controls() -> Control:
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.custom_minimum_size = Vector2(200, 0)
 	_first_focus["controls"] = back
+	return center
+
+
+## Third-party sounds and their licences (ASSET_MANIFEST.md has the full
+## list; CC BY needs this attribution in the game).
+const CREDITS := "[b]TURBO TOWN[/b]\n\n" \
+	+ "[color=#ffd54a]Engine sounds[/color]  by CryHam (Stunt Rally 3), recorded with Engine Simulator. CC BY 4.0\n" \
+	+ "[color=#ffd54a]Crash and metal sounds[/color]  by Halleck (freesound.org), edited by CryHam (Stunt Rally 3). CC BY 4.0\n\n" \
+	+ "Sounds changed for Turbo Town (looped, filtered, mixed, levels).\n" \
+	+ "CC BY 4.0: creativecommons.org/licenses/by/4.0\n" \
+	+ "Everything else is made for this game."
+
+
+func _build_credits() -> Control:
+	var center := _centered()
+	var p := UiKit.panel(30)
+	center.add_child(p)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	col.custom_minimum_size = Vector2(760, 0)
+	p.add_child(col)
+	col.add_child(UiKit.label("CREDITS", 40, UiKit.ACCENT))
+	var text := RichTextLabel.new()
+	text.bbcode_enabled = true
+	text.fit_content = true
+	text.scroll_active = false
+	text.add_theme_font_size_override("normal_font_size", 20)
+	text.add_theme_font_size_override("bold_font_size", 24)
+	text.text = CREDITS
+	col.add_child(text)
+	var back := _button(col, "BACK", _back)
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.custom_minimum_size = Vector2(200, 0)
+	_first_focus["credits"] = back
 	return center
 
 

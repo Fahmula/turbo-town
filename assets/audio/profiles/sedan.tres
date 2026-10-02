@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="VehicleSoundProfile" format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/audio/vehicle_sound_profile.gd" id="1"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/on_1000.wav" id="2"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/on_2000.wav" id="3"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/on_3000.wav" id="4"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/on_4000.wav" id="5"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/on_5000.wav" id="6"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/on_6000.wav" id="7"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/on_7000.wav" id="8"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/off_1000.wav" id="9"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/off_2000.wav" id="10"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/off_3000.wav" id="11"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/off_4000.wav" id="12"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/off_5000.wav" id="13"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/off_6000.wav" id="14"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/off_7000.wav" id="15"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/four/startup.wav" id="16"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/shift.wav" id="17"]
+[ext_resource type="AudioStream" path="res://assets/audio/horn/car.wav" id="18"]
+
+[resource]
+script = ExtResource("1")
+engine_on = Array[AudioStream]([ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8")])
+engine_on_rpm = PackedFloat32Array(1000, 2000, 3000, 4000, 5000, 6000, 7000)
+engine_off = Array[AudioStream]([ExtResource("9"), ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13"), ExtResource("14"), ExtResource("15")])
+engine_off_rpm = PackedFloat32Array(1000, 2000, 3000, 4000, 5000, 6000, 7000)
+rpm_scale = 1.0
+engine_volume_db = -4.0
+rpm_gain_db = 9.0
+load_gain_db = 4.0
+shift_volume_db = -20.0
+horn_volume_db = -4.0
+horn_pitch = 1.06
+size = 1.05
+startup = ExtResource("16")
+startup_catch = 1.42
+shift = ExtResource("17")
+horn = ExtResource("18")

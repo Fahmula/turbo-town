@@ -57,9 +57,7 @@ var _samples_d := PackedFloat32Array()
 var _samples_dir := PackedVector3Array()
 var _yield_to := ""
 var _nudge := 0.0
-var _engine_audio: AudioStreamPlayer3D
-var _horn_audio: AudioStreamPlayer3D
-var _crash_audio: AudioStreamPlayer3D
+var _audio: VehicleAudio
 var _honk_cooldown := 0.0
 var _blocked_by_player := 0.0
 ## What is currently limiting our speed (for debugging).
@@ -134,9 +132,6 @@ static func _alive(v: Variant) -> bool:
 func release() -> void:
 	if vehicle.impact.is_connected(_on_impact):
 		vehicle.impact.disconnect(_on_impact)
-	for p in [_engine_audio, _horn_audio, _crash_audio]:
-		if is_instance_valid(p):
-			p.free()
 	vehicle.throttle_input = 0.0
 	vehicle.brake_input = 0.0
 	vehicle.steer_input = 0.0
@@ -186,36 +181,17 @@ func _turn_signal() -> VehicleBodyVisual.Blinker:
 	return VehicleBodyVisual.Blinker.OFF
 
 
+## The vehicle's own VehicleAudio (LITE) plays the engine, horn and crashes.
 func _setup_audio() -> void:
-	_engine_audio = _make_player(TrafficAudio.engine_loop(), 7.0, 80.0)
-	_engine_audio.volume_db = -10.0
-	_engine_audio.play(_rng.randf() * 0.4)
-	_horn_audio = _make_player(TrafficAudio.horn(), 14.0, 160.0)
-	_crash_audio = _make_player(TrafficAudio.crash(), 14.0, 150.0)
-
-
-func _make_player(stream: AudioStream, unit: float, max_dist: float) -> AudioStreamPlayer3D:
-	var p := AudioStreamPlayer3D.new()
-	p.stream = stream
-	p.unit_size = unit
-	p.max_distance = max_dist
-	p.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED
-	vehicle.add_child(p)
-	return p
+	_audio = vehicle.get_node_or_null("Audio") as VehicleAudio
 
 
 func honk() -> void:
-	if _horn_audio and not _horn_audio.playing:
-		_horn_audio.pitch_scale = _rng.randf_range(0.9, 1.1)
-		_horn_audio.play()
+	if _audio:
+		_audio.honk(_rng.randf_range(0.3, 0.6))
 
 
 func _update_audio(dt: float) -> void:
-	if _engine_audio == null:
-		return
-	var freq := vehicle.engine_rpm / 60.0 * 4.0
-	_engine_audio.pitch_scale = clampf(freq / TrafficAudio.BASE_FREQ, 0.5, 12.0)
-	_engine_audio.volume_db = linear_to_db(0.25 + 0.6 * vehicle.engine_load) - 8.0
 	# Impatient honking at a player who blocks the road.
 	_honk_cooldown -= dt
 	if blocker_vehicle != null and blocker_vehicle == manager.player and vehicle.linear_velocity.length() < 1.0:
@@ -1020,9 +996,6 @@ func on_player_horn(player: Vehicle) -> void:
 # ============================================================ crash state ==
 
 func _on_impact(strength: float, _pos: Vector3, _n: Vector3) -> void:
-	if strength > 7000.0 * _mass_scale and _crash_audio and not _crash_audio.playing:
-		_crash_audio.volume_db = linear_to_db(clampf(strength / (30000.0 * _mass_scale), 0.3, 1.0))
-		_crash_audio.play()
 	if state == State.DRIVING and strength > 9000.0 * _mass_scale:
 		_set_state(State.STUNNED)
 		_honk_cooldown = 0.6

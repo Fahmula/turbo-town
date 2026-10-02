@@ -288,12 +288,11 @@ func _take(scene: PackedScene) -> Vehicle:
 	if not spares.is_empty():
 		return spares.pop_back()
 	var car := scene.instantiate() as Vehicle
-	# Traffic cars stay quiet (the synth is for the player's car) and keep
-	# their own damage/effects.
-	var audio := car.get_node_or_null("Audio")
+	# Traffic gets the cheaper sound (AudioDirector gives voices to the
+	# nearest few) and keeps its own damage/effects.
+	var audio := car.get_node_or_null("Audio") as VehicleAudio
 	if audio:
-		car.remove_child(audio)
-		audio.free()
+		audio.set_detail(VehicleAudio.Detail.LITE)
 	return car
 
 

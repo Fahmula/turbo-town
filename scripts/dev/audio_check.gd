@@ -1,47 +1,70 @@
 extends SceneTree
-## Offline sanity check of the engine synth levels:
+## Offline check of every vehicle's sound set (no audio device needed):
 ##   godot --headless --path . -s res://scripts/dev/audio_check.gd
+## For each vehicle scene: the Audio node has a VehicleSoundProfile, every
+## stream loads, engine loops are marked as loops, their rpm lists match and
+## rise, and they cover the vehicle's idle..redline range without extreme
+## pitch factors. Also checks the shared VehicleSoundBank sets. Prints FAIL
+## lines and exits with code 1 if anything is wrong.
+
+var _fails := 0
+
 
 func _init() -> void:
-	var a := VehicleAudio.new()
-	var cases := [
-		["idle", 900.0, 0.0, 0.0, 0.0],
-		["full throttle 3000rpm", 3000.0, 1.0, 0.0, 10.0],
-		["full throttle 6500rpm", 6500.0, 1.0, 0.0, 30.0],
-		["coast 4000rpm", 4000.0, 0.0, 0.0, 30.0],
-		["tire squeal", 3000.0, 0.5, 1.0, 15.0],
-		["wind 180kmh", 5500.0, 0.7, 0.0, 50.0],
-	]
-	for c in cases:
-		var freq: float = c[1] / 60.0 * 4.0
-		var buf := a.synth(22050, freq, c[2], c[3], c[4])
-		var peak := 0.0
-		var sum := 0.0
-		var clipped := 0
-		for i in range(11025, buf.size()):
-			var v := absf(buf[i].x)
-			peak = maxf(peak, v)
-			sum += v * v
-			if v >= 0.999:
-				clipped += 1
-		print("%-24s rms=%.3f peak=%.3f clipped=%d" % [c[0], sqrt(sum / 11025.0), peak, clipped])
-	a.free()
-	# Every vehicle's engine profile at idle, mid revs and near the redline.
-	print("")
 	for id in ["sports_car", "sedan", "van", "box_truck", "bus", "pickup", "buggy", "monster_truck"]:
 		var car := (load("res://scenes/vehicles/%s.tscn" % id) as PackedScene).instantiate() as Vehicle
-		var audio := car.get_node("Audio") as VehicleAudio
-		var line := "%-14s" % id
-		for c in [[car.idle_rpm, 0.0], [car.redline_rpm * 0.55, 1.0], [car.redline_rpm * 0.92, 1.0]]:
-			var freq: float = c[0] / 60.0 * audio.cylinders * 0.5
-			var buf := audio.synth(22050, freq, c[1], 0.0, 0.0)
-			var peak := 0.0
-			var sum := 0.0
-			for i in range(11025, buf.size()):
-				var v := absf(buf[i].x)
-				peak = maxf(peak, v)
-				sum += v * v
-			line += "  %4.0frpm rms=%.3f peak=%.2f" % [c[0], sqrt(sum / 11025.0), peak]
-		print(line)
+		var audio := car.get_node_or_null("Audio") as VehicleAudio
+		_check(audio != null and audio.profile != null, "%s: Audio node with a profile" % id)
+		if audio and audio.profile:
+			_check_profile(id, car, audio.profile)
 		car.free()
-	quit()
+	for loop_path in [VehicleSoundBank.ROLL_ASPHALT, VehicleSoundBank.ROLL_GRAVEL, VehicleSoundBank.SQUEAL,
+			VehicleSoundBank.SKID_GRAVEL, VehicleSoundBank.WIND, VehicleSoundBank.SCRAPE, VehicleSoundBank.BEEPER]:
+		var st := VehicleSoundBank.loop(loop_path)
+		_check(st != null and _loops(st), "bank loop %s loads and loops" % loop_path)
+	for set_name in ["impact/thud", "impact/crunch", "impact/crash", "impact/metal", "impact/plastic", "impact/wood",
+			"impact/glass", "impact/tinkle", "impact/debris", "suspension/knock", "suspension/land", "brake/squeal", "body/splash"]:
+		var n := VehicleSoundBank.variants(set_name).size()
+		_check(n >= 2, "bank set %s has %d variants" % [set_name, n])
+	print("audio check: %s" % ("all good" if _fails == 0 else "%d problems" % _fails))
+	quit(1 if _fails > 0 else 0)
+
+
+func _check_profile(id: String, car: Vehicle, p: VehicleSoundProfile) -> void:
+	for pair in [[p.engine_on, p.engine_on_rpm, "on"], [p.engine_off, p.engine_off_rpm, "off"]]:
+		var streams: Array = pair[0]
+		var rpms: PackedFloat32Array = pair[1]
+		if streams.is_empty() and pair[2] == "off":
+			continue
+		_check(streams.size() == rpms.size() and streams.size() >= 2, "%s: %d %s-load loops, %d rpm values" % [id, streams.size(), pair[2], rpms.size()])
+		var ok := true
+		for i in streams.size():
+			ok = ok and streams[i] != null and _loops(streams[i])
+			if i > 0 and i < rpms.size():
+				ok = ok and rpms[i] > rpms[i - 1]
+		_check(ok, "%s: %s-load loops load, loop, and their rpm rises" % [id, pair[2]])
+		if rpms.size() >= 2:
+			var idle := car.idle_rpm * p.rpm_scale
+			var red := car.redline_rpm * p.rpm_scale
+			var lo_pitch := idle / rpms[0]
+			var hi_pitch := red / rpms[rpms.size() - 1]
+			print("  %-14s %s-load: idle pitch %.2f, redline pitch %.2f (%d loops %.0f-%.0f rpm)" % [
+				id, pair[2], lo_pitch, hi_pitch, rpms.size(), rpms[0], rpms[rpms.size() - 1]])
+			_check(lo_pitch > 0.5 and lo_pitch < 1.6 and hi_pitch > 0.6 and hi_pitch < 1.6,
+				"%s: %s-load loops cover idle..redline without extreme pitch" % [id, pair[2]])
+	_check(p.horn != null and _loops(p.horn), "%s: horn loop" % id)
+	for st in [p.startup, p.whine, p.blowoff, p.shift, p.air_brake]:
+		_check(st == null or st.get_length() > 0.0, "%s: optional sounds load" % id)
+	if p.whine:
+		_check(_loops(p.whine), "%s: whine loops" % id)
+
+
+func _loops(st: AudioStream) -> bool:
+	var wav := st as AudioStreamWAV
+	return wav != null and wav.loop_mode != AudioStreamWAV.LOOP_DISABLED
+
+
+func _check(ok: bool, what: String) -> void:
+	if not ok:
+		_fails += 1
+		print("FAIL ", what)

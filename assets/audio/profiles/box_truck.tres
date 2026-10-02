@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="VehicleSoundProfile" format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/audio/vehicle_sound_profile.gd" id="1"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/on_300.wav" id="2"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/on_630.wav" id="3"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/on_1000.wav" id="4"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/on_1500.wav" id="5"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/on_2000.wav" id="6"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/on_2350.wav" id="7"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/off_300.wav" id="8"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/off_630.wav" id="9"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/off_1000.wav" id="10"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/off_1500.wav" id="11"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/off_2000.wav" id="12"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/off_2350.wav" id="13"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/diesel/startup.wav" id="14"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/turbo_whine.wav" id="15"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/shift.wav" id="16"]
+[ext_resource type="AudioStream" path="res://assets/audio/brake/air_1.wav" id="17"]
+[ext_resource type="AudioStream" path="res://assets/audio/horn/air.wav" id="18"]
+
+[resource]
+script = ExtResource("1")
+engine_on = Array[AudioStream]([ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7")])
+engine_on_rpm = PackedFloat32Array(300, 630, 1000, 1500, 2000, 2350)
+engine_off = Array[AudioStream]([ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13")])
+engine_off_rpm = PackedFloat32Array(300, 630, 1000, 1500, 2000, 2350)
+rpm_scale = 0.55
+engine_volume_db = -1.0
+rpm_gain_db = 7.0
+load_gain_db = 4.0
+whine_rpm = 4500.0
+whine_volume_db = -24.0
+shift_volume_db = -14.0
+horn_volume_db = -5.0
+horn_pitch = 1.08
+size = 2.4
+startup = ExtResource("14")
+startup_catch = 1.7200000000000002
+whine = ExtResource("15")
+shift = ExtResource("16")
+air_brake = ExtResource("17")
+horn = ExtResource("18")
+reverse_beeper = true
