@@ -1884,15 +1884,19 @@ readable, kid-friendly (crashes are big and fun, never scary).
 - **Levels:** loops are written at −18 dBFS RMS, one-shots peak at −1 dBFS;
   dB numbers in profiles and `VehicleAudio` are relative to that. A hard
   limiter on the master bus catches pile-ups.
-- **Seamless:** loops are crossfaded at the seam and stored as PCM (QOA's
-  frames can tick at the loop point); players fade in over 40 ms and pause
-  only after 0.15 s of silence. `--audio` + `check_recording.py` must report
-  no clicks, dropouts or clipping.
+- **Seamless:** loops are crossfaded at the seam (and cut on whole periods
+  for pitched ones like horns); Godot imports everything as QOA (about a
+  fifth of PCM; loops measured seamless). Players fade in over 40 ms, pause
+  only after 0.15 s of silence, and the player's loops are primed silently
+  so every start is a resume. `--audio` + `check_recording.py` should find
+  no clicks, dropouts or clipping; it can flag a sharp natural onset (a
+  throttle bark, a gravel crunch), so look at what it flags.
 - **Budget (Steam Deck):** the player's vehicle may play ~10–14 voices at
   once; traffic gets loops for the nearest 6 cars within 95 m (2 engine
   layers + tyres each, `AudioDirector`), plus short crashes and horns. Engine
   loops are stored at 32 kHz, off-load loops at 22.05 kHz, the rest at
-  44.1 kHz; `assets/audio/` stays under ~15 MB.
+  44.1 kHz; `assets/audio/` stays under ~15 MB in the repo (QOA in the
+  build).
 - **Kid safety:** no screams, sirens of panic or injury sounds. Horns are
   friendly, crashes are metal and glass.
 

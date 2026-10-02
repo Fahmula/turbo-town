@@ -128,7 +128,7 @@ def import_settings():
             elif ln.startswith("edit/loop_end="):
                 ln = "edit/loop_end=-1"
             elif ln.startswith("compress/mode="):
-                ln = "compress/mode=0"   # PCM: QOA's frame seams can tick at the loop point
+                ln = "compress/mode=2"   # QOA: about 1/5 the size; loops measured seamless
             out.append(ln)
         imp.write_text("\n".join(out) + "\n")
 
