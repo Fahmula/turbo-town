@@ -4,8 +4,9 @@ would notice:
 
     python3 tools/audio/check_recording.py <dir>     (session.wav + events.txt)
 
-* clicks/pops: isolated bursts of high-frequency energy (> 6 kHz) far above
-  their surroundings, outside the deliberate one-shots listed in events.txt
+* clicks/pops: short, isolated bursts of high-frequency energy (> 6 kHz) far
+  above their surroundings and their own neighbours (onsets that stay loud
+  aren't clicks), outside the deliberate one-shots listed in events.txt
   (crashes, knocks, the horn starting...);
 * dropouts: the level falling by more than 15 dB for under 120 ms and
   coming straight back (a gap in a loop or a crossfade);
@@ -59,13 +60,20 @@ def main(d):
     nb = len(hp) // blk
     peaks = np.abs(hp[:nb * blk]).reshape(nb, blk).max(axis=1)
     win = int(0.15 * rate / blk)
-    shot_times = [t for t, w in events if not w.startswith("phase")]
+    # Loops starting/stopping ("voice") must be click-free: not excused.
+    shot_times = [t for t, w in events if not w.startswith("phase") and not w.startswith("voice")]
     clicks = []
     for i in range(win, nb - win):
         local = np.median(peaks[i - win:i + win])
-        if peaks[i] > 10 * max(local, 1e-5) and peaks[i] > 10 ** (-42 / 20):
+        # A click is a short, isolated spike: far above the surroundings and
+        # well above its own neighbours a few ms either side (an onset, like
+        # the throttle opening or a gravel crunch, stays loud afterwards).
+        around = max(peaks[i - 4:i - 1].max(), peaks[i + 2:i + 5].max())
+        if peaks[i] > 10 * max(local, 1e-5) and peaks[i] > 4 * around and peaks[i] > 10 ** (-42 / 20):
             t = i * blk / rate
-            if any(-0.05 <= t - s <= 0.6 for s in shot_times):
+            # Event times come from the game clock, which runs up to ~0.25 s
+            # behind the recording.
+            if any(-0.3 <= t - s <= 0.6 for s in shot_times):
                 continue
             if clicks and t - clicks[-1] < 0.05:
                 continue

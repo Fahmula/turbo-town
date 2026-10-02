@@ -6,7 +6,7 @@ extends Node3D
 ##     (stylized "weight transfer");
 ##   * swaps the model's imported materials (found by their contract names,
 ##     ART_BIBLE.md §13) for the vehicle shaders in assets/shaders/vehicle/:
-##     car paint, glass, lamps, trim and tyres (apply_vehicle_materials);
+##     car paint, glass, lamps, trim, cabin and tyres (apply_vehicle_materials);
 ##   * drives the lamps: brake, reverse, indicators / hazards (`indicator`,
 ##     set by TrafficDriver), broken lamps (VehicleDamage);
 ##   * collects road grime while driving on dirt (`dirt`, in the paint and
@@ -24,6 +24,7 @@ const LAMP_SHADER := preload("res://assets/shaders/vehicle/vehicle_lamp.gdshader
 const TRIM_SHADER := preload("res://assets/shaders/vehicle/vehicle_trim.gdshader")
 const TYRE_SHADER := preload("res://assets/shaders/vehicle/vehicle_tyre.gdshader")
 const SHADOW_SHADER := preload("res://assets/shaders/vehicle/contact_shadow.gdshader")
+const INTERIOR_SHADER := preload("res://assets/shaders/vehicle/vehicle_interior.gdshader")
 
 ## Indicator states.
 enum Blinker { OFF, LEFT, RIGHT, HAZARD }
@@ -141,6 +142,8 @@ static func _swap_for(mat: Material, paint: Color, parked: bool, dirt_top: float
 			return _shared_material("glass_opaque" if opaque else "glass", GLASS_OPAQUE_SHADER if opaque else GLASS_SHADER)
 		"Trim":
 			return _shared_material("trim", TRIM_SHADER)
+		"Interior":
+			return _shared_material("interior", INTERIOR_SHADER)
 		"Headlight", "TailLight", "ReverseLight":
 			var role: String = {"Headlight": "head", "TailLight": "tail", "ReverseLight": "reverse"}[String(mat.resource_name)]
 			if parked:

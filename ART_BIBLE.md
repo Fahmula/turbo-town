@@ -30,7 +30,7 @@ Contents: 0 Quick rules · 1 Identity · 2 References · 3 Today's baseline ·
 19 Terrain/water · 20 UI · 21 Typography · 22 Icons · 23 Effects ·
 24 Blender · 25 Godot import · 26 LOD/detail · 27 Steam Deck ·
 28 Consistency rules · 29 Avoid list · 30 Workflow · 31 Migration order ·
-32 Open owner decisions
+32 Open owner decisions · 33 Vehicle sound
 
 ---
 
@@ -433,7 +433,7 @@ spatial shaders.
 | Car paint | paint palette | 0.13 (solid) / 0.2 (metallic) | 0 (solid) / 0.35–0.6 (metallic) | clear coat 0.6; `car_paint.gdshader` (§13) |
 | Chrome | `#D9DBDE` | 0.08–0.15 | 1 | sparingly |
 | Aluminium rim | `#B8BBBF` | 0.3–0.4 | 1 | |
-| Vehicle glass | `#1E2833` | 0.04 | 0 | `vehicle_glass.gdshader`: alpha 0.62 → 0.96 with Fresnel |
+| Vehicle glass | `#1E2833` | 0.04 | 0 | `vehicle_glass.gdshader`: alpha 0.7 → 0.96 with Fresnel |
 | Black trim plastic | `#222326` | 0.55–0.7 | 0 | |
 | Light lens | white / red / amber | 0.05–0.15 | 0 | emission per §13 |
 
@@ -497,6 +497,7 @@ spatial shaders.
 | `vehicle/vehicle_lamp.gdshader` | `Headlight`, `TailLight`, `ReverseLight`: lens over chrome reflector, ribs / projector ring, emission by kind and state; reads the global `night` | UV0 kind tags from `body_kit` (§13); per-car state uniforms set by `VehicleBodyVisual` |
 | `vehicle/vehicle_trim.gdshader` | black trim; honeycomb grilles and slatted grilles with dark holes | UV0 kind tags (§13) |
 | `vehicle/vehicle_tyre.gdshader` | tread vs sidewall by object-space radius, moulded band, dust | wheel models are 0.37 m round X |
+| `vehicle/vehicle_interior.gdshader` | cabins: light headliner (faces pointing down), dark fabric seats/floor (up), satin plastic (sideways), fine weave up close | object-space normals of the `Interior` faces |
 | `vehicle/contact_shadow.gdshader` | soft multiply-blend patch under each vehicle (§10) | `instance uniform strength` |
 | `vehicle/vehicle_common.gdshaderinc` | stable hashes, value noise, `vh_step` (fwidth-antialiased steps), `vh_kind` (decodes the UV tags) | |
 
@@ -646,16 +647,18 @@ an earthy `DayNight.GROUND_BOUNCE`, scaled by the light's energy.
   `UPDATE_ONCE` may cover the city core on Medium/High for paint and glass
   reflections. Never `UPDATE_ALWAYS`. The project's reflection atlas holds 4
   (`rendering/reflections/reflection_atlas/reflection_count`).
-- **The player's car reflects its real surroundings** on Medium and High
+- **The player's car reflects its real surroundings** on High
   (`VehicleReflection`, owned by `Game._fit_reflection`): one `UPDATE_ONCE`
-  probe that is re-centred on the car only after it has driven 14 m and at
-  most every 0.9 s (Godot re-renders a ONCE probe when it moves, one cube
-  face per frame). 44 × 16 × 44 m box, captures layer 1 only (the world,
+  probe that is re-centred on the car only after it has driven 20 m and at
+  most every 1.2 s (Godot re-renders a ONCE probe when it moves, one cube
+  face per frame), drawing only the nearest 90 m. 44 × 16 × 44 m box,
+  captures layer 1 only (the world,
   not cars: every vehicle mesh is on visual layer 2, `Vehicle.VISUAL_LAYER`),
   `reflection_mask` = vehicles only (roads and buildings keep their sky
   reflections), no shadows, `mesh_lod_threshold` 8, ambient off (the probe's
   captured street is far darker than the scene's flat ambient). Traffic that
-  drives through the box gets the same reflections. Low: sky only.
+  drives through the box gets the same reflections. Medium and Low: sky
+  only (each capture costs extra draw calls for a few frames, see §27).
 - **Off:** SDFGI, VoxelGI, LightmapGI (the world is generated at runtime),
   SSIL, SSR, volumetric fog, and DOF or motion blur during gameplay.
 
@@ -843,7 +846,8 @@ widths are left out because the mirrors dominate them.
 (`VehicleBodyVisual.apply_vehicle_materials`, used by every vehicle and the
 parked-car props): `Paint`/`Stripe` → `car_paint`, `Glass` → `vehicle_glass`
 (opaque glass → `vehicle_glass_opaque`), `Headlight`/`TailLight`/`ReverseLight`
-→ `vehicle_lamp`, `Trim` → `vehicle_trim`, `Tire` → `vehicle_tyre`. The swapped
+→ `vehicle_lamp`, `Trim` → `vehicle_trim`, `Interior` → `vehicle_interior`,
+`Tire` → `vehicle_tyre`. The swapped
 material keeps the contract name as its `resource_name`. Paint, lamps and tyres
 are per car (colour, state, dust); trim and intact glass are shared. The
 Blender values are what the garage of an older build showed; the shaders own
@@ -892,7 +896,7 @@ New names are fine for fixed materials. Add them to this table.
 
 **Other vehicle materials**
 
-- **Glass.** `vehicle_glass.gdshader`: tint `#1E2833`, alpha 0.62 looking
+- **Glass.** `vehicle_glass.gdshader`: tint `#1E2833`, alpha 0.7 looking
   straight in rising to 0.96 edge-on (Fresnel, so windows mirror the street at
   a glance and show the cabin head-on), roughness 0.04, metallic 0, but only on
   vehicles that have an interior (the Blender material's alpha exports as glTF
@@ -920,7 +924,9 @@ New names are fine for fixed materials. Add them to this table.
   painted steel and beadlock rims are paint (0). Tyres (`vehicle_tyre.gdshader`):
   tread `#1A1A1C` at roughness 0.93, sidewall `#1F1F21` at 0.82 with a slightly
   glossier moulded band.
-- **Interior:** dark greys `#2A2B2E`–`#3A3B3F`, roughness 0.7–0.9, no emission.
+- **Interior** (`vehicle_interior.gdshader`): dark greys `#2A2B2E`–`#3A3B3F`,
+  roughness 0.55 (plastic) to 0.92 (fabric), no emission, plus a light warm
+  grey headliner (about `#7C7A74`) so the cabin reads through the glass.
 
 ---
 
@@ -1639,6 +1645,22 @@ window):
     it is automatic LOD generation. **Check load time and the busiest views on
     the Deck.**
 
+- **After the vehicle realism pass** (2026-10-02, `dev`, back-to-back with
+  the commit before it):
+  - Highway bench: 306 draw calls without traffic (+1, the contact shadow);
+    447–637 with 22 cars (466–543 before; placement varies). 18 cars driving:
+    8.54–8.91 ms per physics tick wall clock (8.50–8.85 before). Desktop GPU
+    and render CPU the same within noise.
+  - City drive at 80 km/h (`--bench`, new): 1,436 draw calls on average,
+    1,992 at the peak, without the reflection probe; with it (High) +112 on
+    average and the same peak, no measurable CPU/GPU difference here. Note
+    the city drive is already over the 1,200 budget without any of this: an
+    environment item.
+  - Sound: the game uses +0.06 CPU cores with every vehicle sound playing
+    versus all stopped (traffic on). The player's car plays 6–10 audible
+    voices, traffic loops for at most 6 cars.
+  - Deformable vertices: +18 to +68 per body (indicator patches), max 5,953.
+
 **Budgets** (busiest view, High)
 
 | Metric | Budget |
@@ -1842,6 +1864,38 @@ Cheapest and biggest wins first:
 
 ---
 
+## 33. Vehicle sound
+
+Sound follows the same direction as the look: **believable first**, clean and
+readable, kid-friendly (crashes are big and fun, never scary).
+
+- **Sources:** real recordings where they beat what we can make, synthesis
+  where it's as good (electronic beeps, wind, hisses, starters, knocks).
+  Licences per `ASSET_MANIFEST.md` (CC0/public domain first, CC BY with the
+  attribution in the manifest and the CREDITS page; never BY-SA, NC, GPL or
+  ripped material). Every file comes out of `tools/audio/build_audio.py`
+  (pinned URLs + SHA-256, fixed seeds); never hand-edit `assets/audio/`.
+- **Engines are layered, never one loop:** steady loops at known rpm, on and
+  off load, crossfaded with equal power by rpm and blended by load
+  (`VehicleAudio`). New engine character = a new set in `recorded.py` plus a
+  profile in `tools/audio/profiles.py`. Keep pitch factors between ~0.6 and
+  1.6 (the loops' rpm should cover idle to redline after `rpm_scale`;
+  `audio_check.gd` enforces it).
+- **Levels:** loops are written at −18 dBFS RMS, one-shots peak at −1 dBFS;
+  dB numbers in profiles and `VehicleAudio` are relative to that. A hard
+  limiter on the master bus catches pile-ups.
+- **Seamless:** loops are crossfaded at the seam and stored as PCM (QOA's
+  frames can tick at the loop point); players fade in over 40 ms and pause
+  only after 0.15 s of silence. `--audio` + `check_recording.py` must report
+  no clicks, dropouts or clipping.
+- **Budget (Steam Deck):** the player's vehicle may play ~10–14 voices at
+  once; traffic gets loops for the nearest 6 cars within 95 m (2 engine
+  layers + tyres each, `AudioDirector`), plus short crashes and horns. Engine
+  loops are stored at 32 kHz, off-load loops at 22.05 kHz, the rest at
+  44.1 kHz; `assets/audio/` stays under ~15 MB.
+- **Kid safety:** no screams, sirens of panic or injury sounds. Horns are
+  friendly, crashes are metal and glass.
+
 *Revision log*
 - 2026-10-01: created (stylized realism direction, from three reference
   images; baseline measured at v0.3.1).
@@ -1863,4 +1917,4 @@ Cheapest and biggest wins first:
 - 2026-10-02: vehicle realism pass (on `dev`): vehicle shaders, the player's
   reflection probe, indicators, calipers, grime, contact shadow, the paint
   damage layer and cracked-glass pattern. §3, §6, §7, §9, §10, §12, §13, §14,
-  §24, §27 and §31 updated.
+  §24, §27 and §31 updated; §33 (vehicle sound) added.

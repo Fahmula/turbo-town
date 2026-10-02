@@ -552,6 +552,7 @@ func _bench(game: Game) -> void:
 	await _measure("18 cars, all scripts off", 5.0)
 	await _bench_spawns(game)
 	await _bench_render(game)
+	await _bench_drive(game)
 
 
 ## Draw calls and render time from the chase camera on the highway, with and
@@ -1954,15 +1955,21 @@ func _spawncheck(game: Game) -> void:
 	dmg._break_headlights()
 	dmg._detach("FrontBumper")
 	var dented := dmg._meshes[0].mesh != dmg._sources[0]
+	var players_before := car.get_node("Audio").find_children("*", "AudioStreamPlayer3D", false, false).size()
 	tm._despawn(d1)
 	await _wait(2)
 	var d2 := tm.spawn_near(tm.car_scenes[1], Vector3(60, 0, -120))
 	var drivers_on_car := car.find_children("*", "TrafficDriver", false, false).size()
-	var sounds := car.find_children("*", "AudioStreamPlayer3D", false, false).size()
+	# One VehicleAudio (traffic detail), with as many players as before: reuse
+	# mustn't stack up sounds.
+	var audios := car.find_children("*", "VehicleAudio", false, false)
+	var players := (audios[0] as Node).find_children("*", "AudioStreamPlayer3D", false, false).size() if audios.size() == 1 else -1
+	var sounds_ok := audios.size() == 1 and (audios[0] as VehicleAudio).detail == VehicleAudio.Detail.LITE and players == players_before
 	_check(d2.vehicle == car, "the same sedan was reused")
 	_check(dented and dmg._meshes[0].mesh == dmg._sources[0] and not dmg.headlights_broken and dmg.total_damage == 0.0
 		and dmg._parts["FrontBumper"]["debris"] == null, "reused car is repaired (dents, lights, bumper)")
-	_check(drivers_on_car == 1 and sounds == 3 and car.visible, "one driver, one set of sounds (%d, %d)" % [drivers_on_car, sounds])
+	_check(drivers_on_car == 1 and sounds_ok and car.visible, "one driver, one set of sounds (%d drivers, %d sound players, %d before)" % [
+		drivers_on_car, players, players_before])
 	await _wait_s(3.0)
 	_check(is_instance_valid(d2) and d2.state == TrafficDriver.State.DRIVING and car.speed_kmh > 10.0,
 		"reused car drives off (%.0f km/h)" % car.speed_kmh)
@@ -2612,6 +2619,8 @@ func _audio(game: Game) -> void:
 	_audio_watch = audio
 	VehicleAudio.on_shot = func(path: String, _pos: Vector3) -> void:
 		_audio_events.append("%.2f shot %s" % [_audio_t, path.get_file()])
+	VehicleAudio.on_voice = func(path: String, what: String) -> void:
+		_audio_events.append("%.2f voice %s %s" % [_audio_t, what, path.get_file()])
 	audio.start_engine()
 	_audio_events.append("0.00 startup")
 	var phases := [
@@ -2662,8 +2671,21 @@ func _audio(game: Game) -> void:
 	_audio_seen["shot"] = false
 	await _ram_wall(game, 55.0)
 	_check(shots[0] > 0 and _audio_seen.get("shot", false), "crash plays impact sounds (%d impacts)" % shots[0])
+	# Pausing (menus) silences vehicle sound.
+	await _wait_s(1.0)
+	get_tree().paused = true
+	await _wait_s(0.3)
+	var playing := 0
+	for p in get_tree().root.find_children("*", "AudioStreamPlayer3D", true, false):
+		var pl := p as AudioStreamPlayer3D
+		if pl.playing and not pl.stream_paused and pl.can_process():
+			playing += 1
+	var level := AudioServer.get_bus_peak_volume_left_db(0, 0)
+	get_tree().paused = false
+	_check(playing == 0 and level < -50.0, "paused game is silent (%d players running, master %.0f dB)" % [playing, level])
 	_audio_watch = null
 	VehicleAudio.on_shot = Callable()
+	VehicleAudio.on_voice = Callable()
 	rec.set_recording_active(false)
 	var wav := rec.get_recording()
 	if wav:
@@ -2731,3 +2753,88 @@ func _audio_traffic(game: Game) -> void:
 	_check(director != null and max_voiced <= AudioDirector.MAX_VOICES, "traffic engine voices within budget (%d cars, at most %d voiced, budget %d)" % [
 		tm.drivers.size(), max_voiced, AudioDirector.MAX_VOICES])
 	_check(max_players <= AudioDirector.MAX_VOICES * 3 + 6, "traffic players playing at once: %d" % max_players)
+
+
+## Driving down the city avenue at 80 km/h (the player's reflection probe
+## re-captures every 14 m): render CPU/GPU time and draw calls with the
+## probe on and off. Then, with traffic, the game's CPU use (all threads,
+## from /proc on Linux) with vehicle sound on and with every vehicle's
+## sound stopped: what the sound costs.
+func _bench_drive(game: Game) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var vp := get_viewport().get_viewport_rid()
+	RenderingServer.viewport_set_measure_render_time(vp, true)
+	game.traffic.set_enabled(false)
+	for probe_on in [true, false]:
+		var probe := game.vehicle.get_node_or_null("Reflection")
+		if probe and not probe_on:
+			probe.free()
+		elif probe == null and probe_on:
+			game._fit_reflection()
+		_drive_line(game, Vector3(2.4, 0.0, 150.0), Vector3(2.4, 0.0, -260.0), 80.0, 14.0)
+		await _wait_s(3.0)
+		var st := await _frame_stats(300)
+		print("BENCH drive probe %-3s %4d draw calls (max %d), cpu %.2f ms (peak %.2f), gpu %.2f ms (peak %.2f), car at %.0f km/h" % [
+			"on" if probe_on else "off", st[0], st[5], st[1], st[2], st[3], st[4], game.vehicle.speed_kmh])
+		await _wait_s(4.0)
+	game._fit_reflection()
+	# Sound cost, with traffic around.
+	game.traffic.set_enabled(true)
+	game.teleport_to(0)
+	await _wait_s(8.0)
+	for sound_on in [true, false]:
+		var audios := get_tree().root.find_children("Audio", "VehicleAudio", true, false)
+		for a in audios:
+			(a as VehicleAudio).set_process(sound_on)
+			if not sound_on:
+				for p in (a as Node).find_children("*", "AudioStreamPlayer3D", false, false):
+					(p as AudioStreamPlayer3D).stop()
+		_drive_line(game, Vector3(2.4, 0.0, 150.0), Vector3(2.4, 0.0, -260.0), 60.0, 12.0)
+		await _wait_s(1.0)
+		var voices := 0
+		for p in get_tree().root.find_children("*", "AudioStreamPlayer3D", true, false):
+			if (p as AudioStreamPlayer3D).playing and not (p as AudioStreamPlayer3D).stream_paused:
+				voices += 1
+		var c0 := _cpu_seconds()
+		var t0 := Time.get_ticks_usec()
+		await _wait_s(8.0)
+		var cpu := (_cpu_seconds() - c0) / ((Time.get_ticks_usec() - t0) / 1e6)
+		print("BENCH sound %-3s %d players playing, game process cpu %.2f cores" % ["on" if sound_on else "off", voices, cpu])
+	for a in get_tree().root.find_children("Audio", "VehicleAudio", true, false):
+		(a as VehicleAudio).set_process(true)
+
+
+## [draw calls, cpu ms, cpu peak, gpu ms, gpu peak, draw calls peak] over
+## `frames` frames.
+func _frame_stats(frames: int) -> Array:
+	var vp := get_viewport().get_viewport_rid()
+	var calls := 0
+	var cpu := 0.0
+	var gpu := 0.0
+	var cpu_peak := 0.0
+	var gpu_peak := 0.0
+	var calls_peak := 0
+	for k in frames:
+		await RenderingServer.frame_post_draw
+		var c_calls := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+		calls += c_calls
+		calls_peak = maxi(calls_peak, c_calls)
+		var c := RenderingServer.viewport_get_measured_render_time_cpu(vp) + RenderingServer.get_frame_setup_time_cpu()
+		var g := RenderingServer.viewport_get_measured_render_time_gpu(vp)
+		cpu += c
+		gpu += g
+		cpu_peak = maxf(cpu_peak, c)
+		gpu_peak = maxf(gpu_peak, g)
+	return [calls / frames, cpu / frames, cpu_peak, gpu / frames, gpu_peak, calls_peak]
+
+
+## This process's CPU time so far (user + system, all threads), Linux only.
+func _cpu_seconds() -> float:
+	var f := FileAccess.open("/proc/self/stat", FileAccess.READ)
+	if f == null:
+		return 0.0
+	# procfs files report size 0, so read the line rather than the "whole file".
+	var parts := f.get_line().split(") ")[1].split(" ")
+	# Fields 14 and 15 (utime, stime) are parts 11 and 12 after the comm field.
+	return (float(parts[11]) + float(parts[12])) / 100.0

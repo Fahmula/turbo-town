@@ -22,6 +22,23 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - Cars get dusty driving on dirt; the buggy and monster truck start a bit
   dusty.
 
+### Sound
+- All-new engine sounds: every vehicle has a real engine recording that
+  follows the revs and the throttle — a straight six in the sports car, a V8
+  in the pickup, a big hot-rod V8 in the monster truck, diesels in the truck
+  and bus, a buzzy flat four in the buggy. Engines start up when you get in.
+- Turbo whistle and blow-off, crackles when you lift off, gear changes, air
+  brakes and reversing beepers on the truck and bus, a different horn for
+  each kind of vehicle.
+- Tyres roar on the road, crunch on gravel and squeal in slides; wind at
+  speed; bodywork grinds when you slide on the roof.
+- Crashes sound like crashes: thumps, crunches and big smashes depending on
+  how hard you hit, clangs on lamp posts, cones and crates sound like what
+  they are, windows shatter, bits clatter off.
+- Traffic cars rumble past (with a whoosh as they go by), honk, and crash
+  with real sounds. Driving through the tunnel echoes.
+- New CREDITS page in the menus.
+
 ## [0.5.0] - 2026-10-01
 
 ### Looks

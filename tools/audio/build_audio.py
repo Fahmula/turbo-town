@@ -58,6 +58,8 @@ def write(rel, x, loop=False, rate=dsp.RATE):
 def fetch(src):
     """Downloads a source once (cached), checks its SHA-256, returns its path."""
     CACHE.mkdir(parents=True, exist_ok=True)
+    # Inside the project folder: keep Godot from importing the raw downloads.
+    (CACHE / ".gdignore").touch()
     path = CACHE / src["file"]
     if not path.exists():
         print("  downloading", src["url"])
@@ -82,7 +84,6 @@ def build_synth():
     for k in range(4):
         write("engine/pop_%d.wav" % (k + 1), synth.exhaust_pop(200 + k))
     write("engine/shift.wav", synth.shift_clunk())
-    write("brake/air_1.wav", synth.air_brake())
     for k, f in enumerate((3150, 3650, 4300)):
         write("brake/squeal_%d.wav" % (k + 1), synth.brake_squeal(f, 300 + k))
     for k in range(4):
@@ -91,14 +92,10 @@ def build_synth():
         write("suspension/land_%d.wav" % (k + 1), synth.knock(500 + k, heavy=True))
     for k in range(2):
         write("body/splash_%d.wav" % (k + 1), synth.splash(600 + k))
-    # Fallbacks, replaced by recordings in recorded.py where we have good ones.
+    # Road roar: no licensed recording without an engine in it (see
+    # ASSET_MANIFEST.md); squeal, gravel and horns come from recordings
+    # (recorded.py; synth.tyre_squeal, gravel_roll and horn stay as fallbacks).
     write("tyre/roll_asphalt.wav", synth.road_roar(), loop=True, rate=32000)
-    write("tyre/roll_gravel.wav", synth.gravel_roll(), loop=True, rate=32000)
-    write("tyre/skid_gravel.wav", synth.gravel_roll(3.0, seed=37) * 1.2, loop=True, rate=32000)
-    write("tyre/squeal.wav", synth.tyre_squeal(), loop=True, rate=32000)
-    write("horn/car.wav", synth.horn([415, 520]), loop=True)
-    write("horn/air.wav", synth.horn([185, 233, 277], formants=((900, 1.5, 1.0), (2200, 2.5, 0.6)), brass=1.0), loop=True)
-    write("horn/small.wav", synth.horn([620], formants=((2000, 2.0, 1.0),)), loop=True)
 
 
 # --------------------------------------------------------- Godot imports --

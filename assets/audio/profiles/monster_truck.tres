@@ -16,7 +16,7 @@
 [ext_resource type="AudioStream" path="res://assets/audio/engine/v8_big/startup.wav" id="14"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/supercharger_whine.wav" id="15"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/shift.wav" id="16"]
-[ext_resource type="AudioStream" path="res://assets/audio/horn/air.wav" id="17"]
+[ext_resource type="AudioStream" path="res://assets/audio/horn/air_big.wav" id="17"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/pop_1.wav" id="18"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/pop_2.wav" id="19"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/pop_3.wav" id="20"]
@@ -36,11 +36,11 @@ whine_rpm = 5200.0
 whine_volume_db = -18.0
 pops_volume_db = -8.0
 shift_volume_db = -14.0
-horn_volume_db = -3.0
-horn_pitch = 0.82
+horn_volume_db = -5.0
+horn_pitch = 1.15
 size = 2.6
 startup = ExtResource("14")
-startup_catch = 1.42
+startup_catch = 1.09
 whine = ExtResource("15")
 shift = ExtResource("16")
 horn = ExtResource("17")

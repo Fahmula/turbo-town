@@ -510,13 +510,13 @@ func _start_engine(v: Vehicle) -> void:
 		audio.start_engine()
 
 
-## Real reflections in the player car's paint and glass on Medium and High
-## (VehicleReflection); Low keeps the sky-only reflections.
+## Real reflections in the player car's paint and glass on High
+## (VehicleReflection); Medium and Low keep the sky-only reflections.
 func _fit_reflection() -> void:
 	if vehicle == null:
 		return
 	var probe := vehicle.get_node_or_null("Reflection") as VehicleReflection
-	var want: bool = Settings.get_value("graphics") >= GraphicsQuality.MEDIUM
+	var want: bool = Settings.get_value("graphics") >= GraphicsQuality.HIGH
 	if want and probe == null:
 		probe = VehicleReflection.new()
 		probe.vehicle = vehicle

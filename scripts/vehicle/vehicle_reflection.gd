@@ -12,12 +12,13 @@ extends ReflectionProbe
 ## `min_interval` seconds. The box is big enough that the car stays inside
 ## it between captures. Only vehicles receive it (`reflection_mask`), so
 ## traffic driving through the box gets real reflections too. Only the
-## player's vehicle carries one, and only on Medium and High.
+## player's vehicle carries one, and only on High (Medium and Low keep the
+## sky reflections).
 
 ## Metres the car may drive from the last capture before a new one.
-@export var move_threshold := 14.0
+@export var move_threshold := 20.0
 ## Seconds between captures, at least.
-@export var min_interval := 0.9
+@export var min_interval := 1.2
 
 var vehicle: Vehicle
 var _since := 0.0
@@ -34,7 +35,9 @@ func _init() -> void:
 	enable_shadows = false
 	intensity = 1.0
 	blend_distance = 4.0
-	max_distance = 160.0
+	# Near surroundings only: each capture renders six views, so keep them
+	# small (the Deck's CPU pays per object drawn).
+	max_distance = 90.0
 	# Cheaper captures: far LODs and only the world (layer 1, not cars).
 	mesh_lod_threshold = 8.0
 	cull_mask = 1

@@ -34,6 +34,9 @@ enum Detail { FULL, LITE }
 var audible := true
 ## Dev tests: called with (sound path, world position) for every one-shot.
 static var on_shot := Callable()
+## Dev tests: called with (sound path, "start" / "resume" / "pause") when a
+## loop starts or stops.
+static var on_voice := Callable()
 var vehicle: Vehicle
 
 const SPEED_OF_SOUND := 343.0
@@ -108,6 +111,7 @@ func _exit_tree() -> void:
 		var pl := p as AudioStreamPlayer3D
 		pl.stream_paused = false
 		pl.stop()
+		pl.set_meta("starting", false)
 
 
 ## Switches between the player's FULL sound and traffic's LITE sound.
@@ -204,6 +208,21 @@ func _build() -> void:
 		_add_loop("beeper", VehicleSoundBank.loop(VehicleSoundBank.BEEPER))
 	for k in SHOTS[detail]:
 		_shots.append(_player(null, false))
+	if full:
+		_prime.call_deferred()
+
+
+## The player's loops start once, silently, and pause themselves 0.15 s later
+## (_drive): from then on every start is a resume from silence, the path that
+## measured click-free.
+func _prime() -> void:
+	if not is_inside_tree():
+		return
+	for p in _on + _off + Array(_loops.values()):
+		var pl := p as AudioStreamPlayer3D
+		if pl.stream and not pl.playing:
+			pl.volume_db = -80.0
+			pl.play(_rng.randf() * pl.stream.get_length())
 
 
 func _add_loop(key: String, stream: AudioStream) -> void:
@@ -462,8 +481,14 @@ func _update_extras(dt: float) -> void:
 # ---------------------------------------------------------------- impacts --
 
 func _on_impact(strength: float, pos: Vector3, _normal: Vector3) -> void:
-	if detail == Detail.LITE and _listener_distance() > 130.0:
-		return
+	if detail == Detail.LITE:
+		if _listener_distance() > 130.0:
+			return
+		# Hit by the player's car: its own sound plays the crash once.
+		var other := vehicle.last_impact_collider as Vehicle
+		var other_audio := other.get_node_or_null("Audio") as VehicleAudio if other else null
+		if other_audio and other_audio.detail == Detail.FULL:
+			return
 	var mass_scale := maxf(vehicle.mass / 1300.0, 1.0)
 	var s := clampf(strength / (26000.0 * mass_scale), 0.0, 1.0)
 	if _impact_cooldown > 0.0 and s < 0.5:
@@ -484,7 +509,7 @@ func _on_impact(strength: float, pos: Vector3, _normal: Vector3) -> void:
 				_shot_at(VehicleSoundBank.pick("impact/crunch", _rng), pos, vol, pitch)
 			else:
 				_shot_at(VehicleSoundBank.pick("impact/crash", _rng), pos, vol, pitch)
-				_shot_at(VehicleSoundBank.pick("impact/metal", _rng), pos, vol - 5.0, pitch * 0.9)
+				_shot_at(VehicleSoundBank.pick("impact/deform", _rng), pos, vol - 5.0, pitch * 0.9)
 
 
 func _on_landed(airtime: float) -> void:
@@ -567,7 +592,9 @@ func _own(stream: AudioStream) -> AudioStream:
 	if stream == null:
 		return null
 	if not _copies.has(stream):
-		_copies[stream] = stream.duplicate()
+		var copy := stream.duplicate() as AudioStream
+		copy.resource_name = stream.resource_path.get_file()
+		_copies[stream] = copy
 	return _copies[stream]
 
 
@@ -605,20 +632,31 @@ func _drive(p: AudioStreamPlayer3D, gain: float, pitch: float, instant := false)
 			p.set_meta("quiet", quiet)
 			if quiet >= PAUSE_AFTER:
 				p.stream_paused = true
+				if on_voice.is_valid():
+					on_voice.call(p.stream.resource_name, "pause %s %d" % [vehicle.name, get_instance_id()])
 		p.set_meta("ramp", 0.0)
 		return
 	p.set_meta("quiet", 0.0)
 	p.pitch_scale = clampf(pitch, 0.05, 4.0)
+	# play() only takes effect on the player's next physics tick (until then
+	# `playing` is still false): don't start it twice.
+	if p.get_meta("starting", false):
+		if not p.playing:
+			return
+		p.set_meta("starting", false)
 	if not p.playing or p.stream_paused:
 		p.set_meta("ramp", 0.0)
 		p.volume_db = -80.0
 		if not p.playing:
 			var length := p.stream.get_length() if p.stream else 0.0
 			p.play(0.0 if instant or length <= 0.0 else _rng.randf() * length)
+			p.set_meta("starting", true)
 		else:
 			p.stream_paused = false
 			if instant:
 				p.seek(0.0)
+		if on_voice.is_valid():
+			on_voice.call(p.stream.resource_name, "start %s %d" % [vehicle.name, get_instance_id()])
 		return
 	var ramp := minf(float(p.get_meta("ramp", 1.0)) + dt / FADE_IN, 1.0)
 	p.set_meta("ramp", ramp)

@@ -14,7 +14,7 @@
 #include "res://assets/shaders/vehicle/vehicle_common.gdshaderinc"
 
 uniform vec4 tint : source_color = vec4(0.118, 0.157, 0.2, 1.0);
-uniform float base_alpha : hint_range(0.0, 1.0) = 0.62;
+uniform float base_alpha : hint_range(0.0, 1.0) = 0.7;
 uniform float crack : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 crack_center = vec3(0.0);
 // Size of the web (m).

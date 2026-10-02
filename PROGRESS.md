@@ -31,7 +31,8 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 ### Presentation
 - [x] Stylized sports car model with spoked wheels (Blender script)
 - [x] HUD: speedometer, gear, RPM, damage %, controls help, air-time popups, flip hint, pause
-- [x] Synthesized sound: engine, tire squeal, wind, impacts, horn
+- [x] Synthesized sound: engine, tire squeal, wind, impacts, horn (replaced by the layered
+      vehicle sound in 2026-10)
 - [x] Effects: tire smoke, off-road dust, skid marks, impact sparks
 - [x] Cosmetic crash dents (repaired on reset)
 
@@ -177,6 +178,15 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
       (all eight on `body_kit.py` loft bodies, one design language per class; four wheel types;
       `PaintPalette` garage colours + weighted traffic mix; garage racing stripes; dents only touch
       nearby vertices)
+- [x] Vehicle realism pass (dev, 2026-10-02): vehicle shaders (paint with clear coat, metallic flop,
+      grime and a scuff/primer/bare-metal damage layer; glass with a crack web; lamps with night
+      headlights, brake/reverse and amber indicators; honeycomb and slatted grilles; tyres), the player
+      car's reflection probe, brake calipers, contact shadow, traffic turn signals and hazards
+- [x] Vehicle sound (dev, 2026-10-02): layered engine loops by rpm and load (seven engine characters
+      from Stunt Rally 3's CC BY recordings), start-ups, turbo/pops/shifts, air brakes, beepers,
+      horns, tyre roll/squeal/gravel, wind, scraping, crash tiers by strength and material, glass,
+      suspension knocks, splashes, tunnel reverb; traffic voice budget and Doppler; ASSET_MANIFEST.md
+      and an in-game CREDITS page
 - [ ] Vehicle draw-call trim if the Deck needs it: the fleet costs ~+85 draw calls at the highway
       spawn (ART_BIBLE.md §27); candidates: merge Interior into Trim (parked cars are now culled
       beyond 200 m)
@@ -191,7 +201,7 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 ## Known issues
 - The highway/avenue junctions are at grade with traffic lights (no ramps or bridges), so
   highway traffic sometimes stops at a red light.
-- Engine sounds were tuned by measured levels, not by ear.
+- Vehicle sounds were balanced by measured levels (recordings analysed offline), not by ear.
 - Headless runs print a harmless "ObjectDB instance leaked" warning at exit.
 - Buses and trucks swing a little into the oncoming lane on tight city corners (like real
   ones); rarely this jams an intersection until a stuck car gives up and is removed.
@@ -222,3 +232,5 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
   spine and north overpass; sky shader clouds and neutral daytime shadows for the whole map.
 - 2026-10-01 — Environment upgrade rolled out to the whole island (dev, owner approved): landmarks, stunt
   park, props, palms, sea; legacy world code removed.
+- 2026-10-02 — Vehicle realism and sound (dev): vehicle shaders and reflections, indicators, damage
+  layer; layered engine sound and a new crash/tyre/horn soundscape from licensed recordings.

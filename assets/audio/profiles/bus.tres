@@ -17,7 +17,7 @@
 [ext_resource type="AudioStream" path="res://assets/audio/engine/turbo_whine.wav" id="15"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/shift.wav" id="16"]
 [ext_resource type="AudioStream" path="res://assets/audio/brake/air_1.wav" id="17"]
-[ext_resource type="AudioStream" path="res://assets/audio/horn/air.wav" id="18"]
+[ext_resource type="AudioStream" path="res://assets/audio/horn/car.wav" id="18"]
 
 [resource]
 script = ExtResource("1")
@@ -32,11 +32,11 @@ load_gain_db = 4.0
 whine_rpm = 3500.0
 whine_volume_db = -22.0
 shift_volume_db = -14.0
-horn_volume_db = -4.0
-horn_pitch = 0.94
+horn_volume_db = -3.0
+horn_pitch = 0.78
 size = 4.0
 startup = ExtResource("14")
-startup_catch = 1.7200000000000002
+startup_catch = 1.67
 whine = ExtResource("15")
 shift = ExtResource("16")
 air_brake = ExtResource("17")

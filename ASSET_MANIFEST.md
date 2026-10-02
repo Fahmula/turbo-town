@@ -23,8 +23,13 @@ idle loop; heavy crashes have a synthesised low thump mixed in.
 
 > Engine sounds by **CryHam** (Stunt Rally 3), recorded with Engine Simulator,
 > CC BY 4.0. Crash and metal sounds by **Halleck** (freesound.org), edited by
-> CryHam (Stunt Rally 3), CC BY 4.0. Sounds changed for Turbo Town (looped,
-> filtered, mixed, levels).
+> CryHam (Stunt Rally 3), CC BY 4.0. Tyre squeal loop by **Iwan "qubodup"
+> Gabovitch** from a recording by **Tom Haigh (audible-edge)**, CC BY 3.0.
+> "Air Break" and "Window Shattering" by **Mike Koenig** (SoundBible.com),
+> CC BY 3.0. CC0 sounds by Kenney, cognito perceptu, 15HPanska_Ruttner_Jan,
+> HarveyHenkelmann, X5DragonFire, TinyWorlds / Till Behrend, rubberduck and
+> blacklodgegames. Sounds changed for Turbo Town (looped, filtered, mixed,
+> levels).
 
 ## Audio
 
@@ -40,6 +45,18 @@ idle loop; heavy crashes have a synthesised low thump mixed in.
 | Crash hits `crash/01..12.wav` | Stunt Rally 3 (`data/sounds/crash/`, credits in `_crash.txt`), made by CryHam from Halleck's "metal medium hit", "metal hits medium 1", "metal hits light 1", "metal thump", "big metal side impact 1/2", "metal crash 1" ([freesound 121668](https://freesound.org/people/Halleck/sounds/121668/), [121665](https://freesound.org/people/Halleck/sounds/121665/), [121664](https://freesound.org/people/Halleck/sounds/121664/), [121685](https://freesound.org/people/Halleck/sounds/121685/), [121621](https://freesound.org/people/Halleck/sounds/121621/), [121622](https://freesound.org/people/Halleck/sounds/121622/), [121655](https://freesound.org/people/Halleck/sounds/121655/)) | Halleck; edit CryHam | CC BY 4.0 | Credit Halleck and CryHam, licence link, note changes | `https://raw.githubusercontent.com/stuntrally/stuntrally3/0fc4ac9ada5009be68df379940842ce80e31d493/data/sounds/crash/` | `assets/audio/impact/thud_*`, `crunch_*`, `crash_*` (every vehicle's crashes) |
 | "metal screech and scraping" `crash/screech.wav` | [freesound 121677](https://freesound.org/people/Halleck/sounds/121677/) via Stunt Rally 3 | Halleck | CC BY 4.0 | as above | same folder | `assets/audio/body/scrape.wav` (bodywork sliding) |
 | "metal roll cage hits heavy" `crash/scrap.wav` | [freesound 121669](https://freesound.org/people/Halleck/sounds/121669/) via Stunt Rally 3 | Halleck | CC BY 4.0 | as above | same folder | `assets/audio/impact/metal_*` (metal deformation on big crashes) |
+| Kenney "Impact Sounds" 1.0: `impactGeneric_light`, `impactSoft_medium`, `impactWood_medium`, `impactPlank_medium`, `impactMetal_medium`, `impactPlate_heavy`, `impactPlate_light`, `impactTin_medium`, `impactGlass_heavy/medium/light` (`_000`–`_004`) | [kenney.nl/assets/impact-sounds](https://kenney.nl/assets/impact-sounds) | Kenney (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | None required (credited anyway) | `https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip` | `assets/audio/impact/plastic_*`, `wood_*`, `metal_*`, `debris_*` (hitting props, parts falling off); `glass_*` and `tinkle_*` are cascades built from the glass hits (windows and lamps breaking) |
+| "Car tire squeal skid loop" `tires_squal_loop.wav` | [OpenGameArt](https://opengameart.org/content/car-tire-squeal-skid-loop) | Iwan "qubodup" Gabovitch, from a recording by Tom Haigh (audible-edge) | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) | "Tire squeal loop by Iwan 'qubodup' Gabovitch from a recording by Tom Haigh (audible-edge), CC BY 3.0", note changes | `https://opengameart.org/sites/default/files/tires_squal_loop.wav` | `assets/audio/tyre/squeal.wav` (every vehicle's tyre squeal) |
+| "gravel drive" `gravel.wav` | [Freesound 97605](https://freesound.org/people/cognito%20perceptu/sounds/97605/), redistributed by Trigger Rally (`doc/DATA_AUTHORS.txt`: "CC0, PD") | cognito perceptu | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | none | `https://svn.code.sf.net/p/trigger-rally/code/data/sounds/gravel.wav` | `assets/audio/tyre/roll_gravel.wav`, `skid_gravel.wav` (driving and sliding on dirt) |
+| "Car Horn" `Car_Horn.wav` | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Car_Horn.wav) (from Freesound 461679) | 15HPanska_Ruttner_Jan | CC0 1.0 | none | `https://upload.wikimedia.org/wikipedia/commons/8/8c/Car_Horn.wav` | `assets/audio/horn/car.wav` (cars, van, pickup; pitched for the bus and buggy) |
+| "WABCO E2" air horn | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:WABCO_E2.ogg) | HarveyHenkelmann | CC0 1.0 | none | `https://upload.wikimedia.org/wikipedia/commons/8/8a/WABCO_E2.ogg` | `assets/audio/horn/air.wav` (delivery truck) |
+| "Leslie S-3L" air horn | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Leslie_S-3L.ogg) | HarveyHenkelmann | CC0 1.0 | none | `https://upload.wikimedia.org/wikipedia/commons/9/9c/Leslie_S-3L.ogg` | `assets/audio/horn/air_big.wav` (monster truck) |
+| "1997AccordSE enginestart" (the starter crank, 0.1–0.47 s) | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:1997AccordSE_enginestart.ogg) | X5DragonFire | CC0 1.0 | none | `https://upload.wikimedia.org/wikipedia/commons/3/3d/1997AccordSE_enginestart.ogg` | the crank in every `assets/audio/engine/*/startup.wav` |
+| "Air Break" (SoundBible 525, the hiss at 2.65–4.4 s) | [soundbible.com/525-Air-Break.html](https://soundbible.com/525-Air-Break.html) | Mike Koenig | CC BY 3.0 | "'Air Break' by Mike Koenig, SoundBible.com, CC BY 3.0", note changes | `https://soundbible.com/grab.php?id=525&type=wav` | `assets/audio/brake/air_1.wav` (truck and bus air brakes) |
+| "Window Shattering" (SoundBible 392) | [soundbible.com/392-Window-Shattering.html](https://soundbible.com/392-Window-Shattering.html) | Mike Koenig | CC BY 3.0 | "'Window Shattering' by Mike Koenig, SoundBible.com, CC BY 3.0", note changes | `https://soundbible.com/grab.php?id=392&type=wav` | `assets/audio/impact/glass_1.wav`, `glass_2.wav` (windows breaking) |
+| "glass_breaking.wav" | [OpenGameArt](https://opengameart.org/content/glass-break) | TinyWorlds (with permission of Till Behrend) | CC0 1.0 | none | `https://opengameart.org/sites/default/files/glass_breaking.wav` | `assets/audio/impact/glass_3.wav` |
+| "75 CC0 breaking / falling / hit sfx": `bfh1_glass_breaking_01..06.ogg` | [OpenGameArt](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) | rubberduck | CC0 1.0 | none | `https://opengameart.org/sites/default/files/sfx_breaking_and_falling.zip` | `assets/audio/impact/glass_4..6.wav`, `tinkle_1..3.wav` (windows and lamps breaking) |
+| "27 Metal Audio Samples": `dull_metal_collision_01,03,04,05,06,07,09,10,12,13` | [OpenGameArt](https://opengameart.org/content/27-metal-audio-samples-sfx) (`cc0_license.txt` in the pack) | blacklodgegames | CC0 1.0 | none | `https://opengameart.org/sites/default/files/27-Metal-Audio-Samples-blacklodgegames.com_.zip` | `assets/audio/impact/thud_4..6`, `crunch_4..7`, `deform_5..7` |
 
 Stunt Rally 3's code is GPL-3.0, but its sound files carry their own
 licences, recorded per file in `data/sounds/_sounds.txt` and `_crash.txt`.
@@ -49,10 +66,22 @@ Only files listed there as CC BY 4.0 or CC0 are used. Its older VDrift sounds
 ## Made by this project
 
 Synthesised by `tools/audio/synth.py` (no third-party material): reverse
-beeper, wind, road roar, gravel roll and slide, tyre squeal (fallback), turbo
-and supercharger whine, blow-off, exhaust pops, gear-shift clunk, air brakes,
-brake squeal, suspension knocks and landings, splashes, horns, the starter
-crank in every start-up.
+beeper, wind, road roar on asphalt, turbo and supercharger whine, blow-off,
+exhaust pops, gear-shift clunk, brake squeal, suspension knocks and landings,
+splashes. (Fallbacks kept in the script but not used: tyre squeal, gravel,
+horns, air brakes.) The engine start-ups mix the recorded starter crank with
+each engine's own idle loop; the glass shatters `glass_7-8` and `tinkle_4-5`
+are cascades built from Kenney's glass hits.
+
+## Sources considered and not used
+
+Recorded by the research for this pass and left out: BigSoundBank (CC0, but
+its download goes through an anti-bot form, so nothing was fetched
+automatically), Freesound (login needed), every CC BY-SA / NC / GPL /
+"personal use only" item (e.g. SuperTuxKart's crashes and engines, VDrift's
+tyre sounds, OpenGameArt's BY-SA engine packs), archive.org uploads of
+unclear origin, and recordings with engines or traffic mixed into the road
+noise.
 
 Models, textures and shaders: generated by `tools/blender/`, `tools/textures/`
 and the code in `scripts/` and `assets/shaders/`.

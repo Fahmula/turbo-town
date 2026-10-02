@@ -17,7 +17,7 @@
 [ext_resource type="AudioStream" path="res://assets/audio/engine/flat4/off_8000.wav" id="15"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/flat4/startup.wav" id="16"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/shift.wav" id="17"]
-[ext_resource type="AudioStream" path="res://assets/audio/horn/small.wav" id="18"]
+[ext_resource type="AudioStream" path="res://assets/audio/horn/car.wav" id="18"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/pop_1.wav" id="19"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/pop_2.wav" id="20"]
 [ext_resource type="AudioStream" path="res://assets/audio/engine/pop_3.wav" id="21"]
@@ -36,9 +36,10 @@ load_gain_db = 5.0
 pops_volume_db = -12.0
 shift_volume_db = -18.0
 horn_volume_db = -6.0
+horn_pitch = 1.4
 size = 0.8
 startup = ExtResource("16")
-startup_catch = 1.42
+startup_catch = 1.09
 shift = ExtResource("17")
 horn = ExtResource("18")
 pops = Array[AudioStream]([ExtResource("19"), ExtResource("20"), ExtResource("21"), ExtResource("22")])

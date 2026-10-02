@@ -87,11 +87,16 @@ scenes/
 scripts/
   vehicle/   vehicle.gd (engine, gearbox, steering, assists), vehicle_wheel.gd
              (raycast suspension + tire model), player_vehicle_controller.gd (input),
-             vehicle_body_visual.gd, vehicle_audio.gd, vehicle_effects.gd, vehicle_damage.gd,
+             vehicle_body_visual.gd (materials, lamps, indicators, grime, contact shadow),
+             vehicle_reflection.gd (the player car's reflection probe), vehicle_audio.gd,
+             vehicle_effects.gd, vehicle_damage.gd,
              vehicle_catalog.gd (the garage's vehicle list, blurbs, star ratings, colours)
+  vehicle/audio/  vehicle_sound_profile.gd (what a vehicle class sounds like),
+             vehicle_sound_bank.gd (shared tyre/crash/glass sounds), audio_director.gd
+             (traffic voice budget, Doppler)
   traffic/   traffic_network.gd (lane graph built from the roads, turn curves,
              junctions, U-turns), traffic_manager.gd (spawning, signal timing),
-             traffic_driver.gd (AI driver), traffic_light_prop.gd, traffic_audio.gd
+             traffic_driver.gd (AI driver, turn signals), traffic_light_prop.gd
   camera/    chase_camera.gd
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
              landmark builders, building_kit.gd / street_kit.gd / tree_kit.gd (the
@@ -114,8 +119,10 @@ scripts/
              autoload: saved player settings), records.gd (Records autoload:
              best combos, biggest air...)
   dev/       autotest.gd, dev_tools.gd, audio_check.gd (testing helpers)
-assets/      models (.glb from Blender), shaders (world_common.gdshaderinc is shared),
-             materials (env/ = the world's materials), textures (generated)
+assets/      models (.glb from Blender), shaders (world_common.gdshaderinc is shared;
+             vehicle/ = car paint, glass, lamps, trim, tyres), materials (env/ = the
+             world's materials), textures (generated), audio (built by tools/audio/;
+             profiles/ = one VehicleSoundProfile per vehicle)
 tools/blender/make_car.py      Sports car body:  blender -b -P tools/blender/make_car.py
 tools/blender/make_sedan.py    Sedan (same command for every script)
 tools/blender/make_van.py      Van
@@ -127,6 +134,10 @@ tools/blender/make_monster.py  Monster truck
 tools/blender/make_wheels.py   All four wheel types (sports, sedan, steel, off-road)
 tools/blender/body_kit.py      Shared loft body builder and modelling helpers
 tools/textures/make_textures.py  Ground detail, cloud and leaf textures:  python3 tools/textures/make_textures.py
+tools/audio/build_audio.py     Every sound in assets/audio/ (downloads the licensed recordings,
+                               makes loops, synthesises the rest, writes the profiles):
+                               python3 tools/audio/build_audio.py
+ASSET_MANIFEST.md              Every third-party asset: source, creator, licence, attribution
 ```
 
 ## How things work
@@ -176,6 +187,24 @@ tools/textures/make_textures.py  Ground detail, cloud and leaf textures:  python
   was hit and the glass cracks when the car is badly smashed; a smashed front
   costs up to half the engine power, pulls the steering slightly and smokes.
   Any reset (R, respawn, teleport, garage) repairs the car.
+* **Vehicle looks**: the models' materials are swapped by name for the vehicle
+  shaders (`assets/shaders/vehicle/`): car paint with a clear coat, metallic
+  flop, road grime and a damage layer (scuffs, primer and bare metal written
+  into vertex colours by `VehicleDamage`), glass with a crack web, lamps
+  (headlights on at night, brake, reverse, amber indicators), grilles and
+  tyres. The player's car reflects its real surroundings on Medium/High
+  (`VehicleReflection`, a probe re-captured every 14 m). Traffic signals before
+  turns and lane changes and puts its hazards on after a crash.
+* **Vehicle sound** (`vehicle_audio.gd`): each vehicle's `VehicleSoundProfile`
+  holds steady engine loops recorded at known rpm, on and off load; the two
+  either side of the current rpm play pitched to it and crossfade, blended by
+  throttle load, plus start-up, turbo, pops, shifts, air brakes, beepers and a
+  horn. Shared sounds (`VehicleSoundBank`): tyre roll per surface, squeal,
+  gravel, wind, scraping, crash tiers by strength and what was hit, glass,
+  suspension knocks, splashes; reverb in tunnels. Traffic uses a lighter
+  version and the `AudioDirector` lets only the nearest 6 cars play their
+  loops (with Doppler). Sources and licences: [ASSET_MANIFEST.md](ASSET_MANIFEST.md);
+  CREDITS in the menus.
 * **Replay** (`scripts/game/replay.gd`): records the player's body and wheel
   transforms and nearby traffic 60 times a second (10 s ring buffer), then
   poses them from the recording while the tree is paused and puts the live
@@ -203,13 +232,20 @@ tools/textures/make_textures.py  Ground detail, cloud and leaf textures:  python
 
 ## Testing helpers (command line)
 
+Add `--audio-driver Dummy` to any of these to keep them silent (the game still
+mixes its sound, so `--audio` can record it).
+
 ```
 godot --path . --headless --fixed-fps 120 res://scenes/dev/physics_test.tscn -- --autotest=accel
     (scenarios: rest, accel, brake, turn, fastturn, handbrake, jump, wall, rollover)
     add --vehicle=res://scenes/vehicles/bus.tscn to test another vehicle
 godot --path . -- --tour=/tmp/shots     screenshots from spawn points + viewpoints
 godot --path . -- --drive=/tmp/shots    autopilot lap of the highway, park, city, mountain
-godot --path . --headless -s res://scripts/dev/audio_check.gd   engine sound levels
+godot --path . --headless -s res://scripts/dev/audio_check.gd   every vehicle's sound profile loads and covers its rev range
+godot --path . --audio-driver Dummy -- --audio=/tmp/shots   scripted drive recorded to session.wav (+ traffic voice budget);
+    then: python3 tools/audio/check_recording.py /tmp/shots   (clicks, dropouts, clipping, levels)
+godot --path . -- --lookdev=/tmp/shots  every vehicle from fixed cameras, day/sunset/night
+    add --vehicles=a,b --views=front34,rear34,side,wheel,chase,lamps --times=day --damaged
 godot --path . -- --traffic=/tmp/shots  watch traffic 150 s, log speeds/stuck/crashes
 godot --path . -- --rampage=/tmp/shots  player drives wrong-way into traffic
 godot --path . -- --showcase=/tmp/shots one of each traffic vehicle in a filmed convoy

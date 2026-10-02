@@ -84,21 +84,24 @@ def gravel_roll(seconds=4.0, seed=31):
 
 
 def tyre_squeal(seconds=3.0, seed=41):
-    """Fallback squeal: a strained harmonic tone near 1.2 kHz whose pitch and
-    level jitter like rubber stick-slip, with a hiss."""
+    """Fallback squeal: several strained partials (rubber stick-slip at a few
+    contact patches) whose pitch and level wobble independently, over a
+    rubbery hiss; whole thing seamlessly looped."""
     n = int(seconds * R)
-    t = _t(seconds)
     rng = np.random.default_rng(seed)
-    wobble = dsp.lowpass(rng.standard_normal(n).astype(np.float32), 12, 2)
-    wobble = wobble / (np.max(np.abs(wobble)) + 1e-9)
-    f = 1150 * (1.0 + 0.035 * wobble + 0.01 * _lfo(seconds, 21))
-    phase = 2 * np.pi * np.cumsum(f) / R
-    tone = np.sin(phase) + 0.45 * np.sin(2 * phase + 0.3) + 0.2 * np.sin(3 * phase + 1.0)
-    am = 0.75 + 0.25 * dsp.lowpass(rng.standard_normal(n).astype(np.float32), 30, 2) * 4
-    hiss = dsp.bandpass(dsp.noise(n, seed + 2), 1500, 6000)
-    x = dsp.normalize_rms(tone * np.clip(am, 0.2, 1.4), -20) + dsp.normalize_rms(hiss, -30)
-    # Seamless: crossfade the wobbly tone's ends.
-    x = dsp.make_loop(np.concatenate([x, x[:int(0.15 * R)]]), n - int(0.15 * R), int(0.15 * R))
+    x = np.zeros(n)
+    for k, (f0, amp) in enumerate(((1050, 1.0), (1290, 0.7), (1760, 0.45), (2380, 0.3), (880, 0.35))):
+        wob = dsp.lowpass(rng.standard_normal(n).astype(np.float32), 7 + 3 * k, 2)
+        wob = wob / (np.max(np.abs(wob)) + 1e-9)
+        f = f0 * (1.0 + 0.03 * wob)
+        ph = 2 * np.pi * np.cumsum(f) / R + rng.uniform(0, 6.28)
+        am = dsp.lowpass(rng.standard_normal(n).astype(np.float32), 18, 2)
+        am = np.clip(0.6 + 2.5 * am / (np.max(np.abs(am)) + 1e-9), 0.05, 1.5)
+        x += amp * am * (np.sin(ph) + 0.35 * np.sin(2 * ph + 0.5) + 0.12 * np.sin(3 * ph + 1.3))
+    hiss = dsp.peaks(dsp.noise(n, seed + 2), [(2400, 1.5, 1.0), (5200, 2.0, 0.5)])
+    x = dsp.normalize_rms(x.astype(np.float32), -20) + dsp.normalize_rms(hiss, -28)
+    xf = int(0.15 * R)
+    x = dsp.make_loop(np.concatenate([x, x[:xf]]), n - xf, xf)
     return dsp.normalize_rms(x, -18.0)
 
 

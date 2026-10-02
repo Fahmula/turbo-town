@@ -32,6 +32,6 @@ horn_volume_db = -4.0
 horn_pitch = 0.86
 size = 1.4
 startup = ExtResource("14")
-startup_catch = 1.42
+startup_catch = 1.09
 shift = ExtResource("15")
 horn = ExtResource("16")

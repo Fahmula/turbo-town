@@ -33,13 +33,13 @@ PROFILES = {
                       
                       whine="engine/turbo_whine.wav", whine_rpm=4500.0, whine_volume_db=-24.0,
                       shift="engine/shift.wav", shift_volume_db=-14.0, air_brake="brake/air_1.wav", reverse_beeper=True,
-                      horn="horn/air.wav", horn_volume_db=-5.0, horn_pitch=1.08, size=2.4),
+                      horn="horn/air.wav", horn_volume_db=-6.0, horn_pitch=1.12, size=2.4),
     # City bus: a big, low diesel.
     "bus": dict(engine="diesel", rpm_scale=0.6, engine_volume_db=0.0, rpm_gain_db=6.0, load_gain_db=4.0,
                 
                 whine="engine/turbo_whine.wav", whine_rpm=3500.0, whine_volume_db=-22.0,
                 shift="engine/shift.wav", shift_volume_db=-14.0, air_brake="brake/air_1.wav", reverse_beeper=True,
-                horn="horn/air.wav", horn_volume_db=-4.0, horn_pitch=0.94, size=4.0),
+                horn="horn/car.wav", horn_volume_db=-3.0, horn_pitch=0.78, size=4.0),
     # Full-size pickup: a truck V8.
     "pickup": dict(engine="v8_truck", rpm_scale=1.0, engine_volume_db=-1.0, rpm_gain_db=7.0, load_gain_db=5.0,
                    
@@ -50,14 +50,14 @@ PROFILES = {
                   
                   pops=["engine/pop_%d.wav" % k for k in (1, 2, 3, 4)], pops_volume_db=-12.0,
                   shift="engine/shift.wav", shift_volume_db=-18.0,
-                  horn="horn/small.wav", horn_volume_db=-6.0, size=0.8),
+                  horn="horn/car.wav", horn_volume_db=-6.0, horn_pitch=1.4, size=0.8),
     # Monster truck: a big-block hot-rod V8 with a supercharger whine.
     "monster_truck": dict(engine="v8_big", rpm_scale=1.0, engine_volume_db=0.0, rpm_gain_db=7.0, load_gain_db=5.0,
                           
                           whine="engine/supercharger_whine.wav", whine_rpm=5200.0, whine_volume_db=-18.0,
                           pops=["engine/pop_%d.wav" % k for k in (1, 2, 3, 4)], pops_volume_db=-8.0,
                           shift="engine/shift.wav", shift_volume_db=-14.0,
-                          horn="horn/air.wav", horn_volume_db=-3.0, horn_pitch=0.82, size=2.6),
+                          horn="horn/air_big.wav", horn_volume_db=-5.0, horn_pitch=1.15, size=2.6),
 }
 
 SCRIPT = "res://scripts/vehicle/audio/vehicle_sound_profile.gd"
