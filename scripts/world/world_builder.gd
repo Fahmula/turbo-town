@@ -17,22 +17,18 @@ const PROP_SCENES := {
 	"barrel": preload("res://scenes/props/barrel.tscn"),
 	"crate": preload("res://scenes/props/crate.tscn"),
 	"bowling_pin": preload("res://scenes/props/bowling_pin.tscn"),
-	"lamp": preload("res://scenes/props/lamp_post.tscn"),
-	"traffic_light": preload("res://scenes/props/traffic_light.tscn"),
+	"lamp": preload("res://scenes/props/street_lamp.tscn"),
+	"traffic_light": preload("res://scenes/props/traffic_signal.tscn"),
 	"parked_car": preload("res://scenes/props/parked_car.tscn"),
 	"parked_sedan": preload("res://scenes/props/parked_sedan.tscn"),
 	"parked_van": preload("res://scenes/props/parked_van.tscn"),
 	"ramp": preload("res://scenes/props/ramp.tscn"),
-	# New style (ArtZone preview).
-	"street_lamp": preload("res://scenes/props/street_lamp.tscn"),
-	"traffic_signal": preload("res://scenes/props/traffic_signal.tscn"),
 	"hydrant": preload("res://scenes/props/hydrant.tscn"),
 	"bin": preload("res://scenes/props/street_bin.tscn"),
 	"bench": preload("res://scenes/props/bench.tscn"),
 	"cabinet": preload("res://scenes/props/signal_cabinet.tscn"),
 }
-## Legacy props replaced by a new-style scene inside the ArtZone.
-const ENV_PROPS := {"lamp": "street_lamp", "traffic_light": "traffic_signal"}
+
 
 ## Build the map in the editor viewport as well (turn off if the editor gets slow).
 @export var preview_in_editor := true
@@ -62,7 +58,6 @@ func _rebuild_preview() -> void:
 
 func _build() -> void:
 	var t0 := Time.get_ticks_msec()
-	ArtZone.publish()
 	terrain = TerrainBuilder.new()
 	terrain.generate_base()
 	roads = RoadBuilder.new(terrain)
@@ -100,8 +95,6 @@ func _spawn_props(parent: Node3D, list: Array[Dictionary]) -> void:
 			# Mix of parked vehicle types.
 			var r := rng.randf()
 			key = "parked_sedan" if r < 0.45 else ("parked_van" if r < 0.65 else "parked_car")
-		if ENV_PROPS.has(key) and ArtZone.has_point((s["xform"] as Transform3D).origin):
-			key = ENV_PROPS[key]
 		var scene: PackedScene = PROP_SCENES.get(key)
 		if scene == null:
 			push_warning("Unknown prop scene: %s" % key)
@@ -121,6 +114,8 @@ func _spawn_props(parent: Node3D, list: Array[Dictionary]) -> void:
 			(node as TrafficLightProp).axis = s["signal"][1]
 		node.transform = s["xform"]
 		parent.add_child(node)
+		if Engine.is_editor_hint():
+			_editor_mesh(node)
 
 
 ## Props that belong to no particular builder.
@@ -205,3 +200,15 @@ func _define_spawns() -> void:
 		{"name": "Lighthouse", "xform": Transform3D(face.call(Vector3.RIGHT),
 			Vector3(MapLayout.ISLET_CENTER.x + 14.0, terrain.height_at(MapLayout.ISLET_CENTER.x + 14.0, 0.0) + 0.8, 0.0))},
 	]
+
+
+## The street props' scripts don't run in the editor, so give their models
+## the StreetKit mesh here; the map preview then shows lamps, signals,
+## hydrants, cones...
+func _editor_mesh(node: Node) -> void:
+	var kind: Variant = node.get("kind")
+	if kind == null:
+		kind = node.get("kit_kind")
+	var model := node.get_node_or_null("Model") as MeshInstance3D
+	if model and kind is String and kind != "":
+		model.mesh = StreetKit.mesh(kind)

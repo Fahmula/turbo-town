@@ -15,12 +15,12 @@ extends Node
 ##   --night=<dir>    sunset / night / cycle: lights switch, screenshots
 ##   --damage=<dir>   crash tests: parts falling off, broken lights/glass, pull, repair
 ##   --replay=<dir>   pausing freezes everything, instant replay, slow-motion crash cam
-##   --artzone=<dir>  environment art preview: fixed views at day / sunset / night
-##                    and Low / High, plus draw calls per view (add --legacy-art
-##                    for the same views in the old style; --views=a,b limits the
-##                    views, --quick shoots day on High only, --profile hides one
-##                    family of new-style meshes at a time and prints what it cost,
-##                    --stress renders at 2x resolution so fill costs dominate,
+##   --scenery=<dir>  fixed views of the city and the north bridge at day /
+##                    sunset / night and Low / High, plus draw calls, primitives
+##                    and GPU time per view (--views=a,b limits the views,
+##                    --quick shoots day on High only, --profile hides one family
+##                    of meshes at a time and prints what it cost, --stress
+##                    renders at 2x resolution so fill costs dominate,
 ##                    --traffic-on keeps traffic running for the shots)
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
@@ -104,8 +104,8 @@ func _ready() -> void:
 		elif arg.begins_with("--fx="):
 			_mode = "fx"
 			_dir = arg.split("=")[1]
-		elif arg.begins_with("--artzone="):
-			_mode = "artzone"
+		elif arg.begins_with("--scenery="):
+			_mode = "scenery"
 			_dir = arg.split("=")[1]
 	if _mode == "":
 		queue_free()
@@ -187,8 +187,8 @@ func _run() -> void:
 		await _replay(game)
 	elif _mode == "spawncheck":
 		await _spawncheck(game)
-	elif _mode == "artzone":
-		await _artzone(game)
+	elif _mode == "scenery":
+		await _scenery(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -2297,11 +2297,11 @@ func _wait_real(seconds: float) -> void:
 		await get_tree().process_frame
 
 
-## Environment art preview (ArtZone): screenshots from fixed views inside the
-## zone, at day / sunset / night on High and day on Low, with the HUD hidden
-## and traffic off so before/after runs (--legacy-art) match. Prints draw
+## Screenshots from fixed views of the city spine and the north bridge (where
+## the environment upgrade was previewed), at day / sunset / night on High and
+## day on Low, with the HUD hidden and traffic off so runs compare. Prints draw
 ## calls, objects, primitives and GPU time per view (High, day).
-func _artzone(game: Game) -> void:
+func _scenery(game: Game) -> void:
 	var tm := game.traffic
 	var with_traffic := OS.get_cmdline_user_args().has("--traffic-on")
 	tm.set_enabled(with_traffic)
@@ -2373,7 +2373,7 @@ func _artzone(game: Game) -> void:
 						objs += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
 						prims += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
 						gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp_rid)
-					print("ARTZONE %-16s %4d draw calls, %4d objects, %7d primitives, gpu %.2f ms" % [
+					print("SCENERY %-16s %4d draw calls, %4d objects, %7d primitives, gpu %.2f ms" % [
 						view[0], calls / 30, objs / 30, prims / 30, gpu / 30.0])
 				await _shot(tag)
 	cam.set_process(true)
@@ -2396,16 +2396,16 @@ func _render_stats(frames: int) -> Array:
 	return [calls / frames, prims / frames, gpu / frames]
 
 
-## Hides one family of new-style meshes at a time and prints what it cost
+## Hides one family of meshes at a time and prints what it cost
 ## (draw calls, primitives, GPU time) in the current view.
 func _profile_families(game: Game, view: String) -> void:
 	var world := game.world
 	var families := {
-		"facades": func(n: Node) -> bool: return n.name == &"FacadesEnv",
-		"roof_clutter": func(n: Node) -> bool: return n.name == &"BuildingClutterEnv",
-		"paving": func(n: Node) -> bool: return n.name == &"PavingEnv" or n.get_parent().name == &"PavingEnv",
-		"roads_env": func(n: Node) -> bool: return n.get_parent() != null and String(n.get_parent().name).ends_with("Env") and String(n.get_parent().name).contains("Road"),
-		"trees_env": func(n: Node) -> bool: return n is MultiMeshInstance3D and (String(n.name).begins_with("broadleaf") or String(n.name).begins_with("conifer")),
+		"facades": func(n: Node) -> bool: return n.name == &"Facades",
+		"roof_clutter": func(n: Node) -> bool: return n.name == &"Clutter",
+		"paving": func(n: Node) -> bool: return n.get_parent() != null and n.get_parent().name == &"Paving",
+		"roads": func(n: Node) -> bool: return n.get_parent() != null and String(n.get_parent().name) in ["CityRoads", "Highway", "CountryRoads"],
+		"trees": func(n: Node) -> bool: return n is MultiMeshInstance3D and (String(n.name).begins_with("broadleaf") or String(n.name).begins_with("conifer")),
 		"kit_props": func(n: Node) -> bool: return n is MeshInstance3D and (n.get_parent() is KitProp or (n.get_parent() is TrafficLightProp and (n.get_parent() as TrafficLightProp).model == n)),
 		"terrain": func(n: Node) -> bool: return n is MeshInstance3D and String(n.name).begins_with("Chunk_"),
 		"sky_off": func(n: Node) -> bool: return false,

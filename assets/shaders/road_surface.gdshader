@@ -1,5 +1,5 @@
 shader_type spatial;
-// New-style road surface (ART_BIBLE.md §16): asphalt with grain, wear,
+// Road surface (ART_BIBLE.md §16): asphalt with grain, wear,
 // wheel paths, repairs and crack sealing, worn paint markings, and on city
 // streets gutters, manholes, drains and stop lines. Deck sides are concrete.
 //

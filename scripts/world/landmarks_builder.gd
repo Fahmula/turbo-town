@@ -4,7 +4,7 @@ extends RefCounted
 ## One-off landmarks that make the map easier to read: highway sign
 ## gantries, a gas station by the east avenue, the airfield, the tunnel on the
 ## south avenue, the harbour and the lighthouse islet with its bridge.
-## New style (ART_BIBLE.md §15-§17): bevelled and smooth parts on the shared
+## ART_BIBLE.md §15-§17: bevelled and smooth parts on the shared
 ## street props, concrete and paving materials. Colliders are the same boxes
 ## as before, so the landmarks drive exactly as they did.
 

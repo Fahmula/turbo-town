@@ -1,5 +1,5 @@
 shader_type spatial;
-// New-style cast concrete (ART_BIBLE.md §16): Jersey barriers, overpass
+// Cast concrete (ART_BIBLE.md §16): Jersey barriers, overpass
 // piers, girders and fascias, retaining walls. Matte, with fine pores, soft
 // blotches and drip streaks running down vertical faces (more near the top
 // edges, where rain runs off). Texture coordinates come from the world

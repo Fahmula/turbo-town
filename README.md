@@ -94,9 +94,13 @@ scripts/
              traffic_driver.gd (AI driver), traffic_light_prop.gd, traffic_audio.gd
   camera/    chase_camera.gd
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
-             landmark builders, mesh_builder.gd (geometry helper), day_night.gd
-             (sun, sky, lights after dark), night_light.gd, lighthouse_beam.gd
-  props/     prop.gd, ramp.gd (@tool, editable in the editor)
+             landmark builders, building_kit.gd / street_kit.gd / tree_kit.gd (the
+             buildings, street furniture and trees, built in code), mesh_builder.gd
+             (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs),
+             art_palette.gd (world colours), day_night.gd (sun, sky, lights after
+             dark), night_light.gd, lighthouse_beam.gd
+  props/     prop.gd, kit_prop.gd (props whose mesh comes from StreetKit), ramp.gd
+             (@tool, editable in the editor)
   ui/        hud.gd, speedometer.gd, world_map.gd (top-down island picture drawn
              at startup), minimap.gd (round heading-up minimap), big_map.gd (M),
              vehicle_picker.gd (the garage), game_menu.gd
@@ -110,7 +114,8 @@ scripts/
              autoload: saved player settings), records.gd (Records autoload:
              best combos, biggest air...)
   dev/       autotest.gd, dev_tools.gd, audio_check.gd (testing helpers)
-assets/      models (.glb from Blender), shaders, materials
+assets/      models (.glb from Blender), shaders (world_common.gdshaderinc is shared),
+             materials (env/ = the world's materials), textures (generated)
 tools/blender/make_car.py      Sports car body:  blender -b -P tools/blender/make_car.py
 tools/blender/make_sedan.py    Sedan (same command for every script)
 tools/blender/make_van.py      Van
@@ -218,8 +223,8 @@ godot --path . -- --park=/tmp/shots     loop-the-loop (4 vehicles) and the wall-
 godot --path . -- --trail=/tmp/shots    buggy + pickup drive the mountain trail to the summit
 godot --path . -- --landmarks=/tmp/shots drive the tunnel, bridge, runway and a pier (+ views)
 godot --path . -- --night=/tmp/shots    sunset / night / cycle checks and screenshots
-godot --path . -- --artzone=/tmp/shots  environment art preview: fixed views, day/sunset/night, Low/High, draw calls
-    add --legacy-art for the same views in the old style, --views=a,b --quick --stress --profile to narrow/measure
+godot --path . -- --scenery=/tmp/shots  fixed city/bridge views, day/sunset/night, Low/High, draw calls per view
+    add --views=a,b --quick --stress --profile --traffic-on to narrow or measure
 godot --path . -- --damage=/tmp/shots   crash into walls: parts off, lights/glass, pull, power, repair
     add --vehicle=<id> (sedan, van, box_truck, bus, pickup, buggy, monster_truck) to run a main-game test in another vehicle
 godot --path . -- --replay=/tmp/shots   pausing freezes the car, instant replay, crash cam (pass/fail)

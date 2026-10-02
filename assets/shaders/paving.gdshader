@@ -1,5 +1,5 @@
 shader_type spatial;
-// New-style paved ground (ART_BIBLE.md §16): sidewalks, kerbs, plazas, car
+// Paved ground (ART_BIBLE.md §16): sidewalks, kerbs, plazas, car
 // parks and other flat ground inside the city blocks. Patterns are in world
 // space, so pieces of the same surface join without seams.
 //

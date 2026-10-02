@@ -4,10 +4,9 @@ extends RefCounted
 ## Accumulates triangles (with vertex colours and UVs) and turns them into an
 ## ArrayMesh and/or trimesh collision.
 ##
-## The legacy helpers (add_tri, add_quad, add_box, add_prism, add_blob,
-## add_extrusion) flat-shade every triangle. The new-style helpers
-## (add_bevel_box, add_lathe, add_sweep, add_tri_ex) take per-vertex normals,
-## so bevels and round parts shade smoothly while flat faces stay flat
+## add_tri / add_quad make flat faces. The shape helpers (add_bevel_box,
+## add_lathe, add_sweep, add_tri_ex, add_quad_ex) take per-vertex normals, so
+## bevels and round parts shade smoothly while flat faces stay flat
 ## (ART_BIBLE.md §24 "weighted normals" look).
 ##
 ## Winding convention for all helpers: give corners counter-clockwise as seen
@@ -86,111 +85,6 @@ func add_quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, col: Color,
 	add_tri(a, c, d, col, uva, uvc, uvd)
 
 
-## Axis-aligned-in-local-space box, placed by `xform`. `uv_walls` gives wall
-## faces UVs in metres (u along the wall, v up) for the building shader.
-func add_box(xform: Transform3D, size: Vector3, col: Color, uv_walls := false, skip_bottom := true) -> void:
-	var h := size * 0.5
-	var p := [
-		xform * Vector3(-h.x, -h.y, -h.z), xform * Vector3(h.x, -h.y, -h.z),
-		xform * Vector3(h.x, -h.y, h.z), xform * Vector3(-h.x, -h.y, h.z),
-		xform * Vector3(-h.x, h.y, -h.z), xform * Vector3(h.x, h.y, -h.z),
-		xform * Vector3(h.x, h.y, h.z), xform * Vector3(-h.x, h.y, h.z),
-	]
-	var roof_col := col
-	if uv_walls:
-		roof_col.a = 0.0  # tells the building shader "no windows here"
-	# top
-	add_quad(p[7], p[6], p[5], p[4], roof_col)
-	if not skip_bottom:
-		add_quad(p[0], p[1], p[2], p[3], roof_col)
-	var y0 := 0.0
-	var y1 := size.y
-	# +z (south)
-	add_quad(p[3], p[2], p[6], p[7], col, Vector2(0, y0), Vector2(size.x, y0), Vector2(size.x, y1), Vector2(0, y1))
-	# -z (north)
-	add_quad(p[1], p[0], p[4], p[5], col, Vector2(0, y0), Vector2(size.x, y0), Vector2(size.x, y1), Vector2(0, y1))
-	# +x (east)
-	add_quad(p[2], p[1], p[5], p[6], col, Vector2(0, y0), Vector2(size.z, y0), Vector2(size.z, y1), Vector2(0, y1))
-	# -x (west)
-	add_quad(p[0], p[3], p[7], p[4], col, Vector2(0, y0), Vector2(size.z, y0), Vector2(size.z, y1), Vector2(0, y1))
-
-
-## Vertical prism (e.g. tree trunk, pillar) with `sides` faces.
-func add_prism(base: Vector3, radius_bottom: float, radius_top: float, height: float, sides: int, col: Color, cap := true) -> void:
-	for i in sides:
-		var a0 := TAU * i / sides
-		var a1 := TAU * (i + 1) / sides
-		var d0 := Vector3(cos(a0), 0, sin(a0))
-		var d1 := Vector3(cos(a1), 0, sin(a1))
-		var b0 := base + d0 * radius_bottom
-		var b1 := base + d1 * radius_bottom
-		var t0 := base + d0 * radius_top + Vector3.UP * height
-		var t1 := base + d1 * radius_top + Vector3.UP * height
-		add_quad(b1, b0, t0, t1, col)
-		if cap and radius_top > 0.001:
-			add_tri(base + Vector3.UP * height, t1, t0, col)
-
-
-## Low-poly blob (icosahedron-ish via lat/long) for foliage and clouds.
-func add_blob(center: Vector3, radius: Vector3, col: Color, rings := 3, segments := 6, jitter := 0.0, rng: RandomNumberGenerator = null) -> void:
-	var pts: Array = []
-	for r in rings + 1:
-		var row: Array = []
-		var phi := PI * r / rings
-		for s in segments:
-			var th := TAU * s / segments + (0.5 * TAU / segments if r % 2 == 1 else 0.0)
-			var d := Vector3(sin(phi) * cos(th), cos(phi), sin(phi) * sin(th))
-			if jitter > 0.0 and rng and r > 0 and r < rings:
-				d *= 1.0 + rng.randf_range(-jitter, jitter)
-			row.append(center + d * radius)
-		pts.append(row)
-	for r in rings:
-		for s in segments:
-			var s1 := (s + 1) % segments
-			var a: Vector3 = pts[r][s]
-			var b: Vector3 = pts[r][s1]
-			var c: Vector3 = pts[r + 1][s1]
-			var d: Vector3 = pts[r + 1][s]
-			if r == 0:
-				add_tri(a, c, d, col)
-			elif r == rings - 1:
-				add_tri(a, b, d, col)
-			else:
-				add_quad(a, b, c, d, col)
-
-
-## Extrudes a 2D cross-section along a path. Profile points are (across, up)
-## offsets in metres, ordered left-to-right over the top so faces point
-## outward. The section stays upright (world up) regardless of path slope.
-func add_extrusion(path: PackedVector3Array, profile: PackedVector2Array, col: Color, closed_path := false) -> void:
-	var n := path.size()
-	if n < 2:
-		return
-	var rights := _path_rights(path, closed_path)
-	var seg_count := n if closed_path else n - 1
-	for i in seg_count:
-		var i1 := (i + 1) % n
-		for k in profile.size() - 1:
-			var pa := profile[k]
-			var pb := profile[k + 1]
-			var a := path[i] + rights[i] * pa.x + Vector3.UP * pa.y
-			var b := path[i] + rights[i] * pb.x + Vector3.UP * pb.y
-			var c := path[i1] + rights[i1] * pb.x + Vector3.UP * pb.y
-			var d := path[i1] + rights[i1] * pa.x + Vector3.UP * pa.y
-			add_quad(a, b, c, d, col)
-	if not closed_path:
-		# End caps (fan).
-		for end in [0, n - 1]:
-			var pts: Array[Vector3] = []
-			for pv in profile:
-				pts.append(path[end] + rights[end] * pv.x + Vector3.UP * pv.y)
-			for k in range(1, pts.size() - 1):
-				if end == 0:
-					add_tri(pts[0], pts[k + 1], pts[k], col)
-				else:
-					add_tri(pts[0], pts[k], pts[k + 1], col)
-
-
 static func _path_rights(path: PackedVector3Array, closed_path: bool) -> PackedVector3Array:
 	var n := path.size()
 	var out := PackedVector3Array()
@@ -206,7 +100,7 @@ static func _path_rights(path: PackedVector3Array, closed_path: bool) -> PackedV
 	return out
 
 
-# ------------------------------------------------------- new-style helpers ---
+# ---------------------------------------------------------- shape helpers ---
 
 ## Box with chamfered edges (`bevel` metres). Flat faces keep their own normal
 ## and the chamfers blend between the two faces they join, so edges catch the
@@ -426,27 +320,6 @@ func add_sweep(path: PackedVector3Array, profile: PackedVector2Array, cols: Pack
 				Vector2(profile[0].x, profile[0].y), Vector2(profile[k].x, profile[k].y), Vector2(profile[k + 1].x, profile[k + 1].y), out)
 
 
-## Copies another builder's triangles, transformed (stamping a prefab part).
-## `tint` multiplies the colours' RGB.
-func add_builder(src: MeshBuilder, xform: Transform3D, tint := Color.WHITE) -> void:
-	var basis := xform.basis.orthonormalized()
-	var base := verts.size()
-	verts.resize(base + src.verts.size())
-	normals.resize(base + src.verts.size())
-	for i in src.verts.size():
-		verts[base + i] = xform * src.verts[i]
-		normals[base + i] = basis * src.normals[i]
-	for c in src.colors:
-		colors.append(Color(c.r * tint.r, c.g * tint.g, c.b * tint.b, c.a))
-	uvs.append_array(src.uvs)
-	if src._has_uv2:
-		uv2s.append_array(src.uv2s)
-		_has_uv2 = true
-	else:
-		for i in src.verts.size():
-			uv2s.append(uv2)
-
-
 func build_mesh(material: Material, existing: ArrayMesh = null) -> ArrayMesh:
 	var mesh := existing if existing else ArrayMesh.new()
 	if verts.is_empty():
@@ -462,6 +335,21 @@ func build_mesh(material: Material, existing: ArrayMesh = null) -> ArrayMesh:
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	mesh.surface_set_material(mesh.get_surface_count() - 1, material)
 	return mesh
+
+
+## The same mesh with automatic LODs (as the glTF importer makes them): the
+## renderer swaps in simpler versions with distance, below a pixel of error.
+## For meshes seen from far away (props, trees, buildings); one surface.
+static func with_lods(mesh: ArrayMesh) -> ArrayMesh:
+	if mesh.get_surface_count() != 1:
+		return mesh
+	var st := SurfaceTool.new()
+	st.create_from(mesh, 0)
+	st.index()
+	var im := ImporterMesh.new()
+	im.add_surface(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays(), [], {}, mesh.surface_get_material(0))
+	im.generate_lods(25.0, 60.0, [])
+	return im.get_mesh()
 
 
 func build_collision_shape() -> ConcavePolygonShape3D:

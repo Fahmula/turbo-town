@@ -1,5 +1,5 @@
 shader_type spatial;
-// New-style street furniture and building clutter (ART_BIBLE.md §17): one
+// Street furniture and building clutter (ART_BIBLE.md §17): one
 // material for every part, so a lamp post or a whole block's roof clutter is
 // a single draw call. The material type comes from the vertex colour alpha.
 //

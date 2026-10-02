@@ -1,5 +1,5 @@
 shader_type spatial;
-// New-style building facades (ART_BIBLE.md §15): base / middle / top grammar
+// Building facades (ART_BIBLE.md §15): base / middle / top grammar
 // with the windows drawn here. Window reveals tilt the normal, so the real
 // sun lights one side of each recess and the lintel shades the glass top;
 // glass is glossy and reflects the sky. At night about half the rooms light up.

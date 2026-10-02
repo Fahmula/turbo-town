@@ -1,5 +1,5 @@
 shader_type spatial;
-// New-style city junction square (ART_BIBLE.md §16): the same asphalt as
+// City junction square (ART_BIBLE.md §16): the same asphalt as
 // road_surface.gdshader (sampled in world space so the seams match), worn
 // zebra crossings on the sides that have a road, and a darker, oilier
 // middle where cars wait and turn.

@@ -1,6 +1,6 @@
 shader_type spatial;
 render_mode cull_disabled;
-// New-style trees (ART_BIBLE.md §18): leaf-cluster cards with alpha scissor
+// Trees (ART_BIBLE.md §18): leaf-cluster cards with alpha scissor
 // around a solid core, normals pointing out from the canopy centre (baked in
 // the mesh) for soft, cloud-like light, a gentle wind sway.
 //

@@ -1,7 +1,7 @@
 @tool
 class_name BuildingKit
 extends RefCounted
-## New-style buildings (ART_BIBLE.md §15), used inside the ArtZone preview.
+## Buildings (ART_BIBLE.md §15).
 ## Every building has a base (plinth, shopfronts or a lobby, a fascia and a
 ## string course), a middle (window bays drawn by facade.gdshader) and a top
 ## (cornice or coping, parapet, roof clutter). Downtown towers stand on a

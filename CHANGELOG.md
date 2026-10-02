@@ -18,8 +18,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
     glass office towers downtown.
   - New street lamps, traffic lights, hydrants, bins, benches and highway
     signs.
-  - Leafy trees and pine trees, grassy hills with rocky slopes, a sea with
-    turquoise shallows and foam along the beach.
+  - Leafy trees, pine trees and palms by the sea, grassy hills with rocky
+    slopes, a sea with turquoise shallows and foam along the beach.
   - New-look gas station, airfield, harbour, lighthouse, tunnel and stunt
     park; cones, barrels, crates, bowling pins and ramps look like the real
     thing.

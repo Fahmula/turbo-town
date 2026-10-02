@@ -1,8 +1,8 @@
 @tool
 class_name NatureBuilder
 extends RefCounted
-## Trees (MultiMesh + trunk colliders), rocks and the sea. (Clouds are in the
-## sky shader, assets/shaders/sky.gdshader.)
+## Trees (TreeKit MultiMeshes + trunk colliders), rocks and the sea
+## (ART_BIBLE.md §18-§19). Clouds are in the sky shader (sky.gdshader).
 
 var _terrain: TerrainBuilder
 var _rng := RandomNumberGenerator.new()
@@ -23,20 +23,17 @@ func build(parent: Node3D, city_tree_spots: Array[Vector3]) -> void:
 
 	var round_spots: Array[Transform3D] = []
 	var pine_spots: Array[Transform3D] = []
+	var palm_spots: Array[Transform3D] = []
 	for p in city_tree_spots:
 		round_spots.append(_tree_xform(p, 0.85, 1.15))
-	_scatter_trees(round_spots, pine_spots)
-	# New style inside the ArtZone.
-	var env_round := _take_zone(round_spots)
-	var env_pine := _take_zone(pine_spots)
+	_scatter_trees(round_spots, pine_spots, palm_spots)
 
 	var body := StaticBody3D.new()
 	body.name = "TreeTrunks"
 	root.add_child(body)
-	_add_tree_multimesh(root, body, _make_round_tree(), round_spots, 0.35)
-	_add_tree_multimesh(root, body, _make_pine_tree(), pine_spots, 0.35)
-	_add_env_trees(root, body, ["broadleaf_a", "broadleaf_b"], env_round, 0.25)
-	_add_env_trees(root, body, ["conifer"], env_pine, 0.25)
+	_add_trees(root, body, ["broadleaf_a", "broadleaf_b"], round_spots, 0.25)
+	_add_trees(root, body, ["conifer"], pine_spots, 0.25)
+	_add_trees(root, body, ["palm"], palm_spots, 0.22)
 	_add_rocks(root)
 	_add_sea(root)
 
@@ -47,7 +44,9 @@ func _tree_xform(p: Vector3, smin: float, smax: float) -> Transform3D:
 	return Transform3D(b, p)
 
 
-func _scatter_trees(round_spots: Array[Transform3D], pine_spots: Array[Transform3D]) -> void:
+## Trees over the island: pines on the mountain and high ground, palms
+## along the coast (ART_BIBLE.md §18), broadleaf elsewhere.
+func _scatter_trees(round_spots: Array[Transform3D], pine_spots: Array[Transform3D], palm_spots: Array[Transform3D]) -> void:
 	var half := MapLayout.TERRAIN_HALF_SIZE - 20.0
 	var attempts := 9000
 	for k in attempts:
@@ -75,27 +74,16 @@ func _scatter_trees(round_spots: Array[Transform3D], pine_spots: Array[Transform
 		var p := Vector3(x, h - 0.1, z)
 		if mountain > 0.5 or h > 14.0:
 			pine_spots.append(_tree_xform(p, 0.8, 1.4))
+		elif h < 6.0 and (_terrain.shore_factor(x, z) > 0.002 or x < -300.0):
+			palm_spots.append(_tree_xform(p, 0.85, 1.25))
 		else:
 			round_spots.append(_tree_xform(p, 0.8, 1.3))
 
 
-## Removes and returns the transforms inside the ArtZone.
-func _take_zone(list: Array[Transform3D]) -> Array[Transform3D]:
-	var inside: Array[Transform3D] = []
-	var outside: Array[Transform3D] = []
-	for xf in list:
-		if ArtZone.has_point(xf.origin):
-			inside.append(xf)
-		else:
-			outside.append(xf)
-	list.assign(outside)
-	return inside
-
-
-## New-style trees (TreeKit): one MultiMesh per variant per 128 m chunk, so
-## culling works and far chunks switch to the solid LOD mesh. Each tree gets
-## a slight colour variation; trunks keep cylinder colliders.
-func _add_env_trees(root: Node3D, body: StaticBody3D, kinds: Array, xforms: Array[Transform3D], trunk_radius: float) -> void:
+## Trees (TreeKit): one MultiMesh per variant per 128 m chunk, so culling
+## works and far chunks switch to the solid LOD mesh. Each tree gets a slight
+## colour variation; trunks have cylinder colliders.
+func _add_trees(root: Node3D, body: StaticBody3D, kinds: Array, xforms: Array[Transform3D], trunk_radius: float) -> void:
 	if xforms.is_empty():
 		return
 	var rng := RandomNumberGenerator.new()
@@ -142,50 +130,9 @@ func _add_env_trees(root: Node3D, body: StaticBody3D, kinds: Array, xforms: Arra
 			root.add_child(mmi)
 
 
-func _add_tree_multimesh(root: Node3D, body: StaticBody3D, mesh: Mesh, xforms: Array[Transform3D], trunk_radius: float) -> void:
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = mesh
-	mm.instance_count = xforms.size()
-	for i in xforms.size():
-		mm.set_instance_transform(i, xforms[i])
-		var cs := CollisionShape3D.new()
-		var shape := CylinderShape3D.new()
-		var s := xforms[i].basis.get_scale().x
-		shape.radius = trunk_radius * s
-		shape.height = 4.0 * s
-		cs.shape = shape
-		cs.position = xforms[i].origin + Vector3.UP * 2.0 * s
-		body.add_child(cs)
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	root.add_child(mmi)
-
-
-func _make_round_tree() -> Mesh:
-	var mb := MeshBuilder.new()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 11
-	mb.add_prism(Vector3.ZERO, 0.32, 0.22, 3.2, 6, ArtPalette.BARK)
-	mb.add_blob(Vector3(0, 4.4, 0), Vector3(2.4, 2.1, 2.4), ArtPalette.BROADLEAF, 3, 7, 0.12, rng)
-	mb.add_blob(Vector3(0.9, 5.6, 0.3), Vector3(1.5, 1.4, 1.5), ArtPalette.BROADLEAF_LIT, 3, 6, 0.1, rng)
-	mb.add_blob(Vector3(-0.8, 5.3, -0.5), Vector3(1.4, 1.3, 1.4), ArtPalette.BROADLEAF_MID, 3, 6, 0.1, rng)
-	return mb.build_mesh(load("res://assets/materials/foliage.tres"))
-
-
-func _make_pine_tree() -> Mesh:
-	var mb := MeshBuilder.new()
-	mb.add_prism(Vector3.ZERO, 0.3, 0.2, 2.0, 6, ArtPalette.BARK)
-	mb.add_prism(Vector3(0, 1.5, 0), 2.4, 0.0, 3.2, 7, ArtPalette.CONIFER)
-	mb.add_prism(Vector3(0, 3.3, 0), 1.9, 0.0, 2.8, 7, ArtPalette.CONIFER_MID)
-	mb.add_prism(Vector3(0, 4.9, 0), 1.3, 0.0, 2.4, 7, ArtPalette.CONIFER_LIT)
-	# Bottom faces for the cones so they don't look hollow from below.
-	return mb.build_mesh(load("res://assets/materials/foliage.tres"))
-
-
+## Boulders scattered round the mountain (sphere colliders).
 func _add_rocks(root: Node3D) -> void:
 	var mb := MeshBuilder.new()
-	var env := MeshBuilder.new()
 	var body := StaticBody3D.new()
 	body.name = "Rocks"
 	var rng := RandomNumberGenerator.new()
@@ -200,10 +147,7 @@ func _add_rocks(root: Node3D) -> void:
 		var h := _terrain.height_at(x, z)
 		var r := rng.randf_range(0.8, 2.6)
 		var col := ArtPalette.ROCK_DARK.lerp(ArtPalette.ROCK_LIGHT, rng.randf())
-		if ArtZone.has(x, z):
-			_smooth_rock(env, Vector3(x, h + r * 0.2, z), Vector3(r * 1.2, r * 0.8, r), col, rng)
-		else:
-			mb.add_blob(Vector3(x, h + r * 0.2, z), Vector3(r * 1.2, r * 0.8, r), col, 3, 5, 0.25, rng)
+		_smooth_rock(mb, Vector3(x, h + r * 0.2, z), Vector3(r * 1.2, r * 0.8, r), col, rng)
 		var cs := CollisionShape3D.new()
 		var sh := SphereShape3D.new()
 		sh.radius = r * 0.8
@@ -211,13 +155,8 @@ func _add_rocks(root: Node3D) -> void:
 		cs.position = Vector3(x, h + r * 0.1, z)
 		body.add_child(cs)
 	var mi := MeshInstance3D.new()
-	mi.mesh = mb.build_mesh(load("res://assets/materials/props.tres"))
+	mi.mesh = mb.build_mesh(load("res://assets/materials/env/concrete.tres"))
 	body.add_child(mi)
-	if not env.is_empty():
-		var emi := MeshInstance3D.new()
-		emi.name = "RocksEnv"
-		emi.mesh = env.build_mesh(load("res://assets/materials/env/concrete.tres"))
-		body.add_child(emi)
 	root.add_child(body)
 
 

@@ -21,6 +21,8 @@ re-running reproduces the same files. Outputs (PNG, committed):
       gentle wind ripples (tileable; import as a normal map)
   assets/textures/foliage/leaves_broadleaf.png  512² RGBA, alpha-scissor leaf clusters
   assets/textures/foliage/leaves_conifer.png    512² RGBA, alpha-scissor needle sprays
+  assets/textures/foliage/leaves_palm.png       512² RGBA, two palm fronds (one per
+      half, base at the left, tip at the right)
       RGB  greyscale value variation (the tree's colour comes from vertex colour)
       A    leaf coverage (alpha scissor at 0.5)
 
@@ -274,9 +276,49 @@ def make_leaves(name, seed, conifer):
     save_rgba(OUT / "foliage" / f"leaves_{name}.png", v, v, v, a)
 
 
+def make_palm():
+    """Two palm fronds, each filling half the texture: a midrib from the left
+    edge to the right, long leaflets angled toward the tip on both sides,
+    drooping a little, shorter near the base and the tip."""
+    rng = np.random.default_rng(57)
+    S = SIZE * 4
+    rgb = Image.new("L", (S, S), 0)
+    alpha = Image.new("L", (S, S), 0)
+    dr = ImageDraw.Draw(rgb)
+    da = ImageDraw.Draw(alpha)
+    for half in range(2):
+        cy = S * (0.25 + 0.5 * half)
+        x0, x1 = S * 0.02, S * 0.98
+        # Midrib.
+        dr.line([(x0, cy), (x1, cy)], fill=120, width=int(S * 0.008))
+        da.line([(x0, cy), (x1, cy)], fill=255, width=int(S * 0.008))
+        n = 46
+        for i in range(n):
+            t = (i + 0.5) / n
+            x = x0 + (x1 - x0) * t
+            length = S * 0.22 * np.sin(np.pi * t) ** 0.6 + S * 0.015
+            for side in (-1, 1):
+                # Leaflets angled toward the tip (+x) and outward.
+                dx = np.cos(0.55) * length
+                dy = side * np.sin(0.75) * length * rng.uniform(0.85, 1.0)
+                v = int(rng.uniform(150, 250))
+                poly = _leaf_poly(x, cy, length, min(S * 0.018, length * 0.25), np.arctan2(dy, dx))
+                dr.polygon(poly, fill=v)
+                da.polygon(poly, fill=255)
+    rgb = rgb.resize((SIZE, SIZE), Image.LANCZOS)
+    alpha = alpha.resize((SIZE, SIZE), Image.LANCZOS)
+    v = np.asarray(rgb).astype(np.float32) / 255.0
+    a = np.asarray(alpha).astype(np.float32) / 255.0
+    v = np.where(a > 0.01, v / np.maximum(a, 0.01), 0.75)
+    v = np.clip(v, 0, 1)
+    v = np.where(a > 0.01, v, 0.75)
+    save_rgba(OUT / "foliage" / "leaves_palm.png", v, v, v, a)
+
+
 if __name__ == "__main__":
     make_ground_detail()
     make_clouds()
     make_water_normal()
     make_leaves("broadleaf", 31, conifer=False)
     make_leaves("conifer", 32, conifer=True)
+    make_palm()

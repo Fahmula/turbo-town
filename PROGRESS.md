@@ -164,22 +164,25 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 ### Art: stylized realism (rules in ART_BIBLE.md; order from its §31; start only when the owner asks)
 - [x] Art bible: visual direction, palette, materials, budgets, Steam Deck rules (ART_BIBLE.md)
 - [x] Lighting, atmosphere and palette regrade (DayNight keys, AgX, aerial fog, terrain/asphalt/building colours in `ArtPalette`)
-- [~] Smooth shading and bevels for world geometry; soft clouds (clouds done: sky shader; MeshBuilder
-      smooth helpers in use in the preview zone)
-- [~] Environment upgrade, preview first (`ArtZone`, city spine + north overpass; `--artzone=<dir>` shots,
-      `--legacy-art` for before/after): roads, junctions, kerbs and paving, Jersey barriers and overpass,
-      buildings (`BuildingKit`), street furniture (`StreetKit`), trees (`TreeKit`), terrain detail.
-      Waiting for the owner's OK on the look before rolling out to the whole map
-- [~] Roads: asphalt variation, marking wear, paving, barriers, overpass detail (preview zone)
+- [x] Smooth shading and bevels for world geometry; soft clouds (MeshBuilder shape helpers; sky shader clouds)
+- [x] Environment upgrade, previewed in a representative area, approved by the owner, then rolled out to
+      the whole map: roads, junctions, kerbs and paving, Jersey barriers and bridges, buildings
+      (`BuildingKit`), street furniture, signs and stunt props (`StreetKit`), landmarks, trees and palms
+      (`TreeKit`), terrain detail, sea; per-block meshes and automatic LODs; `--scenery=<dir>` shots
+- [x] Roads: asphalt variation, marking wear, paving, barriers, overpass detail
+- [ ] Guardrails on the hill and mountain roads? (they'd stop cars driving off; waiting for the owner)
+- [ ] Check the new environment on the Deck: load time (world build ~0.8 s on the dev machine) and
+      the busiest views (downtown, aerial over the city)
 - [x] Vehicles remodelled with deformation-ready topology, interiors, better wheels; clearcoat paint
       (all eight on `body_kit.py` loft bodies, one design language per class; four wheel types;
       `PaintPalette` garage colours + weighted traffic mix; garage racing stripes; dents only touch
       nearby vertices)
 - [ ] Vehicle draw-call trim if the Deck needs it: the fleet costs ~+85 draw calls at the highway
-      spawn (ART_BIBLE.md §27); candidates: merge Interior into Trim, distance-cull parked cars
+      spawn (ART_BIBLE.md §27); candidates: merge Interior into Trim (parked cars are now culled
+      beyond 200 m)
 - [ ] Damage 3.0: crumple stiffness, scrape/primer/bare-metal layer, structure behind lost parts
-- [~] Buildings: facade base/middle/top, districts, roof clutter, chunked meshes (preview zone; not chunked yet)
-- [~] Vegetation: card-based trees, palms, chunked MultiMeshes with LOD (preview zone; no palms yet)
+- [x] Buildings: facade base/middle/top, districts, roof clutter, chunked meshes
+- [x] Vegetation: card-based trees, palms, chunked MultiMeshes with LOD
 - [ ] UI: font, type scale, icons, gamepad prompts
 - [ ] Effects: lit smoke, surface-coloured dust, water splash, landing puffs
 
@@ -216,4 +219,6 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - 2026-10-01 — Art step 1: lighting, atmosphere and palette regrade toward stylized realism; fixed speckled windows.
 - 2026-10-01 — Art step 4 (dev): the whole vehicle fleet remodelled, new wheels, paint palette, garage stripes.
 - 2026-10-01 — Environment upgrade preview (dev): new roads, buildings, props, trees and terrain in the city
-  spine and north overpass (`ArtZone`); sky shader clouds and neutral daytime shadows for the whole map.
+  spine and north overpass; sky shader clouds and neutral daytime shadows for the whole map.
+- 2026-10-01 — Environment upgrade rolled out to the whole island (dev, owner approved): landmarks, stunt
+  park, props, palms, sea; legacy world code removed.

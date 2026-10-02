@@ -1,7 +1,7 @@
 @tool
 class_name TreeKit
 extends RefCounted
-## New-style tree meshes (ART_BIBLE.md §18), built in code once and shared.
+## Tree meshes (ART_BIBLE.md §18), built in code once and shared.
 ## A canopy is leaf-cluster cards (alpha scissor, leaf atlas from
 ## tools/textures/make_textures.py) around a solid core that fills the gaps;
 ## every vertex's normal points out from the canopy centre, so the crown
@@ -9,8 +9,8 @@ extends RefCounted
 ## and inside, lighter and yellower on the sunlit top. See foliage.gdshader.
 ##
 ## Kinds: "broadleaf_a", "broadleaf_b" (street and park trees, ~7 m),
-## "conifer" (~9 m), and "_far" versions of each (core and trunk only) for
-## the distant LOD.
+## "conifer" (~9 m), "palm" (~9 m, beach and harbour), and "_far" versions
+## (core and trunk only; a palm stays a palm) for the distant LOD.
 
 const CARD := 1.0
 const CORE := 0.5
@@ -22,6 +22,8 @@ static var _cache := {}
 static func material(kind: String) -> Material:
 	if kind.begins_with("conifer"):
 		return load("res://assets/materials/env/foliage_conifer.tres")
+	if kind.begins_with("palm"):
+		return load("res://assets/materials/env/foliage_palm.tres")
 	return load("res://assets/materials/env/foliage_broadleaf.tres")
 
 
@@ -38,7 +40,9 @@ static func mesh(kind: String) -> ArrayMesh:
 			_broadleaf(mb, 23, far)
 		"conifer":
 			_conifer(mb, 7, far)
-	var m := mb.build_mesh(material(kind))
+		"palm":
+			_palm(mb, 5)
+	var m := MeshBuilder.with_lods(mb.build_mesh(material(kind)))
 	_cache[kind] = m
 	return m
 
@@ -119,7 +123,7 @@ static func _broadleaf(mb: MeshBuilder, seed: int, far: bool) -> void:
 	var radii := Vector3(2.7, 2.2, 2.7)
 	var dark := ArtPalette.BROADLEAF.darkened(0.3)
 	var mid := ArtPalette.BROADLEAF
-	var lit := Color(0.486, 0.604, 0.271)  # foliage_lit
+	var lit := ArtPalette.FOLIAGE_LIT
 	_trunk(mb, PackedVector2Array([Vector2(0.3, 0.0), Vector2(0.22, 0.12), Vector2(0.17, 0.6), Vector2(0.14, 2.6),
 		Vector2(0.1, 4.2), Vector2(0.0, 4.6)]), 8)
 	if far:
@@ -154,7 +158,7 @@ static func _conifer(mb: MeshBuilder, seed: int, far: bool) -> void:
 	rng.seed = seed
 	var dark := ArtPalette.CONIFER.darkened(0.25)
 	var mid := ArtPalette.CONIFER
-	var lit := ArtPalette.CONIFER_LIT.lerp(Color(0.486, 0.604, 0.271), 0.25)
+	var lit := ArtPalette.CONIFER_LIT.lerp(ArtPalette.FOLIAGE_LIT, 0.25)
 	var top := 9.2
 	var base := 1.5
 	var r0 := 2.2
@@ -209,3 +213,67 @@ static func _conifer(mb: MeshBuilder, seed: int, far: bool) -> void:
 				uv[0], uv[1], uv[2], uv[3])
 		y += 0.55 + t * 0.15
 		tier += 1
+
+
+## A palm: a gently leaning, ringed trunk and a crown of arching fronds (strips
+## along the frond texture: base at u = 0, tip at u = 1, one frond per half).
+static func _palm(mb: MeshBuilder, seed: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var height := 9.0
+	var lean := 1.3
+	var segs := 10
+	var bark := Color(0.5, 0.44, 0.36)
+	var spine: Array[Vector3] = []
+	for k in segs + 1:
+		var t := float(k) / segs
+		spine.append(Vector3(lean * t * t, height * t, 0.0))
+	for k in segs:
+		var r0 := lerpf(0.27, 0.17, float(k) / segs)
+		var r1 := lerpf(0.27, 0.17, float(k + 1) / segs)
+		var a := spine[k]
+		var b := spine[k + 1]
+		var y := (b - a).normalized()
+		var x := y.cross(Vector3.FORWARD).normalized()
+		var z := x.cross(y)
+		var c0 := Color(bark.darkened(0.12 if k % 2 == 0 else 0.0), BARK)
+		var c1 := Color(bark.darkened(0.25), BARK)
+		# A ring: flared at the bottom of each segment.
+		mb.add_lathe(Transform3D(Basis(x, y, z), a), PackedVector2Array([Vector2(r0 * 1.08, 0.0), Vector2(r1, a.distance_to(b) * 0.85),
+			Vector2(r1 * 1.04, a.distance_to(b))]), 8, PackedColorArray([c1, c0, c0]), 30.0)
+	var top := spine[segs]
+	var green := Color(0.369, 0.478, 0.204)  # palm
+	_core(mb, top + Vector3(0, 0.15, 0), Vector3(0.55, 0.45, 0.55), green.darkened(0.45), green.darkened(0.2), CORE)
+	var fronds := 12
+	for f in fronds:
+		var ang := TAU * f / fronds + rng.randf_range(-0.2, 0.2)
+		var dir := Vector3(cos(ang), 0.0, sin(ang))
+		var across := Vector3(-dir.z, 0.0, dir.x)
+		var length := rng.randf_range(3.6, 4.6)
+		var rise := rng.randf_range(0.5, 1.4) if f % 2 == 0 else rng.randf_range(-0.2, 0.6)
+		var droop := rng.randf_range(1.8, 2.8)
+		var width := 2.3
+		var bank := rng.randf_range(-0.25, 0.25)
+		var half := 0.5 * float(f % 2)
+		var steps := 5
+		var prev_l := Vector3.ZERO
+		var prev_r := Vector3.ZERO
+		for k in steps + 1:
+			var t := float(k) / steps
+			var p := top + dir * (length * t) + Vector3.UP * (rise * t - droop * t * t)
+			var side := (across + Vector3.UP * bank).normalized() * width * 0.5
+			var l := p - side
+			var r := p + side
+			if k > 0:
+				var t0 := float(k - 1) / steps
+				var cols: Array[Color] = []
+				var ns: Array[Vector3] = []
+				for q: Vector3 in [prev_l, prev_r, r, l]:
+					var rel := q - top
+					ns.append((rel.normalized() + Vector3.UP * 1.2).normalized())
+					var tip := clampf(rel.length() / length, 0.0, 1.0)
+					cols.append(Color(green.darkened(0.25).lerp(ArtPalette.FOLIAGE_LIT.lerp(green, 0.4), tip * 0.8), CARD))
+				mb.add_quad_ex(prev_l, prev_r, r, l, ns[0], ns[1], ns[2], ns[3], cols[0], cols[1], cols[2], cols[3],
+					Vector2(0.02 + 0.96 * t0, half), Vector2(0.02 + 0.96 * t0, half + 0.5), Vector2(0.02 + 0.96 * t, half + 0.5), Vector2(0.02 + 0.96 * t, half))
+			prev_l = l
+			prev_r = r

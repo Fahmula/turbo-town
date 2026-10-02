@@ -1,7 +1,7 @@
 @tool
 class_name StreetKit
 extends RefCounted
-## New-style street furniture meshes (ART_BIBLE.md §17), built in code once
+## Street furniture meshes (ART_BIBLE.md §17), built in code once
 ## and shared by every instance. Each is a single surface on
 ## street_props.gdshader, so a prop costs one draw call; the material type of
 ## each part rides in the vertex colour alpha (see that shader).
@@ -69,7 +69,7 @@ static func mesh(kind: String) -> ArrayMesh:
 			_pin(mb)
 		_:
 			push_warning("StreetKit: unknown kind %s" % kind)
-	var m := mb.build_mesh(material())
+	var m := MeshBuilder.with_lods(mb.build_mesh(material()))
 	_cache[kind] = m
 	return m
 

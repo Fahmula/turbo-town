@@ -36,7 +36,6 @@ var is_night := false
 var _sun: DirectionalLight3D
 var _env: Environment
 var _sky: ShaderMaterial
-var _buildings: ShaderMaterial
 var _stars: MultiMeshInstance3D
 var _star_mat: StandardMaterial3D
 
@@ -48,7 +47,6 @@ func setup(world: Node) -> void:
 		_env = we.environment
 		if _env.sky:
 			_sky = _env.sky.sky_material as ShaderMaterial
-	_buildings = load("res://assets/materials/building.tres") as ShaderMaterial
 	_make_stars()
 
 
@@ -104,8 +102,6 @@ func _apply() -> void:
 		_env.fog_light_color = k[6]
 	var night_amount := smoothstep(3.0, -6.0, elev)
 	RenderingServer.global_shader_parameter_set("night", night_amount)
-	if _buildings:
-		_buildings.set_shader_parameter("night", night_amount)
 	if _stars:
 		_stars.visible = night_amount > 0.05
 		_star_mat.albedo_color = Color(1, 1, 1, night_amount)
