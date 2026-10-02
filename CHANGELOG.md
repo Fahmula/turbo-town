@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-01
+
 ### Looks
 - The whole island has a new, more detailed look to match the new cars:
   - Roads: worn asphalt with patches, manholes, drains and stop lines; kerb
