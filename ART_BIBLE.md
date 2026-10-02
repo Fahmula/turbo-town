@@ -653,7 +653,8 @@ an earthy `DayNight.GROUND_BOUNCE`, scaled by the light's energy.
   most every 1.2 s (Godot re-renders a ONCE probe when it moves, one cube
   face per frame), drawing only the nearest 90 m. 44 × 16 × 44 m box,
   captures layer 1 only (the world,
-  not cars: every vehicle mesh is on visual layer 2, `Vehicle.VISUAL_LAYER`),
+  not cars: every vehicle mesh is on visual layer 2, `Vehicle.VISUAL_LAYER`;
+  wheels on layer 3, `WHEEL_LAYER`, so alloy rims keep the bright sky),
   `reflection_mask` = vehicles only (roads and buildings keep their sky
   reflections), no shadows, `mesh_lod_threshold` 8, ambient off (the probe's
   captured street is far darker than the scene's flat ambient). Traffic that

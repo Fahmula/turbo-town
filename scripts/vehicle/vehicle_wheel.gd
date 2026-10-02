@@ -112,7 +112,7 @@ func add_caliper(scene: PackedScene, color: Color) -> void:
 		g.set_surface_override_material(0, _caliper_mats[color])
 		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		g.visibility_range_end = 45.0
-		g.layers = 2
+		g.layers = Vehicle.WHEEL_LAYER
 
 
 ## How far the wheel centre hangs below the mount point when standing still

@@ -71,8 +71,12 @@ signal vehicle_reset
 
 ## Visual layer of every vehicle mesh: the player's reflection probe
 ## (VehicleReflection) only captures layer 1, so cars never reflect their
-## own insides.
+## own insides, and only reflects into layer 2.
 const VISUAL_LAYER := 2
+## Wheels (and calipers) sit on their own layer: alloy rims keep the bright
+## sky reflection (the captured street, blurred by the rims' roughness,
+## turned them gunmetal).
+const WHEEL_LAYER := 4
 const CALIPER_SCENE := preload("res://assets/models/brake_caliper.glb")
 
 @export_group("AI")
@@ -150,7 +154,12 @@ func _ready() -> void:
 		wheelbase = absf(_front_pair[0].position.z - _rear_pair[0].position.z)
 	_measure_body()
 	for gi in find_children("*", "GeometryInstance3D", true, false):
-		(gi as GeometryInstance3D).layers = VISUAL_LAYER
+		var in_wheel := false
+		var n := gi.get_parent()
+		while n != self and n != null:
+			in_wheel = in_wheel or n is VehicleWheel
+			n = n.get_parent()
+		(gi as GeometryInstance3D).layers = WHEEL_LAYER if in_wheel else VISUAL_LAYER
 	contact_monitor = true
 	max_contacts_reported = 8
 	continuous_cd = true
