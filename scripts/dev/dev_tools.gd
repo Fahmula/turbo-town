@@ -2669,6 +2669,9 @@ func _audio(game: Game) -> void:
 			first[0] = false
 			_audio_events.append("%.2f impact" % _audio_t))
 	_audio_seen["shot"] = false
+	# _ram_wall moves the car without snapping the camera: the camera catching
+	# up dips the level for a moment (like a teleport).
+	_audio_events.append("%.2f teleport ram" % _audio_t)
 	await _ram_wall(game, 55.0)
 	_check(shots[0] > 0 and _audio_seen.get("shot", false), "crash plays impact sounds (%d impacts)" % shots[0])
 	# Pausing (menus) silences vehicle sound.

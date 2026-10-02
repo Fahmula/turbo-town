@@ -188,12 +188,13 @@ def off_load(on):
 
 
 def _varispeed(x, rate_env):
-    """Plays x with a time-varying speed (1 = normal), looping the source."""
-    pos = np.cumsum(rate_env)
-    idx = np.mod(pos, len(x) - 1)
-    i0 = idx.astype(int)
-    frac = idx - i0
-    return (x[i0] * (1 - frac) + x[i0 + 1] * frac).astype(np.float32)
+    """Plays the loop x with a time-varying speed (1 = normal), wrapping
+    round its seam."""
+    n = len(x)
+    idx = np.mod(np.cumsum(rate_env), n)
+    i0 = idx.astype(int) % n
+    frac = idx - np.floor(idx)
+    return (x[i0] * (1 - frac) + x[(i0 + 1) % n] * frac).astype(np.float32)
 
 
 def startup(idle_loop, low_loop, crank_rec, crank=0.7, flare=1.6, diesel=False):
@@ -211,10 +212,10 @@ def startup(idle_loop, low_loop, crank_rec, crank=0.7, flare=1.6, diesel=False):
         t = np.linspace(0, 1, xf)
         joint = first[-xf:] * np.cos(t * np.pi / 2) + second[:xf] * np.sin(t * np.pi / 2)
         rec = np.concatenate([first[:-xf], joint, second[xf:]]).astype(np.float32)
-    nc = int(crank * R)
-    crank_sig = np.zeros(nc, dtype=np.float32)
-    crank_sig[:min(nc, len(rec))] = rec[:nc]
-    crank_sig = dsp.fade(dsp.normalize_rms(crank_sig, -18), 0.01, 0.08)
+    # The recording sets the crank's length (a decode can be a few ms short).
+    rec = dsp.fade(rec, 0.01, 0.08)
+    nc = min(int(crank * R), len(rec))
+    crank_sig = dsp.normalize_rms(rec[:nc].astype(np.float32), -18)
     # Catch: the low loop sped up, settling to idle, then fading out.
     dur = 1.3
     nk = int(dur * R)
