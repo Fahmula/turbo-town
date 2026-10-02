@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-02
+
 ### Looks
 - Cars look much more real: glossy paint that reflects the street and the
   buildings around your car, shimmering metallic paints, see-through tinted
