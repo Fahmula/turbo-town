@@ -107,6 +107,9 @@ func _ready() -> void:
 		elif arg.begins_with("--scenery="):
 			_mode = "scenery"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--lookdev="):
+			_mode = "lookdev"
+			_dir = arg.split("=")[1]
 	if _mode == "":
 		queue_free()
 		return
@@ -189,6 +192,8 @@ func _run() -> void:
 		await _spawncheck(game)
 	elif _mode == "scenery":
 		await _scenery(game)
+	elif _mode == "lookdev":
+		await _lookdev(game)
 	else:
 		await _drive(game)
 	get_tree().quit()
@@ -2430,3 +2435,113 @@ func _profile_families(game: Game, view: String) -> void:
 			n.visible = true
 		env.background_mode = bg
 		await _wait(3)
+
+
+## Fixed-camera portraits of every vehicle for comparing the vehicle look
+## before and after a change (ART_BIBLE.md §30). The car stands on a sunny
+## avenue; cameras sit around it at distances scaled to its size.
+##   --vehicles=a,b      catalog ids (default: all)
+##   --views=a,b         front34, rear34, side, wheel, chase, lamps (default: all)
+##   --times=day,sunset,night (default: all three)
+##   --damaged           also a smashed pass (dents, broken lights and glass)
+func _lookdev(game: Game) -> void:
+	game.traffic.set_enabled(false)
+	game.hud.visible = false
+	var cam := game.camera
+	var args := OS.get_cmdline_user_args()
+	var ids: Array = VehicleCatalog.ENTRIES.map(func(e: Dictionary) -> String: return e["id"])
+	var views := ["front34", "rear34", "side", "wheel", "chase", "lamps"]
+	var times := ["day", "sunset", "night"]
+	var damaged := args.has("--damaged")
+	for arg in args:
+		if arg.begins_with("--vehicles="):
+			ids = Array(arg.split("=")[1].split(","))
+		elif arg.begins_with("--views="):
+			views = Array(arg.split("=")[1].split(","))
+		elif arg.begins_with("--times="):
+			times = Array(arg.split("=")[1].split(","))
+	# A believable paint per vehicle (metallics included).
+	var paints := {"sports_car": 0, "sedan": 10, "van": 9, "box_truck": 9, "bus": 6, "pickup": 11, "buggy": 2, "monster_truck": 7}
+	var spot := Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(2.4, 0.6, -38.0))
+	for id: String in ids:
+		var vi := VehicleCatalog.index_of_id(id)
+		if vi < 0:
+			continue
+		game.change_vehicle(vi, VehicleCatalog.COLORS[paints.get(id, 0)], false)
+		var v := game.vehicle
+		v.teleport(spot.translated(Vector3.UP * v.ride_height()))
+		await _wait_s(1.5)
+		game.controller.set_physics_process(false)
+		for pass_i in (2 if damaged else 1):
+			if pass_i == 1:
+				_smash_for_photo(v)
+				await _wait_s(0.3)
+			for t: String in times:
+				Settings.set_value("time_of_day", ["day", "sunset", "night"].find(t))
+				await _wait(8)
+				for view: String in views:
+					await _lookdev_view(game, v, view, "%s_%s%s_%s" % [id, view, "_smashed" if pass_i == 1 else "", t])
+		game.controller.set_physics_process(true)
+		v.brake_input = 0.0
+	cam.set_process(true)
+	game.hud.visible = true
+	Settings.set_value("time_of_day", 0)
+
+
+func _lookdev_view(game: Game, v: Vehicle, view: String, shot: String) -> void:
+	var cam := game.camera
+	cam.set_process(false)
+	var l := v.body_length()
+	var w := v.body_half_width
+	var h := v.body_top
+	var c := v.global_position + v.global_basis.y * h * 0.45
+	var at := c
+	var local := Vector3.ZERO
+	v.auto_reverse = false
+	v.brake_input = 0.0
+	v.gear = 1
+	match view:
+		"front34":
+			local = Vector3(-w - l * 0.32, h * 0.8 + 0.4, -l * 0.72)
+		"rear34":
+			local = Vector3(w + l * 0.32, h * 0.8 + 0.5, l * 0.72)
+		"side":
+			local = Vector3(w + l * 0.85, h * 0.55 + 0.3, 0.0)
+		"wheel":
+			var wheel := v.get_node("WheelFL") as VehicleWheel
+			at = (wheel.get_node("Visual") as Node3D).global_position
+			local = v.global_basis.inverse() * (at - v.global_position) + Vector3(-1.6 - wheel.radius * 2.0, 0.25, -0.9)
+		"chase":
+			local = Vector3(0.0, 1.9 + h * 0.5, l * 0.5 + 5.0)
+			at = v.global_transform * Vector3(0.0, h * 0.6, -l)
+		"lamps":
+			# Rear three-quarter with the brake lights on (reverse gear shows reverse lamps).
+			local = Vector3(-w - l * 0.3, h * 0.6 + 0.4, l * 0.85)
+			v.brake_input = 1.0
+	cam.global_position = v.global_transform * local
+	cam.look_at(at, Vector3.UP)
+	await _wait(6)
+	await _shot(shot)
+
+
+## Dents, broken lights and cracked glass without driving into anything.
+func _smash_for_photo(v: Vehicle) -> void:
+	var dmg := v.get_node("Damage") as VehicleDamage
+	var w := v.body_half_width
+	var hits := [
+		[Vector3(-w * 0.8, 0.35, -v.body_front * 0.92), 0.28, 1.0],
+		[Vector3(w * 1.05, 0.45, 0.2), 0.1, 0.8],
+		[Vector3(w * 0.7, 0.4, v.body_rear * 0.95), 0.2, 0.9],
+	]
+	for hit: Array in hits:
+		var p: Vector3 = v.global_transform * (hit[0] as Vector3)
+		for m in dmg._meshes.size():
+			dmg._dent(m, p, hit[1], hit[2])
+	dmg.total_damage = 75.0
+	dmg.front_left = 0.9
+	dmg._break_headlights()
+	dmg._break_taillights()
+	dmg._break_glass(v.global_transform * Vector3(-w * 0.5, v.body_top * 0.7, -0.3))
+	if dmg._parts.has("FrontBumper"):
+		dmg._detach("FrontBumper")
+	dmg._update_driving()
