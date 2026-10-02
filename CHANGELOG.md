@@ -9,6 +9,14 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Sound
+- New sound mix: the engine leads, tyres and gravel sit under it, and skids,
+  brakes and crashes are still clear but no longer sharp or piercing. Crashes
+  keep their punch without painful highs.
+- On the Steam Deck's own speakers the engine now cuts through: it gets extra
+  mid-range "growl" those small speakers can play, instead of relying on
+  bass they can't.
+
 ## [0.6.1] - 2026-10-02
 
 ### Sound

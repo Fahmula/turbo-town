@@ -113,6 +113,9 @@ func _ready() -> void:
 		elif arg.begins_with("--audio="):
 			_mode = "audio"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--mixpanel="):
+			_mode = "mixpanel"
+			_dir = arg.split("=")[1]
 	if _mode == "":
 		queue_free()
 		return
@@ -199,6 +202,8 @@ func _run() -> void:
 		await _lookdev(game)
 	elif _mode == "audio":
 		await _audio(game)
+	elif _mode == "mixpanel":
+		await _mixpanel(game)
 	else:
 		await _drive(game)
 	VehicleAudio.quit_quietly(get_tree())
@@ -2602,10 +2607,84 @@ func _physics_process(dt: float) -> void:
 ## the traffic voice budget. Run with --audio-driver Dummy so nothing plays
 ## out loud (the dummy driver still mixes).
 ##   --vehicle=<id> to test another vehicle
+## The dev audio mix panel (AudioMixPanel): opens with F8 while driving,
+## doesn't take the controls, its sliders change the buses at once, saving
+## writes only the changed values. Shots: <dir>/panel_*.png.
+func _mixpanel(game: Game) -> void:
+	var panel := get_node_or_null("/root/AudioMixPanel")
+	_check(panel != null and panel.has_method("toggle") and not panel.is_open(), "panel autoload present, closed")
+	if panel == null:
+		return
+	var v := game.vehicle
+	var start := Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(2.4, 0.6, 140.0))
+	v.teleport(start.translated(Vector3.UP * v.ride_height()))
+	await _wait_s(0.5)
+	var f8 := InputEventKey.new()
+	f8.physical_keycode = KEY_F8
+	f8.pressed = true
+	Input.parse_input_event(f8)
+	await _wait(2)
+	_check(panel.is_open() and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "F8 opens it (mouse / touch free)")
+	Input.action_press("accelerate", 1.0)
+	await _wait_s(3.0)
+	Input.action_release("accelerate")
+	var kmh := v.linear_velocity.length() * 3.6
+	_check(kmh > 25.0, "still drives with the panel open (%.0f km/h)" % kmh)
+	var rows: Dictionary = panel._rows
+	(rows["engine.volume_db"].slider as HSlider).value = 5.0
+	(rows["skid.treble_db"].slider as HSlider).value = -12.0
+	var engine_db := AudioServer.get_bus_volume_db(AudioServer.get_bus_index(&"Engine"))
+	var shelf := AudioMix._fx("Skid", "treble") as AudioEffectFilter
+	_check(is_equal_approx(engine_db, 5.0) and absf(40.0 * log(shelf.gain) / log(10.0) + 12.0) < 0.01,
+		"sliders apply at once (engine %.1f dB, skid shelf %.1f dB)" % [engine_db, 40.0 * log(shelf.gain) / log(10.0)])
+	var path := _dir.path_join("mix_test.cfg")
+	AudioMix._save(path, true)
+	var cfg := ConfigFile.new()
+	cfg.load(path)
+	var prof := AudioMix.profile()
+	_check(cfg.get_value(prof, "engine.volume_db", 0.0) == 5.0 and cfg.get_section_keys(prof).size() == 2,
+		"save keeps only what changed (%s)" % ", ".join(cfg.get_section_keys(prof)))
+	await _wait_s(0.5)
+	await _shot("panel_open")
+	for c in panel.find_children("*", "Button", true, false):
+		if (c as Button).text.begins_with("+ Engine"):
+			(c as Button).pressed.emit()
+	await _wait(3)
+	await _shot("panel_engine")
+	AudioMix.set_profile("deck")
+	panel._sync()
+	var eq_on := AudioServer.is_bus_effect_enabled(AudioServer.get_bus_index(&"Engine"), 0)
+	_check(AudioMix.profile() == "deck" and eq_on, "profile switch applies the deck values (engine EQ on)")
+	AudioMix.reset_profile()
+	AudioMix.set_profile(prof)
+	AudioMix.reset_profile()
+	Input.parse_input_event(f8.duplicate())
+	await _wait(2)
+	_check(not panel.is_open(), "F8 closes it")
+
+
 func _audio(game: Game) -> void:
 	game.traffic.set_enabled(false)
 	var rec := AudioEffectRecord.new()
 	AudioServer.add_bus_effect(0, rec)
+	# --stems: each mix bus recorded too (after its effects, before its
+	# fader), <dir>/stem_<bus>.wav, for checking the mix category by category.
+	var stems := {}
+	if "--stems" in OS.get_cmdline_user_args():
+		for bus in ["Engine", "Tyres", "Surface", "Skid", "Impacts", "Environment", "Signals", "Traffic", "TrafficEngine"]:
+			var r := AudioEffectRecord.new()
+			AudioServer.add_bus_effect(AudioServer.get_bus_index(StringName(bus)), r)
+			stems[bus] = r
+		# Each stem's faders down to the master (for the analysis).
+		var faders := []
+		for bus: String in stems:
+			var idx := AudioServer.get_bus_index(StringName(bus))
+			var total := 0.0
+			while idx > 0:
+				total += AudioServer.get_bus_volume_db(idx)
+				idx = AudioServer.get_bus_index(AudioServer.get_bus_send(idx))
+			faders.append("%s=%.1f" % [bus, total])
+		print("MIXFADERS %s %s" % [AudioMix.profile(), " ".join(faders)])
 	var v := game.vehicle
 	var audio := v.get_node("Audio") as VehicleAudio
 	_check(audio != null and audio.detail == VehicleAudio.Detail.FULL and audio.profile != null, "player has FULL vehicle audio with a profile")
@@ -2614,6 +2693,8 @@ func _audio(game: Game) -> void:
 	v.teleport(start.translated(Vector3.UP * v.ride_height()))
 	await _wait_s(0.5)
 	rec.set_recording_active(true)
+	for r: AudioEffectRecord in stems.values():
+		r.set_recording_active(true)
 	_audio_t = 0.0
 	_audio_seen = {}
 	_audio_watch = audio
@@ -2693,6 +2774,14 @@ func _audio(game: Game) -> void:
 	VehicleAudio.on_shot = Callable()
 	VehicleAudio.on_voice = Callable()
 	rec.set_recording_active(false)
+	for bus: String in stems:
+		var r: AudioEffectRecord = stems[bus]
+		r.set_recording_active(false)
+		var stem := r.get_recording()
+		if stem:
+			stem.save_to_wav(_dir.path_join("stem_%s.wav" % bus))
+		var bi := AudioServer.get_bus_index(StringName(bus))
+		AudioServer.remove_bus_effect(bi, AudioServer.get_bus_effect_count(bi) - 1)
 	var wav := rec.get_recording()
 	if wav:
 		wav.save_to_wav(_dir.path_join("session.wav"))

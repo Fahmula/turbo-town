@@ -44,6 +44,15 @@ const SPEED_OF_SOUND := 343.0
 const SHOTS := {Detail.FULL: 5, Detail.LITE: 2}
 ## Engine loops a traffic vehicle uses (spread over its recorded set).
 const LITE_LAYERS := 4
+## Mix categories: the player's buses (AudioMix). Traffic maps them onto
+## TrafficEngine (engines) and Traffic (the rest), see _bus().
+const ENGINE := &"Engine"
+const TYRES := &"Tyres"
+const SURFACE := &"Surface"
+const SKID := &"Skid"
+const IMPACTS := &"Impacts"
+const ENVIRONMENT := &"Environment"
+const SIGNALS := &"Signals"
 
 var _rng := RandomNumberGenerator.new()
 var _on: Array[AudioStreamPlayer3D] = []
@@ -163,7 +172,7 @@ func start_engine() -> void:
 		_startup_t = 0.0
 		# The recording ends on the idle: -7 dB hands over to the idle loop
 		# at about the same level.
-		_shot(profile.startup, -7.0, 1.0)
+		_shot(profile.startup, -7.0, 1.0, ENGINE)
 
 
 ## A short beep of the horn (traffic).
@@ -175,93 +184,9 @@ func honk(seconds := 0.45) -> void:
 
 ## Creates the "Player" and "Traffic" buses and a limiter on the master bus,
 ## once (no bus layout file to keep in sync).
-## Speaker boost (ART_BIBLE.md §33): the Steam Deck's small speakers play
-## almost nothing below ~300 Hz, where most of an engine recording's energy
-## is, so on them the engines vanished under the start-up, horns and squeals
-## (owner, 2026-10-02). With the boost on, an EQ on the engine buses cuts the
-## bass they can't play anyway and lifts 250 Hz-2 kHz (+8 dB through a Deck
-## speaker model, tools/audio). Settings "speakers": 0 auto (on for a Steam
-## Deck), 1 on, 2 off; `--speakers=on|off` on the command line overrides it.
-## Godot's 10-band EQ, 31 Hz ... 16 kHz:
-const SPEAKER_EQ: Array[float] = [-24.0, -18.0, -6.0, 3.0, 7.0, 7.0, 3.0, 0.0, 0.0, 0.0]
-static var _speaker_boost := false
-const PLAYER_BUS_DB := 4.0
-
-
-static func set_speaker_boost(on: bool) -> void:
-	_speaker_boost = on
-	for bus_name: StringName in [&"PlayerEngine", &"TrafficEngine"]:
-		var idx := AudioServer.get_bus_index(bus_name)
-		if idx >= 0:
-			AudioServer.set_bus_effect_enabled(idx, 0, on)
-
-
-static func speaker_boost_on() -> bool:
-	return _speaker_boost
-
-
-## What the "speakers" setting means on this machine.
-static func speaker_boost_wanted(setting: int) -> bool:
-	for arg in OS.get_cmdline_user_args():
-		if arg == "--speakers=on":
-			return true
-		if arg == "--speakers=off":
-			return false
-	return setting == 1 or (setting == 0 and is_steam_deck())
-
-
-## Steam sets SteamDeck=1 for games on the Deck; the DMI product name covers
-## launching it some other way (Jupiter: LCD model, Galileo: OLED).
-static func is_steam_deck() -> bool:
-	if OS.get_environment("SteamDeck") == "1":
-		return true
-	var f := FileAccess.open("/sys/devices/virtual/dmi/id/product_name", FileAccess.READ)
-	if f == null:
-		return false
-	var product := f.get_line().strip_edges()
-	return product == "Jupiter" or product == "Galileo"
-
-
+## The buses and their processing live in AudioMix (ART_BIBLE.md §33).
 static func ensure_buses() -> void:
-	if AudioServer.get_bus_index("Player") >= 0:
-		return
-	var master := 0
-	var limiter := AudioEffectHardLimiter.new()
-	limiter.ceiling_db = -0.5
-	AudioServer.add_bus_effect(master, limiter)
-	for bus_name: String in ["Player", "Traffic"]:
-		AudioServer.add_bus()
-		var idx := AudioServer.bus_count - 1
-		AudioServer.set_bus_name(idx, bus_name)
-		AudioServer.set_bus_send(idx, "Master")
-	# Engine layers go through their own bus (into Player / Traffic) so the
-	# speaker boost can EQ them alone.
-	for pair: Array in [[&"PlayerEngine", &"Player"], [&"TrafficEngine", &"Traffic"]]:
-		AudioServer.add_bus()
-		var idx := AudioServer.bus_count - 1
-		AudioServer.set_bus_name(idx, pair[0])
-		AudioServer.set_bus_send(idx, pair[1])
-		var eq := AudioEffectEQ10.new()
-		for band in SPEAKER_EQ.size():
-			eq.set_band_gain_db(band, SPEAKER_EQ[band])
-		AudioServer.add_bus_effect(idx, eq)
-	set_speaker_boost(_speaker_boost)
-	var player := AudioServer.get_bus_index("Player")
-	var reverb := AudioEffectReverb.new()
-	reverb.room_size = 0.55
-	reverb.damping = 0.4
-	reverb.spread = 0.8
-	reverb.predelay_msec = 35.0
-	reverb.dry = 1.0
-	reverb.wet = 0.0
-	AudioServer.add_bus_effect(player, reverb)
-	AudioServer.set_bus_effect_enabled(player, 0, false)
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Traffic"), -3.0)
-	# The player's sounds: without distance attenuation (_player) they lost
-	# the ~+7 dB the old setup gave them at the chase distance; +4 dB keeps
-	# full throttle about as loud as before (2026-10-02 rebalance).
-	AudioServer.set_bus_volume_db(player, PLAYER_BUS_DB)
-
+	AudioMix.ensure()
 
 func _build() -> void:
 	for p in _on + _off + _shots:
@@ -282,24 +207,24 @@ func _build() -> void:
 		picks = range(LITE_LAYERS).map(func(k: int) -> int: return roundi(k * step))
 		_on_rpm = PackedFloat32Array(picks.map(func(i: int) -> float: return profile.engine_on_rpm[i]))
 	for i: int in picks:
-		_on.append(_player(profile.engine_on[i], true, true))
+		_on.append(_player(profile.engine_on[i], true, ENGINE))
 	if full:
 		for i in profile.engine_off.size():
-			_off.append(_player(profile.engine_off[i], true, true))
-		_add_loop("roll", VehicleSoundBank.loop(VehicleSoundBank.ROLL_ASPHALT))
-		_add_loop("gravel", VehicleSoundBank.loop(VehicleSoundBank.ROLL_GRAVEL))
-		_add_loop("skid", VehicleSoundBank.loop(VehicleSoundBank.SKID_GRAVEL))
-		_add_loop("wind", VehicleSoundBank.loop(VehicleSoundBank.WIND))
-		_add_loop("scrape", VehicleSoundBank.loop(VehicleSoundBank.SCRAPE))
-		_add_loop("whine", profile.whine)
+			_off.append(_player(profile.engine_off[i], true, ENGINE))
+		_add_loop("roll", VehicleSoundBank.loop(VehicleSoundBank.ROLL_ASPHALT), TYRES)
+		_add_loop("gravel", VehicleSoundBank.loop(VehicleSoundBank.ROLL_GRAVEL), SURFACE)
+		_add_loop("skid", VehicleSoundBank.loop(VehicleSoundBank.SKID_GRAVEL), SURFACE)
+		_add_loop("wind", VehicleSoundBank.loop(VehicleSoundBank.WIND), ENVIRONMENT)
+		_add_loop("scrape", VehicleSoundBank.loop(VehicleSoundBank.SCRAPE), IMPACTS)
+		_add_loop("whine", profile.whine, ENGINE)
 	else:
-		_add_loop("roll", VehicleSoundBank.loop(VehicleSoundBank.ROLL_ASPHALT))
-	_add_loop("squeal", VehicleSoundBank.loop(VehicleSoundBank.SQUEAL))
-	_add_loop("horn", profile.horn)
+		_add_loop("roll", VehicleSoundBank.loop(VehicleSoundBank.ROLL_ASPHALT), TYRES)
+	_add_loop("squeal", VehicleSoundBank.loop(VehicleSoundBank.SQUEAL), SKID)
+	_add_loop("horn", profile.horn, SIGNALS)
 	if profile.reverse_beeper:
-		_add_loop("beeper", VehicleSoundBank.loop(VehicleSoundBank.BEEPER))
+		_add_loop("beeper", VehicleSoundBank.loop(VehicleSoundBank.BEEPER), SIGNALS)
 	for k in SHOTS[detail]:
-		_shots.append(_player(null, false))
+		_shots.append(_player(null, false, IMPACTS))
 	if full:
 		_prime.call_deferred()
 
@@ -317,17 +242,25 @@ func _prime() -> void:
 			pl.play(_rng.randf() * pl.stream.get_length())
 
 
-func _add_loop(key: String, stream: AudioStream) -> void:
+func _add_loop(key: String, stream: AudioStream, cat: StringName) -> void:
 	if stream:
-		_loops[key] = _player(stream, true)
+		_loops[key] = _player(stream, true, cat)
 
 
-func _player(stream: AudioStream, looping: bool, engine := false) -> AudioStreamPlayer3D:
+## The bus for a category: the player's own bus, or for traffic its engine
+## bus or the shared Traffic bus.
+func _bus(cat: StringName) -> StringName:
+	if detail == Detail.FULL:
+		return cat
+	return &"TrafficEngine" if cat == ENGINE else &"Traffic"
+
+
+func _player(stream: AudioStream, looping: bool, cat: StringName) -> AudioStreamPlayer3D:
 	var p := AudioStreamPlayer3D.new()
 	p.stream = _own(stream)
 	p.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED
+	p.bus = _bus(cat)
 	if detail == Detail.FULL:
-		p.bus = &"PlayerEngine" if engine else &"Player"
 		# The camera always trails the player's vehicle at about the same
 		# distance: no distance attenuation, so every level set here is the
 		# level heard. (It used to be inverse-distance with unit_size 14 and
@@ -340,7 +273,6 @@ func _player(stream: AudioStream, looping: bool, engine := false) -> AudioStream
 		p.panning_strength = 0.5
 		p.attenuation_filter_cutoff_hz = 20500.0
 	else:
-		p.bus = &"TrafficEngine" if engine else &"Traffic"
 		p.unit_size = 7.0
 		p.max_distance = 140.0
 		p.panning_strength = 0.9
@@ -507,11 +439,11 @@ func _update_body(dt: float) -> void:
 	if bump > 1.1 and _knock_cooldown <= 0.0 and vehicle.airtime == 0.0:
 		_knock_cooldown = 0.14
 		var k := clampf((bump - 1.1) / 2.5, 0.15, 1.0)
-		_shot(VehicleSoundBank.pick("suspension/knock", _rng), linear_to_db(k) - 6.0, _size_pitch() * _rng.randf_range(0.92, 1.08))
+		_shot(VehicleSoundBank.pick("suspension/knock", _rng), linear_to_db(k) - 6.0, _size_pitch() * _rng.randf_range(0.92, 1.08), TYRES)
 	# Into the sea.
 	var wet := vehicle.global_position.y < MapLayout.SEA_LEVEL - 0.3
 	if wet and not _splashed and speed > 2.0:
-		_shot(VehicleSoundBank.pick("body/splash", _rng), 0.0, _rng.randf_range(0.9, 1.05))
+		_shot(VehicleSoundBank.pick("body/splash", _rng), 0.0, _rng.randf_range(0.9, 1.05), ENVIRONMENT)
 	_splashed = wet
 	_update_enclosure(dt)
 
@@ -545,7 +477,7 @@ func _update_extras(dt: float) -> void:
 	var red := vehicle.redline_rpm
 	if vehicle.gear != _last_gear:
 		if vehicle.gear > _last_gear and _last_gear >= 1 and p.shift:
-			_shot(p.shift, p.shift_volume_db, _rng.randf_range(0.95, 1.05))
+			_shot(p.shift, p.shift_volume_db, _rng.randf_range(0.95, 1.05), ENGINE)
 		_last_gear = vehicle.gear
 	# Lifting off after hard throttle at high revs.
 	if throttle > 0.8 and vehicle.engine_rpm > red * 0.55:
@@ -553,7 +485,7 @@ func _update_extras(dt: float) -> void:
 	var lifted := _prev_throttle > 0.6 and throttle < 0.1 and vehicle.gear >= 1
 	if lifted and _peak_load_time > 0.4:
 		if p.blowoff:
-			_shot(p.blowoff, -6.0, _rng.randf_range(0.95, 1.08))
+			_shot(p.blowoff, -6.0, _rng.randf_range(0.95, 1.08), ENGINE)
 		if not p.pops.is_empty() and vehicle.engine_rpm > red * 0.6:
 			_pops_left = _rng.randi_range(3, 7)
 			_pop_timer = 0.05
@@ -566,7 +498,7 @@ func _update_extras(dt: float) -> void:
 		if _pop_timer <= 0.0:
 			_pops_left -= 1
 			_pop_timer = _rng.randf_range(0.04, 0.16)
-			_shot(p.pops[_rng.randi() % p.pops.size()], p.pops_volume_db + _rng.randf_range(-6.0, 0.0), _rng.randf_range(0.85, 1.15))
+			_shot(p.pops[_rng.randi() % p.pops.size()], p.pops_volume_db + _rng.randf_range(-6.0, 0.0), _rng.randf_range(0.85, 1.15), ENGINE)
 	# Air brakes sigh as a big vehicle stops. (No brake squeal on cars: the
 	# owner found the squeak at every stop annoying.)
 	var speed := absf(vehicle.forward_speed)
@@ -575,7 +507,7 @@ func _update_extras(dt: float) -> void:
 	if speed < 0.3:
 		if p.air_brake and _braked_from > 3.0 and _air_cooldown <= 0.0:
 			_air_cooldown = 4.0
-			_shot(p.air_brake, -11.0, _rng.randf_range(0.95, 1.05))
+			_shot(p.air_brake, -11.0, _rng.randf_range(0.95, 1.05), SKID)
 		_braked_from = 0.0
 
 
@@ -600,39 +532,39 @@ func _on_impact(strength: float, pos: Vector3, _normal: Vector3) -> void:
 	var vol := linear_to_db(clampf(0.35 + s * 0.8, 0.0, 1.0))
 	match what:
 		"plastic", "wood", "metal":
-			_shot_at(VehicleSoundBank.pick("impact/" + what, _rng), pos, vol, _rng.randf_range(0.9, 1.1))
+			_shot_at(VehicleSoundBank.pick("impact/" + what, _rng), pos, vol, _rng.randf_range(0.9, 1.1), IMPACTS)
 			if s > 0.25:
-				_shot_at(VehicleSoundBank.pick("impact/thud", _rng), pos, vol - 6.0, pitch)
+				_shot_at(VehicleSoundBank.pick("impact/thud", _rng), pos, vol - 6.0, pitch, IMPACTS)
 		_:
 			if s < 0.18:
-				_shot_at(VehicleSoundBank.pick("impact/thud", _rng), pos, vol, pitch)
+				_shot_at(VehicleSoundBank.pick("impact/thud", _rng), pos, vol, pitch, IMPACTS)
 			elif s < 0.5:
-				_shot_at(VehicleSoundBank.pick("impact/crunch", _rng), pos, vol, pitch)
+				_shot_at(VehicleSoundBank.pick("impact/crunch", _rng), pos, vol, pitch, IMPACTS)
 			else:
-				_shot_at(VehicleSoundBank.pick("impact/crash", _rng), pos, vol, pitch)
-				_shot_at(VehicleSoundBank.pick("impact/deform", _rng), pos, vol - 5.0, pitch * 0.9)
+				_shot_at(VehicleSoundBank.pick("impact/crash", _rng), pos, vol, pitch, IMPACTS)
+				_shot_at(VehicleSoundBank.pick("impact/deform", _rng), pos, vol - 5.0, pitch * 0.9, IMPACTS)
 
 
 func _on_landed(airtime: float) -> void:
 	var s := clampf(airtime / 2.0, 0.2, 1.0)
 	var set_name := "suspension/land" if airtime > 0.8 else "suspension/knock"
-	_shot(VehicleSoundBank.pick(set_name, _rng), linear_to_db(s) - 2.0, _size_pitch() * _rng.randf_range(0.93, 1.05))
+	_shot(VehicleSoundBank.pick(set_name, _rng), linear_to_db(s) - 2.0, _size_pitch() * _rng.randf_range(0.93, 1.05), TYRES)
 
 
 func _on_broke(what: String, pos: Vector3) -> void:
 	if what == "glass":
-		_shot_at(VehicleSoundBank.pick("impact/glass", _rng), pos, -1.0, _rng.randf_range(0.95, 1.08))
+		_shot_at(VehicleSoundBank.pick("impact/glass", _rng), pos, -1.0, _rng.randf_range(0.95, 1.08), IMPACTS)
 	else:
-		_shot_at(VehicleSoundBank.pick("impact/tinkle", _rng), pos, -4.0, _rng.randf_range(0.9, 1.15))
+		_shot_at(VehicleSoundBank.pick("impact/tinkle", _rng), pos, -4.0, _rng.randf_range(0.9, 1.15), IMPACTS)
 
 
 ## A part came off: it clatters when it hits the ground (a few times).
 func _on_detached(debris: RigidBody3D) -> void:
-	_shot_at(VehicleSoundBank.pick("impact/plastic", _rng), debris.global_position, -3.0, _rng.randf_range(0.85, 1.0))
+	_shot_at(VehicleSoundBank.pick("impact/plastic", _rng), debris.global_position, -3.0, _rng.randf_range(0.85, 1.0), IMPACTS)
 	debris.contact_monitor = true
 	debris.max_contacts_reported = 1
 	var player := AudioStreamPlayer3D.new()
-	player.bus = &"Player" if detail == Detail.FULL else &"Traffic"
+	player.bus = _bus(IMPACTS)
 	player.unit_size = 6.0
 	player.max_distance = 80.0
 	debris.add_child(player)
@@ -768,18 +700,19 @@ func _drive(p: AudioStreamPlayer3D, gain: float, pitch: float, instant := false)
 	p.volume_db = linear_to_db(gain * ramp)
 
 
-func _shot(stream: AudioStream, vol_db: float, pitch: float) -> void:
-	_shot_at(stream, vehicle.global_position, vol_db, pitch)
+func _shot(stream: AudioStream, vol_db: float, pitch: float, cat: StringName) -> void:
+	_shot_at(stream, vehicle.global_position, vol_db, pitch, cat)
 
 
 ## A one-shot from the vehicle's small pool (the oldest is cut off if all are
 ## busy), played at `pos`.
-func _shot_at(stream: AudioStream, pos: Vector3, vol_db: float, pitch: float) -> void:
+func _shot_at(stream: AudioStream, pos: Vector3, vol_db: float, pitch: float, cat: StringName) -> void:
 	if stream == null or _shots.is_empty():
 		return
 	var p := _shots[_shot_i]
 	_shot_i = (_shot_i + 1) % _shots.size()
 	p.stream = _own(stream)
+	p.bus = _bus(cat)
 	p.global_position = pos
 	p.volume_db = vol_db + volume_db
 	p.pitch_scale = pitch

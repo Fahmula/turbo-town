@@ -1895,12 +1895,34 @@ readable, kid-friendly (crashes are big and fun, never scary).
 - **Small speakers** (owner, 2026-10-02: quiet engines on the Steam Deck):
   the Deck's speakers play almost nothing below ~300 Hz, where most of an
   engine recording is (the inline six loses ~13 dB, the diesel ~10, the
-  fours ~5; squeal, horns and hisses lose nothing). The **speaker boost**
-  (setting "Speaker boost": Auto = on for a Steam Deck) EQs only the engine
-  buses (`PlayerEngine`, `TrafficEngine`): bass cut, 250 Hz–2 kHz up, about
-  +8 dB through a Deck speaker model. Check mix changes through that model
-  too (`highpass(x, 300 Hz, 4th order)` on an `--audio --speakers=on`
-  recording), not only full range.
+  fours ~5; squeal, horns and hisses lose nothing). Check every mix change
+  through a Deck speaker model too (`highpass(x, 300 Hz, 4th order)` on an
+  `--audio --speakers=on --stems` recording), not only full range.
+- **Mix architecture** (`AudioMix`, 2026-10-02, owner: engine too quiet on
+  the Deck against road, grass, brakes and crashes; skids and metal too
+  piercing everywhere). The player's vehicle feeds category buses: Engine,
+  Tyres (road, suspension), Surface (gravel, grass), Skid (squeal, air
+  brakes), Impacts (crashes, metal, glass, debris, scraping), Environment
+  (wind, water), Signals (horn, beeper), all into the Player group bus
+  (tunnel reverb, +4 dB). Traffic: Traffic (de-harsh shelf, compressor) and
+  TrafficEngine; UI for menu sounds. Master: speaker tone, glue compressor,
+  limiter at −1 dBFS (nothing clips). Processing: the engine gets a
+  **harmonic exciter** (Godot's waveshape distortion below ~300 Hz only: the
+  firing note grows odd harmonics the small speakers can play), a tone EQ
+  and a compressor; Skid and Impacts get a −6 to −9 dB high shelf from
+  2.5–3 kHz, a low-pass and fast compression (Impacts also a limiter).
+  **Hierarchy** while driving: engine on top; road ~10–14 dB under it,
+  gravel ~9–15, skid in a slide ~6–11, crashes about level with the engine
+  in a short burst. Two profiles, "flat" (PC, headphones) and "deck"
+  (setting "Speaker boost": Auto = deck on a Steam Deck), with the tuned
+  values in `assets/audio/mix.cfg` once saved. Godot's compressor doubles
+  its overshoot, so its `ratio` reads far stronger than it is: `AudioMix`
+  works in real ratios (`godot_ratio`). Godot's 10-band EQ isn't flat at
+  0 dB (about +2.5 dB with ripple): use shelves for gentle tone.
+- **Tuning live:** the dev audio panel (`AudioMixPanel`: F8, or hold both
+  sticks in for a second; touch on the Deck) has every fader and setting,
+  meters, mute / solo, and saves to `user://audio_mix.cfg`. Off for a
+  release: `turbo_town/dev/audio_mix_panel=false` in project.godot.
 - **Seamless:** loops are crossfaded at the seam (and cut on whole periods
   for pitched ones like horns); Godot imports everything as QOA (about a
   fifth of PCM; loops measured seamless). Players fade in over 40 ms, pause
@@ -1949,3 +1971,5 @@ readable, kid-friendly (crashes are big and fun, never scary).
   road roll; squeal only in slides; brake squeal removed).
 - 2026-10-02: §33 levels and small speakers after the owner's Steam Deck
   listen (player sounds unattenuated, explicit levels; speaker boost).
+- 2026-10-02: §33 mix architecture (category buses, exciter, de-harshing,
+  hierarchy, profiles) and the dev audio panel.

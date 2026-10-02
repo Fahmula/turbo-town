@@ -18,7 +18,7 @@ const DEFAULTS := {
 	"graphics": 2,  # 0 low, 1 medium, 2 high
 	"fullscreen": false,
 	"master_volume": 0.8,
-	"speakers": 0,  # speaker boost: 0 auto (on for a Steam Deck), 1 on, 2 off
+	"speakers": 0,  # speaker boost (AudioMix profile): 0 auto (on for a Steam Deck), 1 on, 2 off
 	"vibration": true,
 	"minimap": true,
 	"crash_cam": true,  # slow-motion replay of big crashes
@@ -99,7 +99,7 @@ func _apply_global(key: String) -> void:
 			AudioServer.set_bus_volume_db(0, linear_to_db(maxf(v, 0.0001)))
 			AudioServer.set_bus_mute(0, v <= 0.001)
 		"speakers":
-			VehicleAudio.set_speaker_boost(VehicleAudio.speaker_boost_wanted(int(get_value("speakers"))))
+			AudioMix.set_profile(AudioMix.profile_for_setting(int(get_value("speakers"))))
 		"fullscreen":
 			if DisplayServer.get_name() == "headless":
 				return

@@ -244,6 +244,8 @@ godot --path . -- --drive=/tmp/shots    autopilot lap of the highway, park, city
 godot --path . --headless -s res://scripts/dev/audio_check.gd   every vehicle's sound profile loads and covers its rev range
 godot --path . --audio-driver Dummy -- --audio=/tmp/shots   scripted drive recorded to session.wav (+ traffic voice budget);
     then: python3 tools/audio/check_recording.py /tmp/shots   (clicks, dropouts, clipping, levels)
+    add --stems for one recording per mix bus, --speakers=on|off for the Deck / flat mix
+godot --path . --audio-driver Dummy -- --mixpanel=/tmp/shots   the dev audio mix panel (F8 in the game)
 godot --path . -- --lookdev=/tmp/shots  every vehicle from fixed cameras, day/sunset/night
     add --vehicles=a,b --views=front34,rear34,side,wheel,chase,lamps --times=day --damaged
 godot --path . -- --traffic=/tmp/shots  watch traffic 150 s, log speeds/stuck/crashes
