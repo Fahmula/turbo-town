@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-02
+
 ### Sound
 - Engines come through properly on the Steam Deck's speakers: idle and
   cruising are much easier to hear, the engine start is quieter, and tyre
