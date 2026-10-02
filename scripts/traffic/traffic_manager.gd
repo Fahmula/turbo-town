@@ -362,6 +362,9 @@ func _spawn(lane: TrafficNetwork.Lane, s: float, scene: PackedScene = null) -> T
 			body.set_paint_color(paint)
 		else:
 			body.paint_color = paint
+		# Most cars are clean, a few have seen some dirt roads.
+		body.set_dirt(pow(_rng.randf(), 2.0) * 0.45)
+		body.indicator = VehicleBodyVisual.Blinker.OFF
 	# Place it before it enters the tree: added at the origin and moved after,
 	# the physics engine can treat it as a sweep through the ground and fling it.
 	var dir := lane.dir_at(s)

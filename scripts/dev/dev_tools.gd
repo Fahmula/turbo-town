@@ -2132,14 +2132,15 @@ func _damage(game: Game) -> void:
 		await _ram_wall(game, 70.0)
 	_check(dmg.glass_broken and dmg.total_damage > 55.0, "glass cracked at %.0f%% damage" % dmg.total_damage)
 	# Later dents keep the broken lights and the paint.
-	var lights_ok := true
-	for sf: Array in dmg._surfaces_named("Headlight"):
-		lights_ok = lights_ok and (sf[0] as MeshInstance3D).get_surface_override_material(sf[1]) == VehicleDamage._broken_light
 	var body := v.get_node("Body") as VehicleBodyVisual
+	var lights_ok := body.front_lights_broken()
+	for sf: Array in dmg._surfaces_named("Headlight"):
+		var lm := (sf[0] as MeshInstance3D).get_active_material(sf[1]) as ShaderMaterial
+		lights_ok = lights_ok and lm != null and float(lm.get_shader_parameter("broken")) > 0.5
 	var paint_ok := false
 	for mi: MeshInstance3D in dmg._meshes:
 		for k in mi.get_surface_override_material_count():
-			paint_ok = paint_ok or body._paint_mats.has(mi.get_surface_override_material(k))
+			paint_ok = paint_ok or mi.get_surface_override_material(k) == body.paint()
 	_check(lights_ok and paint_ok, "dents keep broken lights and paint (lights %s, paint %s)" % [lights_ok, paint_ok])
 	# Smashed front makes the car smoke and pull.
 	_check(v.damage_power <= 0.6 and dmg._smoke.emitting, "engine smoking, power %.2f, pull %.2f" % [v.damage_power, v.damage_steer_bias])
@@ -2467,6 +2468,10 @@ func _lookdev(game: Game) -> void:
 		var vi := VehicleCatalog.index_of_id(id)
 		if vi < 0:
 			continue
+		# Parts knocked off the previous car in its smashed pass.
+		for n in game.get_children():
+			if n is RigidBody3D and String(n.name).begins_with("Debris"):
+				n.queue_free()
 		game.change_vehicle(vi, VehicleCatalog.COLORS[paints.get(id, 0)], false)
 		var v := game.vehicle
 		v.teleport(spot.translated(Vector3.UP * v.ride_height()))
@@ -2510,7 +2515,7 @@ func _lookdev_view(game: Game, v: Vehicle, view: String, shot: String) -> void:
 		"wheel":
 			var wheel := v.get_node("WheelFL") as VehicleWheel
 			at = (wheel.get_node("Visual") as Node3D).global_position
-			local = v.global_basis.inverse() * (at - v.global_position) + Vector3(-1.6 - wheel.radius * 2.0, 0.25, -0.9)
+			local = v.global_basis.inverse() * (at - v.global_position) + Vector3(-0.75 - wheel.radius * 2.2, 0.15, -0.55)
 		"chase":
 			local = Vector3(0.0, 1.9 + h * 0.5, l * 0.5 + 5.0)
 			at = v.global_transform * Vector3(0.0, h * 0.6, -l)
@@ -2536,7 +2541,7 @@ func _smash_for_photo(v: Vehicle) -> void:
 	for hit: Array in hits:
 		var p: Vector3 = v.global_transform * (hit[0] as Vector3)
 		for m in dmg._meshes.size():
-			dmg._dent(m, p, hit[1], hit[2])
+			dmg._dent(m, p, hit[1], hit[2], 0.8, 0.9)
 	dmg.total_damage = 75.0
 	dmg.front_left = 0.9
 	dmg._break_headlights()

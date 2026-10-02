@@ -34,6 +34,9 @@ signal vehicle_reset
 @export_group("Brakes")
 @export var max_brake_torque := 2200.0
 @export_range(0.0, 1.0) var front_brake_bias := 0.6
+## Brake calipers behind the spokes (for open alloy wheels with discs).
+@export var brake_calipers := false
+@export var caliper_color := Color(0.16, 0.16, 0.17)
 
 @export_group("Steering")
 @export var max_steer_angle := 34.0
@@ -65,6 +68,12 @@ signal vehicle_reset
 ## Gently levels the car in mid-air so jumps land on the wheels more often.
 @export_range(0.0, 3.0) var air_stabilization := 1.0
 @export var impact_threshold := 2500.0
+
+## Visual layer of every vehicle mesh: the player's reflection probe
+## (VehicleReflection) only captures layer 1, so cars never reflect their
+## own insides.
+const VISUAL_LAYER := 2
+const CALIPER_SCENE := preload("res://assets/models/brake_caliper.glb")
 
 @export_group("AI")
 ## Traffic drivers multiply lane speed limits by this (trucks/buses < 1).
@@ -116,6 +125,14 @@ var _pending_impact_pos := Vector3.ZERO
 var _pending_impact_normal := Vector3.UP
 ## What the last reported impact was against (for debugging).
 var last_impact_collider: Object = null
+## Bodywork sliding along something this tick (roof on the road, a door
+## along a wall): how fast (m/s, 0 = not scraping) and where. Read by
+## VehicleDamage (scrape marks) and VehicleAudio (the grinding sound).
+var scrape_speed := 0.0
+var scrape_point := Vector3.ZERO
+## The hardest bodywork contact this tick (impulse, N s), for knocks that are
+## too soft to count as an impact.
+var contact_impulse := 0.0
 
 
 func _ready() -> void:
@@ -125,11 +142,15 @@ func _ready() -> void:
 	for w in wheels:
 		w.setup(self, wheel_collision_mask)
 		_wheel_radius = w.radius
+		if brake_calipers:
+			w.add_caliper(CALIPER_SCENE, caliper_color)
 	_front_pair = _find_pair(true)
 	_rear_pair = _find_pair(false)
 	if _front_pair.size() == 2 and _rear_pair.size() == 2:
 		wheelbase = absf(_front_pair[0].position.z - _rear_pair[0].position.z)
 	_measure_body()
+	for gi in find_children("*", "GeometryInstance3D", true, false):
+		(gi as GeometryInstance3D).layers = VISUAL_LAYER
 	contact_monitor = true
 	max_contacts_reported = 8
 	continuous_cd = true
@@ -237,6 +258,8 @@ func _physics_process(dt: float) -> void:
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	# Only gathers collision info; forces are applied in _physics_process.
 	_body_touching = state.get_contact_count() > 0
+	scrape_speed = 0.0
+	contact_impulse = 0.0
 	for i in state.get_contact_count():
 		var impulse := state.get_contact_impulse(i).length()
 		var other := state.get_contact_collider_object(i)
@@ -244,6 +267,13 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			other.call_deferred("on_vehicle_hit", self, impulse)
 		if other and other.has_meta("no_impact"):
 			continue  # scraping along a loop / wall ride isn't a crash
+		contact_impulse = maxf(contact_impulse, impulse)
+		var n := state.get_contact_local_normal(i)
+		var rel := state.get_contact_local_velocity_at_position(i) - state.get_contact_collider_velocity_at_position(i)
+		var slide := (rel - n * rel.dot(n)).length()
+		if slide > scrape_speed and slide > 2.0:
+			scrape_speed = slide
+			scrape_point = state.get_contact_collider_position(i)
 		if impulse > impact_threshold and impulse > _pending_impact:
 			_pending_impact = impulse
 			last_impact_collider = other

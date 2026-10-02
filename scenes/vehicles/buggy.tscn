@@ -58,6 +58,8 @@ shape = SubResource("Box_1")
 script = ExtResource("3_visual")
 paint_color = Color(0.878, 0.4, 0.106, 1)
 paint_palette = Array[Color]([Color(0.878, 0.4, 0.106, 1)])
+dirt = 0.35
+dirt_top = 0.35
 
 [node name="Model" parent="Body" instance=ExtResource("4_body")]
 

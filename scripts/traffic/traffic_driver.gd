@@ -87,6 +87,8 @@ var age := 0.0
 const LOD_DISTANCE := 140.0
 var _lod_skip := false
 var _lod_carry := 0.0
+var _body: VehicleBodyVisual
+var _indicator_timer := 0.0
 var lane_changes := 0
 var passes := 0
 
@@ -112,6 +114,7 @@ func setup(mgr: TrafficManager, lane: TrafficNetwork.Lane, s: float) -> void:
 		_curv_limit[sp] = tan(deg_to_rad(0.8 * vehicle.max_steer_for_speed(sp))) / _wheelbase
 	vehicle.auto_reverse = false
 	vehicle.impact.connect(_on_impact)
+	_body = vehicle.get_node_or_null("Body") as VehicleBodyVisual
 	_ray.exclude = [vehicle.get_rid()]
 	_ray.collision_mask = 0b111
 	_s = s
@@ -139,6 +142,48 @@ func release() -> void:
 	vehicle.steer_input = 0.0
 	vehicle.handbrake_input = false
 	vehicle.horn_input = false
+	if _body:
+		_body.indicator = VehicleBodyVisual.Blinker.OFF
+
+
+## Turn signals before turns at junctions and for lane changes, pulling over
+## and passing; hazard lights once crashed. Checked a few times a second.
+func _update_indicator(dt: float) -> void:
+	_indicator_timer -= dt
+	if _body == null or _indicator_timer > 0.0:
+		return
+	_indicator_timer = 0.2
+	var want := VehicleBodyVisual.Blinker.OFF
+	if state != State.DRIVING:
+		want = VehicleBodyVisual.Blinker.HAZARD
+	elif absf(_lc_offset) > 0.35:
+		# A lane change starts with the car offset toward its old lane.
+		want = VehicleBodyVisual.Blinker.LEFT if _lc_offset > 0.0 else VehicleBodyVisual.Blinker.RIGHT
+	elif not _bypass.is_empty():
+		want = VehicleBodyVisual.Blinker.LEFT
+	elif _pull_time > 0.0:
+		want = VehicleBodyVisual.Blinker.RIGHT
+	else:
+		want = _turn_signal()
+	_body.indicator = want
+
+
+## The turn coming up within signalling distance (or the one we're in).
+func _turn_signal() -> VehicleBodyVisual.Blinker:
+	var d := 0.0
+	for i in _plan.size():
+		var leg: Dictionary = _plan[i]
+		var lane: TrafficNetwork.Lane = leg["lane"]
+		if d > 40.0:
+			break
+		if lane.connector and lane.length > 4.0:
+			match TrafficNetwork._turn_kind(lane.dir_at(0.0), lane.dir_at(lane.length)):
+				1:
+					return VehicleBodyVisual.Blinker.RIGHT
+				2, 3:
+					return VehicleBodyVisual.Blinker.LEFT
+		d += float(leg["to"]) - (_s if i == 0 else float(leg["from"]))
+	return VehicleBodyVisual.Blinker.OFF
 
 
 func _setup_audio() -> void:
@@ -276,6 +321,7 @@ func _physics_process(dt: float) -> void:
 	state_time += dt
 	age += dt
 	_update_audio(dt)
+	_update_indicator(dt)
 	match state:
 		State.LOST:
 			_pedals(0.0, 0.6, 0.0)

@@ -91,22 +91,26 @@ def _details(surf, shell, front, rear, m):
         hx = sx * 0.55
         bk.patch(surf, shell, m["Trim"], bk.rect(0.40, 0.15, 0.4), (hx, 2.4, 0.26), fwd, up, lift=0.003)
         bk.patch(surf, shell, m["Chrome"], bk.rect(0.37, 0.125, 0.4), (hx, 2.4, 0.26), fwd, up, lift=0.005)
-        bk.patch(surf, shell, m["Headlight"], bk.ellipse(0.11, 0.08), (hx + sx * 0.07, 2.4, 0.26), fwd, up, lift=0.007)
-        bk.patch(surf, shell, m["Headlight"], bk.ellipse(0.09, 0.07), (hx - sx * 0.07, 2.4, 0.25), fwd, up, lift=0.007)
+        bk.patch(surf, shell, m["Headlight"], bk.ellipse(0.11, 0.08), (hx + sx * 0.07, 2.4, 0.26), fwd, up, lift=0.007, kind=bk.LAMP)
+        bk.patch(surf, shell, m["Headlight"], bk.ellipse(0.09, 0.07), (hx - sx * 0.07, 2.4, 0.25), fwd, up, lift=0.007, kind=bk.LAMP)
+        bk.patch(surf, shell, m["Headlight"], bk.rect(0.042, 0.06, 0.3), (hx + sx * 0.157, 2.4, 0.255), fwd, up, lift=0.007, grid=3,
+                 kind=bk.INDICATOR)
         # Fog lamps in the bumper.
         bk.patch(surf, front, m["Chrome"], bk.ellipse(0.10, 0.06), (sx * 0.62, 2.4, -0.06), (0, -1, 0), up, lift=0.004)
         # Tail lights wrapping from the wing onto the boot lid.
         tx = sx * 0.59
         bk.patch(surf, shell, m["Trim"], bk.rect(0.42, 0.15, 0.3), (tx, -2.4, 0.45), back, up, lift=0.003)
-        bk.patch(surf, shell, m["TailLight"], bk.rect(0.39, 0.125, 0.3), (tx, -2.4, 0.45), back, up, lift=0.005)
-        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.11, 0.045), (sx * 0.46, -2.4, 0.43), back, up, lift=0.007, grid=3)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.39, 0.125, 0.3), (tx, -2.4, 0.45), back, up, lift=0.005, kind=bk.LAMP)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.10, 0.05, 0.3), (sx * 0.72, -2.4, 0.475), back, up, lift=0.007, grid=3,
+                 kind=bk.INDICATOR)
+        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.11, 0.045), (sx * 0.46, -2.4, 0.43), back, up, lift=0.007, grid=3, kind=bk.LAMP)
         # Chrome door handles.
         for y in (0.30, -0.62):
             bk.patch(surf, shell, m["Chrome"], bk.rect(0.15, 0.025), (sx * 1.2, y, 0.46), side(sx), up, lift=0.004, grid=3)
     # Chrome grille bar over a dark grille, and the bumper's lower intake.
-    bk.patch(surf, shell, m["Trim"], bk.rect(0.66, 0.11, 0.3), (0, 2.4, 0.15), (0, -1, -0.1), up, lift=0.003)
+    bk.patch(surf, shell, m["Trim"], bk.rect(0.66, 0.11, 0.3), (0, 2.4, 0.15), (0, -1, -0.1), up, lift=0.003, kind=bk.GRILLE_SLATS)
     bk.patch(surf, shell, m["Chrome"], bk.rect(0.68, 0.025, 0.3), (0, 2.4, 0.20), (0, -1, -0.1), up, lift=0.005, grid=3)
-    bk.patch(surf, front, m["Trim"], bk.rect(0.78, 0.07, 0.5), (0, 2.4, -0.07), (0, -1, 0), up, lift=0.003)
+    bk.patch(surf, front, m["Trim"], bk.rect(0.78, 0.07, 0.5), (0, 2.4, -0.07), (0, -1, 0), up, lift=0.003, kind=bk.GRILLE_MESH)
     bk.patch(surf, shell, m["Chrome"], bk.ellipse(0.08, 0.05), (0, 2.4, 0.15), (0, -1, -0.1), up, lift=0.007)
     # Chrome garnish on the boot between the lights, plate recess below.
     bk.patch(surf, shell, m["Chrome"], bk.rect(0.40, 0.03), (0, -2.4, 0.46), back, up, lift=0.004, grid=3)

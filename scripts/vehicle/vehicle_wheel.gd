@@ -66,6 +66,10 @@ var _prev_compression := 0.0
 var _spin_angle := 0.0
 var _visual: Node3D
 var _visual_len := 0.0
+var _caliper: Node3D
+
+## Caliper materials by colour, shared by every wheel using that colour.
+static var _caliper_mats := {}
 
 
 func setup(vehicle: RigidBody3D, collision_mask: int) -> void:
@@ -79,6 +83,36 @@ func setup(vehicle: RigidBody3D, collision_mask: int) -> void:
 	_visual_len = suspension_travel
 
 
+## Mounts a brake caliper (brake_caliper.glb from make_wheels.py) behind
+## the spokes: it steers and follows the suspension with the wheel but
+## doesn't spin. Sized and mirrored like the wheel model under Visual.
+func add_caliper(scene: PackedScene, color: Color) -> void:
+	var vis := get_node_or_null("Visual") as Node3D
+	var model := vis.get_child(0) as Node3D if vis and vis.get_child_count() > 0 else null
+	if model == null or _caliper:
+		return
+	_caliper = scene.instantiate() as Node3D
+	_caliper.name = "Caliper"
+	var size := model.transform.basis.get_scale().abs().x
+	var mirror := Basis(Vector3.UP, PI) if position.x < 0.0 else Basis.IDENTITY
+	# Behind the axle and up a little, where real calipers sit.
+	_caliper.transform = Transform3D(Basis(Vector3.RIGHT, deg_to_rad(38.0)) * mirror * Basis.from_scale(Vector3.ONE * size), vis.position)
+	add_child(_caliper)
+	if not _caliper_mats.has(color):
+		var src: Material = null
+		for mi in _caliper.find_children("*", "MeshInstance3D", true, false):
+			src = (mi as MeshInstance3D).get_active_material(0)
+		var m := (src as BaseMaterial3D).duplicate() as BaseMaterial3D if src is BaseMaterial3D else StandardMaterial3D.new()
+		m.albedo_color = color
+		_caliper_mats[color] = m
+	for mi in _caliper.find_children("*", "MeshInstance3D", true, false):
+		var g := mi as MeshInstance3D
+		g.set_surface_override_material(0, _caliper_mats[color])
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.visibility_range_end = 45.0
+		g.layers = 2
+
+
 ## How far the wheel centre hangs below the mount point when standing still
 ## and carrying `supported_mass` kg (springs only; used for previews/placement).
 func rest_drop(supported_mass: float) -> float:
@@ -90,6 +124,8 @@ func pose_at_rest(supported_mass: float) -> void:
 	var vis := get_node_or_null("Visual") as Node3D
 	if vis:
 		vis.position = Vector3(0.0, -rest_drop(supported_mass), 0.0)
+		if _caliper:
+			_caliper.position = vis.position
 
 
 func reset_state() -> void:
@@ -243,3 +279,5 @@ func _update_visual(dt: float, target_len: float) -> void:
 	_spin_angle = wrapf(_spin_angle + spin_speed * dt, -PI, PI)
 	_visual.position = Vector3(0.0, -_visual_len, 0.0)
 	_visual.rotation = Vector3(-_spin_angle, 0.0, 0.0)
+	if _caliper:
+		_caliper.position = _visual.position

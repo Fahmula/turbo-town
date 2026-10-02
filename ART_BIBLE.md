@@ -204,8 +204,8 @@ trees, terrain and sea. The legacy builders, shaders and materials are gone.
 | Lighting | **Migrated (step 1).** Warm sun, cool ambient, AgX tonemap, aerial fog, 15:00 day preset (§9, §11). | More sun/shadow contrast, cooler shadows, more aerial haze. |
 | Sky | **Migrated.** Colours from step 1; soft lit cumulus and cirrus drawn by `sky.gdshader` (the faceted mesh clouds are gone). | A paler, hazier horizon and soft clouds. |
 | World | **Migrated (environment upgrade, 2026-10-01).** Roads, junctions, kerbs, barriers and bridges (§16), buildings (§15), street furniture, signs, landmarks and stunt props (§17), trees (§18), terrain and sea (§19). | Later: guardrails (§32), more street furniture variety, wet weather only if asked. |
-| Vehicles | **All eight migrated (step 4).** Loft bodies from `body_kit.py` (one `make_<vehicle>.py` each) with real arches, 5–6k deformable vertices, clear-coat paint and four new wheel types. The sports car (90s/early-2000s Japanese coupé) is the quality baseline. Every vehicle has see-through glass and an interior (the buggy an open cockpit) except the bus, which has opaque tinted glass. | §12–13. Later: LOD tuning, Damage 3.0 (§14). |
-| Damage | Vertex dents (smoothstep falloff, bent normals); since step 4 a dent only touches the vertices it moves. Bumpers and spoiler fall off. Lights and glass break. Smoke and sparks. | Add a scrape/primer/bare-metal layer, crumple stiffness, and structure behind lost parts (§14). |
+| Vehicles | **All eight migrated (step 4)**, then the **vehicle realism pass** (2026-10-02): the vehicle shaders (`assets/shaders/vehicle/`: car paint, glass, lamps, trim, tyres), real reflections on the player's car (`VehicleReflection`), amber indicators and traffic turn signals / hazards, brake calipers, grilles with depth, road grime, a contact shadow. Loft bodies from `body_kit.py` (one `make_<vehicle>.py` each), 5–6k deformable vertices, four wheel types. The sports car (90s/early-2000s Japanese coupé) is the quality baseline. Every vehicle has see-through glass and an interior (the buggy an open cockpit) except the bus, which has opaque tinted glass. | §12–13. Later: LOD tuning, Damage 3.0 crumple stiffness (§14). |
+| Damage | Vertex dents (smoothstep falloff, bent normals); a dent only touches the vertices it moves. **Paint damage layer** (scuff → primer → bare metal, vertex colours, §14) round dents and along sliding scrapes. Bumpers and spoiler fall off. Lights break (dark housing, lens shards); glass cracks in a procedural spiderweb at the window nearest the hit. Smoke and sparks. | Crumple stiffness and structure behind lost parts (§14). |
 | UI | Dark navy rounded panels, yellow accent, outlined default font, built in code with `UiKit`. | Keep the colours and layout. Add a real font, a type scale and icons (§20–22). |
 
 Treat legacy assets as placeholders. Match them when you add to a family that
@@ -430,10 +430,10 @@ spatial shaders.
 | Grass / foliage | vegetation palette | 0.8–0.95 | 0 | specular 0.25–0.35 |
 | Bark / rock / sand | palette | 0.85–0.95 | 0 | |
 | Water | sea palette | 0.02–0.1 | 0 | `water.gdshader`: roughness 0.08 |
-| Car paint | paint palette | 0.25–0.4 | 0 (solid) / 0.4–0.6 (metallic) | clearcoat (§13) |
+| Car paint | paint palette | 0.13 (solid) / 0.2 (metallic) | 0 (solid) / 0.35–0.6 (metallic) | clear coat 0.6; `car_paint.gdshader` (§13) |
 | Chrome | `#D9DBDE` | 0.08–0.15 | 1 | sparingly |
 | Aluminium rim | `#B8BBBF` | 0.3–0.4 | 1 | |
-| Vehicle glass | `#1E2833` | 0.03–0.08 | 0 | today metallic 0.5 (legacy) |
+| Vehicle glass | `#1E2833` | 0.04 | 0 | `vehicle_glass.gdshader`: alpha 0.62 → 0.96 with Fresnel |
 | Black trim plastic | `#222326` | 0.55–0.7 | 0 | |
 | Light lens | white / red / amber | 0.05–0.15 | 0 | emission per §13 |
 
@@ -492,6 +492,13 @@ spatial shaders.
 | `foliage.gdshader` | TreeKit trees: alpha-scissor leaf cards, solid cores, bark, wind sway | `COLOR.a`: 1 card, 0.5 core, 0 bark |
 | `terrain.gdshader` | terrain: grass clumps, dry and lush patches, rock with strata on slopes | vertex colour from `TerrainBuilder` |
 | `sky.gdshader` | sky gradient, sun/moon disk, soft lit cumulus and cirrus | colours set by `DayNight`; no `TIME`, so radiance only updates on change |
+| `vehicle/car_paint.gdshader` | car paint: gloss + clear coat, metallic flop and close-up flakes, toned-down ground reflections, road grime (`dirt`), the damage layer | object space (origin at wheel-centre height); vertex colour = damage mask, stored inverted (G = 1 − scrape, B = 1 − paint loss), see §14 |
+| `vehicle/vehicle_glass.gdshader`, `vehicle_glass_opaque.gdshader` (+ `.gdshaderinc`) | tinted glass with Fresnel opacity, procedural crack web round `crack_center` | the opaque one is the bus's |
+| `vehicle/vehicle_lamp.gdshader` | `Headlight`, `TailLight`, `ReverseLight`: lens over chrome reflector, ribs / projector ring, emission by kind and state; reads the global `night` | UV0 kind tags from `body_kit` (§13); per-car state uniforms set by `VehicleBodyVisual` |
+| `vehicle/vehicle_trim.gdshader` | black trim; honeycomb grilles and slatted grilles with dark holes | UV0 kind tags (§13) |
+| `vehicle/vehicle_tyre.gdshader` | tread vs sidewall by object-space radius, moulded band, dust | wheel models are 0.37 m round X |
+| `vehicle/contact_shadow.gdshader` | soft multiply-blend patch under each vehicle (§10) | `instance uniform strength` |
+| `vehicle/vehicle_common.gdshaderinc` | stable hashes, value noise, `vh_step` (fwidth-antialiased steps), `vh_kind` (decodes the UV tags) | |
 
 **Rules**
 
@@ -637,7 +644,18 @@ an earthy `DayNight.GROUND_BOUNCE`, scaled by the light's energy.
 - **SSAO** on High only (as today). Baked AO everywhere.
 - **Reflections:** sky radiance by default. Up to 4 `ReflectionProbe`s with
   `UPDATE_ONCE` may cover the city core on Medium/High for paint and glass
-  reflections. Never `UPDATE_ALWAYS`.
+  reflections. Never `UPDATE_ALWAYS`. The project's reflection atlas holds 4
+  (`rendering/reflections/reflection_atlas/reflection_count`).
+- **The player's car reflects its real surroundings** on Medium and High
+  (`VehicleReflection`, owned by `Game._fit_reflection`): one `UPDATE_ONCE`
+  probe that is re-centred on the car only after it has driven 14 m and at
+  most every 0.9 s (Godot re-renders a ONCE probe when it moves, one cube
+  face per frame). 44 × 16 × 44 m box, captures layer 1 only (the world,
+  not cars: every vehicle mesh is on visual layer 2, `Vehicle.VISUAL_LAYER`),
+  `reflection_mask` = vehicles only (roads and buildings keep their sky
+  reflections), no shadows, `mesh_lod_threshold` 8, ambient off (the probe's
+  captured street is far darker than the scene's flat ambient). Traffic that
+  drives through the box gets the same reflections. Low: sky only.
 - **Off:** SDFGI, VoxelGI, LightmapGI (the world is generated at runtime),
   SSIL, SSR, volumetric fog, and DOF or motion blur during gameplay.
 
@@ -671,9 +689,10 @@ exposure, same tonemapper.
   (today 0.06 of max distance), PCF soft filter low or medium, `shadow_blur`
   ≤ 1.5.
 - **Every vehicle and large prop casts.** Vehicles must always look grounded:
-  shadow-casting, plus contact AO under the body. A dark multiply-blend quad
-  under each car (`BLEND_MODE_MUL`, soft vertex-alpha falloff) is allowed as
-  extra grounding.
+  shadow-casting, plus contact AO under the body. Every vehicle has a dark
+  multiply-blend patch under it (`contact_shadow.gdshader`, made by
+  `VehicleBodyVisual`: ground height from the wheels, fades out in the air,
+  drawn to 90 m).
 - **Cast shadow OFF** for: particles, skid marks, road markings and decals,
   clouds and sky elements, water, emissive lamp heads, props smaller than
   ~0.3 m, glass shards, distant vegetation impostors.
@@ -756,7 +775,10 @@ docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
 - Panel shut-lines (bonnet, doors, boot) as 5–8 mm dark grooves on the
   deformable shell, so they bend with dents.
 - Headlights with housing, lens and inner reflector. Tail lights with lens and
-  an inner emissive element. Amber indicators are welcome.
+  an inner emissive element. **Amber indicators** front and rear on every road
+  vehicle (traffic signals with them before turns and lane changes, and puts
+  the hazards on after a crash); off-road toys (buggy, monster truck) may skip
+  them.
 - Grille openings with depth (a dark recess). Mirrors on stalks. Small door
   handles. Exhaust tips. A licence-plate recess (blank plate or "TURBO").
 - Dark wheel-well liners and a simple dark underbody, so you never see through
@@ -764,8 +786,10 @@ docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
 - A simple interior (seats, dash, steering wheel) in dark materials, 300–800
   tris, visible through the glass.
 
-**Wheels:** multi-spoke rims with depth (5–10 spokes). The sports car shows a
-dark brake disc and a coloured caliper behind the spokes. Tyres have rounded
+**Wheels:** multi-spoke rims with depth (5–10 spokes). Open alloy wheels show a
+dark brake disc and a caliper behind the spokes (`Vehicle.brake_calipers`,
+`caliper_color`: red on the sports car, dark grey on the sedan; the caliper is
+`brake_caliper.glb`, mounted on the hub so it steers but doesn't spin). Tyres have rounded
 shoulders and a slightly lighter sidewall; off-road tyres get chunky tread as
 geometry. **The visual radius must match the physics wheel radius** in the
 vehicle scene.
@@ -813,7 +837,26 @@ widths are left out because the mirrors dominate them.
 | `TailLight` | `VehicleBodyVisual` brake emission; `VehicleDamage` | red lens |
 | `ReverseLight` | `VehicleBodyVisual` reverse emission | white lens |
 | `Glass` | `VehicleDamage` swaps it to cracked glass | tinted glass |
-| `Trim`, `Chrome`, `Interior`, `Stripe`, `Tire`, `Rim`, `Hub`, `Cage`, `Frame`, `Box`, `Roof`, `GlassDark` | fixed looks | per §6. `Interior`: dark cabin parts. `Cage`: roll cages, chassis tubes. `Box`: the truck's aluminium box. `Roof`: the bus's light grey roof. `GlassDark`: opaque windows painted on the body with nothing behind them (they never crack). |
+| `Trim`, `Chrome`, `Interior`, `Stripe`, `Tire`, `Rim`, `Hub`, `Cage`, `Frame`, `Box`, `Roof`, `GlassDark`, `Caliper` | fixed looks | per §6. `Interior`: dark cabin parts. `Cage`: roll cages, chassis tubes. `Box`: the truck's aluminium box. `Roof`: the bus's light grey roof. `GlassDark`: opaque windows painted on the body with nothing behind them (they never crack). `Caliper`: recoloured per vehicle. |
+
+**The vehicle shaders replace the imported materials by name at runtime**
+(`VehicleBodyVisual.apply_vehicle_materials`, used by every vehicle and the
+parked-car props): `Paint`/`Stripe` → `car_paint`, `Glass` → `vehicle_glass`
+(opaque glass → `vehicle_glass_opaque`), `Headlight`/`TailLight`/`ReverseLight`
+→ `vehicle_lamp`, `Trim` → `vehicle_trim`, `Tire` → `vehicle_tyre`. The swapped
+material keeps the contract name as its `resource_name`. Paint, lamps and tyres
+are per car (colour, state, dust); trim and intact glass are shared. The
+Blender values are what the garage of an older build showed; the shaders own
+the look now.
+
+**UV kind tags (body_kit).** One lamp or trim surface holds several things, so
+`body_kit.patch()`/`box()`/`tube()` take `kind=` and write UV0 =
+(kind × 10 + 5 + s, t), where (s, t) are metres from the patch centre
+(untagged faces are 0, 0; the glTF export flips V, `vh_kind` undoes it). Kinds:
+1 `LAMP` (headlight beam, tail/brake, reverse), 2 `DRL` (daytime running light;
+rear position light that never brakes), 3 `INDICATOR` (amber; left = x < 0),
+4 `AUX` (fog lamps, light bars: night only), 5 `BRAKE_ONLY` (third brake
+light), 6 `GRILLE_MESH` (honeycomb), 7 `GRILLE_SLATS`.
 
 **Detachable meshes are matched by exact name:** `FrontBumper`, `RearBumper`,
 `Spoiler`. A wing exported as "Wing" silently never falls off (it happened once;
@@ -821,35 +864,62 @@ the legacy pipeline renamed it on export, `body_kit` does not).
 
 New names are fine for fixed materials. Add them to this table.
 
-**Car paint**
+**Car paint** (`car_paint.gdshader`)
 
-- **Solid:** albedo from the palette, metallic 0, roughness 0.28–0.35,
-  clearcoat 1.0, clearcoat roughness 0.05–0.12.
-- **Metallic:** metallic 0.4–0.6, roughness 0.3–0.4, same clearcoat.
+- **Solid:** albedo from the palette, metallic 0, roughness 0.13, clear coat
+  0.6 at roughness 0.05.
+- **Metallic:** metallic 0.35–0.6 (from `PaintPalette`), roughness 0.2, same
+  clear coat, plus colour flop (brighter facing the camera, ×0.6 at grazing
+  angles) and flakes that glint within ~3 m (faded out beyond, no shimmer).
+- **Why the base is glossy:** inside a reflection probe Godot drops its
+  clear-coat reflection and uses the base layer's, so a rough base (the old
+  0.32) blurred the player's reflections to grey. The clear coat still adds
+  the sharp sun highlight.
+- **Ground reflections are toned down** (specular × 0.55 where the reflection
+  points below the horizon): the sky's ground half is pale, and real lower
+  doors reflect dark asphalt.
+- **Grime:** `dirt` 0–1 dusts the lower body (object-space height between
+  `dirt_top` and 0.6 m below it, broken up by splash noise), roughening it and
+  killing the clear coat; the tyres' sidewalls get the same dust. Driving on
+  dirt adds to it (`VehicleBodyVisual`, never washes off by itself); traffic
+  starts with a random 0–0.45 (most cars clean); the buggy (0.35) and monster
+  truck (0.3) start dusty.
 - **Matte** (rare; buggy or monster truck): roughness 0.55–0.7, no clearcoat.
 - **The paint look is defined in one place:** `VehicleBodyVisual.paint_material()`
-  (clear coat 1.0 at roughness 0.08 since step 4). Vehicles and parked-car
-  props both use it, so every car changes together. The finish (solid or
-  metallic) belongs with the palette entry, not with each model.
+  makes the per-car `car_paint` material. Vehicles and parked-car props both
+  use it, so every car changes together. The finish (solid or metallic)
+  belongs with the palette entry, not with each model.
 
 **Other vehicle materials**
 
-- **Glass.** Alpha-blended tint `#1E2833` at alpha 0.72, roughness 0.05,
-  metallic 0, but only on vehicles that have an interior (the Blender
-  material's alpha exports as glTF `BLEND`). The bus has no interior, so its
+- **Glass.** `vehicle_glass.gdshader`: tint `#1E2833`, alpha 0.62 looking
+  straight in rising to 0.96 edge-on (Fresnel, so windows mirror the street at
+  a glance and show the cabin head-on), roughness 0.04, metallic 0, but only on
+  vehicles that have an interior (the Blender material's alpha exports as glTF
+  `BLEND`; that's how the swap tells the two kinds apart). The bus has no interior, so its
   `Glass` is opaque dark tint (`vehicle_materials(glass_alpha=1.0)`); it still
   cracks. A see-through cabin also needs inward-facing door
   cards, headliner and pillars, or you see out through the far side (backface
-  culling). Cracked glass is an opaque, whitish spiderweb.
-- **Lights:** lens albedo near white, red or amber, roughness 0.05–0.15.
-  Emission energies today: headlight 2.0 (in the model), tail running light
-  0.8, brake 4.0, reverse 2.5. Daytime running lights about 1.5.
+  culling). Cracked glass: a procedural spiderweb (13 jittered radial cracks,
+  broken rings, a crushed milky centre, frosting) round the glass vertex
+  nearest the hit, about 0.75 m across, on that car's own copy of the glass.
+- **Lights** (`vehicle_lamp.gdshader`): unlit, a headlight is a glossy lens
+  over a chrome reflector (metallic, it mirrors the street), a tail light a deep
+  red lens, an indicator an amber one; reflector ribs and projector rings come
+  from the patch coordinates. Emission energies: headlight beam 0 by day, 6.0
+  at night (global `night`); DRL 2.4 by day, 1.6 at night; tail position 0.25 by
+  day, 1.4 at night; brake 5.5; reverse 3.5; indicators 5.0 blinking at about
+  85 flashes a minute; aux lamps 3.5 at night. Broken lamps: dark dull housing
+  with a few lens shards left, no emission (the lamp's `broken` uniform).
 - **Trim, rims and running gear:** black trim plastic `#222326` at roughness
   0.6. Chrome `#D9DBDE` at roughness 0.1, metallic 1, used sparingly; with sky
   reflections only, big chrome areas look flat. Aluminium rims `#B8BBBF` at
   roughness 0.35, metallic 1. Tyres `#1C1C1E` at roughness 0.9, sidewall
   about 5% lighter. Brake disc `#5A5C5E`, metallic 1, roughness 0.5. Caliper
-  is an accent colour.
+  is an accent colour. Hubs, discs and alloy rims are bare metal (metallic 1);
+  painted steel and beadlock rims are paint (0). Tyres (`vehicle_tyre.gdshader`):
+  tread `#1A1A1C` at roughness 0.93, sidewall `#1F1F21` at 0.82 with a slightly
+  glossier moulded band.
 - **Interior:** dark greys `#2A2B2E`–`#3A3B3F`, roughness 0.7–0.9, no emission.
 
 ---
@@ -886,20 +956,23 @@ mechanically plausible, kid-safe, cheap.
   every detachable part, so losing it never reveals a hole, backfaces or sky.
   Detachable parts must be closed meshes, because they tumble.
 
-**Material damage** (target, not implemented yet)
+**Material damage** (done in the vehicle realism pass)
 
-- **Layer order:** clean paint → scuffed paint (+0.2 roughness, slightly
-  lighter) → primer `#8C8C88` at roughness 0.7 → bare steel `#9A9C9E`,
-  metallic 1, roughness 0.35. Scrapes are long streaks along the direction of
-  travel at the contact point. Impacts make patches.
+- **Layer order:** clean paint → scuffed paint (+0.25 roughness, slightly
+  lighter, no clear coat) → primer `#8C8C88` at roughness 0.7 → bare steel
+  `#9A9C9E`, metallic 1, roughness 0.35. Scrapes are streaks along the body
+  (noise stretched along its length); impacts make blotchy patches.
 - **No** rust, burn marks or age dirt: crashes are instant.
-- **Driven by a per-vertex mask** in the car paint shader, so damaged cars need
-  no extra textures.
-- **Broken lights:** the lens goes dark grey (`#2E2E31`, roughness 0.9) with no
-  emission (as today). Target: add a few lens shards and an exposed dark
-  reflector.
-- **Cracked glass:** today a flat light-grey material. Target: a procedural
-  crack pattern centred near the impact.
+- **Driven by a per-vertex mask** in `car_paint.gdshader`, so damaged cars need
+  no extra textures. `VehicleDamage._dent` writes it with each dent (scrape
+  0.35–0.85, paint loss 0.25–1.15 at the centre, by severity) and `scrape()`
+  writes streaks without denting where bodywork slides along something faster
+  than 4 m/s (`Vehicle.scrape_speed`, at most 5 times a second). It lives in
+  the car's own dented mesh, so a repair clears it.
+- **Broken lights:** dark dull housing (`#2E2E31`-ish, roughness 0.85) with a
+  few lens shards catching the light, no emission.
+- **Cracked glass:** a procedural spiderweb at the window nearest the impact
+  (§13).
 
 **Effects on impact:** sparks on metal-to-hard hits, glass bits, optional small
 paint chips, dust on dirt, and engine smoke when the front is smashed (today),
@@ -936,11 +1009,11 @@ explosions unless the owner asks.
 - **Per-vertex damage data (reserved layout):** an authored crumple factor (1 =
   soft: bumpers, bonnet, wings, boot; ~0.5 doors; ~0.25 pillars, roof, cabin),
   plus runtime scrape and paint-loss masks written by `VehicleDamage`. The
-  preferred channel is vertex colour: R = crumple, G = scrape, B = paint loss,
-  A = reserved. **Don't export vertex colours on vehicles until the shader and
-  code that consume them exist.** glTF multiplies `COLOR_0` into the base
-  colour, so the paint would be tinted. When implementing, make sure vehicle
-  materials don't use vertex colour as albedo.
+  channel is vertex colour, **stored inverted** so a mesh without colours
+  (Godot's default is white) reads as undamaged: G = 1 − scrape, B = 1 − paint
+  loss (in use since the realism pass), R = 1 − crumple and A reserved. The
+  models still export no vertex colours; only dented runtime meshes have
+  them. Vehicle materials never use vertex colour as albedo.
 
 ---
 
@@ -1387,6 +1460,8 @@ Output goes to `assets/models/`.
 - **Vehicles:** the front points to Blender +Y (Godot −Z). The origin is at
   wheel-centre height, midway between the axles. Wheel positions and radius
   match the vehicle scene.
+- **Lamps and grilles are tagged** with `kind=` on `patch()`/`box()`/`tube()`
+  (§13, UV kind tags); every `Part` has a UV layer for it.
 - **Material names follow the contract** (§13). Detachable parts are their own
   `bk.Part` named exactly `FrontBumper`, `RearBumper` or `Spoiler` (the Part
   name becomes the Godot node name). Each becomes its own mesh in the `.glb`.
@@ -1743,8 +1818,9 @@ Cheapest and biggest wins first:
    paint; then the other seven, one design language per class (§12), four
    wheel types, the `PaintPalette` garage and traffic colours, and garage
    racing stripes.
-5. **Damage 3.0:** crumple stiffness, the scrape/primer/bare-metal layer,
-   structure behind detachable parts, a cracked-glass pattern.
+5. **Damage 3.0:** crumple stiffness and structure behind detachable parts.
+   The scrape/primer/bare-metal layer, the cracked-glass pattern and broken
+   lamps with shards were done in the vehicle realism pass (2026-10-02).
 6. ✅ **Buildings:** facade grammar (base, middle, top), districts, roof clutter,
    chunking.
 7. ✅ **Vegetation:** card-based trees, palms, chunked MultiMeshes with LOD.
@@ -1784,3 +1860,7 @@ Cheapest and biggest wins first:
   approved); legacy builders, shaders and materials removed. §3, §5, §6, §7,
   §15–§19, §26 (per-block chunks, automatic LODs), §27 (new baseline), §28
   and §31 updated.
+- 2026-10-02: vehicle realism pass (on `dev`): vehicle shaders, the player's
+  reflection probe, indicators, calipers, grime, contact shadow, the paint
+  damage layer and cracked-glass pattern. §3, §6, §7, §9, §10, §12, §13, §14,
+  §24, §27 and §31 updated.

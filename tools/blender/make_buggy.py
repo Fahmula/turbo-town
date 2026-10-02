@@ -91,7 +91,7 @@ def build():
     for sx in (-1, 1):
         bk.tube(front, m["Cage"], (sx * 0.46, 1.90, -0.02), (sx * 0.34, 1.62, 0.20), 0.035, 8)
         bk.tube(front, m["Cage"], (sx * 0.46, 1.90, -0.02), (sx * 0.30, 1.62, -0.05), 0.035, 8)
-        bk.box(front, m["Headlight"], (sx * 0.30, 1.925, -0.02), (0.07, 0.012, 0.04))      # fog lamps
+        bk.box(front, m["Headlight"], (sx * 0.30, 1.925, -0.02), (0.07, 0.012, 0.04), kind=bk.AUX)      # fog lamps
     rear = bk.Part("RearBumper", [])
     bk.tube(rear, m["Cage"], (-0.55, -1.74, 0.06), (0.55, -1.74, 0.06), 0.04, 10)
     for sx in (-1, 1):
@@ -109,7 +109,7 @@ def _nose(surf, shell, m):
         c = (sx * 0.30, 1.40, 0.44)
         bk.tube(shell, m["Cage"], (c[0], c[1] - 0.02, 0.30), (c[0], c[1] - 0.02, c[2]), 0.016, 6)
         bk.tube(shell, m["Chrome"], (c[0], c[1] - 0.06, c[2]), (c[0], c[1] + 0.05, c[2]), 0.075, 14)
-        bk.tube(shell, m["Headlight"], (c[0], c[1] + 0.05, c[2]), (c[0], c[1] + 0.056, c[2]), 0.064, 14)
+        bk.tube(shell, m["Headlight"], (c[0], c[1] + 0.05, c[2]), (c[0], c[1] + 0.056, c[2]), 0.064, 14, kind=bk.LAMP)
     # Fuel cap and hood pins on the deck.
     bk.tube(shell, m["Chrome"], (0.26, 0.80, 0.39), (0.26, 0.80, 0.43), 0.055, 12)
     for sx in (-1, 1):
@@ -145,11 +145,11 @@ def _cage(shell, m):
     # Light bar on the roof with four lamps.
     bk.box(shell, c, (0, 0.13, 1.36), (0.86, 0.1, 0.09), bevel=0.015, segments=1)
     for k in range(4):
-        bk.box(shell, m["Headlight"], (-0.3 + k * 0.2, 0.182, 1.36), (0.13, 0.012, 0.06))
+        bk.box(shell, m["Headlight"], (-0.3 + k * 0.2, 0.182, 1.36), (0.13, 0.012, 0.06), kind=bk.AUX)
     # Tail and reverse lamps on the back of the tub.
     for sx in (-1, 1):
-        bk.box(shell, m["TailLight"], (sx * 0.32, -1.585, 0.33), (0.12, 0.03, 0.06))
-        bk.box(shell, m["ReverseLight"], (sx * 0.14, -1.585, 0.33), (0.07, 0.03, 0.05))
+        bk.box(shell, m["TailLight"], (sx * 0.32, -1.585, 0.33), (0.12, 0.03, 0.06), kind=bk.LAMP)
+        bk.box(shell, m["ReverseLight"], (sx * 0.14, -1.585, 0.33), (0.07, 0.03, 0.05), kind=bk.LAMP)
 
 
 def _at(a, b, z):

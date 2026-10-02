@@ -148,6 +148,24 @@ def vehicle_materials(paint=(0.784, 0.137, 0.106), glass_alpha=0.72):
     }
 
 
+# ------------------------------------------------------------- UV tags ---
+# Lamp and grille patches carry a "kind" in UV0 so one material can draw
+# several things (ART_BIBLE.md §13): UV.x = kind * 10 + 5 + s and UV.y = t,
+# where (s, t) are metres from the patch centre. Everything else is (0, 0).
+# vehicle_lamp.gdshader and vehicle_trim.gdshader decode it.
+LAMP = 1          # main lamp: headlight beam, tail/brake light, reverse lamp
+DRL = 2           # daytime running light / rear position light (never brakes)
+INDICATOR = 3     # amber turn signal
+AUX = 4           # fog lamps, light bars: lit at night only
+BRAKE_ONLY = 5    # third brake light
+GRILLE_MESH = 6   # dark honeycomb mesh (Trim)
+GRILLE_SLATS = 7  # horizontal slats (Trim)
+
+
+def tag_uv(kind, s=0.0, t=0.0):
+    return (kind * 10.0 + 5.0 + s, t)
+
+
 # ----------------------------------------------------------------- mesh ---
 
 class Part:
@@ -156,6 +174,7 @@ class Part:
     def __init__(self, name, mats):
         self.name = name
         self.bm = bmesh.new()
+        self.uv = self.bm.loops.layers.uv.new("UVMap")   # (0, 0) = untagged, see tag_uv()
         self.mats = mats          # list of bpy materials (slot order)
 
     def slot(self, mat):
@@ -235,6 +254,8 @@ def split_part(src, name, pick):
             vs.append(vmap[v])
         nf = dst.bm.faces.new(vs)
         nf.material_index = f.material_index
+        for lo, ln in zip(f.loops, nf.loops):
+            ln[dst.uv].uv = lo[src.uv].uv
     bmesh.ops.delete(bm, geom=faces, context="FACES_ONLY")
     bmesh.ops.delete(bm, geom=[e for e in bm.edges if not e.link_faces], context="EDGES")
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
@@ -247,8 +268,9 @@ def thicken(part, depth):
     bmesh.ops.solidify(part.bm, geom=part.bm.faces[:], thickness=depth)
 
 
-def box(part, mat, center, size, bevel=0.0, rot=None, segments=2):
-    """Axis-aligned (or rotated) box, optionally with rounded edges."""
+def box(part, mat, center, size, bevel=0.0, rot=None, segments=2, kind=None):
+    """Axis-aligned (or rotated) box, optionally with rounded edges. `kind`
+    tags every face (UV tags above)."""
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
@@ -259,10 +281,10 @@ def box(part, mat, center, size, bevel=0.0, rot=None, segments=2):
     if rot is not None:
         m = m @ mathutils.Euler(rot).to_matrix().to_4x4()
     bm.transform(m)
-    _append(part, bm, mat)
+    _append(part, bm, mat, None if kind is None else tag_uv(kind))
 
 
-def tube(part, mat, p0, p1, radius, segments=10):
+def tube(part, mat, p0, p1, radius, segments=10, kind=None):
     a = mathutils.Vector(p0)
     b = mathutils.Vector(p1)
     d = b - a
@@ -270,7 +292,7 @@ def tube(part, mat, p0, p1, radius, segments=10):
     bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=segments, radius1=radius, radius2=radius, depth=d.length)
     rot = mathutils.Vector((0, 0, 1)).rotation_difference(d.normalized()).to_matrix().to_4x4()
     bm.transform(mathutils.Matrix.Translation((a + b) / 2) @ rot)
-    _append(part, bm, mat)
+    _append(part, bm, mat, None if kind is None else tag_uv(kind))
 
 
 def spoke(part, mat, end0, end1, depth):
@@ -317,7 +339,9 @@ def lathe(part, mat, profile, segments, x0=0.0, loop=False):
     _append(part, bm, mat)
 
 
-def _append(part, bm, mat):
+def _append(part, bm, mat, uv=None):
+    """Copies `bm` into `part` with material `mat`. `uv` is a constant (u, v)
+    for every corner, or a dict {source vert: (u, v)}; None leaves (0, 0)."""
     idx = part.slot(mat)
     vmap = {}
     for v in bm.verts:
@@ -326,6 +350,9 @@ def _append(part, bm, mat):
         nf = part.bm.faces.new([vmap[v] for v in f.verts])
         nf.material_index = idx
         nf.smooth = f.smooth
+        if uv is not None:
+            for sv, loop in zip(f.verts, nf.loops):
+                loop[part.uv].uv = uv[sv] if isinstance(uv, dict) else uv
     bm.free()
 
 
@@ -351,12 +378,13 @@ class Surface:
         return loc, nrm
 
 
-def patch(surface, part, mat, outline, center, direction, up, lift=0.004, grid=4):
+def patch(surface, part, mat, outline, center, direction, up, lift=0.004, grid=4, kind=None):
     """Projects a flat shape onto the shell along `direction`. `outline(u, v)`
     maps the unit square to local (s, t) metres in the projection plane
     through `center` (s along `up` x `direction`, t along `up`). `grid` is
     the subdivision (an int, or (across, along) for long thin strips).
-    Patches that miss the shell are skipped."""
+    `kind` tags it in UV0 with its (s, t) (UV tags above). Patches that
+    miss the shell are skipped."""
     gu, gv = (grid, grid) if isinstance(grid, int) else grid
     d = mathutils.Vector(direction).normalized()
     upv = mathutils.Vector(up)
@@ -365,6 +393,7 @@ def patch(surface, part, mat, outline, center, direction, up, lift=0.004, grid=4
     c = mathutils.Vector(center)
     bm = bmesh.new()
     rows = []
+    uvs = {}
     for a in range(gu + 1):
         row = []
         for b in range(gv + 1):
@@ -376,7 +405,10 @@ def patch(surface, part, mat, outline, center, direction, up, lift=0.004, grid=4
                 return False
             if nrm.dot(d) > 0.0:
                 nrm = -nrm          # hit a back face (e.g. a bumper's inner skin)
-            row.append(bm.verts.new(loc + nrm * lift))
+            vert = bm.verts.new(loc + nrm * lift)
+            row.append(vert)
+            if kind is not None:
+                uvs[vert] = tag_uv(kind, s, t)
         rows.append(row)
     for a in range(gu):
         for b in range(gv):
@@ -386,7 +418,7 @@ def patch(surface, part, mat, outline, center, direction, up, lift=0.004, grid=4
     centre_loc, centre_n = surface.hit(c - d * 2.0, d)
     if centre_n is not None and bm.faces and bm.faces[0].normal.dot(centre_n) < 0:
         bmesh.ops.reverse_faces(bm, faces=bm.faces)
-    _append(part, bm, mat)
+    _append(part, bm, mat, uvs if kind is not None else None)
     return True
 
 
@@ -685,6 +717,8 @@ def merge(dst, src):
         nf = dst.bm.faces.new([vmap[v] for v in f.verts])
         nf.material_index = dst.slot(src.mats[f.material_index])
         nf.smooth = f.smooth
+        for lo, ln in zip(f.loops, nf.loops):
+            ln[dst.uv].uv = lo[src.uv].uv
     src.bm.free()
 
 

@@ -5,8 +5,12 @@ extends Node
 ##     with the dent so it reads in the light).
 ##   * Loose parts (bumpers, spoiler) lose health from nearby hits and fall
 ##     off as debris.
-##   * Lights break at the end that was hit; the glass cracks once the car is
-##     badly smashed (with a shower of glass bits).
+##   * Paint damage follows the dents: scuffs, primer and bare metal round
+##     each hit, and streaks where bodywork slides along something (vertex
+##     colours read by car_paint.gdshader).
+##   * Lights break at the end that was hit; the glass cracks in a spiderweb
+##     at the nearest window once the car is badly smashed (with a shower of
+##     glass bits).
 ##   * A smashed front pulls the steering to the damaged side and costs
 ##     engine power, and the engine smokes.
 ## Resetting the car (R / respawn / the garage) repairs everything.
@@ -15,6 +19,10 @@ signal damage_changed(total: float)
 signal part_lost(part_name: String)
 ## A crash got worse; severity 0..1 (1 = a really big hit).
 signal crashed(severity: float)
+## Lamps or glass broke ("headlights", "taillights", "glass"), for sounds.
+signal broke(what: String, world_position: Vector3)
+## A part came off (as debris), for sounds.
+signal detached(debris: RigidBody3D)
 
 ## Node whose MeshInstance3D descendants get deformed (the body model).
 @export var body_path: NodePath = ^"../Body"
@@ -34,6 +42,11 @@ const PART_NAMES := {"FrontBumper": "FRONT BUMPER", "RearBumper": "REAR BUMPER",
 
 ## 0..100, rough "how smashed is it" value for UI.
 var total_damage := 0.0
+## Paint scrapes from bodywork sliding along things: at most this often (s),
+## while sliding faster than SCRAPE_SPEED (m/s).
+const SCRAPE_INTERVAL := 0.2
+const SCRAPE_SPEED := 4.0
+
 ## 0..1 damage to the front corners and the rear.
 var front_left := 0.0
 var front_right := 0.0
@@ -48,7 +61,7 @@ var _meshes: Array[MeshInstance3D] = []
 var _sources: Array[ArrayMesh] = []  # per mesh: the model's own (shared) mesh
 var _originals: Array = []  # per mesh: Array of surface arrays
 var _offsets: Array = []    # per mesh: Array of PackedVector3Array (per surface), empty until dented
-var _current: Array = []    # per mesh: per surface [positions, normals] as shown, empty until dented
+var _current: Array = []    # per mesh: per surface [positions, normals, colours] as shown, empty until dented
 var _materials: Array = []  # per mesh: Array of Material
 ## name -> {"mesh", "parent", "xform", "health", "debris"}
 var _parts := {}
@@ -58,14 +71,13 @@ var _since_impact := 1.0
 var _smoke: GPUParticles3D
 var _glass_burst: GPUParticles3D
 var _headlights_were_on := false
+var _scrape_timer := 0.0
 
-static var _broken_light: StandardMaterial3D
 ## Surface arrays per model mesh, read once and shared by every vehicle using
 ## it: reading them back from the GPU takes milliseconds.
 static var _arrays_cache := {}
 ## Per model mesh: each surface's bounding box, to skip far surfaces quickly.
 static var _bounds_cache := {}
-static var _cracked_glass: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -77,13 +89,6 @@ func _ready() -> void:
 	_body_visual = body as VehicleBodyVisual
 	for mi in body.find_children("*", "MeshInstance3D", true, false):
 		_register(mi as MeshInstance3D)
-	if _broken_light == null:
-		_broken_light = StandardMaterial3D.new()
-		_broken_light.albedo_color = Color(0.18, 0.18, 0.2)
-		_broken_light.roughness = 0.9
-		_cracked_glass = StandardMaterial3D.new()
-		_cracked_glass.albedo_color = Color(0.72, 0.78, 0.84)
-		_cracked_glass.roughness = 0.75
 	_vehicle.impact.connect(_on_impact)
 	_vehicle.vehicle_reset.connect(repair)
 	_make_particles()
@@ -130,6 +135,18 @@ func _physics_process(dt: float) -> void:
 	_since_impact += dt
 	if _since_impact > 0.4:
 		_event_dv = 0.0
+	_scrape_timer -= dt
+	if _vehicle.scrape_speed > SCRAPE_SPEED and _scrape_timer <= 0.0:
+		_scrape_timer = SCRAPE_INTERVAL
+		scrape(_vehicle.scrape_point, clampf(_vehicle.scrape_speed / 20.0, 0.15, 0.6))
+
+
+## Paint scraped off where bodywork slides along something (no dent).
+func scrape(world_pos: Vector3, amount: float) -> void:
+	for m in _meshes.size():
+		if _meshes[m].get_parent() is RigidBody3D:
+			continue
+		_dent(m, world_pos, 0.0, 0.45, amount, 0.0)
 
 
 func _on_impact(strength: float, world_pos: Vector3, _normal: Vector3) -> void:
@@ -151,7 +168,7 @@ func _on_impact(strength: float, world_pos: Vector3, _normal: Vector3) -> void:
 	for m in _meshes.size():
 		if _meshes[m].get_parent() is RigidBody3D:
 			continue  # already fallen off
-		_dent(m, world_pos, depth, radius)
+		_dent(m, world_pos, depth, radius, 0.35 + 0.5 * t, 0.25 + 0.9 * t)
 
 	# Where on the car was it hit?
 	var local := _vehicle.global_transform.affine_inverse() * world_pos
@@ -197,7 +214,11 @@ func _update_driving() -> void:
 		_smoke.amount_ratio = clampf((front - 0.3) * 1.5, 0.2, 1.0)
 
 
-func _dent(m: int, world_pos: Vector3, depth: float, radius: float) -> void:
+## Dents mesh `m` round `world_pos` (`depth` m at the centre, smooth falloff
+## to `radius`) and marks the paint: `scrape` and `loss` (0..1 at the centre)
+## become the scuff/primer/bare-metal mask in the vertex colours
+## (car_paint.gdshader; stored inverted, white = clean).
+func _dent(m: int, world_pos: Vector3, depth: float, radius: float, scrape := 0.0, loss := 0.0) -> void:
 	var mi := _meshes[m]
 	var inv := mi.global_transform.affine_inverse()
 	var p := inv * world_pos
@@ -212,11 +233,15 @@ func _dent(m: int, world_pos: Vector3, depth: float, radius: float) -> void:
 	if (_offsets[m] as Array).is_empty():
 		for s in surfaces.size():
 			var arrays: Array = surfaces[s]
+			var count := (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
 			var zero := PackedVector3Array()
-			zero.resize((arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
+			zero.resize(count)
 			_offsets[m].append(zero)
+			var white := PackedColorArray()
+			white.resize(count)
+			white.fill(Color.WHITE)
 			_current[m].append([(arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).duplicate(),
-				(arrays[Mesh.ARRAY_NORMAL] as PackedVector3Array).duplicate()])
+				(arrays[Mesh.ARRAY_NORMAL] as PackedVector3Array).duplicate(), white])
 	# Only vertices inside the dent change; everything else keeps the
 	# position and normal it already has (in _current), so a dent costs
 	# little more than the vertices it actually moves.
@@ -231,6 +256,7 @@ func _dent(m: int, world_pos: Vector3, depth: float, radius: float) -> void:
 		var off: PackedVector3Array = _offsets[m][s]
 		var verts: PackedVector3Array = _current[m][s][0]
 		var norms: PackedVector3Array = _current[m][s][1]
+		var cols: PackedColorArray = _current[m][s][2]
 		var hit := false
 		for i in verts.size():
 			var d2 := verts[i].distance_squared_to(p)
@@ -238,18 +264,23 @@ func _dent(m: int, world_pos: Vector3, depth: float, radius: float) -> void:
 				continue
 			# Smoothstep falloff: no crease at the dent's edge.
 			var f := smoothstep(radius, 0.0, sqrt(d2))
-			var o := off[i] + push * depth * f
-			if o.length() > max_total_dent:
-				o = o.normalized() * max_total_dent
-			off[i] = o
-			verts[i] = base[i] + o
-			if i < norms.size():
-				# Tilt the normal into the dent so it shows in the lighting.
-				norms[i] = (base_n[i] + o * 2.5).normalized() if o.length() > 0.001 else base_n[i]
+			if depth > 0.0:
+				var o := off[i] + push * depth * f
+				if o.length() > max_total_dent:
+					o = o.normalized() * max_total_dent
+				off[i] = o
+				verts[i] = base[i] + o
+				if i < norms.size():
+					# Tilt the normal into the dent so it shows in the lighting.
+					norms[i] = (base_n[i] + o * 2.5).normalized() if o.length() > 0.001 else base_n[i]
+			var c := cols[i]
+			c.g = maxf(c.g - scrape * f, 0.0)
+			c.b = maxf(c.b - loss * f * f, 0.0)
+			cols[i] = c
 			hit = true
 		if hit:
 			_offsets[m][s] = off
-			_current[m][s] = [verts, norms]
+			_current[m][s] = [verts, norms, cols]
 			changed = true
 	if not changed:
 		return
@@ -261,6 +292,7 @@ func _dent(m: int, world_pos: Vector3, depth: float, radius: float) -> void:
 		arrays[Mesh.ARRAY_VERTEX] = _current[m][s][0]
 		if not (_current[m][s][1] as PackedVector3Array).is_empty():
 			arrays[Mesh.ARRAY_NORMAL] = _current[m][s][1]
+		arrays[Mesh.ARRAY_COLOR] = _current[m][s][2]
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		mesh.surface_set_material(s, _materials[m][s])
 	_swap_mesh(mi, mesh)
@@ -296,13 +328,15 @@ func _break_headlights() -> void:
 	if headlights_broken:
 		return
 	headlights_broken = true
-	for s: Array in _surfaces_named("Headlight"):
-		(s[0] as MeshInstance3D).set_surface_override_material(s[1], _broken_light)
+	if _body_visual:
+		_body_visual.set_front_lights_broken(true)
 	var real := _vehicle.get_node_or_null("Headlights") as Node3D
 	if real:
 		_headlights_were_on = real.visible
 		real.visible = false
-	_burst_glass(_vehicle.global_transform * Vector3(0, 0.3, -_vehicle.body_front))
+	var at := _vehicle.global_transform * Vector3(0, 0.3, -_vehicle.body_front)
+	_burst_glass(at)
+	broke.emit("headlights", at)
 
 
 func _break_taillights() -> void:
@@ -311,14 +345,38 @@ func _break_taillights() -> void:
 	taillights_broken = true
 	if _body_visual:
 		_body_visual.set_rear_lights_broken(true)
-	_burst_glass(_vehicle.global_transform * Vector3(0, 0.4, _vehicle.body_rear))
+	var at := _vehicle.global_transform * Vector3(0, 0.4, _vehicle.body_rear)
+	_burst_glass(at)
+	broke.emit("taillights", at)
 
 
 func _break_glass(at: Vector3) -> void:
 	glass_broken = true
-	for s: Array in _surfaces_named("Glass"):
-		(s[0] as MeshInstance3D).set_surface_override_material(s[1], _cracked_glass)
-	_burst_glass(at)
+	var crack_at := _nearest_glass(at)
+	if _body_visual:
+		_body_visual.set_glass_cracked(true, crack_at)
+	_burst_glass(crack_at)
+	broke.emit("glass", crack_at)
+
+
+## The glass vertex (world space) closest to `world_pos`: the web cracks
+## the window nearest the hit, not thin air by the bumper.
+func _nearest_glass(world_pos: Vector3) -> Vector3:
+	var best := world_pos
+	var best_d := INF
+	for sf: Array in _surfaces_named("Glass"):
+		var mi := sf[0] as MeshInstance3D
+		var m := _meshes.find(mi)
+		if m < 0:
+			continue
+		var p := mi.global_transform.affine_inverse() * world_pos
+		var verts: PackedVector3Array = _current[m][sf[1]][0] if not (_current[m] as Array).is_empty() else (_originals[m][sf[1]] as Array)[Mesh.ARRAY_VERTEX]
+		for v in verts:
+			var d := v.distance_squared_to(p)
+			if d < best_d:
+				best_d = d
+				best = mi.global_transform * v
+	return best
 
 
 func _detach(part_name: String) -> void:
@@ -345,6 +403,7 @@ func _detach(part_name: String) -> void:
 	debris.linear_velocity = _vehicle.linear_velocity * 0.8 + Vector3(randf_range(-2, 2), randf_range(2, 4), randf_range(-2, 2))
 	debris.angular_velocity = Vector3(randf_range(-6, 6), randf_range(-6, 6), randf_range(-6, 6))
 	p["debris"] = debris
+	detached.emit(debris)
 	# Lies around for a while, then is tidied away (the part stays missing
 	# until the car is repaired). If this car is gone by then, only the
 	# debris' own queue_free runs.
@@ -398,9 +457,8 @@ func repair() -> void:
 		_parts[part_name]["health"] = 1.0
 	if headlights_broken:
 		headlights_broken = false
-		for s: Array in _surfaces_named("Headlight"):
-			var m := _meshes.find(s[0])
-			(s[0] as MeshInstance3D).set_surface_override_material(s[1], _materials[m][s[1]])
+		if _body_visual:
+			_body_visual.set_front_lights_broken(false)
 		var real := _vehicle.get_node_or_null("Headlights") as Node3D
 		if real:
 			real.visible = _headlights_were_on
@@ -410,9 +468,8 @@ func repair() -> void:
 			_body_visual.set_rear_lights_broken(false)
 	if glass_broken:
 		glass_broken = false
-		for s: Array in _surfaces_named("Glass"):
-			var m := _meshes.find(s[0])
-			(s[0] as MeshInstance3D).set_surface_override_material(s[1], _materials[m][s[1]])
+		if _body_visual:
+			_body_visual.set_glass_cracked(false)
 	_update_driving()
 	damage_changed.emit(total_damage)
 
@@ -460,6 +517,7 @@ func _make_particles() -> void:
 	mat.albedo_color = Color(0.35, 0.35, 0.38, 0.6)
 	quad.material = mat
 	_smoke.draw_pass_1 = quad
+	_smoke.layers = Vehicle.VISUAL_LAYER
 	_smoke.amount = 24
 	_smoke.lifetime = 2.2
 	_smoke.local_coords = false
@@ -486,6 +544,7 @@ func _make_particles() -> void:
 	bm.roughness = 0.1
 	bit.material = bm
 	_glass_burst.draw_pass_1 = bit
+	_glass_burst.layers = Vehicle.VISUAL_LAYER
 	_glass_burst.amount = 40
 	_glass_burst.lifetime = 1.4
 	_glass_burst.one_shot = true

@@ -11,6 +11,13 @@ Materials: Tire, Rim, Hub (fixed looks, ART_BIBLE.md §13).
   wheel_sedan.glb    sedan: 16" six-spoke alloy, taller sidewall
   wheel_steel.glb    van / delivery truck / bus: painted steel, deep dish
   wheel_offroad.glb  pickup / buggy / monster truck: beadlock rim, knobbly tyre
+  brake_caliper.glb  a brake caliper for the wheels with discs (sports, sedan);
+                     VehicleWheel mounts it on the hub so it steers and follows
+                     the suspension but doesn't spin (material Caliper, coloured
+                     per vehicle)
+
+Metallic is binary (ART_BIBLE.md §6): discs, hubs and alloy rims are bare
+metal (1.0); painted steel and beadlock rims are paint (0.0).
 """
 import math
 import os
@@ -72,7 +79,7 @@ def build_sports():
     bk.reset_scene()
     tire_m = bk.material("Tire", (0.11, 0.11, 0.115), rough=0.9)
     rim_m = bk.material("Rim", (0.72, 0.73, 0.75), rough=0.32, metal=1.0)
-    hub_m = bk.material("Hub", (0.24, 0.24, 0.26), rough=0.5, metal=0.6)
+    hub_m = bk.material("Hub", (0.353, 0.361, 0.369), rough=0.45, metal=1.0)    # disc #5A5C5E
     part = bk.Part("Wheel", [])
     tyre(part, tire_m, 0.254, 0.243, "grooves")
     bk.lathe(part, rim_m, [(0.112, 0.243), (0.122, 0.248), (0.126, 0.24), (0.118, 0.232), (0.102, 0.226),
@@ -94,7 +101,7 @@ def build_sedan():
     bk.reset_scene()
     tire_m = bk.material("Tire", (0.11, 0.11, 0.115), rough=0.9)
     rim_m = bk.material("Rim", (0.70, 0.71, 0.73), rough=0.38, metal=1.0)
-    hub_m = bk.material("Hub", (0.30, 0.30, 0.32), rough=0.5, metal=0.6)
+    hub_m = bk.material("Hub", (0.353, 0.361, 0.369), rough=0.45, metal=1.0)    # disc #5A5C5E
     part = bk.Part("Wheel", [])
     rim_r = 0.222
     tyre(part, tire_m, 0.235, rim_r, "grooves", bulge=0.008)
@@ -115,7 +122,7 @@ def build_steel():
     bk.reset_scene()
     tire_m = bk.material("Tire", (0.11, 0.11, 0.115), rough=0.9)
     rim_m = bk.material("Rim", (0.78, 0.78, 0.76), rough=0.5, metal=0.0)
-    hub_m = bk.material("Hub", (0.16, 0.16, 0.17), rough=0.6, metal=0.3)
+    hub_m = bk.material("Hub", (0.12, 0.12, 0.13), rough=0.6, metal=0.0)      # black paint, dark vent holes
     part = bk.Part("Wheel", [])
     rim_r = 0.205
     tyre(part, tire_m, 0.26, rim_r, "commercial", bulge=0.01)
@@ -137,7 +144,7 @@ def build_offroad():
     """Beadlock off-road wheel: dark rim, bolted ring, chunky knobbly tyre."""
     bk.reset_scene()
     tire_m = bk.material("Tire", (0.095, 0.095, 0.1), rough=0.95)
-    rim_m = bk.material("Rim", (0.2, 0.21, 0.22), rough=0.45, metal=0.6)
+    rim_m = bk.material("Rim", (0.2, 0.21, 0.22), rough=0.4, metal=1.0)       # gunmetal
     hub_m = bk.material("Hub", (0.72, 0.73, 0.75), rough=0.3, metal=1.0)
     part = bk.Part("Wheel", [])
     width, rim_r = 0.30, 0.21
@@ -158,8 +165,44 @@ def build_offroad():
     bk.export([part.to_object(math.radians(42))], "wheel_offroad.glb")
 
 
+def build_caliper():
+    """A two-piston caliper at the top of the disc (+Z, Blender), straddling
+    its outer edge, biased toward the outer face so it shows between the
+    spokes. Sized for the sports wheel's 0.175 m disc; the scene scales it
+    with the wheel."""
+    bk.reset_scene()
+    mat = bk.material("Caliper", (0.75, 0.1, 0.07), rough=0.35)
+    part = bk.Part("Caliper", [])
+    import bmesh
+    bm = bmesh.new()
+    x0, x1 = -0.058, 0.016          # disc runs x -0.035..-0.012
+    r0, r1 = 0.118, 0.196
+    half = math.radians(27)
+    n = 8
+    rings = []
+    for k in range(n + 1):
+        a = math.pi / 2 - half + 2 * half * k / n
+        ca, sa = math.cos(a), math.sin(a)
+        # Rounded ends: the block tapers a little toward both ends.
+        taper = 1.0 - 0.18 * abs(2 * k / n - 1) ** 3
+        ra, rb = r0 + (1 - taper) * 0.03, r1 - (1 - taper) * 0.01
+        rings.append([bm.verts.new((x, r * ca, r * sa)) for (x, r) in ((x0, ra), (x1, ra), (x1, rb), (x0, rb))])
+    for k in range(n):
+        a, b = rings[k], rings[k + 1]
+        for j in range(4):
+            j1 = (j + 1) % 4
+            bm.faces.new([a[j], b[j], b[j1], a[j1]])
+    bm.faces.new(list(reversed(rings[0])))
+    bm.faces.new(rings[-1])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.bevel(bm, geom=bm.edges[:], offset=0.006, segments=1, affect="EDGES", profile=0.5)
+    bk._append(part, bm, mat)
+    bk.export([part.to_object(math.radians(40))], "brake_caliper.glb")
+
+
 if __name__ == "__main__":
     os.makedirs(os.path.abspath(bk.OUT_DIR), exist_ok=True)
+    build_caliper()
     build_sports()
     build_sedan()
     build_steel()

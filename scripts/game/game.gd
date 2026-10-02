@@ -113,6 +113,7 @@ func _ready() -> void:
 	day_night.night_changed.connect(func(_on: bool) -> void: _fit_headlights())
 	day_night.set_mode(Settings.get_value("time_of_day"))
 	_fit_headlights()
+	_fit_reflection()
 	teleport_to(0)
 	if show_title:
 		_enter_title()
@@ -338,6 +339,7 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 		"graphics":
 			GraphicsQuality.apply(value, get_viewport(), world)
 			get_tree().call_group("night_lights", "set_night", day_night.is_night)
+			_fit_reflection()
 		"time_of_day":
 			day_night.set_mode(value)
 
@@ -419,6 +421,7 @@ func change_vehicle(index: int, color: Color, place_here := true, stripes := fal
 	replay.clear()
 	_watch_damage(car)
 	_fit_headlights()
+	_fit_reflection()
 	if not place_here:
 		return
 	if spot.is_empty():
@@ -492,6 +495,21 @@ func _fit_headlights() -> void:
 			spot.light_color = Color(1.0, 0.95, 0.85)
 			lights.add_child(spot)
 	lights.visible = day_night.is_night
+
+
+## Real reflections in the player car's paint and glass on Medium and High
+## (VehicleReflection); Low keeps the sky-only reflections.
+func _fit_reflection() -> void:
+	if vehicle == null:
+		return
+	var probe := vehicle.get_node_or_null("Reflection") as VehicleReflection
+	var want: bool = Settings.get_value("graphics") >= GraphicsQuality.MEDIUM
+	if want and probe == null:
+		probe = VehicleReflection.new()
+		probe.vehicle = vehicle
+		vehicle.add_child(probe)
+	elif not want and probe:
+		probe.queue_free()
 
 
 func _paint_of(v: Vehicle) -> Color:

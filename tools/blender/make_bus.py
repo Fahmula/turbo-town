@@ -100,11 +100,16 @@ def _details(surf, shell, front, rear, m):
     for sx in (-1, 1):
         # Headlights low on the front corners, turn lamps.
         bk.patch(surf, shell, m["Chrome"], bk.rect(0.36, 0.16, 0.3), (sx * 0.85, 4.6, 0.20), fwd, up, lift=0.004)
-        bk.patch(surf, shell, m["Headlight"], bk.rect(0.30, 0.11, 0.3), (sx * 0.85, 4.6, 0.20), fwd, up, lift=0.006)
+        bk.patch(surf, shell, m["Headlight"], bk.rect(0.30, 0.11, 0.3), (sx * 0.85, 4.6, 0.20), fwd, up, lift=0.006, kind=bk.LAMP)
+        bk.patch(surf, shell, m["Chrome"], bk.rect(0.15, 0.10, 0.3), (sx * 0.555, 4.6, 0.20), fwd, up, lift=0.004, grid=2)
+        bk.patch(surf, shell, m["Headlight"], bk.rect(0.12, 0.075, 0.3), (sx * 0.555, 4.6, 0.20), fwd, up, lift=0.006, grid=3,
+                 kind=bk.INDICATOR)
         # Tall tail lights and reverse lamps on the rear corners.
         bk.patch(surf, shell, m["Trim"], bk.rect(0.18, 0.62), (sx * 1.0, -4.8, 0.62), back, up, lift=0.003, grid=(2, 6))
-        bk.patch(surf, shell, m["TailLight"], bk.rect(0.14, 0.30), (sx * 1.0, -4.8, 0.76), back, up, lift=0.005, grid=(2, 3))
-        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.14, 0.12), (sx * 1.0, -4.8, 0.44), back, up, lift=0.005, grid=2)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.14, 0.20), (sx * 1.0, -4.8, 0.81), back, up, lift=0.005, grid=(2, 3), kind=bk.LAMP)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.14, 0.13), (sx * 1.0, -4.8, 0.615), back, up, lift=0.005, grid=2,
+                 kind=bk.INDICATOR)
+        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.14, 0.10), (sx * 1.0, -4.8, 0.45), back, up, lift=0.005, grid=2, kind=bk.LAMP)
         # Rabbit-ear mirrors on arms from the front top corners.
         bk.tube(shell, m["Trim"], (sx * 1.2, 4.05, 2.2), (sx * 1.38, 4.30, 2.05), 0.025, 6)
         bk.box(shell, m["Trim"], (sx * 1.40, 4.33, 1.80), (0.07, 0.16, 0.38), bevel=0.02, segments=1)
@@ -112,7 +117,7 @@ def _details(surf, shell, front, rear, m):
     # Destination display above the windscreen (the scene's label sits on it).
     bk.patch(surf, shell, m["GlassDark"], bk.rect(1.9, 0.30), (0, 4.6, 2.36), (0, -1, -0.2), up, lift=0.004, grid=(6, 2))
     # Badge and a grille slot between the headlights.
-    bk.patch(surf, shell, m["Trim"], bk.rect(0.9, 0.06), (0, 4.6, 0.18), fwd, up, lift=0.004, grid=(4, 1))
+    bk.patch(surf, shell, m["Trim"], bk.rect(0.9, 0.06), (0, 4.6, 0.18), fwd, up, lift=0.004, grid=(4, 1), kind=bk.GRILLE_SLATS)
     # Back: engine grille with louvres, plate, rear window frame handled by the loft.
     bk.patch(surf, shell, m["Trim"], bk.rect(1.5, 0.75), (0, -4.8, 0.82), back, up, lift=0.003, grid=(6, 3))
     for k in range(6):

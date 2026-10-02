@@ -131,10 +131,11 @@ def _details(surf, shell, front, m):
         # Big square headlights beside the grille.
         hx = sx * 0.72
         bk.patch(surf, shell, m["Chrome"], bk.rect(0.26, 0.22), (hx, 2.8, 0.27), fwd, up, lift=0.004)
-        bk.patch(surf, shell, m["Headlight"], bk.rect(0.20, 0.08), (hx, 2.8, 0.31), fwd, up, lift=0.006)
-        bk.patch(surf, shell, m["Headlight"], bk.rect(0.20, 0.06), (hx, 2.8, 0.215), fwd, up, lift=0.006)
+        bk.patch(surf, shell, m["Headlight"], bk.rect(0.20, 0.08), (hx, 2.8, 0.31), fwd, up, lift=0.006, kind=bk.LAMP)
+        # Amber parking / turn lamp under it.
+        bk.patch(surf, shell, m["Headlight"], bk.rect(0.20, 0.06), (hx, 2.8, 0.215), fwd, up, lift=0.006, kind=bk.INDICATOR)
         # Fog lamps in the chrome bumper.
-        bk.patch(surf, front, m["Headlight"], bk.ellipse(0.10, 0.07), (sx * 0.62, 2.8, -0.03), (0, -1, 0), up, lift=0.004)
+        bk.patch(surf, front, m["Headlight"], bk.ellipse(0.10, 0.07), (sx * 0.62, 2.8, -0.03), (0, -1, 0), up, lift=0.004, kind=bk.AUX)
         # Door handles, running boards, big mirrors.
         for y in (0.42, -0.42):
             bk.patch(surf, shell, m["Trim"], bk.rect(0.17, 0.035), (sx * 1.3, y, 0.55), (-sx, 0, 0), up, lift=0.004, grid=3)
@@ -145,16 +146,20 @@ def _details(surf, shell, front, m):
         bk.tube(shell, m["Trim"], (sx * 0.95, 0.88, 0.76), (sx * 1.12, 0.85, 0.76), 0.02, 6)
         # Bed: tall tail lights on the rear corners, wheel tubs inside.
         bk.patch(surf, shell, m["Trim"], bk.rect(0.13, 0.42), (sx * 0.88, -3.0, 0.40), (0, 1, 0), up, lift=0.003, grid=(2, 4))
-        bk.patch(surf, shell, m["TailLight"], bk.rect(0.10, 0.24), (sx * 0.88, -3.0, 0.47), (0, 1, 0), up, lift=0.005, grid=(2, 3))
-        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.10, 0.08), (sx * 0.88, -3.0, 0.29), (0, 1, 0), up, lift=0.005, grid=2)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.10, 0.24), (sx * 0.88, -3.0, 0.47), (0, 1, 0), up, lift=0.005, grid=(2, 3),
+                 kind=bk.LAMP)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.10, 0.055), (sx * 0.88, -3.0, 0.565), (0, 1, 0), up, lift=0.007, grid=2,
+                 kind=bk.INDICATOR)
+        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.10, 0.08), (sx * 0.88, -3.0, 0.29), (0, 1, 0), up, lift=0.005, grid=2,
+                 kind=bk.LAMP)
         bk.box(shell, m["Trim"], (sx * 0.76, -AXLE_Y, 0.30), (0.25, 0.92, 0.38), bevel=0.06, segments=1)
     # Big chrome-framed grille with a dark mesh and a centre bar; badge.
     bk.patch(surf, shell, m["Chrome"], bk.rect(1.10, 0.28), (0, 2.8, 0.26), fwd, up, lift=0.004, grid=(6, 3))
-    bk.patch(surf, shell, m["Trim"], bk.rect(1.02, 0.21), (0, 2.8, 0.26), fwd, up, lift=0.006, grid=(6, 3))
+    bk.patch(surf, shell, m["Trim"], bk.rect(1.02, 0.21), (0, 2.8, 0.26), fwd, up, lift=0.006, grid=(6, 3), kind=bk.GRILLE_MESH)
     bk.patch(surf, shell, m["Chrome"], bk.rect(1.02, 0.03), (0, 2.8, 0.26), fwd, up, lift=0.008, grid=(6, 1))
     bk.patch(surf, shell, m["Chrome"], bk.rect(0.16, 0.09), (0, 2.8, 0.26), fwd, up, lift=0.010, grid=2)
     # Cab back: third brake light. Tailgate handle.
-    bk.patch(surf, shell, m["TailLight"], bk.rect(0.26, 0.03), (0, -1.2, 1.26), (0, 1, 0), up, lift=0.004, grid=(3, 1))
+    bk.patch(surf, shell, m["TailLight"], bk.rect(0.26, 0.03), (0, -1.2, 1.26), (0, 1, 0), up, lift=0.004, grid=(3, 1), kind=bk.BRAKE_ONLY)
     bk.patch(surf, shell, m["Trim"], bk.rect(0.22, 0.05), (0, -3.0, 0.52), (0, 1, 0), up, lift=0.004, grid=2)
     bk.tube(shell, m["Chrome"], (0.55, -2.4, -0.13), (0.55, -2.72, -0.13), 0.04, 10)
 

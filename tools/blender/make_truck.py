@@ -105,9 +105,10 @@ def _cargo_box(shell, m):
     bk.box(shell, m["Trim"], (0, BOX_BACK - 0.03, BOX_BOTTOM + 0.2), (0.4, 0.04, 0.06))
     # Rear lights low on the box, clearance lights at the top corners.
     for sx in (-1, 1):
-        bk.box(shell, m["TailLight"], (sx * 0.88, BOX_BACK - 0.025, BOX_BOTTOM + 0.13), (0.24, 0.03, 0.12))
-        bk.box(shell, m["ReverseLight"], (sx * 0.62, BOX_BACK - 0.025, BOX_BOTTOM + 0.13), (0.12, 0.03, 0.1))
-        bk.box(shell, m["TailLight"], (sx * 1.0, BOX_BACK - 0.025, BOX_TOP - 0.1), (0.08, 0.03, 0.05))
+        bk.box(shell, m["TailLight"], (sx * 0.86, BOX_BACK - 0.025, BOX_BOTTOM + 0.13), (0.20, 0.03, 0.12), kind=bk.LAMP)
+        bk.box(shell, m["TailLight"], (sx * 1.04, BOX_BACK - 0.025, BOX_BOTTOM + 0.13), (0.12, 0.03, 0.12), kind=bk.INDICATOR)
+        bk.box(shell, m["ReverseLight"], (sx * 0.62, BOX_BACK - 0.025, BOX_BOTTOM + 0.13), (0.12, 0.03, 0.1), kind=bk.LAMP)
+        bk.box(shell, m["TailLight"], (sx * 1.0, BOX_BACK - 0.025, BOX_TOP - 0.1), (0.08, 0.03, 0.05), kind=bk.DRL)
 
 
 def _details(surf, shell, front, m):
@@ -116,8 +117,9 @@ def _details(surf, shell, front, m):
     for sx in (-1, 1):
         # Rectangular headlights above the bumper band, turn lamps outside.
         bk.patch(surf, shell, m["Chrome"], bk.rect(0.34, 0.17), (sx * 0.70, 3.3, 0.42), fwd, up, lift=0.004)
-        bk.patch(surf, shell, m["Headlight"], bk.rect(0.28, 0.12), (sx * 0.70, 3.3, 0.42), fwd, up, lift=0.006)
-        bk.patch(surf, front, m["Headlight"], bk.rect(0.18, 0.07), (sx * 0.70, 3.3, 0.12), fwd, up, lift=0.004, grid=2)
+        bk.patch(surf, shell, m["Headlight"], bk.rect(0.28, 0.12), (sx * 0.70, 3.3, 0.42), fwd, up, lift=0.006, kind=bk.LAMP)
+        bk.patch(surf, front, m["Headlight"], bk.rect(0.18, 0.07), (sx * 0.70, 3.3, 0.12), fwd, up, lift=0.004, grid=2,
+                 kind=bk.INDICATOR)
         # Cab steps and big black mirrors (plus a kerb mirror).
         bk.box(shell, m["Trim"], (sx * 1.02, 2.1, -0.02), (0.14, 0.5, 0.04))
         bk.box(shell, m["Trim"], (sx * 1.02, 2.1, 0.32), (0.12, 0.5, 0.04))
@@ -129,7 +131,7 @@ def _details(surf, shell, front, m):
         # Door handles.
         bk.patch(surf, shell, m["Trim"], bk.rect(0.16, 0.04), (sx * 1.4, 1.75, 0.92), (-sx, 0, 0), up, lift=0.004, grid=3)
     # Grille band and badge on the flat front, small rear window on the cab back.
-    bk.patch(surf, shell, m["Trim"], bk.rect(1.10, 0.16), (0, 3.3, 0.66), fwd, up, lift=0.004, grid=(6, 2))
+    bk.patch(surf, shell, m["Trim"], bk.rect(1.10, 0.16), (0, 3.3, 0.66), fwd, up, lift=0.004, grid=(6, 2), kind=bk.GRILLE_SLATS)
     bk.patch(surf, shell, m["Chrome"], bk.rect(0.32, 0.06), (0, 3.3, 0.82), fwd, up, lift=0.004, grid=2)
 
 

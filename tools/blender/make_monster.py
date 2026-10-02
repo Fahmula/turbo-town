@@ -115,11 +115,12 @@ def _details(surf, shell, front, m):
         for k in (0, 1):
             x = sx * (0.52 + k * 0.2)
             bk.patch(surf, shell, m["Chrome"], bk.rect(0.18, 0.16), (x, 2.6, 1.15), fwd, up, lift=0.004, grid=2)
-            bk.patch(surf, shell, m["Headlight"], bk.rect(0.14, 0.12), (x, 2.6, 1.15), fwd, up, lift=0.006, grid=2)
+            bk.patch(surf, shell, m["Headlight"], bk.rect(0.14, 0.12), (x, 2.6, 1.15), fwd, up, lift=0.006, grid=2, kind=bk.LAMP)
         # Tail lights on the bed corners, door handle, big mirrors.
         bk.patch(surf, shell, m["Trim"], bk.rect(0.12, 0.34), (sx * 0.84, -2.6, 1.20), (0, 1, 0), up, lift=0.003, grid=(2, 3))
-        bk.patch(surf, shell, m["TailLight"], bk.rect(0.09, 0.2), (sx * 0.84, -2.6, 1.25), (0, 1, 0), up, lift=0.005, grid=2)
-        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.09, 0.07), (sx * 0.84, -2.6, 1.10), (0, 1, 0), up, lift=0.005, grid=2)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.09, 0.2), (sx * 0.84, -2.6, 1.25), (0, 1, 0), up, lift=0.005, grid=2, kind=bk.LAMP)
+        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.09, 0.07), (sx * 0.84, -2.6, 1.10), (0, 1, 0), up, lift=0.005, grid=2,
+                 kind=bk.LAMP)
         bk.patch(surf, shell, m["Chrome"], bk.rect(0.15, 0.03), (sx * 1.3, 0.0, 1.38), (-sx, 0, 0), up, lift=0.004, grid=3)
         bk.box(shell, m["Chrome"], (sx * 1.02, 0.80, 1.62), (0.06, 0.14, 0.2), bevel=0.02, segments=1)
         bk.tube(shell, m["Chrome"], (sx * 0.9, 0.84, 1.55), (sx * 1.0, 0.82, 1.58), 0.015, 6)
@@ -137,7 +138,7 @@ def _details(surf, shell, front, m):
     # Roof light bar with four lamps.
     bk.box(shell, m["Frame"], (0, 0.2, 2.10), (1.30, 0.14, 0.11))
     for k in range(4):
-        bk.box(shell, m["Headlight"], (-0.48 + k * 0.32, 0.272, 2.10), (0.2, 0.012, 0.08))
+        bk.box(shell, m["Headlight"], (-0.48 + k * 0.32, 0.272, 2.10), (0.2, 0.012, 0.08), kind=bk.AUX)
 
 
 def _chassis(shell, m):

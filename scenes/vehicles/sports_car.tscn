@@ -28,6 +28,8 @@ center_of_mass_mode = 1
 center_of_mass = Vector3(0, 0.08, -0.1)
 inertia = Vector3(2100, 2500, 650)
 script = ExtResource("1_vehicle")
+brake_calipers = true
+caliper_color = Color(0.78, 0.09, 0.06, 1)
 display_name = "Sports Car"
 
 [node name="BodyShape" type="CollisionShape3D" parent="."]

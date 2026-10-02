@@ -87,16 +87,18 @@ def _details(surf, shell, front, rear, m):
         hx = sx * 0.6
         bk.patch(surf, shell, m["Trim"], bk.rect(0.40, 0.18, 0.5), (hx, 2.6, 0.48), fwd, up, lift=0.003)
         bk.patch(surf, shell, m["Chrome"], bk.rect(0.37, 0.15, 0.5), (hx, 2.6, 0.48), fwd, up, lift=0.005)
-        bk.patch(surf, shell, m["Headlight"], bk.ellipse(0.13, 0.10), (hx + sx * 0.07, 2.6, 0.48), fwd, up, lift=0.007)
-        bk.patch(surf, shell, m["Headlight"], bk.rect(0.30, 0.025), (hx, 2.6, 0.545), fwd, up, lift=0.007, grid=(4, 1))
+        bk.patch(surf, shell, m["Headlight"], bk.ellipse(0.13, 0.10), (hx + sx * 0.07, 2.6, 0.48), fwd, up, lift=0.007, kind=bk.LAMP)
+        bk.patch(surf, shell, m["Headlight"], bk.rect(0.30, 0.025), (hx, 2.6, 0.545), fwd, up, lift=0.007, grid=(4, 1), kind=bk.DRL)
+        bk.patch(surf, shell, m["Headlight"], bk.rect(0.11, 0.055, 0.3), (hx - sx * 0.10, 2.6, 0.47), fwd, up, lift=0.007, grid=3,
+                 kind=bk.INDICATOR)
         # Fog lamps in the black bumper.
         bk.patch(surf, front, m["Chrome"], bk.ellipse(0.09, 0.06), (sx * 0.66, 2.6, 0.02), (0, -1, 0), up, lift=0.004)
         # Tall corner tail lights with a reverse lamp in the middle.
         tx = sx * 0.80
         bk.patch(surf, shell, m["Trim"], bk.rect(0.15, 0.60), (tx, -2.7, 0.62), back, up, lift=0.003, grid=(2, 6))
-        bk.patch(surf, shell, m["TailLight"], bk.rect(0.12, 0.25), (tx, -2.7, 0.78), back, up, lift=0.005, grid=(2, 3))
-        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.12, 0.09), (tx, -2.7, 0.58), back, up, lift=0.005, grid=2)
-        bk.patch(surf, shell, m["TailLight"], bk.rect(0.12, 0.12), (tx, -2.7, 0.45), back, up, lift=0.005, grid=2)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.12, 0.25), (tx, -2.7, 0.78), back, up, lift=0.005, grid=(2, 3), kind=bk.LAMP)
+        bk.patch(surf, shell, m["ReverseLight"], bk.rect(0.12, 0.09), (tx, -2.7, 0.58), back, up, lift=0.005, grid=2, kind=bk.LAMP)
+        bk.patch(surf, shell, m["TailLight"], bk.rect(0.12, 0.12), (tx, -2.7, 0.45), back, up, lift=0.005, grid=2, kind=bk.INDICATOR)
         # Rear door windows (dark glass painted on), handles.
         bk.patch(surf, shell, m["GlassDark"], bk.rect(0.56, 0.52, 0.15), (sx * 0.36, -2.7, 1.20), back, up, lift=0.004)
         # Black rubbing strip along the sides.
@@ -107,11 +109,11 @@ def _details(surf, shell, front, rear, m):
         bk.patch(surf, shell, m["Trim"], bk.rect(0.16, 0.03), (sx * 1.3, 0.62, 0.62), (-sx, 0, 0), up, lift=0.004, grid=3)
         bk.patch(surf, shell, m["Trim"], bk.rect(0.16, 0.03), (sx * 1.3, -0.40, 0.62), (-sx, 0, 0), up, lift=0.004, grid=3)
     # Grille between the headlights, badge, rear door seam and handles.
-    bk.patch(surf, shell, m["Trim"], bk.rect(0.70, 0.14, 0.3), (0, 2.6, 0.36), (0, -1, -0.2), up, lift=0.003)
+    bk.patch(surf, shell, m["Trim"], bk.rect(0.70, 0.14, 0.3), (0, 2.6, 0.36), (0, -1, -0.2), up, lift=0.003, kind=bk.GRILLE_SLATS)
     bk.patch(surf, shell, m["Chrome"], bk.ellipse(0.09, 0.06), (0, 2.6, 0.36), (0, -1, -0.2), up, lift=0.006)
     bk.patch(surf, shell, m["Trim"], bk.rect(0.012, 1.3), (0, -2.7, 0.88), back, up, lift=0.004, grid=(1, 6))
     bk.patch(surf, shell, m["Trim"], bk.rect(0.14, 0.03), (-0.12, -2.7, 0.70), back, up, lift=0.005, grid=2)
-    bk.patch(surf, shell, m["TailLight"], bk.rect(0.30, 0.03), (0, -2.7, 1.55), back, up, lift=0.005, grid=(3, 1))
+    bk.patch(surf, shell, m["TailLight"], bk.rect(0.30, 0.03), (0, -2.7, 1.55), back, up, lift=0.005, grid=(3, 1), kind=bk.BRAKE_ONLY)
     bk.patch(surf, rear, m["Chrome"], bk.rect(0.5, 0.11), (0, -2.7, 0.0), back, up, lift=0.004, grid=2)   # plate holder
     # Side step under the sliding door.
     for sx in (-1, 1):

@@ -9,6 +9,19 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Looks
+- Cars look much more real: glossy paint that reflects the street and the
+  buildings around your car, shimmering metallic paints, see-through tinted
+  windows, proper headlights and tail lights, grilles with depth and brake
+  calipers behind the wheels.
+- Traffic uses its turn signals before turning and changing lanes, and puts
+  its hazard lights on after a crash.
+- Headlights and tail lights come on at night on every car, not just yours.
+- Crashes show scraped paint, primer and bare metal where you hit, smashed
+  lamps and a cracked spiderweb in the window nearest the crash.
+- Cars get dusty driving on dirt; the buggy and monster truck start a bit
+  dusty.
+
 ## [0.5.0] - 2026-10-01
 
 ### Looks

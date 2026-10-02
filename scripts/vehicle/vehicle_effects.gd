@@ -38,6 +38,9 @@ func _ready() -> void:
 		_last_mark.append(Vector3.INF)
 	_build_marks()
 	_build_sparks()
+	# Vehicle layer: the player's reflection probe doesn't capture them.
+	for gi in _fx_root.find_children("*", "GeometryInstance3D", true, false):
+		(gi as GeometryInstance3D).layers = Vehicle.VISUAL_LAYER
 	_vehicle.impact.connect(_on_impact)
 	_vehicle.vehicle_reset.connect(func() -> void:
 		for i in _last_mark.size():

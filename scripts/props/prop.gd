@@ -40,8 +40,12 @@ func _ready() -> void:
 
 
 ## Paints the prop: `color_mesh` surface 0 and every surface using the paint
-## material. (KitProp tints its one mesh instead.)
+## material. Parked cars get the vehicles' paint, glass, lamp, trim and tyre
+## shaders instead (lamps dark). (KitProp tints its one mesh instead.)
 func _apply_color(col: Color) -> void:
+	if traffic_paint:
+		VehicleBodyVisual.apply_vehicle_materials([self], col, true)
+		return
 	if color_mesh:
 		_recolor(color_mesh, 0, col)
 	for node in find_children("*", "MeshInstance3D", true, false):
@@ -51,18 +55,13 @@ func _apply_color(col: Color) -> void:
 		for i in mi.mesh.get_surface_count():
 			var mat := mi.get_active_material(i)
 			if mat and mat.resource_name == paint_material_name:
-				_recolor(mi, i, col, true)
+				_recolor(mi, i, col)
 
 
-## `car_paint`: the vehicles' paint look (clear coat), so parked cars match.
-func _recolor(mi: MeshInstance3D, surface: int, col: Color, car_paint := false) -> void:
+func _recolor(mi: MeshInstance3D, surface: int, col: Color) -> void:
 	var mat := mi.get_active_material(surface) as BaseMaterial3D
 	if mat == null:
 		return
-	var m: BaseMaterial3D
-	if car_paint:
-		m = VehicleBodyVisual.paint_material(mat, col)
-	else:
-		m = mat.duplicate() as BaseMaterial3D
-		m.albedo_color = col
+	var m := mat.duplicate() as BaseMaterial3D
+	m.albedo_color = col
 	mi.set_surface_override_material(surface, m)
