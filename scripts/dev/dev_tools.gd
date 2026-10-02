@@ -138,7 +138,7 @@ func _run() -> void:
 	var game := get_tree().current_scene as Game
 	if game == null:
 		push_error("dev tools: main scene is not Game")
-		get_tree().quit()
+		VehicleAudio.quit_quietly(get_tree())
 		return
 	# Automatic crash cams would pause the other tests mid-crash.
 	Settings.set_value("crash_cam", _mode == "replay")
@@ -201,7 +201,7 @@ func _run() -> void:
 		await _audio(game)
 	else:
 		await _drive(game)
-	get_tree().quit()
+	VehicleAudio.quit_quietly(get_tree())
 
 
 func _tour(game: Game) -> void:

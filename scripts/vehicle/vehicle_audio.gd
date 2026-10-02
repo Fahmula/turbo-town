@@ -98,20 +98,48 @@ func _ready() -> void:
 
 func _enter_tree() -> void:
 	_registered = false
+	add_to_group(&"vehicle_audio")
 
 
 func _exit_tree() -> void:
 	if AudioDirector.instance:
 		AudioDirector.instance.unregister(self)
 	_registered = false
-	# Paused playbacks stay registered with the AudioServer (it never gets to
-	# delete them): unpause and stop them all when the vehicle leaves
-	# (traffic pool, garage swap, quitting).
+	_stop_all()
+
+
+## Paused playbacks stay registered with the AudioServer (it never gets to
+## delete them): unpause and stop them all when the vehicle leaves (traffic
+## pool, garage swap, quitting).
+func _stop_all() -> void:
 	for p in _on + _off + _shots + Array(_loops.values()):
 		var pl := p as AudioStreamPlayer3D
 		pl.stream_paused = false
 		pl.stop()
 		pl.set_meta("starting", false)
+
+
+## Quits the game once every vehicle sound has been let go. The AudioServer
+## frees a stopped playback only after its mixer and then the main loop have
+## run again; get_tree().quit() alone tears the tree down first, which leaves
+## the playbacks (and their streams) behind ("ObjectDB instances were leaked
+## at exit"). Waits real time, so it also works under --fixed-fps.
+static func quit_quietly(tree: SceneTree) -> void:
+	if tree.has_meta(&"quitting"):
+		return
+	tree.set_meta(&"quitting", true)
+	tree.paused = true
+	for a in tree.get_nodes_in_group(&"vehicle_audio"):
+		(a as Node).process_mode = Node.PROCESS_MODE_DISABLED
+	# Every player, including the clatter players riding on loose debris.
+	for p in tree.root.find_children("*", "AudioStreamPlayer3D", true, false):
+		(p as AudioStreamPlayer3D).stream_paused = false
+		(p as AudioStreamPlayer3D).stop()
+	var until := Time.get_ticks_msec() + 120
+	while Time.get_ticks_msec() < until:
+		await tree.process_frame
+	await tree.process_frame
+	tree.quit()
 
 
 ## Switches between the player's FULL sound and traffic's LITE sound.

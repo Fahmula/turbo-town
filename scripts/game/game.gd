@@ -45,6 +45,7 @@ var _last_crash_cam := -INF
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().auto_accept_quit = false  # closing the window: see _notification
 	# Gameplay (world, traffic, the car...) stops while the tree is paused;
 	# menus, the HUD and the replay set themselves to keep running.
 	for child in get_children():
@@ -170,9 +171,14 @@ func _on_combo_banked(points: int, _place: int) -> void:
 		hud.show_popup("+%s" % Hud.format_points(points), 1.5, Color(0.5, 1.0, 0.45))
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		VehicleAudio.quit_quietly(get_tree())
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.physical_keycode == KEY_F10:
-		get_tree().quit()
+		VehicleAudio.quit_quietly(get_tree())
 		return
 	if state == State.REPLAY:
 		for skip in ["menu_accept", "menu_back", "pause", "instant_replay"]:
@@ -322,7 +328,7 @@ func _on_menu_action(action_name: String) -> void:
 			race.end_race()
 			_enter_title()
 		"quit":
-			get_tree().quit()
+			VehicleAudio.quit_quietly(get_tree())
 		"end_race":
 			race.end_race()
 			_enter_driving()

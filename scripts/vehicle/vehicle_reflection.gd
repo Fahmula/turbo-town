@@ -14,6 +14,11 @@ extends ReflectionProbe
 ## traffic driving through the box gets real reflections too. Only the
 ## player's vehicle carries one, and only on High (Medium and Low keep the
 ## sky reflections).
+##
+## Godot 4.7.2 prints 'WARNING: 7 RIDs of type "Texture" were leaked' at exit
+## once any ReflectionProbe has rendered (the viewport's reflection atlas is
+## never freed; a bare probe in an empty project does it too, and freeing the
+## probe first doesn't help). Harmless, the process is exiting anyway.
 
 ## Metres the car may drive from the last capture before a new one.
 @export var move_threshold := 20.0

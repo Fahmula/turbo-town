@@ -165,4 +165,4 @@ func _physics_process(dt: float) -> void:
 
 func _finish() -> void:
 	print("AUTOTEST done: max_roll=%.1f max_air=%.2f dist=%.1f" % [_max_roll, _max_air, vehicle.global_position.distance_to(_start_pos)])
-	get_tree().quit()
+	VehicleAudio.quit_quietly(get_tree())
