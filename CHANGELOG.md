@@ -30,8 +30,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - Turbo whistle and blow-off, crackles when you lift off, gear changes, air
   brakes and reversing beepers on the truck and bus, a different horn for
   each kind of vehicle.
-- Tyres roar on the road, crunch on gravel and squeal in slides; wind at
-  speed; bodywork grinds when you slide on the roof.
+- Tyres hum softly on the road, crunch on gravel and squeal when you slide;
+  wind at speed; bodywork grinds when you slide on the roof.
 - Crashes sound like crashes: thumps, crunches and big smashes depending on
   how hard you hit, clangs on lamp posts, cones and crates sound like what
   they are, windows shatter, bits clatter off.

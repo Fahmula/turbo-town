@@ -2645,7 +2645,10 @@ func _audio(game: Game) -> void:
 			Input.action_release(k)
 	_check(bool(_audio_seen.get("engine_on", false)) and float(_audio_seen.get("engine", 0)) <= 4.0,
 		"engine layers play, at most 4 at once (max %d)" % int(_audio_seen.get("engine", 0)))
-	_check(_audio_seen.get("roll", false), "tyre roll plays while moving")
+	var rp: AudioStreamPlayer3D = audio._loops.get("roll")
+	_check(_audio_seen.get("roll", false), "tyre roll plays while moving%s" % ("" if _audio_seen.get("roll", false) else
+		" (player %s)" % ("missing" if rp == null else "playing=%s paused=%s starting=%s db=%.0f stream=%s inside=%s" % [rp.playing,
+		rp.stream_paused, rp.get_meta("starting", false), rp.volume_db, rp.stream, rp.is_inside_tree()])))
 	_check(_audio_seen.get("squeal", false), "tyre squeal plays in the handbrake slide")
 	_check(_audio_seen.get("horn", false), "horn plays while held")
 	_check(not _audio_seen.get("bad", false), "no NaN/inf levels")

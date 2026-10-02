@@ -1,6 +1,6 @@
 """Synthesised vehicle sounds for build_audio.py: the ones that are naturally
 electronic or noise-like, where synthesis is as good as a recording (reverse
-beeper, wind, road roar, air brakes, brake squeal, turbo whine and blow-off,
+beeper, wind, road roar, air brakes, turbo whine and blow-off,
 exhaust pops, suspension knocks, splashes, shift clunks), plus fallbacks.
 
 Every function is deterministic (fixed seeds) and returns mono float32 at
@@ -54,18 +54,22 @@ def wind(seconds=6.0):
     return dsp.normalize_rms(x, -20.0)
 
 
-def road_roar(seconds=4.0):
-    """Tyre roll on asphalt: broadband roar peaking near 900 Hz (tread
-    pattern noise) over a low rumble, with coarse-surface grain."""
+def road_roar(seconds=6.0):
+    """Tyre roll on asphalt, as heard from the chase camera: a soft, dark
+    roar (most of it 60-500 Hz, a tread hum around 800 Hz so small speakers
+    like the Steam Deck's still carry it, nothing hissy above ~2 kHz) that
+    swells and settles slowly like a changing road surface. Meant to sit
+    under the engine (the owner found the earlier hissy roar annoying,
+    2026-10-02)."""
     n = int(seconds * R)
-    base = dsp.noise(n, 21, "pink")
-    roar = dsp.peaks(base, [(900, 1.3, 1.0), (450, 1.5, 0.6), (1800, 2.0, 0.35)])
-    rumble = dsp.lowpass(dsp.noise(n, 22, "brown"), 160, 2)
-    # Coarse-surface grain: dense and soft (sparse grains read as ticks).
-    grain = dsp.bandpass(dsp.noise(n, 23), 600, 4000)
-    grain *= 0.6 + 0.4 * dsp.lowpass(dsp.noise(n, 24), 60, 2) * 8
-    x = dsp.normalize_rms(roar, -22) + dsp.normalize_rms(rumble, -26) + dsp.normalize_rms(grain, -31)
-    x *= 1.0 + 0.06 * _lfo(seconds, 7, 0.4)
+    rumble = dsp.lowpass(dsp.noise(n, 22, "brown"), 250, 2)
+    body = dsp.peaks(dsp.noise(n, 21, "pink"), [(200, 1.2, 0.7), (400, 1.3, 1.0), (800, 1.5, 0.6)])
+    body = dsp.lowpass(body, 1400, 4)
+    x = dsp.normalize_rms(rumble, -24) + dsp.normalize_rms(body, -21)
+    # Surface texture: slow, irregular swells (patches, joints), not a beat.
+    swell = dsp.lowpass(dsp.noise(n, 25), 1.5, 2)
+    x *= 1.0 + 0.18 * swell / (np.max(np.abs(swell)) + 1e-9)
+    x = dsp.highpass(x, 35, 2)  # no sub-bass mud
     return dsp.normalize_rms(x, -20.0)
 
 
@@ -167,19 +171,6 @@ def air_brake(seed=81):
     chuff = dsp.lowpass(dsp.noise(n, seed + 1), 900, 2) * np.exp(-t * 40.0)
     x = dsp.normalize_rms(hiss, -16) + dsp.normalize_rms(chuff, -24)
     return dsp.fade(dsp.normalize_peak(x, -1.0), 0.002, 0.15)
-
-
-def brake_squeal(freq, seed):
-    """Disc brake squeal as a car stops: a thin tone with vibrato."""
-    dur = 0.9 + 0.2 * (seed % 3)
-    n = int(dur * R)
-    t = _t(dur)
-    f = freq * (1.0 + 0.004 * np.sin(2 * np.pi * 7.3 * t) + 0.01 * t)
-    ph = 2 * np.pi * np.cumsum(f) / R
-    x = np.sin(ph) + 0.3 * np.sin(2 * ph)
-    env = dsp.envelope(n, [(0, 0), (0.06, 1.0), (dur * 0.7, 0.8), (dur, 0.0)])
-    x = x * env + dsp.normalize_rms(dsp.bandpass(dsp.noise(n, seed), 2000, 7000), -40) * env
-    return dsp.normalize_peak(x, -3.0)
 
 
 def blowoff(seed=91):

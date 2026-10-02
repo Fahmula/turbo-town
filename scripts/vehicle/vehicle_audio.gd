@@ -15,7 +15,7 @@ extends Node3D
 ##
 ## FULL detail (the player's vehicle) adds tyre roll per surface (asphalt,
 ## gravel), squeal and gravel slides, wind, bodywork scraping, suspension
-## knocks and landings, brake squeal, air brakes, reverse beeper, a splash,
+## knocks and landings, air brakes, reverse beeper, a splash,
 ## and reverb in tunnels and under bridges (the "Player" bus). LITE detail
 ## (traffic) keeps the engine (on-load pair), tyre roll up close, squeal,
 ## horn, beeper and crashes, with a Doppler shift as cars pass, and only plays
@@ -69,7 +69,6 @@ var _impact_cooldown := 0.0
 var _knock_cooldown := 0.0
 var _braked_from := 0.0
 var _air_cooldown := 0.0
-var _squeal_cooldown := 0.0
 var _splashed := false
 var _enclosure := 0.0
 var _enclosure_timer := 0.0
@@ -290,7 +289,6 @@ func _process(dt: float) -> void:
 	_impact_cooldown -= dt
 	_knock_cooldown -= dt
 	_air_cooldown -= dt
-	_squeal_cooldown -= dt
 	if _startup_t >= 0.0:
 		_startup_t += dt
 		if _startup_t > profile.startup_catch:
@@ -398,10 +396,16 @@ func _update_tyres(dt: float, live: bool) -> void:
 	if not live:
 		roll = 0.0
 		near = 0.0
-	var roll_pitch := clampf(0.65 + speed / 38.0, 0.6, 1.7) * _doppler
-	_set_loop("roll", roll * (1.0 - dirt_frac) * 0.9 * near, roll_pitch)
+	# Road rumble: kept under the engine and rising like real tyre noise
+	# (about +10 dB per doubling of speed, full at ~100 km/h); its pitch moves
+	# only a little (pitched up, the rumble turns into hiss).
+	var road := minf(pow(speed / 28.0, 1.6), 1.15) * ground * 0.45
+	_set_loop("roll", road * (1.0 - dirt_frac) * near, clampf(0.85 + speed / 110.0, 0.85, 1.25) * _doppler)
 	_set_loop("gravel", roll * dirt_frac, clampf(0.75 + speed / 45.0, 0.7, 1.5))
-	var squeal := _skid * (1.0 - dirt_frac) * near
+	# Squeal only in a real slide (where skid marks start, VehicleEffects):
+	# the light wheelspin of pulling away, or of creeping into reverse after
+	# braking to a stop, stays quiet (the owner heard it as a squeak).
+	var squeal := smoothstep(0.2, 0.5, _skid) * (1.0 - dirt_frac) * near
 	_set_loop("squeal", squeal * 0.8, (0.92 + _skid * 0.12 + 0.03 * sin(_time * 5.3)) * _doppler)
 	_set_loop("skid", _skid * dirt_frac, 0.9 + _skid * 0.2)
 
@@ -491,14 +495,11 @@ func _update_extras(dt: float) -> void:
 			_pops_left -= 1
 			_pop_timer = _rng.randf_range(0.04, 0.16)
 			_shot(p.pops[_rng.randi() % p.pops.size()], p.pops_volume_db + _rng.randf_range(-6.0, 0.0), _rng.randf_range(0.85, 1.15))
-	# Brakes: an occasional squeal as a car stops, air brakes on big ones.
+	# Air brakes sigh as a big vehicle stops. (No brake squeal on cars: the
+	# owner found the squeak at every stop annoying.)
 	var speed := absf(vehicle.forward_speed)
 	if vehicle.is_braking and speed > 2.0:
 		_braked_from = maxf(_braked_from, speed)
-	if speed < 2.5 and speed > 0.6 and vehicle.is_braking and _braked_from > 5.0 and _squeal_cooldown <= 0.0 and p.air_brake == null:
-		_squeal_cooldown = 8.0
-		if _rng.randf() < 0.35:
-			_shot(VehicleSoundBank.pick("brake/squeal", _rng), -16.0, _rng.randf_range(0.9, 1.1))
 	if speed < 0.3:
 		if p.air_brake and _braked_from > 3.0 and _air_cooldown <= 0.0:
 			_air_cooldown = 4.0
@@ -653,6 +654,13 @@ const PAUSE_AFTER := 0.15
 
 func _drive(p: AudioStreamPlayer3D, gain: float, pitch: float, instant := false) -> void:
 	var dt := get_process_delta_time()
+	# play() only takes effect on the player's next physics tick (until then
+	# `playing` is still false), so a start is flagged to not start it twice.
+	# The flag clears as soon as it plays, whatever the gain does meanwhile:
+	# a gain flickering around silence used to pause it with the flag still
+	# set, and the loop then waited forever (no road sound for a whole drive).
+	if p.get_meta("starting", false) and (p.playing or _time - float(p.get_meta("start_t", 0.0)) > 0.5):
+		p.set_meta("starting", false)
 	if gain < 0.002:
 		if p.playing and not p.stream_paused:
 			p.volume_db = -80.0
@@ -666,12 +674,8 @@ func _drive(p: AudioStreamPlayer3D, gain: float, pitch: float, instant := false)
 		return
 	p.set_meta("quiet", 0.0)
 	p.pitch_scale = clampf(pitch, 0.05, 4.0)
-	# play() only takes effect on the player's next physics tick (until then
-	# `playing` is still false): don't start it twice.
 	if p.get_meta("starting", false):
-		if not p.playing:
-			return
-		p.set_meta("starting", false)
+		return
 	if not p.playing or p.stream_paused:
 		p.set_meta("ramp", 0.0)
 		p.volume_db = -80.0
@@ -679,6 +683,7 @@ func _drive(p: AudioStreamPlayer3D, gain: float, pitch: float, instant := false)
 			var length := p.stream.get_length() if p.stream else 0.0
 			p.play(0.0 if instant or length <= 0.0 else _rng.randf() * length)
 			p.set_meta("starting", true)
+			p.set_meta("start_t", _time)
 		else:
 			p.stream_paused = false
 			if instant:

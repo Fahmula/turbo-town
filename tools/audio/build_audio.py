@@ -84,8 +84,6 @@ def build_synth():
     for k in range(4):
         write("engine/pop_%d.wav" % (k + 1), synth.exhaust_pop(200 + k))
     write("engine/shift.wav", synth.shift_clunk())
-    for k, f in enumerate((3150, 3650, 4300)):
-        write("brake/squeal_%d.wav" % (k + 1), synth.brake_squeal(f, 300 + k))
     for k in range(4):
         write("suspension/knock_%d.wav" % (k + 1), synth.knock(400 + k))
     for k in range(3):

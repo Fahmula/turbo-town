@@ -23,7 +23,7 @@ func _init() -> void:
 		var st := VehicleSoundBank.loop(loop_path)
 		_check(st != null and _loops(st), "bank loop %s loads and loops" % loop_path)
 	for set_name in ["impact/thud", "impact/crunch", "impact/crash", "impact/metal", "impact/deform", "impact/plastic", "impact/wood",
-			"impact/glass", "impact/tinkle", "impact/debris", "suspension/knock", "suspension/land", "brake/squeal", "body/splash"]:
+			"impact/glass", "impact/tinkle", "impact/debris", "suspension/knock", "suspension/land", "body/splash"]:
 		var n := VehicleSoundBank.variants(set_name).size()
 		_check(n >= 2, "bank set %s has %d variants" % [set_name, n])
 	print("audio check: %s" % ("all good" if _fails == 0 else "%d problems" % _fails))

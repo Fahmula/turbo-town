@@ -1892,6 +1892,12 @@ readable, kid-friendly (crashes are big and fun, never scary).
   so every start is a resume. `--audio` + `check_recording.py` should find
   no clicks, dropouts or clipping; it can flag a sharp natural onset (a
   throttle bark, a gravel crunch), so look at what it flags.
+- **Tyres sit under the engine** (owner, 2026-10-02: the first road sound
+  was a hissy roar and annoyed): road roll is a dark roar, nothing above
+  ~2 kHz but enough at 300-800 Hz for the Deck's small speakers, rising
+  ~10 dB per doubling of speed (full at ~100 km/h) with little pitch change.
+  Tyre squeal only in a real slide (from where skid marks start, skid
+  0.2-0.5); light wheelspin pulling away stays quiet. No brake squeal.
 - **Budget (Steam Deck):** the player's vehicle may play ~10–14 voices at
   once; traffic gets loops for the nearest 6 cars within 95 m (2 engine
   layers + tyres each, `AudioDirector`), plus short crashes and horns. Engine
@@ -1923,3 +1929,5 @@ readable, kid-friendly (crashes are big and fun, never scary).
   reflection probe, indicators, calipers, grime, contact shadow, the paint
   damage layer and cracked-glass pattern. §3, §6, §7, §9, §10, §12, §13, §14,
   §24, §27 and §31 updated; §33 (vehicle sound) added.
+- 2026-10-02: §33 tyre rule after the owner's first listen (softer, darker
+  road roll; squeal only in slides; brake squeal removed).
