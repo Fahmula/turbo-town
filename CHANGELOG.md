@@ -9,6 +9,13 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Sound
+- Engines come through properly on the Steam Deck's speakers: idle and
+  cruising are much easier to hear, the engine start is quieter, and tyre
+  squeal, horns, air brakes and reversing beepers no longer drown out the
+  engine. A new "Speaker boost" setting (Auto turns it on for the Steam
+  Deck) can be switched on or off.
+
 ## [0.6.0] - 2026-10-02
 
 ### Looks

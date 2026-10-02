@@ -235,6 +235,8 @@ func _build_settings() -> Control:
 	_cycle_row(grid, "Crash cam", "crash_cam", ["Off", "On"])
 	_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"])
 
+	# Auto: on for the Steam Deck's own speakers (engines carry on them).
+	_cycle_row(grid, "Speaker boost", "speakers", Settings.SPEAKER_LABELS)
 	grid.add_child(UiKit.label("Volume", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
 	var vol_row := HBoxContainer.new()
 	vol_row.add_theme_constant_override("separation", 12)

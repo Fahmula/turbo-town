@@ -1884,7 +1884,23 @@ readable, kid-friendly (crashes are big and fun, never scary).
   `audio_check.gd` enforces it).
 - **Levels:** loops are written at −18 dBFS RMS, one-shots peak at −1 dBFS;
   dB numbers in profiles and `VehicleAudio` are relative to that. A hard
-  limiter on the master bus catches pile-ups.
+  limiter on the master bus catches pile-ups. The player's vehicle plays
+  **without distance attenuation** (the camera trails it at a fixed
+  distance), through the Player bus at +4 dB, so the numbers are what you
+  hear: engine at full throttle 0 dB (the loudest steady sound; idle about
+  −6), start-up −7, tyre squeal up to −4.4, horns −6 to −9, air brake −11,
+  reverse beeper −9. (Until 2026-10-02 it was 3D with `max_db` 0, which
+  capped every loud sound at one level: the start-up and squeal came out as
+  loud as the engine at full throttle.)
+- **Small speakers** (owner, 2026-10-02: quiet engines on the Steam Deck):
+  the Deck's speakers play almost nothing below ~300 Hz, where most of an
+  engine recording is (the inline six loses ~13 dB, the diesel ~10, the
+  fours ~5; squeal, horns and hisses lose nothing). The **speaker boost**
+  (setting "Speaker boost": Auto = on for a Steam Deck) EQs only the engine
+  buses (`PlayerEngine`, `TrafficEngine`): bass cut, 250 Hz–2 kHz up, about
+  +8 dB through a Deck speaker model. Check mix changes through that model
+  too (`highpass(x, 300 Hz, 4th order)` on an `--audio --speakers=on`
+  recording), not only full range.
 - **Seamless:** loops are crossfaded at the seam (and cut on whole periods
   for pitched ones like horns); Godot imports everything as QOA (about a
   fifth of PCM; loops measured seamless). Players fade in over 40 ms, pause
@@ -1931,3 +1947,5 @@ readable, kid-friendly (crashes are big and fun, never scary).
   §24, §27 and §31 updated; §33 (vehicle sound) added.
 - 2026-10-02: §33 tyre rule after the owner's first listen (softer, darker
   road roll; squeal only in slides; brake squeal removed).
+- 2026-10-02: §33 levels and small speakers after the owner's Steam Deck
+  listen (player sounds unattenuated, explicit levels; speaker boost).

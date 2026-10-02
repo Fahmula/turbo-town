@@ -18,6 +18,7 @@ const DEFAULTS := {
 	"graphics": 2,  # 0 low, 1 medium, 2 high
 	"fullscreen": false,
 	"master_volume": 0.8,
+	"speakers": 0,  # speaker boost: 0 auto (on for a Steam Deck), 1 on, 2 off
 	"vibration": true,
 	"minimap": true,
 	"crash_cam": true,  # slow-motion replay of big crashes
@@ -32,6 +33,7 @@ const TRAFFIC_LABELS := ["Few", "Normal", "Busy"]
 const TRAFFIC_CARS := [10, 22, 30]
 const GRAPHICS_LABELS := ["Low", "Medium", "High"]
 const TIME_LABELS := ["Day", "Sunset", "Night", "Day & night"]
+const SPEAKER_LABELS := ["Auto", "On", "Off"]
 
 ## False for dev/test runs: nothing is read from or written to disk.
 var persist := OS.get_cmdline_user_args().is_empty()
@@ -48,6 +50,7 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	_apply_global("master_volume")
+	_apply_global("speakers")
 	if get_value("fullscreen"):
 		_apply_global("fullscreen")
 
@@ -95,6 +98,8 @@ func _apply_global(key: String) -> void:
 			var v: float = get_value("master_volume")
 			AudioServer.set_bus_volume_db(0, linear_to_db(maxf(v, 0.0001)))
 			AudioServer.set_bus_mute(0, v <= 0.001)
+		"speakers":
+			VehicleAudio.set_speaker_boost(VehicleAudio.speaker_boost_wanted(int(get_value("speakers"))))
 		"fullscreen":
 			if DisplayServer.get_name() == "headless":
 				return

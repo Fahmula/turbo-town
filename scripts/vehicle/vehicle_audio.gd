@@ -161,7 +161,9 @@ func start_engine() -> void:
 	if profile and profile.startup and detail == Detail.FULL:
 		_engine_fade = 0.0
 		_startup_t = 0.0
-		_shot(profile.startup, 0.0, 1.0)
+		# The recording ends on the idle: -7 dB hands over to the idle loop
+		# at about the same level.
+		_shot(profile.startup, -7.0, 1.0)
 
 
 ## A short beep of the horn (traffic).
@@ -173,6 +175,53 @@ func honk(seconds := 0.45) -> void:
 
 ## Creates the "Player" and "Traffic" buses and a limiter on the master bus,
 ## once (no bus layout file to keep in sync).
+## Speaker boost (ART_BIBLE.md §33): the Steam Deck's small speakers play
+## almost nothing below ~300 Hz, where most of an engine recording's energy
+## is, so on them the engines vanished under the start-up, horns and squeals
+## (owner, 2026-10-02). With the boost on, an EQ on the engine buses cuts the
+## bass they can't play anyway and lifts 250 Hz-2 kHz (+8 dB through a Deck
+## speaker model, tools/audio). Settings "speakers": 0 auto (on for a Steam
+## Deck), 1 on, 2 off; `--speakers=on|off` on the command line overrides it.
+## Godot's 10-band EQ, 31 Hz ... 16 kHz:
+const SPEAKER_EQ: Array[float] = [-24.0, -18.0, -6.0, 3.0, 7.0, 7.0, 3.0, 0.0, 0.0, 0.0]
+static var _speaker_boost := false
+const PLAYER_BUS_DB := 4.0
+
+
+static func set_speaker_boost(on: bool) -> void:
+	_speaker_boost = on
+	for bus_name: StringName in [&"PlayerEngine", &"TrafficEngine"]:
+		var idx := AudioServer.get_bus_index(bus_name)
+		if idx >= 0:
+			AudioServer.set_bus_effect_enabled(idx, 0, on)
+
+
+static func speaker_boost_on() -> bool:
+	return _speaker_boost
+
+
+## What the "speakers" setting means on this machine.
+static func speaker_boost_wanted(setting: int) -> bool:
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--speakers=on":
+			return true
+		if arg == "--speakers=off":
+			return false
+	return setting == 1 or (setting == 0 and is_steam_deck())
+
+
+## Steam sets SteamDeck=1 for games on the Deck; the DMI product name covers
+## launching it some other way (Jupiter: LCD model, Galileo: OLED).
+static func is_steam_deck() -> bool:
+	if OS.get_environment("SteamDeck") == "1":
+		return true
+	var f := FileAccess.open("/sys/devices/virtual/dmi/id/product_name", FileAccess.READ)
+	if f == null:
+		return false
+	var product := f.get_line().strip_edges()
+	return product == "Jupiter" or product == "Galileo"
+
+
 static func ensure_buses() -> void:
 	if AudioServer.get_bus_index("Player") >= 0:
 		return
@@ -185,6 +234,18 @@ static func ensure_buses() -> void:
 		var idx := AudioServer.bus_count - 1
 		AudioServer.set_bus_name(idx, bus_name)
 		AudioServer.set_bus_send(idx, "Master")
+	# Engine layers go through their own bus (into Player / Traffic) so the
+	# speaker boost can EQ them alone.
+	for pair: Array in [[&"PlayerEngine", &"Player"], [&"TrafficEngine", &"Traffic"]]:
+		AudioServer.add_bus()
+		var idx := AudioServer.bus_count - 1
+		AudioServer.set_bus_name(idx, pair[0])
+		AudioServer.set_bus_send(idx, pair[1])
+		var eq := AudioEffectEQ10.new()
+		for band in SPEAKER_EQ.size():
+			eq.set_band_gain_db(band, SPEAKER_EQ[band])
+		AudioServer.add_bus_effect(idx, eq)
+	set_speaker_boost(_speaker_boost)
 	var player := AudioServer.get_bus_index("Player")
 	var reverb := AudioEffectReverb.new()
 	reverb.room_size = 0.55
@@ -196,6 +257,10 @@ static func ensure_buses() -> void:
 	AudioServer.add_bus_effect(player, reverb)
 	AudioServer.set_bus_effect_enabled(player, 0, false)
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Traffic"), -3.0)
+	# The player's sounds: without distance attenuation (_player) they lost
+	# the ~+7 dB the old setup gave them at the chase distance; +4 dB keeps
+	# full throttle about as loud as before (2026-10-02 rebalance).
+	AudioServer.set_bus_volume_db(player, PLAYER_BUS_DB)
 
 
 func _build() -> void:
@@ -217,10 +282,10 @@ func _build() -> void:
 		picks = range(LITE_LAYERS).map(func(k: int) -> int: return roundi(k * step))
 		_on_rpm = PackedFloat32Array(picks.map(func(i: int) -> float: return profile.engine_on_rpm[i]))
 	for i: int in picks:
-		_on.append(_player(profile.engine_on[i], true))
+		_on.append(_player(profile.engine_on[i], true, true))
 	if full:
 		for i in profile.engine_off.size():
-			_off.append(_player(profile.engine_off[i], true))
+			_off.append(_player(profile.engine_off[i], true, true))
 		_add_loop("roll", VehicleSoundBank.loop(VehicleSoundBank.ROLL_ASPHALT))
 		_add_loop("gravel", VehicleSoundBank.loop(VehicleSoundBank.ROLL_GRAVEL))
 		_add_loop("skid", VehicleSoundBank.loop(VehicleSoundBank.SKID_GRAVEL))
@@ -257,18 +322,25 @@ func _add_loop(key: String, stream: AudioStream) -> void:
 		_loops[key] = _player(stream, true)
 
 
-func _player(stream: AudioStream, looping: bool) -> AudioStreamPlayer3D:
+func _player(stream: AudioStream, looping: bool, engine := false) -> AudioStreamPlayer3D:
 	var p := AudioStreamPlayer3D.new()
 	p.stream = _own(stream)
 	p.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED
 	if detail == Detail.FULL:
-		p.bus = &"Player"
-		p.unit_size = 14.0
-		p.max_db = 0.0
+		p.bus = &"PlayerEngine" if engine else &"Player"
+		# The camera always trails the player's vehicle at about the same
+		# distance: no distance attenuation, so every level set here is the
+		# level heard. (It used to be inverse-distance with unit_size 14 and
+		# max_db 0: ~+7 dB at the chase distance, clamped at 0 dB, which
+		# flattened the start-up, squeal, horn, crashes and the engine at
+		# load all to one level, and varied with each vehicle's camera
+		# distance. Owner, 2026-10-02: start-up and squeal too loud.)
+		p.attenuation_model = AudioStreamPlayer3D.ATTENUATION_DISABLED
+		p.max_db = 6.0
 		p.panning_strength = 0.5
 		p.attenuation_filter_cutoff_hz = 20500.0
 	else:
-		p.bus = &"Traffic"
+		p.bus = &"TrafficEngine" if engine else &"Traffic"
 		p.unit_size = 7.0
 		p.max_distance = 140.0
 		p.panning_strength = 0.9
@@ -406,7 +478,7 @@ func _update_tyres(dt: float, live: bool) -> void:
 	# the light wheelspin of pulling away, or of creeping into reverse after
 	# braking to a stop, stays quiet (the owner heard it as a squeak).
 	var squeal := smoothstep(0.2, 0.5, _skid) * (1.0 - dirt_frac) * near
-	_set_loop("squeal", squeal * 0.8, (0.92 + _skid * 0.12 + 0.03 * sin(_time * 5.3)) * _doppler)
+	_set_loop("squeal", squeal * 0.6, (0.92 + _skid * 0.12 + 0.03 * sin(_time * 5.3)) * _doppler)
 	_set_loop("skid", _skid * dirt_frac, 0.9 + _skid * 0.2)
 
 
@@ -417,7 +489,7 @@ func _update_horn_and_beeper(live: bool) -> void:
 			profile.horn_pitch * _doppler, true)
 	if _loops.has("beeper"):
 		var reversing := vehicle.gear == -1 and (vehicle.brake_input > 0.1 or absf(vehicle.forward_speed) > 0.3)
-		_set_loop("beeper", 0.5 if reversing and live else 0.0, 1.0, true)
+		_set_loop("beeper", 0.35 if reversing and live else 0.0, 1.0, true)
 
 
 ## Wind, scraping, suspension, splash and tunnel reverb (FULL).
@@ -503,7 +575,7 @@ func _update_extras(dt: float) -> void:
 	if speed < 0.3:
 		if p.air_brake and _braked_from > 3.0 and _air_cooldown <= 0.0:
 			_air_cooldown = 4.0
-			_shot(p.air_brake, -4.0, _rng.randf_range(0.95, 1.05))
+			_shot(p.air_brake, -11.0, _rng.randf_range(0.95, 1.05))
 		_braked_from = 0.0
 
 
