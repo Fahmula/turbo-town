@@ -72,6 +72,33 @@ func _run() -> void:
 					await process_frame
 				await _shot("grove_lod%d" % _lod, Vector3(-190.0, 1.7, 100.0), Vector3(-190.0, 5.0, 70.0))
 				await _shot("grove_high_lod%d" % _lod, Vector3(-175.0, 1.7, 55.0), Vector3(-190.0, 6.0, 70.0))
+			"lod":
+				# two rows of trees receding from the camera, drawn by TreeLod: the
+				# detail levels switch along the rows (r0 70 m, r1 190 m for broadleaf)
+				var tl := TreeLod.new()
+				root.add_child(tl)
+				var sets := {"broadleaf": [[], [], []], "conifer": [[], [], []]}
+				for i in 22:
+					var z := -12.0 - i * 12.0
+					for sp in ["broadleaf", "conifer"]:
+						var xo := -204.0 if sp == "broadleaf" else -186.0
+						var xf := Transform3D(Basis(Vector3.UP, i * 1.3), Vector3(xo + (i % 3) * 2.0, 0.0, z))
+						(sets[sp][0] as Array).append(xf)
+						(sets[sp][1] as Array).append(i % 3 if sp == "broadleaf" else i % 2)
+						(sets[sp][2] as Array).append(Color(0.0, 0.1 * i, 0.5, 0.0))
+				for sp in sets:
+					var xs: Array[Transform3D] = []
+					for xf0 in sets[sp][0]:
+						xs.append(xf0)
+					tl.add_group(sp, xs, PackedInt32Array(sets[sp][1]), PackedColorArray(sets[sp][2]))
+				for i in 8:
+					await process_frame
+				await _shot("lod_rows", Vector3(-195.0, 1.7, 8.0), Vector3(-195.0, 5.0, -120.0))
+				await _shot("lod_rows_far", Vector3(-195.0, 6.0, 8.0), Vector3(-195.0, 4.0, -200.0))
+			"bark":
+				for k in _kinds:
+					var p: Vector3 = _placed[k]
+					await _shot("%s_bark" % k, p + Vector3(1.3, 1.6, 1.8), p + Vector3(0, 1.4, 0))
 			"far":
 				await _shot("far_lod%d" % _lod, Vector3(mid_x, 8.0, 180.0), Vector3(mid_x, 4.0, 0.0))
 			"close", "under", "back":

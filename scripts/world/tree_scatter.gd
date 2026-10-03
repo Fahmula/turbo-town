@@ -157,7 +157,7 @@ func _scatter() -> void:
 				continue
 			var cf := smoothstep(7.0, 15.0, h + _mix.get_noise_2d(x, z) * 6.0 + mountain * 10.0)
 			if _rng.randf() < cf:
-				_add("conifer", _pick(_rng.randf(), [0.6, 0.4]), p, 0.75, 1.3, false)
+				_add("conifer", _pick(_rng.randf(), [0.5, 0.3, 0.2]), p, 0.75, 1.3, false)
 			else:
 				_add("broadleaf", _pick(_rng.randf(), [0.45, 0.3, 0.25]), p, 0.8, 1.25, true)
 			# understory
@@ -202,7 +202,7 @@ func _tree_lines() -> void:
 				continue
 			var p := Vector3(q.x, h - 0.1, q.y)
 			if rng.randf() < 0.22:
-				_add("conifer", _pick(rng.randf(), [0.6, 0.4]), p, 0.8, 1.15, false)
+				_add("conifer", _pick(rng.randf(), [0.5, 0.3, 0.2]), p, 0.8, 1.15, false)
 			else:
 				_add("broadleaf", _pick(rng.randf(), [0.45, 0.1, 0.45]), p, 0.85, 1.2, true)
 

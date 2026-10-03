@@ -16,12 +16,17 @@ colour, variation and overlap; the game's shader adds the lighting.
 
 Outputs (RGBA PNG: RGB = leaf colour, de-lit; A = cut-out mask. Colour from
 transparent texels is bled outwards so mip-mapping doesn't darken edges):
-  foliage_leaves_broadleaf_a.png   2048^2, 4x4 tiles of 512^2 (round leaves)
+  foliage_leaves_broadleaf_a.png   2048^2, 4x4 tiles of 512^2 (beech / hornbeam-type leaves)
   foliage_leaves_broadleaf_b.png   2048^2, 4x4 tiles (lobed oak leaves)
-  foliage_leaves_shrub.png         2048^2, 4x4 tiles (small dense leaves)
-  foliage_leaves_conifer.png       2048^2, 2x4 tiles of 1024x512 (feathery sprays)
-  foliage_leaves_palm.png          2048^2, two 2048x1024 fronds
-  foliage_bark_<kind>_albedo.jpg / _normal.png   1024^2 trunk bark
+  foliage_leaves_broadleaf_c.png   2048^2, 4x4 tiles (heart-shaped leaves, lilac / linden type)
+  foliage_leaves_shrub.png         2048^2, 4x4 tiles (small box-type sprigs: shrubs, hedges)
+  foliage_leaves_conifer.png       2048^2, 2x4 tiles of 1024x512 (feathery cedar/fir sprays)
+  foliage_leaves_palm.png          2048^2, two 2048x1024 pinnate fronds
+  foliage_bark_<plane|oak|cedar|palm>_albedo.jpg (1024^2) / _normal.png (512^2, OpenGL)
+Back leaves in a cluster are darkened a little (cavity AO between leaves); no
+sun or shadow is painted in. The script also patches the Godot .import files
+(VRAM compressed, mipmaps, normal-map flag) once Godot has written them, and
+puts a .gdignore in build/ so Godot doesn't import the raw downloads.
 
 Tile conventions (see scripts/world/tree_kit.gd): in a leaf tile the stem
 enters at the bottom centre and the cluster grows upwards; in a conifer tile

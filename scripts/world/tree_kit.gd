@@ -24,13 +24,13 @@ const CARD := 1.0
 const BLOB := 0.5
 const BARK := 0.0
 ## Flips the binormal of the bark normal map if its relief looks inverted.
-const BARK_TANGENT_W := 1.0
+const BARK_TANGENT_W := -1.0
 
 ## Per species: variants, LOD switch distances (m) and when to stop drawing.
 const SPECIES := {
 	"broadleaf": {"variants": ["broadleaf_a", "broadleaf_b", "broadleaf_c"], "r0": 70.0, "r1": 190.0, "cull": 3000.0,
 		"trunk_r": 0.27, "trunk_h": 4.0},
-	"conifer": {"variants": ["conifer_a", "conifer_b"], "r0": 55.0, "r1": 190.0, "cull": 3000.0,
+	"conifer": {"variants": ["conifer_a", "conifer_b", "conifer_c"], "r0": 55.0, "r1": 190.0, "cull": 3000.0,
 		"trunk_r": 0.25, "trunk_h": 5.0},
 	"palm": {"variants": ["palm"], "r0": 60.0, "r1": 170.0, "cull": 3000.0, "trunk_r": 0.2, "trunk_h": 5.0},
 	"shrub": {"variants": ["shrub"], "r0": 40.0, "r1": 110.0, "cull": 160.0, "trunk_r": 0.0, "trunk_h": 0.0},
@@ -49,6 +49,8 @@ const VARIANTS := {
 		"elev_low": -10.0, "elev_high": 26.0, "taper": 0.85, "mat": "foliage_conifer", "wind_h": 13.0},
 	"conifer_b": {"seed": 19, "height": 15.0, "base_h": 2.2, "radius": 1.85, "step": 0.46, "n_low": 6.0, "n_high": 4.0,
 		"elev_low": -4.0, "elev_high": 32.0, "taper": 0.7, "mat": "foliage_conifer", "wind_h": 15.0},
+	"conifer_c": {"seed": 29, "height": 15.5, "base_h": 4.2, "radius": 2.5, "step": 0.55, "n_low": 5.0, "n_high": 3.0,
+		"elev_low": 4.0, "elev_high": 40.0, "taper": 0.6, "mat": "foliage_conifer", "wind_h": 17.0},
 	"palm": {"seed": 5, "height": 9.5, "lean": 1.4, "fronds": 16, "mat": "foliage_palm", "wind_h": 10.0},
 	"shrub": {"seed": 3, "radius": 0.75, "height": 1.15, "cards": 40, "size": Vector2(0.55, 0.85), "mat": "foliage_shrub", "wind_h": 2.0},
 	"hedge": {"seed": 9, "length": 2.0, "width": 0.85, "height": 1.1, "cards": 64, "size": Vector2(0.5, 0.75), "mat": "foliage_shrub", "wind_h": 2.0},
@@ -480,7 +482,7 @@ static func _conifer(tb: TB, v: Dictionary, lod: int) -> void:
 					L *= 1.1
 				var elev := deg_to_rad(lerpf(float(v["elev_low"]), float(v["elev_high"]), t) + rng.randf_range(-6.0, 6.0))
 				_spray(tb, rng, _trunk_at(trunk, y), az, L, elev, t, tile_of(rng), grid, detail, H, Rm)
-		y += lerpf(float(v["step"]), float(v["step"]) * 0.65, t) * (1.0 if detail else 1.0)
+		y += lerpf(float(v["step"]), float(v["step"]) * 0.65, t)
 		whorl += 1
 	# The top: a few upright sprays.
 	for k in 4:
