@@ -1,0 +1,29 @@
+[remap]
+
+importer="2d_array_texture"
+type="CompressedTexture2DArray"
+uid="uid://ga0xm4lxy7cn"
+path.s3tc="res://.godot/imported/props_orm.png-4ca86234fb2094bc62f20b2aa88b9f97.s3tc.ctexarray"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+
+[deps]
+
+source_file="res://assets/textures/props/props_orm.png"
+dest_files=["res://.godot/imported/props_orm.png-4ca86234fb2094bc62f20b2aa88b9f97.s3tc.ctexarray"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.8
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+slices/horizontal=4
+slices/vertical=4

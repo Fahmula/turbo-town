@@ -1,0 +1,29 @@
+[remap]
+
+importer="2d_array_texture"
+type="CompressedTexture2DArray"
+uid="uid://cotr6hx56agcd"
+path.bptc="res://.godot/imported/props_albedo.jpg-7f9fabd4f76a05dce6a4989d3700b8df.bptc.ctexarray"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+
+[deps]
+
+source_file="res://assets/textures/props/props_albedo.jpg"
+dest_files=["res://.godot/imported/props_albedo.jpg-7f9fabd4f76a05dce6a4989d3700b8df.bptc.ctexarray"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=true
+compress/lossy_quality=0.8
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+slices/horizontal=4
+slices/vertical=4
