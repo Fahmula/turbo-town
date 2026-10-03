@@ -55,6 +55,7 @@ anti_aliasing/quality/msaa_3d=2
 [turbo_town]
 
 dev/audio_mix_panel=true
+dev/megakit_whole_city=false
 
 [shader_globals]
 

@@ -47,8 +47,22 @@ static func enabled() -> bool:
 	return ResourceLoader.exists(MegaKit.LIBRARY_PATH)
 
 
+## Evaluation switch: every city block in MegaKit buildings instead of just
+## the showcase (Project Settings > turbo_town/dev/megakit_whole_city, or
+## `--megakit-city` on the command line).
+static func whole_city() -> bool:
+	return OS.get_cmdline_user_args().has("--megakit-city") \
+		or bool(ProjectSettings.get_setting("turbo_town/dev/megakit_whole_city", false))
+
+
 static func is_showcase(col: int, row: int) -> bool:
-	return enabled() and SHOWCASE.has(Vector2i(col, row))
+	return enabled() and (whole_city() or SHOWCASE.has(Vector2i(col, row)))
+
+
+## A car park block's built sides: the two facing away from the city centre,
+## so the lot sits in the inner corner, open to the streets nearest downtown.
+static func car_park_sides(cx: float, cz: float) -> Array[bool]:
+	return [cz > 0.0, cx > 0.0, cz <= 0.0, cx <= 0.0]
 
 
 func _init(parent_node: Node3D, collision: StaticBody3D) -> void:
@@ -113,12 +127,26 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 
 	(info["alleys"] as Array).append_array(_alleys)
 	_alleys.clear()
+	# Shop signs (facade.gdshader's sign boards, lit at night) and the block's
+	# clutter (street_props.gdshader: awnings, sign cabinets, roof machinery
+	# and water tanks, through BuildingKit's roof clutter).
+	var signs := MeshBuilder.new()
+	var dressing := BuildingKit.new(MeshBuilder.new(), body)
+	dressing.rng.seed = rng.randi()
+	# Blocks open on a side (a car park inside): the buildings' inward walls
+	# face open ground, so they get windows too.
+	var open_inside := sides.has(false)
+	for p: Array in parcels:
+		footprints.append(p[0])
 	var last_style := ""
 	for p: Array in parcels:
 		var rect: Rect2 = p[0]
 		var front: Array[bool] = p[1]
 		var corner: bool = p[2]
-		footprints.append(rect)
+		var back: Array[bool] = [false, false, false, false]
+		if open_inside:
+			for k in 4:
+				back[k] = not front[k] and _faces_inside(rect, k, x0, z0, x1, z1)
 		var style := _pick_style(corner, last_style)
 		last_style = style
 		var floors := rng.randi_range(3, 6) + int(round(centrality * rng.randf_range(0.0, 4.0)))
@@ -128,7 +156,7 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 			floors = maxi(floors - 1, 3)
 		var batch := MegaKit.Batch.new(rng.randi(), true)
 		var b := DowntownBuilding.new(batch, rng)
-		b.build(rect, base_y, floors, front, style)
+		b.build(rect, base_y, floors, front, style, back)
 		var pals: Array = DowntownBuilding.STYLES[style]["palettes"]
 		var palette: int = pals[rng.randi() % pals.size()]
 		var mesh := batch.build()
@@ -165,9 +193,109 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 			cs3.transform = c[0]
 			body.add_child(cs3)
 		sign_spots.append_array(b.sign_spots)
+		for spot: Array in b.sign_spots:
+			_shopfronts(signs, dressing.clutter, spot[0], spot[1], palette)
+		dressing._roof_clutter(b.roof_rect.grow(0.6), b.roof_y, b.water_tank, false)
 		building_count += 1
 		triangles += batch.tris
+	if not signs.is_empty():
+		var smi := MeshInstance3D.new()
+		smi.name = "ShopSigns"
+		smi.mesh = signs.build_mesh(load("res://assets/materials/env/facade.tres"))
+		smi.visibility_range_end = 220.0
+		smi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.add_child(smi)
+	if not dressing.clutter.is_empty():
+		var cmi := MeshInstance3D.new()
+		cmi.name = "Clutter"
+		cmi.mesh = MeshBuilder.with_lods(dressing.clutter.build_mesh(StreetKit.material()))
+		cmi.visibility_range_end = 400.0
+		cmi.visibility_range_end_margin = 40.0
+		cmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		node.add_child(cmi)
 	build_usec += Time.get_ticks_usec() - t0
+
+
+## A frontage's shops: the bay run is split into shops 4-8 m wide; each gets
+## a sign board on the sign band (facade.gdshader sign style: an invented
+## shop name, lit at night) in a painted cabinet, and some get a striped
+## fabric awning under the band. `xf` = the wall frame at the middle of the
+## run, 3.5 m up (DowntownBuilding.sign_spots).
+func _shopfronts(signs: MeshBuilder, clutter: MeshBuilder, xf: Transform3D, run: float, palette: int) -> void:
+	var xa := xf.basis.x
+	var n := xf.basis.z
+	var face := 0.05  # the sign band's front, off the wall plane
+	var accent: Color = ArtPalette.SHOP_ACCENTS[(palette + rng.randi()) % ArtPalette.SHOP_ACCENTS.size()]
+	var seed := floorf(rng.randf() * 1000.0) / 1000.0
+	var x := -run * 0.5
+	while run * 0.5 - x > 3.9:
+		var w := minf(float(rng.randi_range(2, 4) * 2), run * 0.5 - x)
+		if run * 0.5 - x - w < 3.9:
+			w = run * 0.5 - x
+		var mid := xf.origin + xa * (x + w * 0.5)
+		if rng.randf() < 0.85:
+			# Sign board: the sign atlas is 8:1, so at most 4.8 x 0.6 m.
+			var bw := minf(w - 0.8, 4.8)
+			var bh := 0.6
+			var cab := Color(accent.darkened(0.55), BuildingKit.PAINTED)
+			clutter.add_bevel_box(Transform3D(xf.basis, mid + n * (face + 0.04)), Vector3(bw + 0.12, bh + 0.12, 0.08), 0.015, cab)
+			var grp := float(rng.randi_range(0, 60)) * 2.0
+			var c := mid + n * (face + 0.085)
+			var a := c - xa * bw * 0.5 + Vector3.DOWN * bh * 0.5
+			var b := c + xa * bw * 0.5 + Vector3.DOWN * bh * 0.5
+			var up := Vector3.UP * bh
+			signs.set_uv2(Vector2(seed, BuildingKit.SIGN_STYLE))
+			signs.add_quad(a, b, b + up, a + up, Color(1, 1, 1, 0.9),
+				Vector2(grp + 0.12, 3.725), Vector2(grp + 1.88, 3.725), Vector2(grp + 1.88, 4.225), Vector2(grp + 0.12, 4.225))
+		if rng.randf() < 0.45:
+			_awning(clutter, mid - xa * (w * 0.5 - 0.25), mid + xa * (w * 0.5 - 0.25), n, xf.origin.y - 3.5 + 2.92, accent, rng.randf() < 0.5)
+		x += w
+
+
+## A fabric awning from a to b (on the wall), sloping out over the
+## sidewalk, with a valance and side cheeks (like BuildingKit._awning).
+func _awning(mb: MeshBuilder, a: Vector3, b: Vector3, out: Vector3, y_top: float, col: Color, plain: bool) -> void:
+	var depth := 1.25
+	var drop := 0.55
+	var valance := 0.22
+	a.y = y_top
+	b.y = y_top
+	a += out * 0.06
+	b += out * 0.06
+	var stripe := Color(0.86, 0.84, 0.78)
+	var stripes := maxi(int(a.distance_to(b) / 0.45), 1)
+	for s in stripes:
+		var p0 := a.lerp(b, float(s) / stripes)
+		var p1 := a.lerp(b, float(s + 1) / stripes)
+		var c := Color(col if plain or s % 2 == 0 else stripe, BuildingKit.FABRIC)
+		var q0 := p0 + out * depth + Vector3.DOWN * drop
+		var q1 := p1 + out * depth + Vector3.DOWN * drop
+		mb.add_quad(p1, p0, q0, q1, c)
+		mb.add_quad(p0, p1, q1, q0, Color(c.darkened(0.25), BuildingKit.FABRIC))
+		mb.add_quad(q1, q0, q0 + Vector3.DOWN * valance, q1 + Vector3.DOWN * valance, c)
+		mb.add_quad(q0, q1, q1 + Vector3.DOWN * valance, q0 + Vector3.DOWN * valance, Color(c.darkened(0.25), BuildingKit.FABRIC))
+	for p: Vector3 in [a, b]:
+		var q := p + out * depth + Vector3.DOWN * drop
+		var cc := Color(col, BuildingKit.FABRIC)
+		mb.add_tri(p, q, q + Vector3.DOWN * valance, cc)
+		mb.add_tri(p, q + Vector3.DOWN * valance, q, cc)
+
+
+## Whether side k (S, E, N, W) of `rect` faces into the block rather than
+## onto a neighbour: nothing else stands within 1 m in that direction.
+func _faces_inside(rect: Rect2, k: int, x0: float, z0: float, x1: float, z1: float) -> bool:
+	var probe := rect
+	match k:
+		0: probe = Rect2(rect.position.x + 0.5, rect.end.y + 0.2, rect.size.x - 1.0, 1.0)
+		1: probe = Rect2(rect.end.x + 0.2, rect.position.y + 0.5, 1.0, rect.size.y - 1.0)
+		2: probe = Rect2(rect.position.x + 0.5, rect.position.y - 1.2, rect.size.x - 1.0, 1.0)
+		3: probe = Rect2(rect.position.x - 1.2, rect.position.y + 0.5, 1.0, rect.size.y - 1.0)
+	if not Rect2(x0, z0, x1 - x0, z1 - z0).encloses(probe):
+		return false  # that side is the block edge
+	for f: Rect2 in footprints:
+		if f != rect and f.intersects(probe):
+			return false
+	return true
 
 
 ## Splits a block side from a to b (metres along it) into mid-block parcels

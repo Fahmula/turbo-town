@@ -2582,6 +2582,16 @@ func _scenery(game: Game) -> void:
 		["hill_junction", Vector3(6.0, 3.5, -280.0), Vector3(25.0, 6.0, -322.0), null, false],
 		["aerial", Vector3(95.0, 70.0, 15.0), Vector3(-10.0, 0.0, -110.0), null, true],
 		["aerial_overpass", Vector3(60.0, 32.0, -185.0), Vector3(0.0, 5.0, -258.0), null, false],
+		# Downtown (MegaKit experiment) close-ups: the spawn, eye level on the
+		# sidewalks, a corner, looking up a facade, the plaza edge, the car park.
+		["dt_spawn", Vector3(-117.5, 2.6, 3.0), Vector3(-85.0, 1.8, 3.0), Transform3D(east, Vector3(-110.0, 0.6, 3.0)), true],
+		["dt_spawn_walk", Vector3(-121.0, 1.7, -7.5), Vector3(-80.0, 5.0, -1.0), null, false],
+		["dt_corner", Vector3(-63.0, 1.7, 8.5), Vector3(-82.0, 7.0, -10.0), null, false],
+		["dt_facade", Vector3(4.0, 1.7, 8.2), Vector3(22.0, 4.5, 7.6), null, false],
+		["dt_look_up", Vector3(14.0, 1.6, -7.8), Vector3(18.0, 24.0, -11.0), null, false],
+		["dt_plaza_edge", Vector3(-40.0, 1.8, -12.0), Vector3(-52.0, 8.0, 20.0), null, false],
+		["dt_avenue_south", Vector3(2.4, 2.4, -6.0), Vector3(2.4, 3.0, 45.0), null, false],
+		["dt_car_park", Vector3(-95.0, 2.2, 14.0), Vector3(-140.0, 7.0, 62.0), null, false],
 	]
 	# Chase-style views at the teleport spots outside the city (spawn_beach,
 	# spawn_dirt_fields, spawn_mountain_top...): nature, terrain and landmarks.

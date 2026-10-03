@@ -116,11 +116,19 @@ func _add_block(ground: MeshBuilder, kit: BuildingKit, body: StaticBody3D,
 	var top := h + 0.004
 	var centrality := 1.0 - clampf(Vector2((x0 + x1) * 0.5, (z0 + z1) * 0.5).length() / 200.0, 0.0, 1.0)
 	if _showcase and type == "parking":
-		# Showcase car park: MegaKit buildings along its south and west
-		# edges, the lot in the north-east corner, open to the avenue.
-		downtown.build(_block_name, ix0, iz0, ix1, iz1, h, centrality, [true, false, false, true])
-		ix0 += 18.0
-		iz1 -= 18.0
+		# Showcase car park: MegaKit buildings along the two edges away from
+		# the city centre, the lot in the inner corner, open to the streets.
+		var sides := DowntownBlock.car_park_sides((x0 + x1) * 0.5, (z0 + z1) * 0.5)
+		downtown.build(_block_name, ix0, iz0, ix1, iz1, h, centrality, sides)
+		# Corner buildings reach up to 22 m in.
+		if sides[0]:
+			iz1 -= 22.0
+		if sides[1]:
+			ix1 -= 22.0
+		if sides[2]:
+			iz0 += 22.0
+		if sides[3]:
+			ix0 += 22.0
 	match type:
 		"park":
 			_flat_quad(ground, ix0, iz0, ix1, iz1, top, Color(ArtPalette.LAWN, 0.0))

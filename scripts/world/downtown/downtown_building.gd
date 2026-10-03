@@ -62,6 +62,11 @@ var colliders: Array = []
 ## [Transform3D (wall frame, origin at the band's centre), width m].
 var sign_spots: Array = []
 var top_height := 0.0
+## The roof deck (for roof clutter): rectangle and height.
+var roof_rect := Rect2()
+var roof_y := 0.0
+## Older styles get timber water tanks on the roof.
+var water_tank := false
 
 var _style: Dictionary
 var _floors := 0
@@ -80,8 +85,11 @@ static func height_of(floors: int) -> float:
 ## Builds a building on `fp` (x/z rectangle, sizes multiples of 2 m) standing
 ## on `base_y`, with `floors` floors above the ground floor. `front` = which
 ## sides face a street (south, east, north, west); the entrance goes on the
-## first frontage.
-func build(fp: Rect2, base_y: float, floors: int, front: Array[bool], style_name: String) -> void:
+## first frontage. `back` = sides that face open ground inside the block (a
+## car park, an alley): dressed with windows over a plain masonry ground
+## floor, no shops.
+func build(fp: Rect2, base_y: float, floors: int, front: Array[bool], style_name: String,
+		back: Array[bool] = [false, false, false, false]) -> void:
 	_style = STYLES[style_name]
 	_floors = floors
 	_top = height_of(floors)
@@ -89,14 +97,17 @@ func build(fp: Rect2, base_y: float, floors: int, front: Array[bool], style_name
 	var c := _corners(fp, base_y)
 	var quoin: bool = _style["corner"] == "quoin"
 	var entrance_side := front.find(true)
+	var dressed: Array[bool] = []
+	for k in 4:
+		dressed.append(front[k] or back[k])
 	for k in 4:
 		var o: Vector3 = c[k]
 		var n: Vector3 = _normal(k)
 		var length := o.distance_to(c[(k + 1) % 4])
-		var prev_front: bool = front[(k + 3) % 4]
-		var next_front: bool = front[(k + 1) % 4]
-		if front[k]:
-			_dressed_wall(o, n, length, quoin, prev_front, next_front, k == entrance_side)
+		var prev_front: bool = dressed[(k + 3) % 4]
+		var next_front: bool = dressed[(k + 1) % 4]
+		if dressed[k]:
+			_dressed_wall(o, n, length, quoin, prev_front, next_front, k == entrance_side, not front[k])
 		else:
 			var s0 := QUOIN if quoin and prev_front else 0.0
 			var s1 := length
@@ -131,7 +142,8 @@ static func _xf(origin: Vector3, n: Vector3, along: float, y: float) -> Transfor
 
 # ------------------------------------------------------------------ walls ---
 
-func _dressed_wall(o: Vector3, n: Vector3, length: float, quoin: bool, prev_front: bool, next_front: bool, entrance: bool) -> void:
+func _dressed_wall(o: Vector3, n: Vector3, length: float, quoin: bool, prev_front: bool, next_front: bool,
+		entrance: bool, secondary := false) -> void:
 	# Bay run between the corners: quoins take 1 m at both ends; a brick
 	# corner takes 2 m at the left end, and the next wall's corner piece
 	# wraps over our last 2 m when that wall is dressed too.
@@ -143,12 +155,13 @@ func _dressed_wall(o: Vector3, n: Vector3, length: float, quoin: bool, prev_fron
 	var x := r0
 	var door_bay := bays.size() / 2 if entrance else -1
 	var shop_x0 := r0
+	var base: String = "brick" if secondary else _style["base"]
 	for i in bays.size():
 		var w: float = bays[i]
 		for j in int(roundf(w / BAY)):
-			_ground_module(o, n, x + BAY * (j + 0.5), i == door_bay and j == 0)
+			_ground_module(o, n, x + BAY * (j + 0.5), i == door_bay and j == 0, base)
 		x += w
-	if _style["base"] != "brick" and r1 - shop_x0 > 3.0:
+	if base != "brick" and r1 - shop_x0 > 3.0:
 		sign_spots.append([_xf(o, n, (shop_x0 + r1) * 0.5, 3.5), r1 - shop_x0])
 
 	# Upper floors.
@@ -193,8 +206,8 @@ func _plan_bays(run: float) -> Array[float]:
 	return out
 
 
-func _ground_module(o: Vector3, n: Vector3, cx: float, door: bool) -> void:
-	match _style["base"]:
+func _ground_module(o: Vector3, n: Vector3, cx: float, door: bool, base: String) -> void:
+	match base:
 		"metal":
 			if door:
 				batch.add("DoorFrame_Metal_Single", _xf(o, n, cx, 0.0))
@@ -329,8 +342,13 @@ func _roof(fp: Rect2, base_y: float, front: Array[bool]) -> void:
 		Vector3(r.end.x, y, r.position.y), Vector3(r.position.x, y, r.position.y)]
 	var uv: Array[Vector2] = []
 	for q: Vector3 in p:
-		uv.append(Vector2(q.x, q.z) * 0.25)  # 4 m roofing tiles (Roof_4x4)
-	batch.add_quad([p[0], p[1], p[2], p[3]], uv, MegaKit.LAYER_ASPHALT, MegaKit.SLOT_FIXED)
+		uv.append(Vector2(q.x, q.z) * 0.2)
+	# Roof membrane: the kit's concrete, coloured per building (tar, grey or
+	# silver coating) through the palette's flat-roof slot.
+	batch.add_quad([p[0], p[1], p[2], p[3]], uv, MegaKit.LAYER_CONCRETE, MegaKit.SLOT_FLAT_ROOF)
+	roof_rect = r
+	roof_y = y
+	water_tank = _style["cornice"] != "metal" and rng.randf() < 0.55
 
 
 ## A slate mansard storey on top of the walls (the kit's mansard pieces are

@@ -14,7 +14,12 @@ extends RefCounted
 const LIBRARY_PATH := "res://assets/models/megakit/megakit_modules.res"
 
 ## Tint slots (CUSTOM0.g), recoloured per building by a palette.
-enum { SLOT_BRICK, SLOT_BRICK_ALT, SLOT_TRIM, SLOT_TRIM_DARK, SLOT_ACCENT, SLOT_METAL, SLOT_ROOF, SLOT_FIXED }
+enum { SLOT_BRICK, SLOT_BRICK_ALT, SLOT_TRIM, SLOT_TRIM_DARK, SLOT_ACCENT, SLOT_METAL, SLOT_ROOF, SLOT_FIXED, SLOT_FLAT_ROOF }
+## Flat roof membranes (SLOT_FLAT_ROOF, on the concrete layer) per palette
+## row: tar, grey or silver-coated.
+const FLAT_ROOFS: Array[Color] = [Color(0.33, 0.33, 0.33), Color(0.62, 0.62, 0.6), Color(0.3, 0.3, 0.31),
+	Color(0.56, 0.55, 0.52), Color(0.42, 0.42, 0.41), Color(0.68, 0.68, 0.66), Color(0.31, 0.31, 0.32),
+	Color(0.48, 0.47, 0.45), Color(0.64, 0.64, 0.62)]
 ## Texture layers (CUSTOM0.r): slices of megakit_albedo / megakit_nrm.
 enum { LAYER_BRICK, LAYER_TRIM, LAYER_METAL, LAYER_ORNAMENT, LAYER_SLATE, LAYER_ASPHALT, LAYER_CONCRETE, LAYER_SOIL }
 
@@ -48,8 +53,8 @@ const PALETTES: Array[Dictionary] = [
 	{SLOT_BRICK: [Color(0.45, 0.3, 0.24), 0.9], SLOT_BRICK_ALT: [Color(0.5, 0.34, 0.27), 0.9],
 		SLOT_TRIM: [Color(0.5, 0.35, 0.28), 0.85], SLOT_TRIM_DARK: [Color(0.12, 0.12, 0.13), 0.95],
 		SLOT_ACCENT: [Color(0.13, 0.13, 0.14), 0.9], SLOT_METAL: [Color(0.1, 0.1, 0.11), 0.8]},
-	# 7 orange-red brick, cream, ochre storefronts.
-	{SLOT_BRICK: [Color(0.66, 0.36, 0.24), 0.6], SLOT_BRICK_ALT: [Color(0.76, 0.52, 0.38), 0.6],
+	# 7 orange-red brick, cream, ochre storefronts (chroma kept <= 0.35, §5).
+	{SLOT_BRICK: [Color(0.6, 0.38, 0.28), 0.6], SLOT_BRICK_ALT: [Color(0.72, 0.52, 0.4), 0.6],
 		SLOT_TRIM_DARK: [Color(0.2, 0.17, 0.14), 0.9], SLOT_ACCENT: [Color(0.62, 0.45, 0.18), 0.85],
 		SLOT_METAL: [Color(0.17, 0.15, 0.13), 0.8]},
 	# 8 grey-brown brick, white stone, charcoal.
@@ -119,6 +124,7 @@ static func material() -> ShaderMaterial:
 		_material.set_shader_parameter("room_tex", load("res://assets/textures/megakit/megakit_rooms.jpg"))
 		_material.set_shader_parameter("cover_tex", load("res://assets/textures/megakit/megakit_covers.png"))
 		_material.set_shader_parameter("palette_tex", _palette_texture())
+		_material.set_shader_parameter("shops_atlas", load("res://assets/textures/building/facade_interiors_shops.jpg"))
 	return _material
 
 
@@ -132,11 +138,13 @@ static func decal_material() -> ShaderMaterial:
 
 
 static func _palette_texture() -> ImageTexture:
-	var img := Image.create(8, PALETTES.size(), false, Image.FORMAT_RGBA8)
+	var img := Image.create(16, PALETTES.size(), false, Image.FORMAT_RGBA8)
 	for row in PALETTES.size():
 		var p: Dictionary = PALETTES[row]
-		for slot in 8:
+		for slot in 16:
 			var e: Array = p.get(slot, [Color.WHITE, 0.0])
+			if slot == SLOT_FLAT_ROOF:
+				e = [FLAT_ROOFS[row % FLAT_ROOFS.size()], 0.9]
 			var c: Color = e[0]
 			img.set_pixel(slot, row, Color(c.r, c.g, c.b, e[1]))
 	return ImageTexture.create_from_image(img)

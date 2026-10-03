@@ -35,7 +35,8 @@
 shader_type spatial;
 render_mode cull_back, diffuse_burley, specular_schlick_ggx;
 
-#include "res://assets/shaders/world_common.gdshaderinc"
+// facade_common brings world_common (night, quality, hashes) and room_hit.
+#include "res://assets/shaders/facade_common.gdshaderinc"
 
 uniform sampler2DArray albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray nrm_tex : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -43,6 +44,13 @@ uniform sampler2D detail_tex : hint_default_white, filter_linear_mipmap, repeat_
 uniform sampler2DArray room_tex : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2DArray cover_tex : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D palette_tex : source_color, filter_nearest, repeat_disable;
+// Shop interiors behind the ground-floor windows: the city's shop room atlas
+// (facade.gdshader's, tools/blender/make_building_interiors.py): 8 x 8 cells
+// of 256 px, room * 5 + face (0 back, 1 left, 2 right, 3 floor, 4 ceiling).
+uniform sampler2D shops_atlas : source_color, filter_linear_mipmap, repeat_disable;
+uniform int shops_count = 12;
+// Ground-floor windows below this world height show shops (sidewalk 0.15 m + 3 m).
+uniform float shop_top = 3.2;
 
 uniform float normal_strength = 1.0;
 uniform float bevel_strength = 0.8;
@@ -51,7 +59,7 @@ uniform float grime_strength = 0.55;
 // room depth in metres used for parallax.
 uniform float room_back = 0.59;
 uniform float room_depth = 4.0;
-uniform float day_room_gain = 0.32;
+uniform float day_room_gain = 0.26;
 uniform float night_room_gain = 1.25;
 uniform vec3 glass_tint : source_color = vec3(0.06, 0.07, 0.075);
 
@@ -92,6 +100,14 @@ mat3 cotangent_frame(vec3 n, vec3 dp1, vec3 dp2, vec2 duv1, vec2 duv2) {
 vec3 unpack_xy(vec2 xy, float strength) {
 	vec2 v = (xy * 2.0 - 1.0) * strength;
 	return vec3(v, sqrt(max(1.0 - dot(v, v), 0.0)));
+}
+
+vec3 shop_texel(int room, int face, vec2 fuv, float lod) {
+	int idx = room * 5 + face;
+	vec2 cell = vec2(float(idx % 8), float(idx / 8));
+	vec2 inner = vec2(fuv.x * 0.5 + 0.5, 0.5 - fuv.y * 0.5);
+	inner = (inner * 248.0 + 4.0) / 256.0;
+	return textureLod(shops_atlas, (cell + inner) / 8.0, lod).rgb;
 }
 
 // Screen derivatives of UV with the per-window offsets (multiples of 4 in u)
@@ -181,12 +197,38 @@ void fragment() {
 		float lit = step(0.48, fract(h1 * 7.31 + h3));
 		float level = 0.75 + 0.5 * h2;
 		vec3 lamp = mix(vec3(1.0, 0.78, 0.55), vec3(0.88, 0.95, 1.0), step(0.85, fract(h4 * 13.7)));
-		vec3 day_rgb = room_rgb * day_room_gain;
+		float gain = day_room_gain;
+		if (v_world.y < shop_top && !low) {
+			// A shop: one box room per 6 m of frontage (so a shop shows
+			// through several windows), in world space along the wall.
+			vec3 nw = normalize(v_wnormal);
+			vec3 tw = normalize(cross(vec3(0.0, 1.0, 0.0), nw));
+			float along = dot(v_world, tw);
+			float cell = floor(along / 6.0);
+			vec3 rp = vec3((along - cell * 6.0) / 3.0 - 1.0, (v_world.y - 0.15) / 1.5 - 1.0, -1.0);
+			rp.xy = clamp(rp.xy, vec2(-0.995), vec2(0.995));
+			vec3 rw = normalize(v_world - CAMERA_POSITION_WORLD);
+			vec3 rd = vec3(dot(rw, tw) / 3.0, rw.y / 1.5, max(dot(rw, -nw), 1e-3) / 2.6);
+			int face;
+			vec2 fuv;
+			float tr;
+			room_hit(rp, rd, face, fuv, tr);
+			float sh = hash12(vec2(cell, floor(dot(v_world, nw) + 0.5)) + 3.7);
+			float lod = clamp(log2(max(max(length(duv1), length(duv2)) * 256.0, 1.0)), 0.0, 2.0);
+			room_rgb = shop_texel(int(sh * float(shops_count)) % shops_count, face, clamp(fuv, vec2(-1.0), vec2(1.0)), lod);
+			lit = step(0.15, fract(sh * 17.3));  // most shops are lit at night
+			gain = day_room_gain * 2.2;  // shops are bright inside by day
+			cover = 0.0;
+		}
+		vec3 day_rgb = room_rgb * gain;
 		vec3 night_rgb = room_rgb * lamp * night_room_gain * level;
 		vec3 room_emit = mix(day_rgb, mix(room_rgb * 0.015, night_rgb, lit), night);
 		vec3 cover_emit = cover_rgb * mix(vec3(0.25), lamp * 0.9 * lit + 0.02, night);
 		ALBEDO = mix(glass_tint, cover_rgb * 0.6, cover * 0.5);
-		EMISSION = mix(room_emit, cover_emit, cover);
+		// What the glass lets through: Schlick's Fresnel (F0 0.04) takes it
+		// away at grazing angles, where the reflection of the sky takes over.
+		float fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(n_geo, view_dir), 0.0, 1.0), 5.0);
+		EMISSION = mix(room_emit, cover_emit, cover) * (1.0 - fres);
 		METALLIC = 0.0;
 		ROUGHNESS = mix(0.04 + 0.04 * h2, 0.6, cover * 0.3);
 		SPECULAR = 0.5;
