@@ -133,6 +133,7 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 	# clutter (street_props.gdshader: awnings, sign cabinets, roof machinery
 	# and water tanks, through BuildingKit's roof clutter).
 	var signs := MeshBuilder.new()
+	var spill := MeshBuilder.new()
 	var dressing := BuildingKit.new(MeshBuilder.new(), body)
 	dressing.rng.seed = rng.randi()
 	# Blocks open on a side (a car park inside): the buildings' inward walls
@@ -223,6 +224,7 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 		sign_spots.append_array(b.sign_spots)
 		for spot: Array in b.sign_spots:
 			_shopfronts(signs, dressing.clutter, spot[0], spot[1], palette)
+			_light_spill(spill, spot[0], spot[1], base_y)
 		dressing._roof_clutter(b.roof_rect.grow(0.6), b.roof_y, b.water_tank, false)
 		building_count += 1
 		triangles += batch.tris
@@ -239,6 +241,15 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 	ymi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ymi.visibility_range_end = 250.0
 	node.add_child(ymi)
+	if not spill.is_empty():
+		var lmi := MeshInstance3D.new()
+		lmi.name = "ShopLight"
+		var lmat := ShaderMaterial.new()
+		lmat.shader = load("res://assets/shaders/shop_light_spill.gdshader")
+		lmi.mesh = spill.build_mesh(lmat)
+		lmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		lmi.visibility_range_end = 120.0
+		node.add_child(lmi)
 	if not signs.is_empty():
 		var smi := MeshInstance3D.new()
 		smi.name = "ShopSigns"
@@ -291,6 +302,21 @@ func _shopfronts(signs: MeshBuilder, clutter: MeshBuilder, xf: Transform3D, run:
 		if rng.randf() < 0.45:
 			_awning(clutter, mid - xa * (w * 0.5 - 0.25), mid + xa * (w * 0.5 - 0.25), n, xf.origin.y - 3.5 + 2.92, accent, rng.randf() < 0.5)
 		x += w
+
+
+## The glow of a frontage's lit shop windows on the sidewalk at night
+## (shop_light_spill.gdshader): one quad 3 m deep along the shop run, warm
+## or cool; the shader darkens the stretches in front of unlit shops.
+func _light_spill(mb: MeshBuilder, xf: Transform3D, run: float, base_y: float) -> void:
+	var xa := xf.basis.x
+	var n := xf.basis.z
+	var o := xf.origin
+	o.y = base_y + 0.012
+	var a := o - xa * run * 0.5 + n * 0.1
+	var b := o + xa * run * 0.5 + n * 0.1
+	var tint := Color(1.0, 0.7, 0.42) if rng.randf() < 0.8 else Color(0.8, 0.88, 1.0)
+	mb.set_uv2(Vector2(n.x, n.z))
+	mb.add_quad(a, a + n * 3.0, b + n * 3.0, b, tint, Vector2(0.0, 0.0), Vector2(0.0, 3.0), Vector2(1.0, 3.0), Vector2(1.0, 0.0))
 
 
 ## A fabric awning from a to b (on the wall), sloping out over the
