@@ -130,8 +130,129 @@ func _add_trees(root: Node3D, body: StaticBody3D, kinds: Array, xforms: Array[Tr
 			root.add_child(mmi)
 
 
-## Boulders scattered round the mountain (sphere colliders).
+## Boulders (Poly Haven scans split and decimated by tools/blender/make_nature_rocks.py,
+## textures from tools/textures/fetch_terrain.py): round the mountain, on the
+## shores and scattered over the open hills. Merged into one mesh per 160 m
+## chunk (two surfaces, one per rock set), sphere colliders. Falls back to the
+## procedural boulders when the models are missing.
 func _add_rocks(root: Node3D) -> void:
+	var sets: Array[Dictionary] = []
+	for key in ["a", "b"]:
+		var scene := load("res://assets/models/nature/rocks_%s.glb" % key) as PackedScene
+		if scene == null:
+			_add_rocks_procedural(root)
+			return
+		var inst := scene.instantiate()
+		var meshes: Array[Mesh] = []
+		for n in inst.find_children("rock_*", "MeshInstance3D", true, false):
+			meshes.append((n as MeshInstance3D).mesh)
+		inst.free()
+		var mat := ORMMaterial3D.new()
+		mat.albedo_texture = load("res://assets/textures/terrain/rocks_%s_albedo.jpg" % key)
+		mat.normal_enabled = true
+		mat.normal_texture = load("res://assets/textures/terrain/rocks_%s_normal.png" % key)
+		mat.orm_texture = load("res://assets/textures/terrain/rocks_%s_orm.png" % key)
+		sets.append({"meshes": meshes, "material": mat})
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var spots: Array[Dictionary] = []   # {set, mesh, xform, radius}
+	# Round the mountain: a ring of boulders and a few clusters on its slopes.
+	for k in 70:
+		var ang := rng.randf() * TAU
+		var dist := rng.randf_range(50.0, 175.0)
+		var x := MapLayout.MOUNTAIN_CENTER.x + cos(ang) * dist
+		var z := MapLayout.MOUNTAIN_CENTER.y + sin(ang) * dist
+		_try_rock(spots, sets, rng, x, z, rng.randf_range(0.7, 1.9), 0.6)
+		if rng.randf() < 0.25:
+			for j in rng.randi_range(1, 2):
+				_try_rock(spots, sets, rng, x + rng.randf_range(-4.0, 4.0), z + rng.randf_range(-4.0, 4.0), rng.randf_range(0.35, 0.9), 0.6)
+	# Shores: rocks at the waterline, in small groups (walks every other terrain vertex).
+	var step := _terrain.cell
+	var hs := _terrain.heights
+	var gn := _terrain.n
+	var lo := MapLayout.SEA_LEVEL - 0.2
+	for j in range(0, gn, 2):
+		for i in range(0, gn, 2):
+			var h := hs[j * gn + i]
+			if h < lo or h > 0.5 or rng.randf() > 0.07:
+				continue
+			var x := -_terrain.half + i * step
+			var z := -_terrain.half + j * step
+			if _terrain.shore_factor(x, z) < 0.05:
+				continue
+			for k in rng.randi_range(1, 3):
+				_try_rock(spots, sets, rng, x + rng.randf_range(-6.0, 6.0), z + rng.randf_range(-6.0, 6.0), rng.randf_range(0.35, 1.2), 0.8)
+	var half := MapLayout.TERRAIN_HALF_SIZE - 10.0
+	# Open hills outside the city: the odd boulder.
+	for k in 400:
+		var x := rng.randf_range(-half, half)
+		var z := rng.randf_range(-half, half)
+		if absf(x) < 175.0 and absf(z) < 175.0:
+			continue
+		if Vector2(x, z).distance_to(MapLayout.FIELDS_CENTER) < 140.0:
+			continue
+		if _terrain.height_at(x, z) < 2.0 or rng.randf() > 0.08:
+			continue
+		_try_rock(spots, sets, rng, x, z, rng.randf_range(0.5, 1.5), 0.45)
+
+	var body := StaticBody3D.new()
+	body.name = "Rocks"
+	# One merged mesh per chunk and rock set.
+	var chunks := {}
+	for sp in spots:
+		var o: Vector3 = (sp["xform"] as Transform3D).origin
+		var key := Vector3i(floori(o.x / 160.0), floori(o.z / 160.0), sp["set"])
+		if not chunks.has(key):
+			chunks[key] = SurfaceTool.new()
+		(chunks[key] as SurfaceTool).append_from(sp["mesh"], 0, sp["xform"])
+		var cs := CollisionShape3D.new()
+		var sh := SphereShape3D.new()
+		sh.radius = sp["radius"]
+		cs.shape = sh
+		cs.position = o + Vector3.UP * sh.radius * 0.7
+		body.add_child(cs)
+	for key: Vector3i in chunks:
+		var st: SurfaceTool = chunks[key]
+		var mesh := st.commit()
+		mesh.surface_set_material(0, sets[key.z]["material"])
+		var mi := MeshInstance3D.new()
+		mi.name = "Rocks_%d_%d_%d" % [key.x, key.y, key.z]
+		mi.mesh = mesh
+		mi.visibility_range_end = 450.0
+		mi.visibility_range_end_margin = 40.0
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		body.add_child(mi)
+	root.add_child(body)
+
+
+## Puts one boulder at (x, z) if the ground allows it (off roads, steep
+## slopes and keep-clear spots); `max_slope` is the steepest ground it sits on.
+func _try_rock(spots: Array[Dictionary], sets: Array[Dictionary], rng: RandomNumberGenerator, x: float, z: float, scale: float, max_slope: float) -> void:
+	if _terrain.road_weight_at(x, z) > 0.01 or _keep_clear(x, z):
+		return
+	if _terrain.slope_at(x, z) > max_slope:
+		return
+	var si := rng.randi() % sets.size()
+	var meshes: Array = sets[si]["meshes"]
+	var mesh: Mesh = meshes[rng.randi() % meshes.size()]
+	var aabb := mesh.get_aabb()
+	var ext := maxf(aabb.size.x, aabb.size.z) * scale
+	# Sit on the lowest ground under the footprint, so the downhill side doesn't hang.
+	var r := ext * 0.3
+	var h := _terrain.height_at(x, z)
+	for d in [Vector2(r, 0), Vector2(-r, 0), Vector2(0, r), Vector2(0, -r)]:
+		h = minf(h, _terrain.height_at(x + d.x, z + d.y))
+	if h < MapLayout.SEA_LEVEL - 0.6:
+		return
+	var tilt := Basis(Vector3.RIGHT, rng.randf_range(-0.12, 0.12)) * Basis(Vector3.FORWARD, rng.randf_range(-0.12, 0.12))
+	var b := Basis(Vector3.UP, rng.randf() * TAU) * tilt
+	b = b.scaled(Vector3(scale, scale * rng.randf_range(0.8, 1.1), scale))
+	spots.append({"set": si, "mesh": mesh, "xform": Transform3D(b, Vector3(x, h - 0.06 * scale, z)), "radius": ext * 0.36})
+
+
+## The procedural boulders (sphere colliders): used when the rock models are missing.
+func _add_rocks_procedural(root: Node3D) -> void:
 	var mb := MeshBuilder.new()
 	var body := StaticBody3D.new()
 	body.name = "Rocks"

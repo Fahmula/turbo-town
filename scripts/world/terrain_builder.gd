@@ -167,6 +167,8 @@ func raster_segment(a: Vector3, b: Vector3, half_width: float, shoulder: float) 
 
 
 func raster_circle(center: Vector2, radius: float, height: float, blend: float) -> void:
+	# The summit disc is open ground (grass grows on it); the other flat areas are paved.
+	var open_ground := center.distance_to(MapLayout.MOUNTAIN_CENTER) < 5.0
 	var r := radius + blend
 	var i0 := maxi(int(floor((center.x - r + half) / cell)), 0)
 	var i1 := mini(int(ceil((center.x + r + half) / cell)), n - 1)
@@ -179,7 +181,8 @@ func raster_circle(center: Vector2, radius: float, height: float, blend: float) 
 				continue
 			var w := 1.0 - smoothstep(radius, r, d)
 			var idx := j * n + i
-			_road_e[idx] = minf(_road_e[idx], d - radius)
+			if not open_ground:
+				_road_e[idx] = minf(_road_e[idx], d - radius)
 			if w > _road_w[idx] + 0.001:
 				_road_w[idx] = w
 				_road_h[idx] = height
@@ -258,7 +261,7 @@ func build(parent: Node3D, material: Material) -> void:
 			uvs[idx] = Vector2(_road_w[idx], clampf(1.0 - wgt.r - wgt.g - wgt.b * 0.5, 0.0, 1.0))
 			var dens := _grass_density(x, z, heights[idx], nrm.y, wgt, _road_e[idx], park_rects)
 			mask[idx * 4] = int(dens * 255.0)
-			mask[idx * 4 + 1] = int(clampf(wgt.b, 0.0, 1.0) * 255.0)
+			mask[idx * 4 + 1] = int(clampf(maxf(wgt.b, smoothstep(0.1, 0.7, wgt.g) * 0.9), 0.0, 1.0) * 255.0)
 			mask[idx * 4 + 2] = int(wgt.a * 255.0)
 			mask[idx * 4 + 3] = 255
 	# Textures for the grass shader: exact heights (R32F) and the density mask.
@@ -338,7 +341,7 @@ func _build_chunk(cx: int, cz: int, normals: PackedVector3Array, colors: PackedC
 func _weights_for(x: float, z: float, h: float, _up: float, _road_weight: float, road_e: float) -> Color:
 	var cn := _color_noise.get_noise_2d(x, z) * 0.5 + 0.5
 	# Dry grass high on the mountain (the shader adds dry patches lower down).
-	var dry := smoothstep(26.0, 44.0, h) * 0.6
+	var dry := smoothstep(30.0, 46.0, h) * 0.4
 	# Dirt fields to the east.
 	var fields := smoothstep(330.0, 360.0, x) * (1.0 - smoothstep(170.0, 200.0, absf(z)))
 	var dirt := fields * 0.9
@@ -367,15 +370,18 @@ func _color_for(x: float, z: float, h: float, up: float, road_w: float) -> Color
 ## 0..1 where grass tufts may grow: not on sand, dirt, steep rock, under
 ## water, on or at the edge of roads, paved sites or the city blocks.
 func _grass_density(x: float, z: float, h: float, up: float, wgt: Color, road_e: float, _park_rects: Array[Rect2]) -> float:
-	var d := 1.0 - smoothstep(0.25, 0.7, wgt.r)
-	d *= 1.0 - smoothstep(0.1, 0.8, wgt.g)
-	d *= smoothstep(0.62, 0.82, up)
-	d *= smoothstep(-1.0, -0.4, h)
-	d *= smoothstep(1.0, 2.6, road_e)
+	var d := (1.0 - smoothstep(0.25, 0.7, wgt.r)) * (1.0 - smoothstep(0.1, 0.8, wgt.g))
+	if d <= 0.0:
+		return 0.0
+	d *= smoothstep(0.62, 0.82, up) * smoothstep(-1.0, -0.4, h) * smoothstep(1.0, 2.6, road_e)
+	if d <= 0.0:
+		return 0.0
 	# The city: blocks are paved; the parks' lawns get tufts in the shader.
-	d *= smoothstep(0.5, 4.0, _outside(Rect2(-156.0, -156.0, 312.0, 312.0), x, z))
+	if absf(x) < 161.0 and absf(z) < 161.0:
+		d *= smoothstep(0.5, 4.0, _outside(Rect2(-156.0, -156.0, 312.0, 312.0), x, z))
 	for r: Rect2 in grass_exclusions:
-		d *= smoothstep(0.5, 4.0, _outside(r, x, z))
+		if x > r.position.x - 4.0 and x < r.end.x + 4.0 and z > r.position.y - 4.0 and z < r.end.y + 4.0:
+			d *= smoothstep(0.5, 4.0, _outside(r, x, z))
 	return d
 
 

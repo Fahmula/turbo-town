@@ -78,7 +78,7 @@ void fragment() {
 	float w_sand = smoothstep(0.4, 0.62, COLOR.r + jitter * 0.6);
 	float w_dirt = smoothstep(0.28, 0.5, COLOR.g + jitter * 0.55);
 	float dry = smoothstep(0.35, 0.65, macro.x + jitter * 0.3);
-	float steep = 1.0 - smoothstep(0.70, 0.86, N.y + (nz.b - 0.5) * 0.1);
+	float steep = (1.0 - smoothstep(0.70, 0.86, N.y + (nz.b - 0.5) * 0.1)) * (1.0 - w_dirt * 0.85);
 
 	// ------------------------------------------------------------- grass ---
 	vec2 uvg = wp / grass_tile;
@@ -103,7 +103,7 @@ void fragment() {
 		if (high) {
 			vec4 o = textureGrad(grass_orm, uvg, dx / grass_tile, dy / grass_tile);
 			ao = o.r;
-			rough = o.g;
+			rough = max(o.g, 0.9);
 		}
 	}
 	// --------------------------------------------------------------- dry ---
@@ -123,9 +123,12 @@ void fragment() {
 		vec2 uv = wp / dirt_tile;
 		vec3 a = textureGrad(dirt_albedo, uv, dx / dirt_tile, dy / dirt_tile).rgb;
 		if (high) {
+			// Scuffs and worn patches at two scales (20 m and a rotated 53 m) so the tile never shows.
+			mat2 rm = rot2(0.83);
 			vec3 m = textureGrad(dirt_macro, wp / 20.0, dx / 20.0, dy / 20.0).rgb;
-			float ml = dot(m, LUMA);
-			a *= clamp(ml / 0.2, 0.55, 1.6) * mix(vec3(1.0), m / max(ml, 0.01), 0.35);
+			vec3 m2 = textureGrad(dirt_macro, (rm * wp) / 53.0 + vec2(0.4, 0.2), rm * dx / 53.0, rm * dy / 53.0).rgb;
+			float ml = dot(m, LUMA) * 0.6 + dot(m2, LUMA) * 0.4;
+			a *= mix(1.0, clamp(ml / 0.2, 0.6, 1.5), 1.0 - smoothstep(150.0, 450.0, dist));
 		} else if (!low) {
 			a *= 0.5 + dirt_lum * 2.5 * (nz.r + 0.5);
 		}
@@ -135,7 +138,7 @@ void fragment() {
 		}
 		float r = 0.9;
 		if (high) {
-			r = textureGrad(dirt_orm, uv, dx / dirt_tile, dy / dirt_tile).g;
+			r = max(textureGrad(dirt_orm, uv, dx / dirt_tile, dy / dirt_tile).g, 0.84);
 			ao = mix(ao, textureGrad(dirt_orm, uv, dx / dirt_tile, dy / dirt_tile).r, w_dirt);
 		}
 		rough = mix(rough, r, w_dirt);
@@ -155,7 +158,7 @@ void fragment() {
 		}
 		float r = 0.88;
 		if (high) {
-			r = textureGrad(sand_orm, uv, dx / sand_tile, dy / sand_tile).g;
+			r = max(textureGrad(sand_orm, uv, dx / sand_tile, dy / sand_tile).g, 0.8);
 		}
 		rough = mix(rough, r, w_sand);
 		spec = mix(spec, 0.45, w_sand);
@@ -195,7 +198,7 @@ void fragment() {
 			vec3 nzv = vec3(tz.x, tz.y, 0.0) * sign(N.z);   // XY plane: U = +X, image-up = +Y
 			rn = normalize(N + (nx * bw.x + ny * bw.y + nzv * bw.z) * 1.1);
 			if (high) {
-				rr = textureGrad(rock_orm, uvy, dpy, dqy).g;
+				rr = max(textureGrad(rock_orm, uvy, dpy, dqy).g, 0.82);
 			}
 		}
 		// Rock darkens slightly in cracks and where it is wet.

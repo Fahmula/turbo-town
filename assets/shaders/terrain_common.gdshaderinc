@@ -21,7 +21,7 @@ mat2 rot2(float a) {
 vec3 ground_macro(sampler2D noise, vec2 wp, float dry_w) {
 	vec4 a = textureLod(noise, wp / 190.0, 0.0);
 	vec4 b = textureLod(noise, wp / 1100.0 + vec2(0.37, 0.11), 0.0);
-	float dry = clamp(dry_w + smoothstep(0.1, 0.3, (b.a - 0.5) * 0.9 + (a.r - 0.5) * 0.5) * 0.85, 0.0, 1.0);
+	float dry = clamp(dry_w + smoothstep(0.2, 0.42, (b.a - 0.5) * 0.9 + (a.r - 0.5) * 0.5 + (a.g - 0.5) * 0.25) * 0.9, 0.0, 1.0);
 	float lush = smoothstep(-0.02, -0.2, (a.g - 0.5) * 0.7 + (b.a - 0.5) * 0.3) * (1.0 - dry);
 	return vec3(dry, lush, a.g);
 }

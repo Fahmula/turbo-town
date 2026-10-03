@@ -14,16 +14,18 @@ Run from the project root:   python3 tools/textures/fetch_terrain.py
 Downloads are cached in build/texture_sources/ (gitignored).
 Outputs are committed; SOURCES.md is written next to them.
 """
+import glob
 import math
 import os
+import subprocess
 import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fetch_common import (ambientcg, credit, out, polyhaven, save_normal,  # noqa: E402
-                          write_sources)
+from fetch_common import (ROOT, ambientcg, credit, out, polyhaven, polyhaven_model,  # noqa: E402
+                          save_normal, write_sources)
 
 FAMILY = "terrain"
 LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
@@ -318,8 +320,36 @@ def make_noise():
     print("  grass_noise.png")
 
 
+# ---------------------------------------------------------------- boulders --
+
+ROCK_SETS = {"rock_moss_set_01": "a", "rock_moss_set_02": "b"}
+
+
+def make_rocks():
+    """Boulder models (Poly Haven rock sets, CC0): downloads them, lets Blender
+    split and decimate them (tools/blender/make_nature_rocks.py ->
+    assets/models/nature/rocks_a.glb, rocks_b.glb) and conditions their textures."""
+    print("rocks")
+    for asset, key in ROCK_SETS.items():
+        polyhaven_model(asset, "1k")
+        folder = os.path.join(ROOT, "build", "texture_sources", "models", asset + "_1k", "textures")
+        diff = glob.glob(os.path.join(folder, "*_diff_1k.*"))[0]
+        nor = glob.glob(os.path.join(folder, "*_nor_gl_1k.*"))[0]
+        rough = glob.glob(os.path.join(folder, "*_rough_1k.*"))[0]
+        arm = glob.glob(os.path.join(folder, "*_arm_1k.*"))
+        lin = condition(load_linear(diff, 1024), 0.17, flatten=0.0, sat=0.85)
+        save_linear_jpg(lin, out(FAMILY, "rocks_%s_albedo.jpg" % key))
+        save_normal(nor, out(FAMILY, "rocks_%s_normal.png" % key), 1024)
+        pack_orm(arm[0] if arm else None, rough, out(FAMILY, "rocks_%s_orm.png" % key), 1024)
+        credit(FAMILY, asset, "Poly Haven", "https://polyhaven.com/a/" + asset, "CC0 1.0",
+               "boulder models (assets/models/nature/rocks_%s.glb) and their textures" % key)
+    subprocess.run(["blender", "-b", "-P", os.path.join(ROOT, "tools", "blender", "make_nature_rocks.py")], cwd=ROOT, check=True,
+                   stdout=subprocess.DEVNULL)
+
+
 def main():
     make_scans()
+    make_rocks()
     make_sea()
     make_grass_cards()
     make_noise()

@@ -98,6 +98,9 @@ void vertex() {
 		}
 	}
 
+	// Clumpy meadow: patches of thick tall grass between thinner areas.
+	vec4 nn = textureLod(noise, pos / 29.0, 0.0);
+	dens *= mix(0.55, 1.0, smoothstep(0.35, 0.62, nn.g * 0.7 + nn.b * 0.5 + 0.1));
 	float fin = fade_in.y > fade_in.x ? smoothstep(fade_in.x, fade_in.y, d) : 1.0;
 	float keep = dens * (1.0 - smoothstep(fade_out.x, fade_out.y, d)) * fin;
 	if (quality == 0 || h2.x >= keep) {
@@ -110,7 +113,7 @@ void vertex() {
 		v_var = 1.0;
 	} else {
 		float shrink = 1.0 - smoothstep(fade_out.y - (fade_out.y - fade_out.x) * 0.3, fade_out.y, d);
-		float sc = mix(0.7, 1.3, h2.y) * mix(0.8, 1.0, shrink) * shrink;
+		float sc = mix(0.55, 1.5, h2.y * h2.y) * mix(0.75, 1.25, nn.r) * mix(0.8, 1.0, shrink) * shrink;
 		float yaw = h1.x * 6.2832 + h1.y * 3.0;
 		float cy = cos(yaw);
 		float sy = sin(yaw);
