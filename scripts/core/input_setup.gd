@@ -49,7 +49,9 @@ func _enter_tree() -> void:
 	_bind("menu_down", [KEY_S, KEY_DOWN], [JOY_BUTTON_DPAD_DOWN], [[JOY_AXIS_LEFT_Y, 1.0]], 0.5)
 	_bind("menu_accept", [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE], [JOY_BUTTON_A], [])
 	_bind("menu_back", [KEY_ESCAPE, KEY_BACKSPACE], [JOY_BUTTON_B], [])
-	_bind("menu_extra", [KEY_X], [JOY_BUTTON_Y], [])  # garage: racing stripes on/off
+	_bind("menu_extra", [KEY_X], [JOY_BUTTON_Y], [])  # garage: surprise me (random setup)
+	_bind("menu_tab_prev", [KEY_Q, KEY_PAGEUP], [JOY_BUTTON_LEFT_SHOULDER], [])  # garage tabs
+	_bind("menu_tab_next", [KEY_E, KEY_PAGEDOWN], [JOY_BUTTON_RIGHT_SHOULDER], [])
 
 	# Menu buttons use Godot's built-in ui_* actions. Up/down/left/right come
 	# with the D-pad and stick, but accept and cancel are keyboard-only, so

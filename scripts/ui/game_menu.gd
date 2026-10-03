@@ -16,7 +16,7 @@ const CONTROLS := [
 	["Air: flip / barrel roll", "Space + W S / A D", "A + RT LT / stick"],
 	["Flip car upright", "R", "Y"],
 	["Horn", "E", "L3 (press left stick)"],
-	["Garage: change vehicle", "V", "D-pad down"],
+	["Garage: vehicle, paint, wheels", "V", "D-pad down"],
 	["Instant replay", "P", "X"],
 	["Back to spawn point", "Backspace", "View"],
 	["Teleport", "1-9, Tab", "D-pad right"],

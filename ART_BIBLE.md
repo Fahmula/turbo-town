@@ -798,6 +798,31 @@ shoulders and a slightly lighter sidewall; off-road tyres get chunky tread as
 geometry. **The visual radius must match the physics wheel radius** in the
 vehicle scene.
 
+**Garage wheels (player option):** rims and tyres are also separate parts
+(`assets/models/wheels/rim_<id>.glb`, `tyre_<id>.glb`) that `WheelKit` puts
+together on the player's car; traffic and parked cars keep their combined
+stock wheels. The rules:
+- Every rim is built to **one standard fit: bead radius 0.243 m, width
+  0.254 m** (the sports rim), axis X, +X outward, at the 0.37 m base. WheelKit
+  scales it to the tyre (X by tyre width / 0.254, Y and Z by tyre bead /
+  0.243), so any rim fits any tyre and the stock rims rebuild today's wheels
+  exactly. Tyres keep their native size (outer radius 0.37).
+- Rims use `Rim` (the part the garage recolours) and `Hub` (fixed: disc,
+  centre, lug nuts); `Tire` may fake dark holes (the shader renders rubber).
+  Tyres use `Tire` only.
+- **Open** rims (`PartsCatalog.RIMS[...]["open"]`) include the brake disc and
+  keep the caliper's space clear (x −0.058..+0.016, radius 0.118..0.196 at
+  the standard fit); they get a caliper in the chosen colour. Closed rims
+  (steel, beadlock, dish) have no disc and no caliper.
+- Rim colours follow §13: bare-metal finishes (silver, chrome, gunmetal,
+  gold, bronze) are metallic 1, painted ones (black, white, red, blue, lime,
+  body colour) metallic 0 with a light clear coat. "Stock" keeps each rim's
+  own finish.
+- Tyre stripes (whitewall, coloured lines) are a band in the tyre shader
+  (`stripe_radii`, fractions of the sidewall height in `PartsCatalog`), not
+  geometry. They're a player-only retro option like racing stripes.
+- Garage parts are cosmetic: the physics wheel never changes.
+
 **Liveries:** racing stripes and graphics are a hero/player option, never a
 traffic default. Buses and trucks carry invented company liveries.
 
@@ -1434,7 +1459,10 @@ rerun it, and commit both.
   `make_buggy.py` and `make_monster.py`.
 - **Wheels:** `make_wheels.py` builds all four types (sports `wheel.glb`, sedan
   `wheel_sedan.glb`, steel `wheel_steel.glb`, off-road `wheel_offroad.glb`) at
-  a 0.37 m base radius; scenes scale them uniformly.
+  a 0.37 m base radius; scenes scale them uniformly. It also exports every rim
+  and tyre as a garage part into `assets/models/wheels/` (the contract is in
+  §12 "Garage wheels" and the script's docstring); the combined wheels are
+  composed from the same rim and tyre builders, so they never drift apart.
 - The legacy extruder (`vehicle_kit.py`, `make_traffic_vehicles.py`,
   `make_offroad_vehicles.py`) was deleted once the last vehicle migrated, so it
   can't overwrite the new models. It's still in git history.
@@ -1543,6 +1571,7 @@ Output goes to `assets/models/`.
 |---|---|---|
 | Vehicle body, all meshes under `Body` incl. interior | 6k–10k | ≤ 6,000 deformable vertices (§14). Today 5.7–8.2k tris, 4.9–5.9k vertices. |
 | Wheel (one mesh, instanced ×4) | 800–2,000 | not deformed. Today 2.0–2.4k, a little over: trim the tread/lugs first if primitives get tight. |
+| Garage rim / tyre part | rim ≤ 1,400, tyre ≤ 1,300 | any pair ≤ ~2,600 (today 2.3–2.6k; the stock pairs are exactly today's wheels). Player car only. |
 | Small prop | ≤ 300 | |
 | Street furniture | ≤ 1,500 | |
 | Large prop | ≤ 3,000 | |
@@ -1675,7 +1704,7 @@ window):
 | Transparent overdraw | no full-screen transparent layers; foliage uses alpha scissor |
 | Texture memory | ≤ 256 MB |
 | Deformable vertices per vehicle | ≤ 6,000 |
-| Draw surfaces per vehicle | ≤ 10 on the body mesh (detachable parts add 2–6), ≤ 2–3 per wheel |
+| Draw surfaces per vehicle | ≤ 10 on the body mesh (detachable parts add 2–6), ≤ 2–3 per wheel (garage wheels on the player's car: 3–4) |
 
 **Rules**
 
@@ -1973,3 +2002,6 @@ readable, kid-friendly (crashes are big and fun, never scary).
   listen (player sounds unattenuated, explicit levels; speaker boost).
 - 2026-10-02: §33 mix architecture (category buses, exciter, de-harshing,
   hierarchy, profiles) and the dev audio panel.
+- 2026-10-02: garage wheels (on `dev`): rims and tyres as separate parts
+  with one standard rim fit, rim finishes, tyre stripes, calipers only on
+  open rims. §12, §24, §26 and §27 updated.

@@ -1,22 +1,36 @@
 class_name VehiclePicker
 extends CanvasLayer
-## Garage menu: browse the drivable vehicles on a spinning turntable, pick a
-## paint colour (and racing stripes, on vehicles that have them) and drive
-## off. Works with keyboard, gamepad and mouse.
-## Game pauses the world while it's open and does the actual vehicle swap.
+## The garage: pick a vehicle on a spinning turntable, set it up the way you
+## like and drive off. Works with keyboard, gamepad and mouse.
+##
+## Tabs come from PartsCatalog.TABS (LB / RB or Q / E switch them). CAR picks
+## the vehicle with left/right; every other tab is a list of PartsCatalog
+## slots: up/down picks a row, left/right changes it, and the camera looks
+## where the tab says (the WHEELS tab zooms in on a front wheel). X / (Y)
+## is "surprise me": a random vehicle, or random choices on the tab.
+##
+## Each vehicle keeps its own setup (Loadout). Changes stick even when you
+## back out: Game saves `loadouts` either way, and does the vehicle swap
+## when you drive off. Game pauses the world while the garage is open.
 
-signal picked(index: int, color: Color, stripes: bool)
+signal picked(index: int)
 signal cancelled
 
-const ACCENT := Color(1.0, 0.84, 0.29)
-const HINT_TEXT := "[center][color=#ffd54a]Left / Right[/color]  vehicle      [color=#ffd54a]Up / Down[/color]  paint      %s[color=#ffd54a]Enter[/color] or [color=#ffd54a](A)[/color]  drive!      [color=#ffd54a]Esc[/color] or [color=#ffd54a](B)[/color]  back[/center]"
-const STRIPES_HINT := "[color=#ffd54a]X[/color] or [color=#ffd54a](Y)[/color]  stripes      "
+const ACCENT := UiKit.ACCENT
+const KEY := "[color=#ffd54a]%s[/color]"
+## Turntable angle that shows the vehicle's left side with the front turned
+## a little toward the camera (the wheel view).
+const WHEEL_VIEW_ANGLE := 2.0
+const SWATCH := 36
 
 var is_open := false
+## The vehicle shown (index into VehicleCatalog.ENTRIES).
 var index := 0
-var color_index := 0
-## Racing stripes chosen (only shown on vehicles whose model has them).
-var stripes := false
+## The tab shown (index into PartsCatalog.TABS).
+var tab := 0
+## Vehicle id -> Loadout: every vehicle looked at since the garage opened,
+## with the changes made to it.
+var loadouts := {}
 
 var _opened_frame := -1
 var _viewport: SubViewport
@@ -24,15 +38,22 @@ var _turntable: Node3D
 var _platform: MeshInstance3D
 var _camera: Camera3D
 var _car: Vehicle
+var _cam_pos := Vector3.ZERO
+var _cam_look := Vector3.ZERO
+var _snap_camera := true
 var _name_label: Label
 var _count_label: Label
 var _blurb_label: Label
 var _weight_label: Label
 ## Per stat: the five bar segments.
 var _stat_cells: Array[Array] = []
-var _swatches: Array[Panel] = []
-var _stripes_row: HBoxContainer
-var _stripes_button: Button
+var _tab_buttons: Array[Button] = []
+var _pages: Array[Control] = []
+## Per tab: its SlotRows.
+var _rows: Array[Array] = []
+## Per tab: the focused row.
+var _row_focus: Array[int] = []
+var _arrows: Array[Button] = []
 var _hints: RichTextLabel
 
 
@@ -51,20 +72,36 @@ func _ready() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(center)
 
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _box(Color(0.05, 0.08, 0.15, 0.88), 18, 22))
+	var panel := UiKit.panel()
 	center.add_child(panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	panel.add_child(col)
 
 	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 10)
 	col.add_child(top)
-	var title := _label("GARAGE", 28, ACCENT)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var title := UiKit.label("GARAGE", 28, ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
+	title.custom_minimum_size = Vector2(150, 0)
 	top.add_child(title)
-	_count_label = _label("", 20, Color(1, 1, 1, 0.7))
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(tabs)
+	tabs.add_child(_prompt_chip("LB"))
+	for t in PartsCatalog.TABS.size():
+		var b := Button.new()
+		b.text = PartsCatalog.TABS[t]["name"]
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(124, 40)
+		b.add_theme_font_size_override("font_size", 20)
+		b.pressed.connect(func() -> void: _set_tab(t))
+		tabs.add_child(b)
+		_tab_buttons.append(b)
+	tabs.add_child(_prompt_chip("RB"))
+	_count_label = UiKit.label("", 20, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_RIGHT)
+	_count_label.custom_minimum_size = Vector2(150, 0)
 	top.add_child(_count_label)
 
 	var row := HBoxContainer.new()
@@ -80,8 +117,7 @@ func _ready() -> void:
 	hints.fit_content = true
 	hints.scroll_active = false
 	hints.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hints.add_theme_font_size_override("normal_font_size", 17)
-	hints.text = HINT_TEXT % ""
+	hints.add_theme_font_size_override("normal_font_size", 18)
 	col.add_child(hints)
 	_hints = hints
 
@@ -89,7 +125,8 @@ func _ready() -> void:
 func _make_preview() -> Control:
 	var frame := SubViewportContainer.new()
 	frame.stretch = true
-	frame.custom_minimum_size = Vector2(600, 370)
+	# As tall as the longest tab, so the panel keeps its size between tabs.
+	frame.custom_minimum_size = Vector2(600, 550)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_viewport = SubViewport.new()
 	_viewport.own_world_3d = true
@@ -109,11 +146,13 @@ func _make_preview() -> Control:
 	env.adjustment_saturation = 1.1
 	# Metal rims, chrome and metallic paint need something to reflect (with
 	# nothing they go black): a soft studio sky, used for reflections only.
+	# A light studio floor, so wheel faces (which mostly see the floor in the
+	# wheel view) show their metal finishes.
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.32, 0.4, 0.55)
 	sky_mat.sky_horizon_color = Color(0.78, 0.82, 0.88)
-	sky_mat.ground_horizon_color = Color(0.45, 0.47, 0.5)
-	sky_mat.ground_bottom_color = Color(0.14, 0.15, 0.17)
+	sky_mat.ground_horizon_color = Color(0.66, 0.68, 0.71)
+	sky_mat.ground_bottom_color = Color(0.4, 0.41, 0.43)
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 	env.sky = sky
@@ -149,7 +188,8 @@ func _make_preview() -> Control:
 	_turntable.add_child(_platform)
 
 	_camera = Camera3D.new()
-	_camera.fov = 30.0
+	_camera.keep_aspect = Camera3D.KEEP_WIDTH
+	_camera.fov = 47.0
 	_camera.current = true
 	_viewport.add_child(_camera)
 	return frame
@@ -157,29 +197,60 @@ func _make_preview() -> Control:
 
 func _make_info() -> Control:
 	var info := VBoxContainer.new()
-	info.custom_minimum_size = Vector2(350, 0)
+	info.custom_minimum_size = Vector2(390, 0)
 	info.add_theme_constant_override("separation", 8)
-	_name_label = _label("", 40, Color.WHITE)
-	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_name_label = UiKit.label("", 40, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	info.add_child(_name_label)
-	_blurb_label = _label("", 19, Color(1, 1, 1, 0.9))
-	_blurb_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_blurb_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_blurb_label.custom_minimum_size = Vector2(350, 52)
-	info.add_child(_blurb_label)
-	_weight_label = _label("", 17, Color(1, 1, 1, 0.65))
-	_weight_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	info.add_child(_weight_label)
 
+	for t in PartsCatalog.TABS.size():
+		var page := VBoxContainer.new()
+		page.add_theme_constant_override("separation", 6)
+		info.add_child(page)
+		_pages.append(page)
+		var rows: Array[SlotRow] = []
+		if PartsCatalog.TABS[t]["id"] == "car":
+			_fill_car_page(page)
+		for slot: String in PartsCatalog.TABS[t]["slots"]:
+			var r := SlotRow.new(slot, SWATCH)
+			r.changed.connect(_on_row_changed)
+			r.clicked.connect(func(rr: SlotRow) -> void: _focus_row(rows.find(rr)))
+			page.add_child(r)
+			rows.append(r)
+		_rows.append(rows)
+		_row_focus.append(0)
+
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	info.add_child(spacer)
+	var drive := Button.new()
+	drive.text = "DRIVE!"
+	drive.focus_mode = Control.FOCUS_NONE
+	drive.custom_minimum_size = Vector2(0, 52)
+	drive.add_theme_font_size_override("font_size", 26)
+	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
+		drive.add_theme_color_override(c, UiKit.DARK_TEXT)
+	drive.add_theme_stylebox_override("normal", UiKit.box(ACCENT, 12, 6))
+	drive.add_theme_stylebox_override("hover", UiKit.box(ACCENT.lightened(0.25), 12, 6))
+	drive.add_theme_stylebox_override("pressed", UiKit.box(ACCENT.darkened(0.15), 12, 6))
+	drive.pressed.connect(_confirm)
+	info.add_child(drive)
+	return info
+
+
+func _fill_car_page(page: VBoxContainer) -> void:
+	_blurb_label = UiKit.label("", 20, Color(1, 1, 1, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
+	_blurb_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_blurb_label.custom_minimum_size = Vector2(390, 56)
+	page.add_child(_blurb_label)
+	_weight_label = UiKit.label("", 18, Color(1, 1, 1, 0.65), HORIZONTAL_ALIGNMENT_LEFT)
+	page.add_child(_weight_label)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 8)
-	info.add_child(grid)
+	grid.add_theme_constant_override("v_separation", 10)
+	page.add_child(grid)
 	for stat: Array in VehicleCatalog.STATS:
-		var l := _label(stat[1], 16, Color(1, 1, 1, 0.85))
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		grid.add_child(l)
+		grid.add_child(UiKit.label(stat[1], 18, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT))
 		var bar := HBoxContainer.new()
 		bar.add_theme_constant_override("separation", 4)
 		var cells: Array[Panel] = []
@@ -191,55 +262,23 @@ func _make_info() -> Control:
 			cells.append(cell)
 		grid.add_child(bar)
 		_stat_cells.append(cells)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 18)
+	page.add_child(gap)
+	var tip := UiKit.label("Make it yours! Change the paint and the wheels on the next tabs.", 20, ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
+	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tip.custom_minimum_size = Vector2(390, 0)
+	page.add_child(tip)
 
-	var paint := _label("PAINT", 16, Color(1, 1, 1, 0.85))
-	paint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	info.add_child(paint)
-	var swatch_grid := GridContainer.new()
-	swatch_grid.columns = 6
-	swatch_grid.add_theme_constant_override("h_separation", 10)
-	swatch_grid.add_theme_constant_override("v_separation", 10)
-	info.add_child(swatch_grid)
-	for i in VehicleCatalog.COLORS.size():
-		var sw := Panel.new()
-		sw.custom_minimum_size = Vector2(40, 40)
-		sw.mouse_filter = Control.MOUSE_FILTER_STOP
-		sw.gui_input.connect(func(ev: InputEvent) -> void:
-			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-				_set_color(i))
-		swatch_grid.add_child(sw)
-		_swatches.append(sw)
 
-	_stripes_row = HBoxContainer.new()
-	_stripes_row.add_theme_constant_override("separation", 12)
-	info.add_child(_stripes_row)
-	var stripes_label := _label("RACING STRIPES", 16, Color(1, 1, 1, 0.85))
-	stripes_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_stripes_row.add_child(stripes_label)
-	_stripes_button = Button.new()
-	_stripes_button.focus_mode = Control.FOCUS_NONE
-	_stripes_button.custom_minimum_size = Vector2(96, 36)
-	_stripes_button.add_theme_font_size_override("font_size", 18)
-	_stripes_button.pressed.connect(func() -> void: _set_stripes(not stripes))
-	_stripes_row.add_child(_stripes_button)
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	info.add_child(spacer)
-	var drive := Button.new()
-	drive.text = "DRIVE!"
-	drive.focus_mode = Control.FOCUS_NONE
-	drive.custom_minimum_size = Vector2(0, 52)
-	drive.add_theme_font_size_override("font_size", 26)
-	drive.add_theme_color_override("font_color", Color(0.08, 0.1, 0.18))
-	drive.add_theme_color_override("font_hover_color", Color(0.08, 0.1, 0.18))
-	drive.add_theme_color_override("font_pressed_color", Color(0.08, 0.1, 0.18))
-	drive.add_theme_stylebox_override("normal", _box(ACCENT, 12, 6))
-	drive.add_theme_stylebox_override("hover", _box(ACCENT.lightened(0.25), 12, 6))
-	drive.add_theme_stylebox_override("pressed", _box(ACCENT.darkened(0.15), 12, 6))
-	drive.pressed.connect(_confirm)
-	info.add_child(drive)
-	return info
+func _prompt_chip(text: String) -> Label:
+	var l := UiKit.label(text, 18, UiKit.DARK_TEXT)
+	l.remove_theme_constant_override("outline_size")
+	var sb := UiKit.box(Color(0.92, 0.93, 0.95), 10, 0)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	l.add_theme_stylebox_override("normal", sb)
+	return l
 
 
 func _arrow_button(dir: int) -> Button:
@@ -247,24 +286,32 @@ func _arrow_button(dir: int) -> Button:
 	b.dir = dir
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(52, 0)
-	var flat := _box(Color(1, 1, 1, 0.0), 10, 0)
-	b.add_theme_stylebox_override("normal", flat)
-	b.add_theme_stylebox_override("hover", _box(Color(1, 1, 1, 0.08), 10, 0))
-	b.add_theme_stylebox_override("pressed", _box(Color(1, 1, 1, 0.16), 10, 0))
+	b.add_theme_stylebox_override("normal", UiKit.box(Color(1, 1, 1, 0.0), 10, 0))
+	b.add_theme_stylebox_override("hover", UiKit.box(Color(1, 1, 1, 0.08), 10, 0))
+	b.add_theme_stylebox_override("pressed", UiKit.box(Color(1, 1, 1, 0.16), 10, 0))
+	b.add_theme_stylebox_override("disabled", UiKit.box(Color(1, 1, 1, 0.0), 10, 0))
 	b.pressed.connect(func() -> void: _step(dir))
+	_arrows.append(b)
 	return b
 
 
-func open(current: int, paint: Color, stripes_on := false) -> void:
+## Opens on vehicle `current`, which is wearing `setup` right now.
+func open(current: int, setup: Loadout = null) -> void:
 	index = clampi(current, 0, VehicleCatalog.count() - 1)
-	color_index = VehicleCatalog.closest_color(paint)
-	stripes = stripes_on
+	loadouts.clear()
+	if setup:
+		loadouts[setup.vehicle_id] = setup.copy()
+	tab = 0
+	for t in _row_focus.size():
+		_row_focus[t] = 0
 	is_open = true
 	visible = true
 	# Ignore the key press that opened the garage.
 	_opened_frame = Engine.get_process_frames()
 	_turntable.rotation.y = 2.4
+	_snap_camera = true
 	_show_vehicle()
+	_set_tab(0)
 
 
 func close() -> void:
@@ -276,22 +323,41 @@ func close() -> void:
 		_car = null
 
 
+## The setup being edited for the vehicle shown.
+func loadout() -> Loadout:
+	var id: String = VehicleCatalog.ENTRIES[index]["id"]
+	if not loadouts.has(id):
+		loadouts[id] = Loadout.saved(id)
+	return loadouts[id]
+
+
 func _process(dt: float) -> void:
 	if not is_open:
 		return
-	_turntable.rotation.y += dt * 0.5
+	_update_view(dt)
 	if Engine.get_process_frames() == _opened_frame:
 		return
-	if Input.is_action_just_pressed("menu_left"):
-		_step(-1)
+	var on_car := _rows[tab].is_empty()
+	if Input.is_action_just_pressed("menu_tab_prev"):
+		_set_tab(tab - 1)
+	elif Input.is_action_just_pressed("menu_tab_next"):
+		_set_tab(tab + 1)
+	elif Input.is_action_just_pressed("menu_left"):
+		if on_car:
+			_step(-1)
+		else:
+			_change_row(-1)
 	elif Input.is_action_just_pressed("menu_right"):
-		_step(1)
-	elif Input.is_action_just_pressed("menu_up"):
-		_set_color(color_index - 1)
-	elif Input.is_action_just_pressed("menu_down"):
-		_set_color(color_index + 1)
-	elif Input.is_action_just_pressed("menu_extra") and _stripes_row.visible:
-		_set_stripes(not stripes)
+		if on_car:
+			_step(1)
+		else:
+			_change_row(1)
+	elif Input.is_action_just_pressed("menu_up") and not on_car:
+		_move_focus(-1)
+	elif Input.is_action_just_pressed("menu_down") and not on_car:
+		_move_focus(1)
+	elif Input.is_action_just_pressed("menu_extra"):
+		_surprise()
 	elif Input.is_action_just_pressed("menu_accept"):
 		_confirm()
 	elif Input.is_action_just_pressed("menu_back") or Input.is_action_just_pressed("pause"):
@@ -304,39 +370,95 @@ func _step(dir: int) -> void:
 	_show_vehicle()
 
 
-func _set_color(i: int) -> void:
-	color_index = wrapi(i, 0, VehicleCatalog.COLORS.size())
+func _set_tab(t: int) -> void:
+	tab = wrapi(t, 0, PartsCatalog.TABS.size())
+	for i in _tab_buttons.size():
+		var on := i == tab
+		var b := _tab_buttons[i]
+		for st in ["normal", "hover", "pressed"]:
+			b.add_theme_stylebox_override(st, UiKit.box(ACCENT if on else Color(1, 1, 1, 0.1 if st == "normal" else 0.18), 10, 4))
+		for c in ["font_color", "font_hover_color", "font_pressed_color"]:
+			b.add_theme_color_override(c, UiKit.DARK_TEXT if on else Color.WHITE)
+	for i in _pages.size():
+		_pages[i].visible = i == tab
+	var on_car := _rows[tab].is_empty()
+	for a in _arrows:
+		a.disabled = not on_car
+		a.modulate.a = 1.0 if on_car else 0.0
+	var hint := (KEY % "Left / Right") + "  vehicle" if on_car else \
+		(KEY % "Up / Down") + "  pick      " + (KEY % "Left / Right") + "  change"
+	_hints.text = "[center]%s      %s or %s  %s      %s or %s  surprise me!      %s or %s  drive!      %s or %s  back[/center]" % [
+		hint, KEY % "Q / E", KEY % "(LB) / (RB)", "customise" if on_car else "tabs",
+		KEY % "X", KEY % "(Y)", KEY % "Enter", KEY % "(A)", KEY % "Esc", KEY % "(B)"]
+	_refresh_rows()
+
+
+func _focus_row(i: int) -> void:
+	var rows: Array = _rows[tab]
+	if i < 0 or i >= rows.size() or not (rows[i] as SlotRow).enabled:
+		return
+	_row_focus[tab] = i
+	_refresh_rows()
+
+
+## Moves the row focus up or down, skipping rows that can't be changed.
+func _move_focus(dir: int) -> void:
+	var rows: Array = _rows[tab]
+	var i: int = _row_focus[tab]
+	for k in rows.size():
+		i += dir
+		if i < 0 or i >= rows.size():
+			return
+		if (rows[i] as SlotRow).enabled:
+			_focus_row(i)
+			return
+
+
+func _change_row(dir: int) -> void:
+	var rows: Array = _rows[tab]
+	if rows.is_empty():
+		return
+	var r := rows[_row_focus[tab]] as SlotRow
+	if r.enabled:
+		_set_slot(r.slot, PartsCatalog.index_of(r.slot, loadout().get_value(r.slot)) + dir)
+
+
+func _on_row_changed(slot: String, option_index: int) -> void:
+	var rows: Array = _rows[tab]
+	for i in rows.size():
+		if (rows[i] as SlotRow).slot == slot:
+			_row_focus[tab] = i
+	_set_slot(slot, option_index)
+
+
+## Sets a slot of the shown vehicle's setup and shows it on the turntable.
+func _set_slot(slot: String, option_index: int) -> void:
+	loadout().set_value(slot, PartsCatalog.value_at(slot, option_index))
 	if _car:
-		var body := _car.get_node_or_null("Body") as VehicleBodyVisual
-		if body:
-			body.set_paint_color(VehicleCatalog.COLORS[color_index])
-	_refresh_swatches()
+		loadout().apply(_car)
+	_refresh_rows()
 
 
-func _set_stripes(on: bool) -> void:
-	stripes = on
+## "Surprise me!": a random vehicle on the CAR tab, otherwise random
+## choices for every row on this tab.
+func _surprise() -> void:
+	var rows: Array = _rows[tab]
+	if rows.is_empty():
+		_step(randi_range(1, VehicleCatalog.count() - 1))
+		return
+	var l := loadout()
+	for r: SlotRow in rows:
+		var n := PartsCatalog.options(r.slot).size()
+		l.set_value(r.slot, PartsCatalog.value_at(r.slot, randi_range(0, n - 1)))
 	if _car:
-		var body := _car.get_node_or_null("Body") as VehicleBodyVisual
-		if body:
-			body.set_stripes(on)
-	_refresh_stripes()
-
-
-func _refresh_stripes() -> void:
-	_stripes_button.text = "ON" if stripes else "OFF"
-	var bg := ACCENT if stripes else Color(1, 1, 1, 0.12)
-	for st in ["normal", "hover", "pressed"]:
-		_stripes_button.add_theme_stylebox_override(st, _box(bg, 10, 4))
-	var fg := Color(0.08, 0.1, 0.18) if stripes else Color.WHITE
-	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
-		_stripes_button.add_theme_color_override(c, fg)
+		l.apply(_car)
+	_refresh_rows()
 
 
 func _confirm() -> void:
 	var i := index
-	var c := VehicleCatalog.COLORS[color_index]
 	close()
-	picked.emit(i, c, stripes)
+	picked.emit(i)
 
 
 ## Puts the selected vehicle on the turntable and updates the text.
@@ -353,28 +475,19 @@ func _show_vehicle() -> void:
 			node.free()
 	car.freeze = true
 	car.process_mode = Node.PROCESS_MODE_DISABLED
-	var body := car.get_node_or_null("Body") as VehicleBodyVisual
-	if body:
-		body.paint_color = VehicleCatalog.COLORS[color_index]
-		body.stripes = stripes
-	_stripes_row.visible = body != null and body.has_stripes()
-	_hints.text = HINT_TEXT % (STRIPES_HINT if _stripes_row.visible else "")
-	_refresh_stripes()
 	for child in car.get_children():
 		if child is VehicleWheel:
 			(child as VehicleWheel).pose_at_rest(car.mass / 4.0)
 	car.position.y = car.ride_height()
 	_turntable.add_child(car)
 	_car = car
+	loadout().apply(car)
 
 	# Frame it so the whole vehicle stays in view while it spins.
 	var half_len := maxf(car.body_front, car.body_rear)
 	var radius := sqrt(half_len * half_len + car.body_half_width * car.body_half_width)
 	_platform.scale = Vector3(radius + 0.5, 1.0, radius + 0.5)
-	var dist := radius * 3.1 + 2.0
-	var look := Vector3(0.0, (car.ride_height() + car.body_top) * 0.4, 0.0)
-	_camera.position = look + Vector3(0.0, dist * 0.3, dist)
-	_camera.look_at(look)
+	_update_view(0.0)
 
 	var e: Dictionary = VehicleCatalog.ENTRIES[index]
 	_name_label.text = String(e["name"]).to_upper()
@@ -385,54 +498,254 @@ func _show_vehicle() -> void:
 		var value: int = e[VehicleCatalog.STATS[s][0]]
 		var cells: Array = _stat_cells[s]
 		for k in cells.size():
-			var on := k < value
 			(cells[k] as Panel).add_theme_stylebox_override("panel",
-				_box(ACCENT if on else Color(1, 1, 1, 0.12), 4, 0))
-	_refresh_swatches()
+				UiKit.box(ACCENT if k < value else Color(1, 1, 1, 0.12), 4, 0))
+	_refresh_rows()
 
 
-func _refresh_swatches() -> void:
-	for i in _swatches.size():
-		var sb := _box(VehicleCatalog.COLORS[i], 20, 0)
-		var selected := i == color_index
-		sb.set_border_width_all(4 if selected else 2)
-		sb.border_color = Color.WHITE if selected else Color(1, 1, 1, 0.25)
-		_swatches[i].add_theme_stylebox_override("panel", sb)
-		_swatches[i].scale = Vector2.ONE * (1.12 if selected else 1.0)
-		_swatches[i].pivot_offset = _swatches[i].custom_minimum_size * 0.5
+## Spins the turntable (or turns it to the wheel view) and eases the camera
+## to where the tab wants it.
+func _update_view(dt: float) -> void:
+	if _car == null:
+		return
+	var look: Vector3
+	var pos: Vector3
+	var wheel := _view_wheel() if PartsCatalog.TABS[tab]["focus"] == "wheel" else null
+	if wheel:
+		var k := 1.0 if _snap_camera else 1.0 - exp(-6.0 * dt)
+		_turntable.rotation.y = lerp_angle(_turntable.rotation.y, WHEEL_VIEW_ANGLE, k)
+		var vis := wheel.get_node("Visual") as Node3D
+		var centre := Basis(Vector3.UP, WHEEL_VIEW_ANGLE) * (_car.transform * (wheel.transform * vis.position))
+		# A little toward the car, so the wheel sits in its arch on screen.
+		look = centre + Vector3(0.35 * wheel.radius, 0.1 * wheel.radius, 0.0)
+		pos = look + Vector3(0.15, 0.3, 1.0).normalized() * (wheel.radius * 5.2 + 0.5)
+	else:
+		_turntable.rotation.y += dt * 0.5
+		var half_len := maxf(_car.body_front, _car.body_rear)
+		var radius := sqrt(half_len * half_len + _car.body_half_width * _car.body_half_width)
+		var dist := radius * 3.1 + 2.0
+		look = Vector3(0.0, (_car.ride_height() + _car.body_top) * 0.4, 0.0)
+		pos = look + Vector3(0.0, dist * 0.3, dist)
+	if _snap_camera:
+		_cam_look = look
+		_cam_pos = pos
+		_snap_camera = false
+	else:
+		var k := 1.0 - exp(-7.0 * dt)
+		_cam_look = _cam_look.lerp(look, k)
+		_cam_pos = _cam_pos.lerp(pos, k)
+	_camera.position = _cam_pos
+	_camera.look_at(_cam_look)
 
 
-func _box(bg: Color, radius: int, margin: int) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = bg
-	sb.set_corner_radius_all(radius)
-	sb.content_margin_left = margin
-	sb.content_margin_right = margin
-	sb.content_margin_top = margin
-	sb.content_margin_bottom = margin
-	return sb
+## The front wheel on the side the wheel view shows (front left).
+func _view_wheel() -> VehicleWheel:
+	for child in _car.get_children():
+		var w := child as VehicleWheel
+		if w and w.position.x < 0.0 and w.position.z < 0.0:
+			return w
+	return null
 
 
-func _label(text: String, font_size: int, col: Color) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", col)
-	l.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.2))
-	l.add_theme_constant_override("outline_size", maxi(font_size / 6, 3))
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
+func _refresh_rows() -> void:
+	if tab >= _rows.size():
+		return
+	var l := loadout()
+	var body := _car.get_node_or_null("Body") as VehicleBodyVisual if _car else null
+	var rows: Array = _rows[tab]
+	for r: SlotRow in rows:
+		var why := ""
+		match r.slot:
+			"stripes":
+				if body == null or not body.has_stripes():
+					why = "Not on this vehicle"
+			"calipers":
+				if not PartsCatalog.option("rims", l.get_value("rims")).get("open", false):
+					why = "Hidden by these rims"
+		r.show_value(l, why)
+	# Keep the focus on a row that can be changed.
+	if not rows.is_empty() and not (rows[_row_focus[tab]] as SlotRow).enabled:
+		for i in rows.size():
+			if (rows[i] as SlotRow).enabled:
+				_row_focus[tab] = i
+				break
+	for i in rows.size():
+		(rows[i] as SlotRow).set_focused(i == _row_focus[tab])
 
 
 ## A flat button that draws a big triangle (the default font has no arrow glyphs).
 class ArrowButton extends Button:
 	var dir := 1
+	var arrow := 24.0
 
 	func _draw() -> void:
 		var c := size * 0.5
-		var col := Color.WHITE if is_hovered() else Color(1.0, 0.84, 0.29)
+		var col := Color.WHITE if is_hovered() else UiKit.ACCENT
+		var h := arrow
 		var pts := PackedVector2Array([
-			c + Vector2(-12.0 * dir, -24.0), c + Vector2(14.0 * dir, 0.0), c + Vector2(-12.0 * dir, 24.0)])
+			c + Vector2(-h * 0.5 * dir, -h), c + Vector2(h * 0.58 * dir, 0.0), c + Vector2(-h * 0.5 * dir, h)])
 		draw_colored_polygon(pts, col)
+
+
+## One garage row: a PartsCatalog slot and its current value, shown as
+## arrows round a name ("choice"), a grid of swatches ("swatch") or an
+## ON/OFF button ("toggle"). Clicks pick values; the garage moves the focus.
+class SlotRow extends PanelContainer:
+	signal changed(slot: String, option_index: int)
+	signal clicked(row: SlotRow)
+
+	var slot := ""
+	var enabled := true
+	var _kind := ""
+	var _value: Label
+	var _stock: Label
+	var _swatches: Array[Panel] = []
+	var _toggle: Button
+	var _focused := false
+	## Index of the current value in PartsCatalog.options(slot).
+	var _current := 0
+
+	func _init(slot_id: String, swatch_size: int) -> void:
+		slot = slot_id
+		_kind = PartsCatalog.kind(slot)
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		gui_input.connect(func(ev: InputEvent) -> void:
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+				clicked.emit(self))
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 6)
+		add_child(col)
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 6)
+		col.add_child(line)
+		var title := UiKit.label(PartsCatalog.slot_name(slot), 18, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.add_child(title)
+		_stock = UiKit.label("STOCK", 16, Color(1, 1, 1, 0.6))
+		_stock.remove_theme_constant_override("outline_size")
+		var chip := UiKit.box(Color(1, 1, 1, 0.1), 8, 0)
+		chip.content_margin_left = 7
+		chip.content_margin_right = 7
+		_stock.add_theme_stylebox_override("normal", chip)
+		line.add_child(_stock)
+		match _kind:
+			"choice":
+				line.add_child(_small_arrow(-1))
+				_value = UiKit.label("", 20, Color.WHITE)
+				_value.custom_minimum_size = Vector2(150, 0)
+				line.add_child(_value)
+				line.add_child(_small_arrow(1))
+			"toggle":
+				_toggle = Button.new()
+				_toggle.focus_mode = Control.FOCUS_NONE
+				_toggle.custom_minimum_size = Vector2(96, 34)
+				_toggle.add_theme_font_size_override("font_size", 18)
+				_toggle.pressed.connect(func() -> void:
+					clicked.emit(self)
+					changed.emit(slot, 0 if _toggle.text == "ON" else 1))
+				line.add_child(_toggle)
+				_value = UiKit.label("", 18, Color(1, 1, 1, 0.6))
+				_value.visible = false
+				col.add_child(_value)
+			"swatch":
+				_value = UiKit.label("", 18, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+				line.add_child(_value)
+				line.move_child(_value, 1)
+				var grid := GridContainer.new()
+				grid.columns = 8
+				grid.add_theme_constant_override("h_separation", 8)
+				grid.add_theme_constant_override("v_separation", 8)
+				col.add_child(grid)
+				var opts := PartsCatalog.options(slot)
+				for i in opts.size():
+					var frame := Panel.new()
+					frame.custom_minimum_size = Vector2(swatch_size, swatch_size)
+					frame.mouse_filter = Control.MOUSE_FILTER_STOP
+					frame.tooltip_text = opts[i]["name"]
+					frame.gui_input.connect(func(ev: InputEvent) -> void:
+						if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT and enabled:
+							clicked.emit(self)
+							changed.emit(slot, i))
+					var inner := Panel.new()
+					inner.set_anchors_preset(Control.PRESET_FULL_RECT)
+					inner.offset_left = 4
+					inner.offset_top = 4
+					inner.offset_right = -4
+					inner.offset_bottom = -4
+					inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					frame.add_child(inner)
+					grid.add_child(frame)
+					_swatches.append(frame)
+		set_focused(false)
+
+	func _small_arrow(dir: int) -> Button:
+		var b := ArrowButton.new()
+		b.dir = dir
+		b.arrow = 11.0
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(30, 34)
+		b.add_theme_stylebox_override("normal", UiKit.box(Color(1, 1, 1, 0.0), 8, 0))
+		b.add_theme_stylebox_override("hover", UiKit.box(Color(1, 1, 1, 0.1), 8, 0))
+		b.add_theme_stylebox_override("pressed", UiKit.box(Color(1, 1, 1, 0.2), 8, 0))
+		b.pressed.connect(func() -> void:
+			if enabled:
+				clicked.emit(self)
+				var opts := PartsCatalog.options(slot)
+				changed.emit(slot, wrapi(_current + dir, 0, opts.size())))
+		return b
+
+	## Shows `l`'s value for this slot; a non-empty `why_not` greys the row
+	## out (it can't be changed on this vehicle right now) and says why.
+	func show_value(l: Loadout, why_not: String) -> void:
+		enabled = why_not.is_empty()
+		modulate.a = 1.0 if enabled else 0.45
+		var v: Variant = l.get_value(slot)
+		_current = PartsCatalog.index_of(slot, v)
+		var opts := PartsCatalog.options(slot)
+		var o: Dictionary = opts[_current]
+		_stock.visible = enabled and l.is_stock(slot) and slot != "stripes" and o["id"] != "stock"
+		match _kind:
+			"choice":
+				_value.text = o["name"]
+			"toggle":
+				_toggle.text = "ON" if v else "OFF"
+				var on: bool = v
+				for st in ["normal", "hover", "pressed", "disabled"]:
+					_toggle.add_theme_stylebox_override(st, UiKit.box(UiKit.ACCENT if on else Color(1, 1, 1, 0.12), 10, 4))
+				for c in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+					_toggle.add_theme_color_override(c, UiKit.DARK_TEXT if on else Color.WHITE)
+				_toggle.disabled = not enabled
+				_value.text = why_not
+				_value.visible = not enabled
+			"swatch":
+				_value.text = o["name"] if enabled else why_not
+				for i in _swatches.size():
+					_style_swatch(_swatches[i], opts[i], l, i == _current and enabled)
+
+	func _style_swatch(frame: Panel, o: Dictionary, l: Loadout, selected: bool) -> void:
+		var col: Color = o.get("color", Color.WHITE)
+		if slot == "rim_color":
+			if o["id"] == "stock":
+				col = PartsCatalog.option("rims", l.get_value("rims"))["color"]
+			elif o["id"] == "body":
+				col = l.get_value("paint")
+		var half := int(frame.custom_minimum_size.x * 0.5)
+		var ring := UiKit.box(Color(0, 0, 0, 0), half, 0)
+		ring.draw_center = false
+		ring.set_border_width_all(3 if selected else 1)
+		ring.border_color = Color.WHITE if selected else Color(1, 1, 1, 0.25)
+		frame.add_theme_stylebox_override("panel", ring)
+		var fill := UiKit.box(col, half - 4, 0)
+		if o.has("ring"):
+			# Tyre stripes: a band of colour round a tyre-black middle.
+			fill.bg_color = Color(0.11, 0.11, 0.12)
+			fill.set_border_width_all(o["ring"])
+			fill.border_color = col
+		(frame.get_child(0) as Panel).add_theme_stylebox_override("panel", fill)
+
+	func set_focused(on: bool) -> void:
+		_focused = on
+		var sb := UiKit.box(Color(1, 1, 1, 0.07 if on else 0.0), 12, 8)
+		sb.set_border_width_all(3)
+		sb.border_color = UiKit.ACCENT if on else Color(0, 0, 0, 0)
+		add_theme_stylebox_override("panel", sb)

@@ -23,7 +23,7 @@ Visual direction (stylized realism) and asset rules: see [ART_BIBLE.md](ART_BIBL
 | In the air: spin | A / D | Left stick |
 | In the air: flip / barrel roll | Space + W S / A D | A + RT LT / left stick |
 | Flip car upright | R | Y (Triangle) |
-| Garage: change vehicle / paint | V | D-pad down |
+| Garage: vehicle, paint, wheels | V | D-pad down |
 | Instant replay | P | X (Square) |
 | Back to spawn point | Backspace | Back / Select |
 | Teleport | 1-9, Tab = next | D-pad right |
@@ -42,9 +42,14 @@ Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields
 7 Airfield, 8 Harbour, 9 Lighthouse.
 
 **Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck,
-bus, pickup, buggy or monster truck and a paint colour. Left/right = vehicle, up/down = paint, Enter / A =
-drive, Esc / B = back. The game is paused while it's open, and the choice is
-remembered next time the game starts.
+bus, pickup, buggy or monster truck and set it up. Tabs (Q / E or LB / RB):
+CAR (left/right = vehicle), PAINT (colour, racing stripes) and WHEELS (rims,
+rim colour, tyres, tyre stripe, brake caliper colour; the camera zooms in on a
+wheel). On PAINT and WHEELS, up/down picks a row and left/right changes it.
+X / Y = surprise me (a random vehicle, or random choices on the tab), Enter / A =
+drive, Esc / B = back. Each vehicle keeps its own setup, changes stick even
+when you back out, and everything is remembered next time the game starts.
+The game is paused while the garage is open.
 
 **Stunts**: big air, flips, barrel rolls, air spins, drifts and near misses
 (squeezing past traffic) score points. Tricks chain into a combo with a
@@ -90,7 +95,11 @@ scripts/
              vehicle_body_visual.gd (materials, lamps, indicators, grime, contact shadow),
              vehicle_reflection.gd (the player car's reflection probe), vehicle_audio.gd,
              vehicle_effects.gd, vehicle_damage.gd,
-             vehicle_catalog.gd (the garage's vehicle list, blurbs, star ratings, colours)
+             vehicle_catalog.gd (the garage's vehicle list, blurbs, star ratings,
+             stock wheel parts), paint_palette.gd (garage and traffic paints)
+  vehicle/custom/ parts_catalog.gd (everything the garage can change: tabs, slots,
+             options), loadout.gd (one vehicle's setup: saved per vehicle, put on
+             the car), wheel_kit.gd (fits rim + tyre parts to a vehicle's wheels)
   vehicle/audio/  vehicle_sound_profile.gd (what a vehicle class sounds like),
              vehicle_sound_bank.gd (shared tyre/crash/glass sounds), audio_director.gd
              (traffic voice budget, Doppler)
@@ -223,8 +232,16 @@ ASSET_MANIFEST.md              Every third-party asset: source, creator, licence
   root (engine, gears, brakes, steering) and on each wheel (radius, springs, grip,
   which wheels steer/drive). Set `paint_color` on the `Body` node for a new color
   and `driver_eye` on the root for the hood camera. Add it to
-  `scripts/vehicle/vehicle_catalog.gd` to make it appear in the garage. The chase
-  camera frames bigger vehicles automatically (from their collision boxes).
+  `scripts/vehicle/vehicle_catalog.gd` to make it appear in the garage (with the
+  `rims` / `tyres` its wheel model is made of). The chase camera frames bigger
+  vehicles automatically (from their collision boxes).
+* **Garage parts**: a new rim or tyre is a builder in `tools/blender/make_wheels.py`
+  (rims are built to one standard fit, see its docstring) plus an entry in
+  `PartsCatalog.RIMS` / `TYRES`; colours are entries in the other lists there.
+  A new kind of customization (spoilers, exhausts...) is a slot: add it to
+  `PartsCatalog.SLOTS` and a tab in `TABS`, give it a stock value in
+  `Loadout._stock_values()` and put it on the car in `Loadout.apply()`. The
+  garage builds its rows from the catalog, and saving works for any slot.
 * **A ramp**: instance `scenes/props/ramp.tscn` in any scene and edit its
   shape/length/height/width in the Inspector — it rebuilds live in the editor.
 * **Map changes**: edit `map_layout.gd` (city grid, block types, highway size and
@@ -251,7 +268,8 @@ godot --path . -- --lookdev=/tmp/shots  every vehicle from fixed cameras, day/su
 godot --path . -- --traffic=/tmp/shots  watch traffic 150 s, log speeds/stuck/crashes
 godot --path . -- --rampage=/tmp/shots  player drives wrong-way into traffic
 godot --path . -- --showcase=/tmp/shots one of each traffic vehicle in a filmed convoy
-godot --path . -- --garage=/tmp/shots   garage menu + changing into every vehicle (pass/fail checks)
+godot --path . -- --garage=/tmp/shots   garage menu, customising + changing into every vehicle (pass/fail checks)
+godot --path . -- --wheels=/tmp/shots   every rim, rim colour, tyre and tyre stripe in the garage + on the road (shots)
 godot --path . -- --menus=/tmp/shots    title/pause/settings/controls menus driven by input (pass/fail)
 godot --path . -- --lanes=/tmp/shots    passing a parked player, horn reactions, highway lane changes
 godot --path . -- --stunts=/tmp/shots   air, flips, rolls, spins, drift, near miss, wipeout (pass/fail)

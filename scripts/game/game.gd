@@ -25,6 +25,8 @@ const CRASH_CAM_COOLDOWN := 20.0
 var state := State.DRIVING
 var spawn_index := 0
 var picker: VehiclePicker
+## The garage setup (paint, wheels...) on the player's vehicle.
+var loadout: Loadout
 var menu: GameMenu
 var title_camera: MenuCamera
 var stunts: StuntTracker
@@ -364,10 +366,11 @@ func open_garage() -> void:
 	hud.visible = false
 	menu.close()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	picker.open(VehicleCatalog.index_of_vehicle(vehicle), _paint_of(vehicle), _stripes_of(vehicle))
+	picker.open(VehicleCatalog.index_of_vehicle(vehicle), loadout)
 
 
 func _on_garage_cancelled() -> void:
+	_keep_garage_changes()
 	match _garage_from:
 		State.TITLE:
 			_enter_title()
@@ -377,15 +380,11 @@ func _on_garage_cancelled() -> void:
 			_enter_driving()
 
 
-func _on_vehicle_picked(index: int, color: Color, stripes: bool) -> void:
-	if index == VehicleCatalog.index_of_vehicle(vehicle):
-		var body := vehicle.get_node_or_null("Body") as VehicleBodyVisual
-		if body:
-			body.set_paint_color(color)
-			body.set_stripes(stripes)
-	else:
-		change_vehicle(index, color, true, stripes)
-	_save_choice(index, color, stripes)
+func _on_vehicle_picked(index: int) -> void:
+	_keep_garage_changes()
+	if index != VehicleCatalog.index_of_vehicle(vehicle):
+		change_vehicle(index, picker.loadouts.get(VehicleCatalog.ENTRIES[index]["id"]))
+	_save_choice(index)
 	# Coming from the title screen, picking a vehicle starts the game.
 	if _garage_from == State.TITLE:
 		state = State.TITLE
@@ -393,17 +392,27 @@ func _on_vehicle_picked(index: int, color: Color, stripes: bool) -> void:
 	hud.show_toast(VehicleCatalog.ENTRIES[index]["name"])
 
 
+## Garage changes stick even when backing out: every vehicle's setup is
+## saved, and the vehicle you're in gets its new look.
+func _keep_garage_changes() -> void:
+	for l: Loadout in picker.loadouts.values():
+		l.save()
+	var mine: Loadout = picker.loadouts.get(loadout.vehicle_id)
+	if mine and mine.values != loadout.values:
+		loadout = mine.copy()
+		loadout.apply(vehicle)
+
+
 ## Replaces the player's vehicle with catalog entry `index`, parked upright where
-## the old one was (or at the current spawn point if there's no room there).
-## With `place_here` false the caller positions it (e.g. a teleport right after).
-func change_vehicle(index: int, color: Color, place_here := true, stripes := false) -> void:
+## the old one was (or at the current spawn point if there's no room there),
+## set up as `setup` says (default: as saved in the garage). With
+## `place_here` false the caller positions it (e.g. a teleport right after).
+func change_vehicle(index: int, setup: Loadout = null, place_here := true) -> void:
 	var old := vehicle
 	var car := VehicleCatalog.scene(index).instantiate() as Vehicle
 	car.traction_control = old.traction_control
-	var body := car.get_node_or_null("Body") as VehicleBodyVisual
-	if body:
-		body.paint_color = color
-		body.stripes = stripes
+	loadout = setup.copy() if setup else Loadout.saved(VehicleCatalog.ENTRIES[index]["id"])
+	loadout.apply(car)
 	var spot := _find_room(car, old) if place_here else {}
 
 	var slot := old.get_index()
@@ -531,34 +540,17 @@ func _fit_reflection() -> void:
 		probe.queue_free()
 
 
-func _paint_of(v: Vehicle) -> Color:
-	var body := v.get_node_or_null("Body") as VehicleBodyVisual
-	return body.paint_color if body else Color.RED
-
-
-func _stripes_of(v: Vehicle) -> bool:
-	var body := v.get_node_or_null("Body") as VehicleBodyVisual
-	return body.stripes if body else false
-
-
-func _save_choice(index: int, color: Color, stripes := false) -> void:
+## Remembers which vehicle you drive (each one's setup is saved by the garage).
+func _save_choice(index: int) -> void:
 	Settings.set_value("vehicle", VehicleCatalog.ENTRIES[index]["id"])
-	Settings.set_value("paint", color)
-	Settings.set_value("stripes", stripes)
 
 
-## Puts the player in the vehicle + paint stored in the settings.
+## Puts the player in the vehicle stored in the settings, set up as saved.
 func _load_choice() -> void:
 	var index := VehicleCatalog.index_of_id(Settings.get_value("vehicle"))
-	# Snap to the current garage colours (older saves used other values).
-	var color: Color = VehicleCatalog.COLORS[VehicleCatalog.closest_color(Settings.get_value("paint"))]
-	var stripes: bool = Settings.get_value("stripes")
-	if index < 0:
-		return
-	if index == VehicleCatalog.index_of_vehicle(vehicle):
-		var body := vehicle.get_node_or_null("Body") as VehicleBodyVisual
-		if body:
-			body.set_paint_color(color)
-			body.set_stripes(stripes)
+	var here := VehicleCatalog.index_of_vehicle(vehicle)
+	if index < 0 or index == here:
+		loadout = Loadout.saved(VehicleCatalog.ENTRIES[maxi(here, 0)]["id"])
+		loadout.apply(vehicle)
 	else:
-		change_vehicle(index, color, false, stripes)
+		change_vehicle(index, null, false)

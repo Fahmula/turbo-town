@@ -87,18 +87,22 @@ func setup(vehicle: RigidBody3D, collision_mask: int) -> void:
 
 ## Mounts a brake caliper (brake_caliper.glb from make_wheels.py) behind
 ## the spokes: it steers and follows the suspension with the wheel but
-## doesn't spin. Sized and mirrored like the wheel model under Visual.
+## doesn't spin. Sized and mirrored like the wheel model under Visual (and
+## scaled like its rim, for garage wheels: WheelKit).
 func add_caliper(scene: PackedScene, color: Color) -> void:
 	var vis := get_node_or_null("Visual") as Node3D
-	var model := vis.get_child(0) as Node3D if vis and vis.get_child_count() > 0 else null
+	var model := vis.get_node_or_null("Model") as Node3D if vis else null
 	if model == null or _caliper:
 		return
 	_caliper = scene.instantiate() as Node3D
 	_caliper.name = "Caliper"
-	var size := model.transform.basis.get_scale().abs().x
+	var fit := Vector3.ONE * model.transform.basis.get_scale().abs().x
+	var rim := model.get_node_or_null("Rim") as Node3D
+	if rim:
+		fit *= rim.scale
 	var mirror := Basis(Vector3.UP, PI) if position.x < 0.0 else Basis.IDENTITY
 	# Behind the axle and up a little, where real calipers sit.
-	_caliper.transform = Transform3D(Basis(Vector3.RIGHT, deg_to_rad(38.0)) * mirror * Basis.from_scale(Vector3.ONE * size), vis.position)
+	_caliper.transform = Transform3D(Basis(Vector3.RIGHT, deg_to_rad(38.0)) * mirror * Basis.from_scale(fit), vis.position)
 	add_child(_caliper)
 	if not _caliper_mats.has(color):
 		var src: Material = null
@@ -113,6 +117,17 @@ func add_caliper(scene: PackedScene, color: Color) -> void:
 		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		g.visibility_range_end = 45.0
 		g.layers = Vehicle.WHEEL_LAYER
+
+
+## Replaces the caliper (garage wheels): a new one in `color`, or none for a
+## null scene (closed rims hide it).
+func set_caliper(scene: PackedScene, color: Color) -> void:
+	if _caliper:
+		remove_child(_caliper)
+		_caliper.queue_free()
+		_caliper = null
+	if scene:
+		add_caliper(scene, color)
 
 
 ## How far the wheel centre hangs below the mount point when standing still

@@ -115,9 +115,28 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
       drift, most flips, near misses, total points) on a RECORDS page
 - [x] `--stunts` dev test
 
+### Garage customization (done, dev)
+- [x] Customization platform: `PartsCatalog` (tabs, slots, options as data), `Loadout` (one
+      vehicle's setup, saved per vehicle as overrides of stock; old saves migrated), garage
+      tabs and rows built from the catalog
+- [x] Garage tabs CAR / PAINT / WHEELS (LB/RB, Q/E), up/down rows, left/right values, mouse
+      clicks, "surprise me" (Y / X), wheel close-up camera
+- [x] Wheels: rims and tyres as separate parts (`make_wheels.py`, `WheelKit` fits them to any
+      vehicle): 10 rims, 5 tyres, 11 rim colours, tyre stripes (whitewall, coloured lines),
+      brake caliper colours (calipers only behind open rims). Cosmetic only, physics unchanged
+- [x] `--garage` checks the whole flow; `--wheels` shoots every part for review
+
 ---
 
 ## Backlog
+
+### Garage customization (ideas; the platform is ready for them)
+- [ ] Tyres that change grip (off-road tyres better on dirt, slicks on tarmac)? Needs an owner
+      decision: today every part is cosmetic
+- [ ] Spoilers / wings, exhaust tips, bumpers or body kits (new meshes per vehicle)
+- [ ] Ride height and wheel size (touches physics and arch clearance)
+- [ ] Underglow, window tint, liveries / decals, horn sounds
+- [ ] Rim thumbnails in the garage instead of names
 
 ### Vehicles
 - [x] More drivable vehicles: pickup (also in traffic), buggy (AWD, bouncy), monster truck
@@ -234,3 +253,5 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
   park, props, palms, sea; legacy world code removed.
 - 2026-10-02 — Vehicle realism and sound (dev): vehicle shaders and reflections, indicators, damage
   layer; layered engine sound and a new crash/tyre/horn soundscape from licensed recordings.
+- 2026-10-02 — Garage customization (dev): per-vehicle setups, garage tabs, custom wheels (rims,
+  rim colours, tyres, tyre stripes, calipers).

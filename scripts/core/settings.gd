@@ -25,8 +25,9 @@ const DEFAULTS := {
 	"time_of_day": 0,  # 0 day, 1 sunset, 2 night, 3 cycle
 	"assists": true,
 	"vehicle": "sports_car",
-	"paint": Color(0.784, 0.137, 0.106),
-	"stripes": false,  # racing stripes on the player's vehicle (garage)
+	# Garage setups (Loadout): vehicle id -> {slot: value} for the values
+	# that differ from stock.
+	"loadouts": {},
 }
 
 const TRAFFIC_LABELS := ["Few", "Normal", "Busy"]
@@ -43,7 +44,7 @@ var _values := {}
 
 
 func _enter_tree() -> void:
-	_values = DEFAULTS.duplicate()
+	_values = DEFAULTS.duplicate(true)
 	if persist:
 		load_file()
 
@@ -79,7 +80,16 @@ func load_file() -> void:
 	# Garage choice saved by an older build (before this file had a section).
 	if cfg.has_section_key("player", "vehicle") and not cfg.has_section_key("settings", "vehicle"):
 		_values["vehicle"] = cfg.get_value("player", "vehicle")
-		_values["paint"] = cfg.get_value("player", "paint", DEFAULTS["paint"])
+	# Before per-vehicle setups there was one paint (and stripes) choice:
+	# it belonged to the saved vehicle.
+	if not cfg.has_section_key("settings", "loadouts"):
+		for section in ["settings", "player"]:
+			if cfg.has_section_key(section, "paint"):
+				var mine := {"paint": cfg.get_value(section, "paint")}
+				if cfg.has_section_key(section, "stripes"):
+					mine["stripes"] = cfg.get_value(section, "stripes")
+				_values["loadouts"] = {str(_values["vehicle"]): mine}
+				break
 
 
 func save_file() -> void:

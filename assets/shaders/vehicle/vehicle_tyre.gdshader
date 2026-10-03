@@ -11,6 +11,10 @@ render_mode cull_back;
 
 uniform float dust : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 dust_color : source_color = vec4(0.5, 0.46, 0.4, 1.0);
+// Garage tyre stripe (whitewall, red line...): a coloured sidewall band
+// between these object-space radii; equal radii = none (WheelKit).
+uniform vec4 stripe_color : source_color = vec4(0.9, 0.9, 0.87, 1.0);
+uniform vec2 stripe_radii = vec2(0.0);
 
 varying vec3 obj_pos;
 
@@ -24,6 +28,10 @@ void fragment() {
 	float band = smoothstep(0.268, 0.272, r) * (1.0 - smoothstep(0.3, 0.304, r));
 	vec3 col = mix(vec3(0.0135), vec3(0.0098), tread);           // #1F1F21 sidewall, #1A1A1C tread
 	float rough = mix(0.82, 0.93, tread) - band * 0.12;
+	float aa = fwidth(r) * 0.75;
+	float stripe = smoothstep(stripe_radii.x - aa, stripe_radii.x + aa, r) * (1.0 - smoothstep(stripe_radii.y - aa, stripe_radii.y + aa, r));
+	col = mix(col, stripe_color.rgb, stripe);
+	rough = mix(rough, 0.75, stripe);
 	float grit = vh_noise(obj_pos * 60.0);
 	float d = dust * (0.55 + 0.45 * grit) * (1.0 - tread * 0.5);
 	col = mix(col, dust_color.rgb * 0.55, d * 0.6);

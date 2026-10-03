@@ -9,6 +9,20 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Garage
+- Customise your wheels! A new WHEELS tab in the garage has 10 rim designs
+  (sporty spokes, a deep-dish star, mesh, turbine, a twister, retro dish,
+  steelies, beadlocks...), 11 rim colours (chrome, gold, matching your paint
+  and more), 5 kinds of tyres from low-profile sport to chunky off-road,
+  whitewalls and coloured tyre stripes, and the colour of the brake calipers.
+  The camera zooms in on the wheel so you can see what you're building.
+- The garage now has tabs: CAR, PAINT and WHEELS (switch with LB / RB, or
+  Q / E on the keyboard).
+- Every vehicle keeps its own look: give the sports car gold rims and the
+  monster truck chrome ones, and each one remembers.
+- "Surprise me!" (Y, or X on the keyboard) picks a random vehicle, or a random
+  paint or wheel setup.
+
 ## [0.6.2] - 2026-10-02
 
 ### Sound

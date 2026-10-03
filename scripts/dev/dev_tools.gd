@@ -2,7 +2,9 @@ extends Node
 ## Developer helpers, inactive during normal play.
 ##   --tour=<dir>     save screenshots from a set of viewpoints, then quit
 ##   --drive=<dir>    drive the player car with scripted input, snapping shots
-##   --garage=<dir>   garage menu + changing into every vehicle (checks and shots)
+##   --garage=<dir>   garage menu, customising, changing into every vehicle (checks and shots)
+##   --wheels=<dir>   every rim, rim colour, tyre and tyre stripe in the garage's wheel view,
+##                    plus custom wheels on a few vehicles and on the road (shots for review)
 ##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
 ##   --lanes=<dir>    traffic passing a parked player, horn reactions, highway lane changes
 ##   --junction=<dir> the signalized highway/avenue junction: turns used, crashes, jams
@@ -98,6 +100,9 @@ func _ready() -> void:
 		elif arg.begins_with("--garage="):
 			_mode = "garage"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--wheels="):
+			_mode = "wheels"
+			_dir = arg.split("=")[1]
 		elif arg == "--bench":
 			_mode = "bench"
 			_dir = OS.get_user_data_dir()
@@ -150,7 +155,7 @@ func _run() -> void:
 		if vi < 0:
 			push_error("dev tools: unknown vehicle id '%s'" % _vehicle_id)
 		else:
-			game.change_vehicle(vi, Color.RED, false)
+			game.change_vehicle(vi, null, false)
 			await _wait(30)
 	if _mode == "tour":
 		await _tour(game)
@@ -168,6 +173,8 @@ func _run() -> void:
 		await _uturn(game)
 	elif _mode == "garage":
 		await _garage(game)
+	elif _mode == "wheels":
+		await _wheels(game)
 	elif _mode == "menus":
 		await _menus(game)
 	elif _mode == "lanes":
@@ -858,45 +865,98 @@ func _garage(game: Game) -> void:
 
 	# 1) The menu, driven with the real input actions.
 	var old := game.vehicle
+	var p := game.picker
 	await _tap("change_vehicle")
 	await _wait(20)
-	_check(game.picker.is_open and get_tree().paused, "V opens the garage and pauses")
+	_check(p.is_open and get_tree().paused and p.tab == 0, "V opens the garage on the CAR tab and pauses")
 	await _shot("garage_0")
 	for i in 4:
 		await _tap("menu_right")
 		await _wait(15)
 		await _shot("garage_%d" % (i + 1))
+	_check(p.index == 4, "four steps right reach the bus")
+	await _tap("menu_tab_next")
+	_check(p.tab == 1, "Q/E (LB/RB) switch to the PAINT tab")
 	for i in 3:
-		await _tap("menu_down")
+		await _tap("menu_right")
 	await _wait(10)
 	await _shot("garage_paint")
-	var want_color := VehicleCatalog.COLORS[game.picker.color_index]
-	_check(game.picker.index == 4, "four steps right reach the bus")
+	var want_color: Color = p.loadout().get_value("paint")
+	_check(want_color != Loadout.stock("bus").get_value("paint"), "left/right repaints the bus")
+	await _tap("menu_tab_next")
+	await _wait(40)
+	_check(p.tab == 2, "next tab: WHEELS")
+	await _shot("garage_wheels")
+	await _tap("menu_right")  # rims: the next one after the bus's steelies
+	var want_rims: String = p.loadout().get_value("rims")
+	await _tap("menu_down")
+	for i in 6:
+		await _tap("menu_right")  # rim colour: stock -> gold
+	await _tap("menu_down")
+	await _tap("menu_right")  # tyres: heavy duty (the last) -> wraps to the first
+	await _tap("menu_down")
+	await _tap("menu_right")  # tyre stripe: none -> white wall
+	await _wait(20)
+	await _shot("garage_wheels_custom")
+	var l := p.loadout()
+	_check(want_rims != "steel" and l.get_value("rim_color") == "gold" and l.get_value("tyres") == PartsCatalog.TYRES[0]["id"]
+		and l.get_value("tyre_stripe") == "whitewall", "up/down + left/right set rims, rim colour, tyres and stripe %s" % l.overrides())
+	_check(WheelKit.is_fitted(p._car), "the turntable bus wears the new wheels")
 	await _tap("menu_accept")
 	await _wait(10)
-	_check(not game.picker.is_open and not get_tree().paused, "accept closes the garage and unpauses")
+	_check(not p.is_open and not get_tree().paused, "accept closes the garage and unpauses")
 	_check(not is_instance_valid(old), "old car is freed")
 	_check(game.vehicle.display_name == "Bus", "now driving the %s" % game.vehicle.display_name)
 	_check((game.vehicle.get_node("Body") as VehicleBodyVisual).paint_color == want_color, "paint colour applied")
+	_check_wheels(game.vehicle, want_rims, "gold", PartsCatalog.TYRES[0]["id"], "bus")
+	_check(Loadout.saved("bus").values == game.loadout.values, "the bus setup is saved")
 	_check_wiring(game, "after garage")
 	await _wait(60)
 	_check(game.vehicle.global_basis.y.y > 0.95 and game.vehicle.linear_velocity.length() < 2.0,
 		"bus settles calmly (up %.2f, speed %.1f)" % [game.vehicle.global_basis.y.y, game.vehicle.linear_velocity.length()])
 
-	# Cancel leaves everything alone.
+	# Backing out never swaps the vehicle, but keeps changes made to it.
 	var bus := game.vehicle
 	await _tap("change_vehicle")
 	await _wait(5)
 	await _tap("menu_left")
 	await _tap("menu_back")
 	await _wait(5)
-	_check(game.vehicle == bus and not get_tree().paused and not game.picker.is_open, "Esc/B backs out without changing")
+	_check(game.vehicle == bus and not get_tree().paused and not p.is_open, "Esc/B backs out without changing")
+	await _tap("change_vehicle")
+	await _wait(5)
+	await _tap("menu_tab_prev")
+	_check(p.tab == 2, "tabs wrap round (CAR -> WHEELS)")
+	await _tap("menu_right")
+	var kept: String = p.loadout().get_value("rims")
+	await _tap("menu_back")
+	await _wait(5)
+	var fl_rim := bus.get_node_or_null("WheelFL/Visual/Model/Rim") as Node3D
+	_check(game.vehicle == bus and game.loadout.get_value("rims") == kept and fl_rim != null
+		and fl_rim.scene_file_path == PartsCatalog.rim_scene(kept), "backing out keeps the new rims on the bus (%s)" % kept)
+	# Calipers only behind open rims.
+	game.loadout.set_value("rims", "dish")
+	game.loadout.apply(bus)
+	_check(bus.get_node_or_null("WheelFL/Caliper") == null, "closed rims: no caliper")
+	game.loadout.set_value("rims", "sport5")
+	game.loadout.apply(bus)
+	_check(bus.get_node_or_null("WheelFL/Caliper") != null, "open rims: caliper on")
+	# Surprise me, on the WHEELS tab.
+	await _tap("change_vehicle")
+	await _wait(5)
+	await _tap("menu_tab_prev")
+	var before := p.loadout().values.duplicate()
+	await _tap("menu_extra")
+	await _tap("menu_extra")
+	_check(p.loadout().values != before, "X / (Y) surprises with a new wheel setup")
+	await _tap("menu_back")
+	await _wait(5)
 
 	# 2) Drive every vehicle for a bit and photograph the cameras.
 	for i in VehicleCatalog.count():
 		game.teleport_to(0)
 		await _wait(10)
-		game.change_vehicle(i, VehicleCatalog.COLORS[(i * 3) % VehicleCatalog.COLORS.size()])
+		game.change_vehicle(i, _painted(i, VehicleCatalog.COLORS[(i * 3) % VehicleCatalog.COLORS.size()]))
 		await _wait(5)
 		var v := game.vehicle
 		_check_wiring(game, v.display_name)
@@ -922,7 +982,7 @@ func _garage(game: Game) -> void:
 		_release()
 
 	# 3) No room (a wall right in front): falls back to the spawn point.
-	game.change_vehicle(0, Color.RED)
+	game.change_vehicle(0, _painted(0, Color.RED))
 	await _wait(5)
 	var spot := Transform3D(Basis.IDENTITY, Vector3(-20, 0.8, -20))
 	game.vehicle.teleport(spot)
@@ -937,7 +997,7 @@ func _garage(game: Game) -> void:
 	wall.global_position = game.vehicle.global_position + Vector3(0, 1.0, -3.4)
 	await get_tree().physics_frame
 	await get_tree().physics_frame
-	game.change_vehicle(4, Color.YELLOW)
+	game.change_vehicle(4, _painted(4, Color.YELLOW))
 	var sp: Transform3D = game.world.spawn_points[game.spawn_index]["xform"]
 	_check(game.vehicle.global_position.distance_to(sp.origin) < 3.0, "blocked spot: bus goes to the spawn point instead")
 	wall.queue_free()
@@ -945,7 +1005,7 @@ func _garage(game: Game) -> void:
 	# 4) A traffic car in the way is removed instead.
 	tm.set_enabled(false)
 	await _wait(5)
-	game.change_vehicle(0, Color.RED)
+	game.change_vehicle(0, _painted(0, Color.RED))
 	var d := tm.spawn_near(VehicleCatalog.scene(1), Vector3(-1.8, 0, 200))
 	await _wait(30)
 	var tv := d.vehicle
@@ -955,7 +1015,7 @@ func _garage(game: Game) -> void:
 	tv.linear_velocity = Vector3.ZERO
 	await _wait(30)
 	var here := game.vehicle.global_position
-	game.change_vehicle(4, Color.YELLOW)
+	game.change_vehicle(4, _painted(4, Color.YELLOW))
 	await _wait(5)
 	# Removed = freed, or put back in the traffic pool (out of the tree).
 	_check(not is_instance_valid(tv) or tv.is_queued_for_deletion() or (not tv.is_inside_tree() and not tm.vehicles.has(tv)),
@@ -964,19 +1024,27 @@ func _garage(game: Game) -> void:
 	await _wait(60)
 	_check(game.vehicle.linear_velocity.length() < 2.0, "no physics explosion (speed %.1f)" % game.vehicle.linear_velocity.length())
 
-	# 5) The choice is saved to disk and restored.
+	# 5) The choice and each vehicle's setup are saved to disk and restored.
 	Settings.persist = true
 	Settings.path = _dir.path_join("settings_test.cfg")
-	game._save_choice(2, VehicleCatalog.COLORS[6])
+	var van := Loadout.stock("van")
+	van.set_value("paint", VehicleCatalog.COLORS[6])
+	van.set_value("rims", "turbine")
+	van.set_value("rim_color", "chrome")
+	van.save()
+	game._save_choice(2)
 	Settings.persist = false
 	Settings.set_value("vehicle", "sports_car")  # in memory only
-	game.change_vehicle(0, Color.RED)
+	Settings.set_value("loadouts", {})
+	game.change_vehicle(0)
 	Settings.load_file()
 	game._load_choice()
 	game.teleport_to(0)
 	await _wait(10)
 	_check(game.vehicle.display_name == "Van" and (game.vehicle.get_node("Body") as VehicleBodyVisual).paint_color == VehicleCatalog.COLORS[6],
 		"saved choice (purple van) restored")
+	_check_wheels(game.vehicle, "turbine", "chrome", "heavy", "restored van")
+	_check(Loadout.saved("sedan").overrides().is_empty(), "other vehicles stay stock")
 	_check_wiring(game, "after load")
 	# A settings file from before the Settings autoload ([player] section).
 	var old_cfg := ConfigFile.new()
@@ -984,7 +1052,131 @@ func _garage(game: Game) -> void:
 	old_cfg.set_value("player", "paint", VehicleCatalog.COLORS[3])
 	old_cfg.save(Settings.path)
 	Settings.load_file()
-	_check(Settings.get_value("vehicle") == "box_truck" and Settings.get_value("paint") == VehicleCatalog.COLORS[3], "old garage settings file migrated")
+	_check(Settings.get_value("vehicle") == "box_truck" and Loadout.saved("box_truck").get_value("paint") == VehicleCatalog.COLORS[3],
+		"old garage settings file migrated")
+	# One from before per-vehicle setups (0.6.x: one paint + stripes).
+	var v06 := ConfigFile.new()
+	v06.set_value("settings", "vehicle", "sports_car")
+	v06.set_value("settings", "paint", VehicleCatalog.COLORS[5])
+	v06.set_value("settings", "stripes", true)
+	v06.save(Settings.path)
+	Settings.load_file()
+	var sc := Loadout.saved("sports_car")
+	_check(sc.get_value("paint") == VehicleCatalog.COLORS[5] and sc.get_value("stripes") == true and sc.wheels_stock(),
+		"0.6 paint and stripes became the sports car's setup")
+
+
+## A stock setup for catalog entry `index` in paint `c` (snapped to the
+## garage colours).
+func _painted(index: int, c: Color) -> Loadout:
+	var l := Loadout.stock(VehicleCatalog.ENTRIES[index]["id"])
+	l.set_value("paint", c)
+	return l
+
+
+## `v` wears garage wheels: the rim and tyre models, the rim finish, a
+## caliper exactly on open rims, the car's own tyre material, the wheel layer.
+func _check_wheels(v: Vehicle, rims: String, finish: String, tyres: String, label: String) -> void:
+	var problems: Array[String] = []
+	var body := v.get_node("Body") as VehicleBodyVisual
+	var open: bool = PartsCatalog.option("rims", rims)["open"]
+	for w in v.wheels:
+		var rim := w.get_node_or_null("Visual/Model/Rim") as Node3D
+		var tyre := w.get_node_or_null("Visual/Model/Tyre") as Node3D
+		if rim == null or tyre == null or rim.scene_file_path != PartsCatalog.rim_scene(rims) or tyre.scene_file_path != PartsCatalog.tyre_scene(tyres):
+			problems.append("%s parts" % w.name)
+			continue
+		if (w.get_node_or_null("Caliper") != null) != open:
+			problems.append("%s caliper" % w.name)
+		for gi in w.find_children("*", "GeometryInstance3D", true, false):
+			if (gi as GeometryInstance3D).layers != Vehicle.WHEEL_LAYER:
+				problems.append("%s layer" % w.name)
+				break
+		var meshes := rim.find_children("*", "MeshInstance3D", true, false) + tyre.find_children("*", "MeshInstance3D", true, false)
+		for node in meshes:
+			var mi := node as MeshInstance3D
+			for i in mi.mesh.get_surface_count():
+				var m := mi.get_active_material(i)
+				match String(mi.mesh.surface_get_material(i).resource_name):
+					"Rim":
+						var want: Color = PartsCatalog.option("rim_color", finish).get("color", Color.BLACK)
+						if finish != "stock" and not (m is StandardMaterial3D and (m as StandardMaterial3D).albedo_color.is_equal_approx(want)):
+							problems.append("%s finish" % w.name)
+					"Tire":
+						if m != body._mats.get("tyre"):
+							problems.append("%s tyre material" % w.name)
+	_check(problems.is_empty(), "%s wears %s rims (%s) on %s tyres %s" % [label, rims, finish, tyres, ", ".join(problems)])
+
+
+## Wheel parts gallery for review: every rim, rim colour, tyre and tyre
+## stripe in the garage's wheel view, other vehicles with custom wheels, and
+## a custom car on the road.
+func _wheels(game: Game) -> void:
+	game.teleport_to(0)
+	await _wait(30)
+	game.open_garage()
+	await _wait(5)
+	var p := game.picker
+	p._set_tab(2)
+	await _wait(60)
+	for i in PartsCatalog.RIMS.size():
+		p._set_slot("rims", i)
+		await _wait(6)
+		await _shot("rim_%02d_%s" % [i, PartsCatalog.RIMS[i]["id"]])
+	p._set_slot("rims", 0)
+	for i in PartsCatalog.RIM_COLORS.size():
+		p._set_slot("rim_color", i)
+		await _wait(6)
+		await _shot("finish_%02d_%s" % [i, PartsCatalog.RIM_COLORS[i]["id"]])
+	p._set_slot("rim_color", 0)
+	for i in PartsCatalog.TYRES.size():
+		p._set_slot("tyres", i)
+		await _wait(6)
+		await _shot("tyre_%02d_%s" % [i, PartsCatalog.TYRES[i]["id"]])
+	p._set_slot("tyres", 0)
+	for i in PartsCatalog.TYRE_STRIPES.size():
+		p._set_slot("tyre_stripe", i)
+		await _wait(6)
+		await _shot("stripe_%02d_%s" % [i, PartsCatalog.TYRE_STRIPES[i]["id"]])
+	p._set_slot("tyre_stripe", 0)
+	# Other vehicles: their stock wheels, then a custom set.
+	var custom := {"sedan": ["star5", "black", "sport"], "van": ["ten", "silver", "road"],
+		"pickup": ["twist", "gunmetal", "allterrain"], "monster_truck": ["turbine", "chrome", "offroad"]}
+	for id: String in custom:
+		p._set_tab(0)
+		p.index = VehicleCatalog.index_of_id(id)
+		p._show_vehicle()
+		p._set_tab(2)
+		await _wait(50)
+		await _shot("vehicle_%s_stock" % id)
+		var parts: Array = custom[id]
+		p._set_slot("rims", PartsCatalog.index_of("rims", parts[0]))
+		p._set_slot("rim_color", PartsCatalog.index_of("rim_color", parts[1]))
+		p._set_slot("tyres", PartsCatalog.index_of("tyres", parts[2]))
+		await _wait(6)
+		await _shot("vehicle_%s_custom" % id)
+	# A custom sports car on the road.
+	p._set_tab(0)
+	p.index = 0
+	p._show_vehicle()
+	p._set_slot("rims", PartsCatalog.index_of("rims", "star5"))
+	p._set_slot("rim_color", PartsCatalog.index_of("rim_color", "gold"))
+	p._set_slot("tyre_stripe", PartsCatalog.index_of("tyre_stripe", "red"))
+	p._set_tab(2)
+	await _wait(40)
+	await _shot("garage_custom_sports")
+	await _tap("menu_accept")
+	await _wait(20)
+	_check_wheels(game.vehicle, "star5", "gold", "sport", "sports car")
+	Input.action_press("accelerate")
+	await _wait_s(2.5)
+	_release()
+	await _wait_s(1.0)
+	await _shot("road_custom_chase")
+	game.camera.mode = ChaseCamera.Mode.FAR
+	await _wait(5)
+	await _shot("road_custom_far")
+	game.camera.mode = ChaseCamera.Mode.CHASE
 
 
 func _menus(game: Game) -> void:
@@ -1762,7 +1954,7 @@ func _park(game: Game) -> void:
 		return false
 	for vi in [0, 1, 6, 5]:  # sports car, sedan, buggy, pickup
 		tricks.clear()
-		game.change_vehicle(vi, Color.RED, false)
+		game.change_vehicle(vi, null, false)
 		var v := game.vehicle
 		v.teleport(Transform3D(Basis.looking_at(Vector3.BACK), Vector3(StuntParkBuilder.LOOP_X, 0.6 + v.ride_height(), StuntParkBuilder.LOOP_Z - 62.0)))
 		await _wait_s(0.5)
@@ -1811,7 +2003,7 @@ func _park(game: Game) -> void:
 
 	# Wall ride: circle the bowl high on the wall.
 	tricks.clear()
-	game.change_vehicle(0, Color.RED, false)
+	game.change_vehicle(0, null, false)
 	var v := game.vehicle
 	var c := StuntParkBuilder.BOWL_CENTER
 	var c3 := Vector3(c.x, 0, c.y)
@@ -1853,7 +2045,7 @@ func _trail(game: Game) -> void:
 	var road := game.world.roads.find_road("MountainTrail")
 	var path := road.points
 	for vi in [6, 5]:  # buggy, pickup
-		game.change_vehicle(vi, Color.RED, false)
+		game.change_vehicle(vi, null, false)
 		var v := game.vehicle
 		var dir := path[3] - path[0]
 		dir.y = 0.0
@@ -2069,7 +2261,7 @@ func _night(game: Game) -> void:
 	_release()
 	await _wait_s(1.0)
 	await _shot("night_city")
-	game.change_vehicle(4, Color.YELLOW)
+	game.change_vehicle(4, _painted(4, Color.YELLOW))
 	await _wait(10)
 	var bus_lights := game.vehicle.get_node_or_null("Headlights") as Node3D
 	_check(bus_lights != null and bus_lights.visible, "headlights follow a vehicle change")
@@ -2497,7 +2689,7 @@ func _lookdev(game: Game) -> void:
 		for n in game.get_children():
 			if n is RigidBody3D and String(n.name).begins_with("Debris"):
 				n.queue_free()
-		game.change_vehicle(vi, VehicleCatalog.COLORS[paints.get(id, 0)], false)
+		game.change_vehicle(vi, _painted(vi, VehicleCatalog.COLORS[paints.get(id, 0)]), false)
 		var v := game.vehicle
 		v.teleport(spot.translated(Vector3.UP * v.ride_height()))
 		await _wait_s(1.5)

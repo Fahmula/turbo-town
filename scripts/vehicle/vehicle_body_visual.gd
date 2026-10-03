@@ -94,10 +94,12 @@ func _ready() -> void:
 ## Swaps the imported vehicle materials under `roots` for the vehicle
 ## shaders, by contract name (ART_BIBLE.md §13). Paint, lamps and tyres get
 ## materials of their own (returned by role: "paint", "stripe", "head",
-## "tail", "reverse", "tyre"); trim and intact glass are shared. `parked`
-## cars keep their lamps dark. Used by vehicles and the parked-car props.
-static func apply_vehicle_materials(roots: Array[Node], paint: Color, parked: bool, dirt_top := 0.3) -> Dictionary:
-	var made := {}
+## "tail", "reverse", "tyre"; pass `made` to reuse a car's own); trim and
+## intact glass are shared. `parked` cars keep their lamps dark. Used by
+## vehicles and the parked-car props.
+static func apply_vehicle_materials(roots: Array[Node], paint: Color, parked: bool, dirt_top := 0.3, made: Variant = null) -> Dictionary:
+	if made == null:
+		made = {}
 	for root in roots:
 		var meshes := root.find_children("*", "MeshInstance3D", true, false)
 		if root is MeshInstance3D:
@@ -202,6 +204,22 @@ static func _has_material(mi: MeshInstance3D, mat_name: String) -> bool:
 		if m and m.resource_name == mat_name:
 			return true
 	return false
+
+
+## Gives wheel models fitted after _ready (garage wheels, WheelKit) this
+## car's vehicle materials: its own tyre material, so dust and the tyre
+## stripe show on them too.
+func adopt_meshes(roots: Array[Node]) -> void:
+	apply_vehicle_materials(roots, paint_color, false, dirt_top, _mats)
+
+
+## A coloured band on the tyre sidewalls (garage tyre stripe), between two
+## radii in wheel-model space (0.37 m round); equal radii = none.
+func set_tyre_stripe(col: Color, radii: Vector2) -> void:
+	if _mats.has("tyre"):
+		var m := _mats["tyre"] as ShaderMaterial
+		m.set_shader_parameter("stripe_color", col)
+		m.set_shader_parameter("stripe_radii", radii)
 
 
 ## True if this model has optional racing stripes (works before _ready).

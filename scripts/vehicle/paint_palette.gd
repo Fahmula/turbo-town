@@ -23,6 +23,11 @@ const GARAGE: Array[Color] = [
 ]
 ## Finish for each GARAGE entry: 0 = solid paint, more = metallic.
 const GARAGE_METALLIC: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.4, 0.35, 0.4, 0.45, 0.0, 0.0, 0.6, 0.5]
+## Name shown in the garage for each GARAGE entry.
+const GARAGE_NAMES: Array[String] = [
+	"Red", "Sunset Orange", "Yellow", "Lime", "Racing Green", "Teal",
+	"Bright Blue", "Midnight Purple", "Pink", "White", "Silver", "Graphite",
+]
 
 ## Traffic: [colour, weight, metallic]. Mostly white, black, grey and silver;
 ## blue and red fairly common; everything else rare.
