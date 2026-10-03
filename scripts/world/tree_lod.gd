@@ -14,9 +14,13 @@ extends Node3D
 ## The quadtree is re-walked from the camera position a few times a second
 ## (a few hundred cell tests); MultiMeshes are built the first time a cell needs
 ## them. Tier 0 has one MultiMesh per variant (broadleaf_a/b/c...), tiers 1 and
-## 2 one per species. Instances never overlap between tiers, so nothing is drawn twice and
-## nothing falls in a gap, unlike distance-range LOD on fixed chunks.
-## Distances are measured to the cell's box (cells are big, trees small).
+## 2 one per species. Instances never overlap between tiers, so nothing is
+## drawn twice and nothing falls in a gap, unlike distance-range LOD on fixed
+## chunks. Distances are measured to the cell's box (cells are big, trees small).
+##
+## Instances are stored in Z-order (Morton order of their 40 m cell, then by
+## variant), so every cell at every level owns one contiguous run of the
+## instance buffer: building a MultiMesh is a single slice of it.
 ##
 ## Foliage doesn't occlude GI (gi_mode disabled): alpha-tested cards voxelised
 ## into SDFGI would blotch the canopy.
@@ -31,6 +35,7 @@ const MID_LEVEL := 2
 const STRIDE := 16  # floats per instance: 12 transform + 4 custom data
 ## Mid-detail units farther than this don't cast shadows.
 const SHADOW_MID_RANGE := 120.0
+const MAX_VARIANTS := 8
 
 var _groups: Array[Group] = []
 var _visible := {}
@@ -39,6 +44,8 @@ var _since := 0.0
 ## Scales the LOD distances: 0.7 on Low (the viewport renders at 0.75 scale
 ## then, see GraphicsQuality), 1 otherwise.
 var _k := 1.0
+## How long the last update took (microseconds), for the dev tools.
+var update_usec := 0
 ## Stats of the last update, for the dev tools.
 var drawn := {"t0": 0, "t1": 0, "t2": 0}
 
@@ -49,23 +56,24 @@ class Group extends RefCounted:
 	var r0 := 70.0
 	var r1 := 260.0
 	var cull := 3000.0
-	var buf := PackedFloat32Array()
-	var variant := PackedInt32Array()
+	var buf := PackedFloat32Array()  # STRIDE floats per instance, in Z-order
 	var cells := {}  # Vector3i(level, ix, iz) -> Cell
 	var count := 0
 
 
 class Cell extends RefCounted:
-	var trees := PackedInt32Array()
+	var a := 0  # first instance
+	var b := 0  # one past the last
 	var mn := Vector3(1e9, 1e9, 1e9)
 	var mx := Vector3(-1e9, -1e9, -1e9)
-	var mmis := {}  # tier * 16 + variant -> MultiMeshInstance3D
+	var vstart := PackedInt32Array()  # leaf cells: first instance of each variant (+ the end)
+	var mmis := {}  # tier * MAX_VARIANTS + variant -> MultiMeshInstance3D
 	var last_tier := -1
 
 
 ## Registers the trees of one species: `xforms[i]`, `variants[i]` (index into
 ## the species' variants) and `customs[i]` (autumn amount, random seed,
-## brightness variation, unused: see foliage.gdshader).
+## brightness variation, flowering: see foliage.gdshader).
 func add_group(species: String, xforms: Array[Transform3D], variants: PackedInt32Array, customs: PackedColorArray) -> void:
 	var info: Dictionary = TreeKit.SPECIES[species]
 	var g := Group.new()
@@ -74,44 +82,105 @@ func add_group(species: String, xforms: Array[Transform3D], variants: PackedInt3
 	g.r0 = info["r0"]
 	g.r1 = info["r1"]
 	g.cull = info["cull"]
-	g.count = xforms.size()
-	g.buf.resize(g.count * STRIDE)
-	g.variant = variants
+	var n := xforms.size()
+	g.count = n
+	# Counting sort by (Z-order of the 40 m cell, variant).
+	var nv := MAX_VARIANTS
+	var key := PackedInt32Array()
+	key.resize(n)
+	var counts := PackedInt32Array()
+	counts.resize(4096 * nv + 1)
+	for i in n:
+		var o := xforms[i].origin
+		var ix := clampi(int(floor((o.x - ORIGIN) / LEAF)), 0, 63)
+		var iz := clampi(int(floor((o.z - ORIGIN) / LEAF)), 0, 63)
+		var k := _morton(ix, iz) * nv + mini(variants[i], nv - 1)
+		key[i] = k
+		counts[k + 1] += 1
+	for k in range(1, counts.size()):
+		counts[k] += counts[k - 1]
+	var pref := counts.duplicate()  # pref[k] = number of instances with a smaller key
+	var order := PackedInt32Array()
+	order.resize(n)
+	var fill := counts  # reused as the running write position
+	for i in n:
+		var k := key[i]
+		order[fill[k]] = i
+		fill[k] += 1
+	g.buf.resize(n * STRIDE)
 	var pos_pad := Vector3(6.0, 0.0, 6.0)
-	for i in g.count:
+	var leaf_cells := {}
+	for j in n:
+		var i := order[j]
 		var xf := xforms[i]
-		var o := i * STRIDE
-		var b := xf.basis
-		g.buf[o + 0] = b.x.x
-		g.buf[o + 1] = b.y.x
-		g.buf[o + 2] = b.z.x
+		var o := j * STRIDE
+		var bs := xf.basis
+		g.buf[o + 0] = bs.x.x
+		g.buf[o + 1] = bs.y.x
+		g.buf[o + 2] = bs.z.x
 		g.buf[o + 3] = xf.origin.x
-		g.buf[o + 4] = b.x.y
-		g.buf[o + 5] = b.y.y
-		g.buf[o + 6] = b.z.y
+		g.buf[o + 4] = bs.x.y
+		g.buf[o + 5] = bs.y.y
+		g.buf[o + 6] = bs.z.y
 		g.buf[o + 7] = xf.origin.y
-		g.buf[o + 8] = b.x.z
-		g.buf[o + 9] = b.y.z
-		g.buf[o + 10] = b.z.z
+		g.buf[o + 8] = bs.x.z
+		g.buf[o + 9] = bs.y.z
+		g.buf[o + 10] = bs.z.z
 		g.buf[o + 11] = xf.origin.z
 		var c := customs[i]
 		g.buf[o + 12] = c.r
 		g.buf[o + 13] = c.g
 		g.buf[o + 14] = c.b
 		g.buf[o + 15] = c.a
-		var ix := int(floor((xf.origin.x - ORIGIN) / LEAF))
-		var iz := int(floor((xf.origin.z - ORIGIN) / LEAF))
-		var top := xf.origin + Vector3(0.0, 16.0 * b.get_scale().y, 0.0)
-		for lvl in LEVELS:
-			var key := Vector3i(lvl, ix >> lvl, iz >> lvl)
-			var cell: Cell = g.cells.get(key)
-			if cell == null:
-				cell = Cell.new()
-				g.cells[key] = cell
-			cell.trees.append(i)
-			cell.mn = cell.mn.min(xf.origin - pos_pad)
-			cell.mx = cell.mx.max(top + pos_pad)
+		var ix := clampi(int(floor((xf.origin.x - ORIGIN) / LEAF)), 0, 63)
+		var iz := clampi(int(floor((xf.origin.z - ORIGIN) / LEAF)), 0, 63)
+		var ck := Vector3i(0, ix, iz)
+		var cell: Cell = leaf_cells.get(ck)
+		if cell == null:
+			cell = Cell.new()
+			cell.a = j
+			leaf_cells[ck] = cell
+		cell.b = j + 1
+		var top := xf.origin + Vector3(0.0, 16.0 * bs.get_scale().y, 0.0)
+		cell.mn = cell.mn.min(xf.origin - pos_pad)
+		cell.mx = cell.mx.max(top + pos_pad)
+	# Variant runs inside each leaf cell, then the parents (their runs are the union).
+	for ck: Vector3i in leaf_cells:
+		var cell: Cell = leaf_cells[ck]
+		var m := _morton(ck.y, ck.z)
+		cell.vstart.resize(nv + 1)
+		for v in nv + 1:
+			cell.vstart[v] = pref[m * nv + v]
+		g.cells[ck] = cell
+	for lvl in range(1, LEVELS):
+		var parents := {}
+		for ck: Vector3i in g.cells:
+			if ck.x != lvl - 1:
+				continue
+			var pk := Vector3i(lvl, ck.y >> 1, ck.z >> 1)
+			var child: Cell = g.cells[ck]
+			var par: Cell = parents.get(pk)
+			if par == null:
+				par = Cell.new()
+				par.a = child.a
+				par.b = child.b
+				parents[pk] = par
+			par.a = mini(par.a, child.a)
+			par.b = maxi(par.b, child.b)
+			par.mn = par.mn.min(child.mn)
+			par.mx = par.mx.max(child.mx)
+		for pk: Vector3i in parents:
+			g.cells[pk] = parents[pk]
 	_groups.append(g)
+
+
+## Z-order (Morton) code of a 64 x 64 grid cell.
+static func _morton(ix: int, iz: int) -> int:
+	var m := 0
+	for b in 6:
+		m |= ((ix >> b) & 1) << (2 * b)
+		m |= ((iz >> b) & 1) << (2 * b + 1)
+	return m
 
 
 func _process(delta: float) -> void:
@@ -129,6 +198,7 @@ func _process(delta: float) -> void:
 
 ## Re-chooses what is drawn for a camera at `cam`.
 func update(cam: Vector3) -> void:
+	var t0 := Time.get_ticks_usec()
 	# Low renders at 0.75 scale with FSR (GraphicsQuality.apply): shorter LOD distances there.
 	var vp := get_viewport()
 	_k = 0.7 if vp and vp.scaling_3d_scale < 0.99 else 1.0
@@ -146,6 +216,7 @@ func update(cam: Vector3) -> void:
 		if not _visible.has(m):
 			m.visible = true
 	_visible = want
+	update_usec = Time.get_ticks_usec() - t0
 	if OS.get_environment("TT_TREE_DEBUG") != "":
 		print(debug_summary())
 
@@ -160,8 +231,8 @@ func debug_summary() -> String:
 		mm_n[tier] += 1
 		inst[tier] += m.multimesh.instance_count
 		tris[tier] += m.multimesh.instance_count * (m.multimesh.mesh as ArrayMesh).surface_get_array_index_len(0) / 3
-	return "TreeLod: t0 %d mm %d trees %dk tris | t1 %d mm %d trees %dk tris | t2 %d mm %d trees %dk tris (before frustum culling)" % [
-		mm_n[0], inst[0], tris[0] / 1000, mm_n[1], inst[1], tris[1] / 1000, mm_n[2], inst[2], tris[2] / 1000]
+	return "TreeLod (%.2f ms): t0 %d mm %d trees %dk tris | t1 %d mm %d trees %dk tris | t2 %d mm %d trees %dk tris (before frustum culling)" % [
+		update_usec / 1000.0, mm_n[0], inst[0], tris[0] / 1000, mm_n[1], inst[1], tris[1] / 1000, mm_n[2], inst[2], tris[2] / 1000]
 
 
 func _visit(g: Group, key: Vector3i, cell: Cell, cam: Vector3, want: Dictionary) -> void:
@@ -171,7 +242,6 @@ func _visit(g: Group, key: Vector3i, cell: Cell, cam: Vector3, want: Dictionary)
 	var r0 := g.r0 * _k
 	var r1 := g.r1 * _k
 	var lvl := key.x
-	var size := LEAF * float(1 << lvl)
 	if lvl >= FAR_LEVEL and dmin >= r1:
 		cell.last_tier = 2
 		_show(g, cell, key, 2, want, dmin)
@@ -180,7 +250,6 @@ func _visit(g: Group, key: Vector3i, cell: Cell, cam: Vector3, want: Dictionary)
 		var c := Vector3((key.y + 0.5) * LEAF + ORIGIN, (cell.mn.y + cell.mx.y) * 0.5, (key.z + 0.5) * LEAF + ORIGIN)
 		var dc := Vector2(c.x - cam.x, c.z - cam.z).length()
 		var tier := 0 if dc < r0 * (1.15 if cell.last_tier == 0 else 1.0) else 1
-		# beyond the cull distance of the whole cell's near corner, the blob is enough
 		cell.last_tier = tier
 		_show(g, cell, key, tier, want, dmin)
 		return
@@ -229,19 +298,20 @@ func _set_shadows(m: MultiMeshInstance3D, on: bool) -> void:
 		m.cast_shadow = mode
 
 
-## The MultiMeshInstance3D of a cell at a tier (variant `vi` for tiers 0 and 1),
-## built on first use; null if the cell has no tree of that variant.
+## The MultiMeshInstance3D of a cell at a tier (variant `vi` for tier 0),
+## built on first use (one slice of the group's instance buffer); null if the
+## cell has no tree of that variant.
 func _mmi(g: Group, cell: Cell, key: Vector3i, tier: int, vi: int) -> MultiMeshInstance3D:
-	var mk := tier * 16 + vi
+	var mk := tier * MAX_VARIANTS + vi
 	if cell.mmis.has(mk):
 		return cell.mmis[mk]
-	var out := PackedFloat32Array()
-	var n := 0
-	for t in cell.trees:
-		if tier >= 1 or g.variant[t] == vi:
-			out.append_array(g.buf.slice(t * STRIDE, t * STRIDE + STRIDE))
-			n += 1
-	if n == 0:
+	var a := cell.a
+	var b := cell.b
+	if tier == 0:
+		a = cell.vstart[vi]
+		b = cell.vstart[vi + 1]
+	var n := b - a
+	if n <= 0:
 		cell.mmis[mk] = null
 		return null
 	var mm := MultiMesh.new()
@@ -249,7 +319,7 @@ func _mmi(g: Group, cell: Cell, key: Vector3i, tier: int, vi: int) -> MultiMeshI
 	mm.use_custom_data = true
 	mm.mesh = TreeKit.mesh(g.variants[vi] if tier == 0 else g.species, tier)
 	mm.instance_count = n
-	mm.buffer = out
+	mm.buffer = g.buf.slice(a * STRIDE, b * STRIDE)
 	var mmi := MultiMeshInstance3D.new()
 	mmi.name = "%s_L%d_%d_%d_t%d_%d" % [g.species, key.x, key.y, key.z, tier, vi]
 	mmi.multimesh = mm

@@ -69,6 +69,11 @@ func build(root: Node3D, city_tree_spots: Array[Vector3]) -> void:
 		if set.xforms.is_empty():
 			continue
 		lod.add_group(sp, set.xforms, set.variants, set.customs)
+		# build the meshes now, not on the first frame a tree comes into view
+		for v: String in TreeKit.SPECIES[sp]["variants"]:
+			TreeKit.mesh(v, 0)
+		TreeKit.mesh(sp, 1)
+		TreeKit.mesh(sp, 2)
 		for i in set.xforms.size():
 			var t := set.trunks[i]
 			if t.x > 0.0:
