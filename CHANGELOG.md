@@ -9,6 +9,12 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Downtown (experiment, not released)
+- The streets around the City Center are a real downtown now: brick and stone
+  buildings with shopfronts, signs and awnings, cornices, fire escapes and
+  water tanks, lit rooms and glowing shop windows at night, built from the
+  Downtown City MegaKit by Quaternius.
+
 ## [0.8.0] - 2026-10-03
 
 ### On foot

@@ -22,7 +22,7 @@ work, as long as this file is updated in the same commit.
 - If a rule is wrong or blocks good work, change it here in the same commit and
   say why in the commit message.
 
-Contents: 0 Quick rules · 1 Identity · 2 References · 3 Today's baseline ·
+Contents: 0 Quick rules · 0b Realism · 0c MegaKit experiment · 1 Identity · 2 References · 3 Today's baseline ·
 4 Stylization dial · 5 Colour palette · 6 Materials/PBR · 7 Shaders ·
 8 Textures/detail · 9 Lighting · 10 Shadows · 11 Sky/atmosphere ·
 12 Vehicle design · 13 Vehicle materials · 14 Damage/deformation ·
@@ -112,6 +112,70 @@ don't touch:
   iGPU High went from 40–54 ms to 23–30 ms standing and from 57 ms average /
   172 ms worst to 25 / 43 ms driving. Trees are the dearest remaining family
   (up to ~10 ms there in the park). The package grew from 35 MB to 119 MB.
+
+---
+
+## 0c. Downtown City MegaKit (experiment, branch `experiment/quaternius-downtown-city`)
+
+**Not approved: an experiment for the owner to evaluate (2026-10-03).** The
+downtown blocks along the avenue east of the City Center spawn are built from
+Quaternius' *Downtown City MegaKit* (free Standard version, CC0,
+ASSET_MANIFEST.md) instead of `BuildingKit`. If the owner adopts it, these
+rules replace §15 for the blocks that use it. `--legacy-downtown` builds the
+old blocks for A/B; `turbo_town/dev/megakit_whole_city` (or `--megakit-city`)
+puts every city block in kit buildings.
+
+- **Direction:** pre-war Boston / New York brick-and-stone downtown: shopfront
+  bases with sign bands, brick window bays, stone quoins and cornices, slate
+  mansards, fire escapes, water tanks. Real 3D facade depth (recessed windows,
+  pilasters, cornices) replaces windows painted by a shader.
+- **Kit conventions:** metres; 2 m bays (some 4 m), 3 m floors; a wall
+  module's outside face is at z = 0 facing +Z, x along the wall. Our ground
+  floor is 4 m (3 m modules + a 1 m sign band). Buildings stand on the 2 m
+  grid, flush with the sidewalk.
+- **Pipeline** (`tools/megakit/`, never hand-edit outputs): the zip is cached
+  in `build/` and SHA-256 checked; `build_megakit_textures.py` makes the
+  texture arrays; `build_megakit_modules.gd` converts the glTF modules into one
+  `MegaKitLibrary` (glass in front of fake interiors, interior walls and floors
+  dropped; glass with nothing behind it kept as plain glass; far-LOD proxies).
+- **One material** for the whole kit (`megakit.gdshader`): the kit's eight
+  texture sets are slices of two texture arrays (albedo; normal XY + roughness
+  + AO), each vertex says its slice (CUSTOM0), so **a building is one surface
+  and one draw call.** The kit's fake bevels (corner normal on UV2) and wear
+  mask (COLOR.g) are re-implemented; metallic is dropped (painted iron is
+  paint, §6). Build tangent frames from screen derivatives; guard them where
+  UV / UV2 barely change (constant UVs interpolate with float noise and the
+  frame turns into static).
+- **Colour:** a building gets one palette row (`MegaKit.PALETTES`, instance
+  uniform) that recolours the kit's tint slots (brick, alt brick, trim, dark
+  trim, accent, metal, flat roof). Brick and trim colours keep chroma ≤ 0.35
+  (§5). Palettes: red brick + cream stone, dark brown + white, buff +
+  brownstone, deep red + warm grey, painted cream, brownstone, orange-red,
+  grey-brown.
+- **Grammar** (`DowntownBuilding`): base (metal or stone shopfronts, or a
+  masonry ground floor) + sign band; window bays fitted symmetrically, with
+  pilasters on some styles; brick corners or stone quoin columns; mitred
+  cornices or a slate mansard with dormers. Styles: loft, hotel, commercial,
+  mansard, tenement, warehouse. Party and courtyard walls are plain brick
+  quads; walls facing open ground get windows. Blocks (`DowntownBlock`):
+  corner buildings with two frontages, mid-block buildings 8-20 m wide,
+  sometimes a 4 m alley; heights planned first so exposed party walls get a
+  faded painted sign.
+- **Windows:** the kit's 2D room photos are interior mapped (one-point
+  perspective); glass lets the room through by (1 − Fresnel). Ground-floor
+  windows show the city's shop interior atlas, one shop per 6 m of frontage.
+  At night about half the rooms and most shops are lit; shops spill a warm
+  glow onto the sidewalk (`shop_light_spill.gdshader`, no real light).
+- **Dressing reused from the city:** shop sign boards (facade.gdshader sign
+  style), awnings and roof clutter with water tanks (street_props), the
+  StreetKit lamps and signals. Fire escapes are thin boxes in the kit's
+  painted-metal slice.
+- **Performance:** per building a full mesh (near), a far proxy beyond 90 m
+  (window modules become a backing quad + their window quads, heavy pieces
+  boxes: ~1/20 of the triangles), a box occluder (occlusion culling is on),
+  and on Medium / Low a shadows-only far proxy instead of full-detail shadows.
+  Module arrays are decoded once and merged with C++ array ops; the downtown
+  builds in ~0.35 s. Numbers: PROGRESS.md log and the experiment report.
 
 ---
 

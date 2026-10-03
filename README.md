@@ -382,7 +382,11 @@ godot --path . -- --trail=/tmp/shots    buggy + pickup drive the mountain trail 
 godot --path . -- --landmarks=/tmp/shots drive the tunnel, bridge, runway and a pier (+ views)
 godot --path . -- --night=/tmp/shots    sunset / night / cycle checks and screenshots
 godot --path . -- --scenery=/tmp/shots  fixed city/bridge views, day/sunset/night, Low/High, draw calls per view
-    add --views=a,b --quick --stress --profile --traffic-on to narrow or measure
+    add --views=a,b --quick --stress --profile --traffic-on to narrow or measure;
+    --views=dt_spawn,dt_corner,... = the downtown close-ups; --cams=px,py,pz,lx,ly,lz;... = extra views
+godot --path . -- --megakit=/tmp/shots  MegaKit downtown: colliders, far proxies, occluders, crash into a facade,
+                                        camera outside buildings, walking into a wall (pass/fail)
+    add --legacy-downtown to any run to build the old downtown (A/B), --megakit-city for every city block
 godot --path . -- --damage=/tmp/shots   crash into walls: parts off, lights/glass, pull, power, repair
     add --vehicle=<id> (sedan, van, box_truck, bus, pickup, buggy, monster_truck) to run a main-game test in another vehicle
 godot --path . -- --replay=/tmp/shots   pausing freezes the car, instant replay, crash cam (pass/fail)

@@ -161,6 +161,21 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 
 ---
 
+## Experiment — Downtown City MegaKit (branch `experiment/quaternius-downtown-city`, not merged)
+
+Owner's question: how good can the city look with a professional modular kit?
+Showcase: the five blocks along the avenue east of the City Center spawn
+(ART_BIBLE.md §0c). Waiting for the owner's verdict; don't merge into `dev`
+without it.
+
+- [x] Pipeline: kit download + SHA-256, texture arrays, module library with far proxies (`tools/megakit/`)
+- [x] One kit material: texture arrays, palettes, fake bevels, wear, interior-mapped windows, shop interiors
+- [x] Building grammar (6 styles), block layout with corners, alleys, car park backs, painted wall signs
+- [x] Signs, awnings, roof clutter, fire escapes, night shop glow
+- [x] Far LOD, occluders, shadow proxies on Medium/Low; `--megakit` test
+- [ ] Street dressing from the kit (tree pits, bollards, planters, road arrows, kerbside parking)
+- [ ] Owner verdict; if adopted: roll out to the other blocks (`megakit_whole_city`), Deck check
+
 ## Backlog
 
 ### Realism (owner approved 2026-10-03, released in v0.7.0)
@@ -305,3 +320,5 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - 2026-10-03 — v0.7.0: garage wheel customization + the realism look, released for the Steam Deck.
 - 2026-10-03 — On foot (dev, branch `player-character`): a walking character who gets in and out of any vehicle.
 - 2026-10-03 — v0.8.0: on foot (walk, get in and out of any vehicle) + High tuned for the Deck, Ultra for PCs; released.
+- 2026-10-03 — Downtown City MegaKit experiment (branch `experiment/quaternius-downtown-city`): the
+  downtown showcase blocks rebuilt from Quaternius' modular kit.
