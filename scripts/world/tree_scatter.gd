@@ -98,9 +98,10 @@ func _add(species: String, variant: int, p: Vector3, smin: float, smax: float, a
 	set.xforms.append(Transform3D(b, p))
 	set.variants.append(variant)
 	var autumn := 0.0
-	# a few autumn-tinted broadleaf trees (ART_BIBLE.md §5: accents <= 10%)
-	if species == "broadleaf" and _rng.randf() < (0.08 if autumn_ok else 0.05):
-		autumn = _rng.randf_range(0.3, 0.7)
+	# a few broadleaf trees out in the country turning a little (late summer:
+	# subtle, and none in town, where a yellow tree among green ones looks sick)
+	if species == "broadleaf" and autumn_ok and _rng.randf() < 0.03:
+		autumn = _rng.randf_range(0.12, 0.3)
 	if flowering:
 		autumn = 0.0
 	set.customs.append(Color(autumn, _rng.randf(), _rng.randf_range(0.2, 0.8), 1.0 if flowering else 0.0))
