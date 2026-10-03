@@ -125,6 +125,7 @@ static func material() -> ShaderMaterial:
 		_material.set_shader_parameter("cover_tex", load("res://assets/textures/megakit/megakit_covers.png"))
 		_material.set_shader_parameter("palette_tex", _palette_texture())
 		_material.set_shader_parameter("shops_atlas", load("res://assets/textures/building/facade_interiors_shops.jpg"))
+		_material.set_shader_parameter("signs_atlas", load("res://assets/textures/building/facade_signs.png"))
 	return _material
 
 
@@ -228,20 +229,23 @@ class Batch:
 	## A flat quad (corners counter-clockwise seen from the front) in one
 	## texture layer: plain walls, roofs, paving. `uv` per corner; COLOR.g
 	## per corner = clean (1) or grimy (0).
-	func add_quad(p: Array[Vector3], uv: Array[Vector2], layer: int, slot: int, clean: Array[float] = [1.0, 1.0, 1.0, 1.0]) -> void:
+	## `uv2` (optional, per corner) and `kind` / `extra` (CUSTOM0.b / .a) are
+	## for special quads such as painted wall signs (kind 2).
+	func add_quad(p: Array[Vector3], uv: Array[Vector2], layer: int, slot: int, clean: Array[float] = [1.0, 1.0, 1.0, 1.0],
+			uv2: Array[Vector2] = [], kind := 0, extra := 0) -> void:
 		var base := verts.size()
 		var n := (p[1] - p[0]).cross(p[2] - p[0]).normalized()
 		for i in 4:
 			verts.append(p[i])
 			normals.append(n)
 			uvs.append(uv[i])
-			uv2s.append(Vector2(0.5, 0.5))
+			uv2s.append(uv2[i] if uv2.size() == 4 else Vector2(0.5, 0.5))
 			colors.append(Color(1.0, clean[i], clean[i], 1.0))
-			custom.append_array(PackedByteArray([layer, slot, 0, 0]))
+			custom.append_array(PackedByteArray([layer, slot, kind, extra]))
 		indices.append_array(PackedInt32Array([base, base + 2, base + 1, base, base + 3, base + 2]))
 		tris += 2
 		if far != null:
-			far.add_quad(p, uv, layer, slot, clean)
+			far.add_quad(p, uv, layer, slot, clean, uv2, kind, extra)
 
 	## A box (all six faces) of `size` centred on `xf`, in one layer, every
 	## face on one flat spot `uv` of the texture (thin metalwork, frames).

@@ -408,6 +408,24 @@ func _plain_wall(o: Vector3, n: Vector3, s0: float, s1: float, y0: float, y1: fl
 		MegaKit.LAYER_TRIM, MegaKit.SLOT_TRIM)
 
 
+## A faded painted advertisement on side k's plain wall (a "ghost sign"):
+## from s0 to s1 metres along, y0 to y1 above the base, just proud of the
+## brick. megakit.gdshader kind 2 paints it over the wall's own brick with
+## lettering from the city's sign atlas (row `row`) in paint scheme `scheme`.
+func ghost_sign(fp: Rect2, base_y: float, k: int, s0: float, s1: float, y0: float, y1: float, row: int, scheme: int) -> void:
+	var o: Vector3 = _corners(fp, base_y)[k]
+	var n := _normal(k)
+	var xa := Vector3.UP.cross(n)
+	var off := n * 0.012
+	var p0 := o + xa * s0 + Vector3.UP * y0 + off
+	var p1 := o + xa * s1 + Vector3.UP * y0 + off
+	var up := Vector3.UP * (y1 - y0)
+	batch.add_quad([p0, p1, p1 + up, p0 + up],
+		[Vector2(s0 * 0.5, -y0 * 0.5), Vector2(s1 * 0.5, -y0 * 0.5), Vector2(s1 * 0.5, -y1 * 0.5), Vector2(s0 * 0.5, -y1 * 0.5)],
+		MegaKit.LAYER_BRICK, MegaKit.SLOT_BRICK, [1.0, 1.0, 1.0, 1.0],
+		[Vector2(0.0, 1.0), Vector2(1.0, 1.0), Vector2(1.0, 0.0), Vector2(0.0, 0.0)], 2, row + 16 * scheme)
+
+
 # ------------------------------------------------------------------- roof ---
 
 func _roof(fp: Rect2, base_y: float, front: Array[bool]) -> void:

@@ -24,6 +24,7 @@ const FAR_MARGIN := 8.0
 var parent: Node3D
 var body: StaticBody3D
 var _alleys: Array = []
+var _alleys_all: Array = []
 var rng := RandomNumberGenerator.new()
 ## Shop sign spots of every building (see DowntownBuilding.sign_spots).
 var sign_spots: Array = []
@@ -126,6 +127,7 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 			return Rect2(x0, a, dep, b - a), 3)
 
 	(info["alleys"] as Array).append_array(_alleys)
+	_alleys_all = _alleys.duplicate()
 	_alleys.clear()
 	# Shop signs (facade.gdshader's sign boards, lit at night) and the block's
 	# clutter (street_props.gdshader: awnings, sign cabinets, roof machinery
@@ -138,6 +140,9 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 	var open_inside := sides.has(false)
 	for p: Array in parcels:
 		footprints.append(p[0])
+	# Plan every building first (style, floors, height), so a taller building
+	# knows where its party walls show above its neighbours.
+	var plans: Array[Dictionary] = []
 	var last_style := ""
 	for p: Array in parcels:
 		var rect: Rect2 = p[0]
@@ -154,9 +159,22 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 			floors += rng.randi_range(0, 2)
 		if style == "mansard":
 			floors = maxi(floors - 1, 3)
+		var top := DowntownBuilding.height_of(floors) + (3.0 if DowntownBuilding.STYLES[style]["roof"] == "mansard" else 1.0)
+		plans.append({"rect": rect, "front": front, "back": back, "style": style, "floors": floors, "top": top})
+	for plan: Dictionary in plans:
+		plan["signs"] = _ghost_signs(plan, plans)
+
+	for plan: Dictionary in plans:
+		var rect: Rect2 = plan["rect"]
+		var front: Array[bool] = plan["front"]
+		var back: Array[bool] = plan["back"]
+		var style: String = plan["style"]
+		var floors: int = plan["floors"]
 		var batch := MegaKit.Batch.new(rng.randi(), true)
 		var b := DowntownBuilding.new(batch, rng)
 		b.build(rect, base_y, floors, front, style, back)
+		for g: Array in plan["signs"]:
+			b.ghost_sign(rect, base_y, g[0], g[1], g[2], g[3], g[4], g[5], g[6])
 		var pals: Array = DowntownBuilding.STYLES[style]["palettes"]
 		var palette: int = pals[rng.randi() % pals.size()]
 		var mesh := batch.build()
@@ -279,6 +297,52 @@ func _awning(mb: MeshBuilder, a: Vector3, b: Vector3, out: Vector3, y_top: float
 		var cc := Color(col, BuildingKit.FABRIC)
 		mb.add_tri(p, q, q + Vector3.DOWN * valance, cc)
 		mb.add_tri(p, q + Vector3.DOWN * valance, q, cc)
+
+
+## Painted wall signs for a planned building: on a plain side whose upper
+## part shows above a neighbour at least 6 m lower (or faces an alley), a
+## faded advertisement in the exposed band. Returns [side, s0, s1, y0, y1,
+## atlas row, paint scheme] entries for DowntownBuilding.ghost_sign.
+func _ghost_signs(plan: Dictionary, plans: Array[Dictionary]) -> Array:
+	var out := []
+	var rect: Rect2 = plan["rect"]
+	var top: float = plan["top"]
+	var wall_top := DowntownBuilding.height_of(plan["floors"])
+	for k in 4:
+		if plan["front"][k] or plan["back"][k]:
+			continue
+		var length := rect.size.x if k % 2 == 0 else rect.size.y
+		if length < 8.0:
+			continue
+		var probe := rect
+		match k:
+			0: probe = Rect2(rect.position.x + 0.5, rect.end.y + 0.1, rect.size.x - 1.0, 0.6)
+			1: probe = Rect2(rect.end.x + 0.1, rect.position.y + 0.5, 0.6, rect.size.y - 1.0)
+			2: probe = Rect2(rect.position.x + 0.5, rect.position.y - 0.7, rect.size.x - 1.0, 0.6)
+			3: probe = Rect2(rect.position.x - 0.7, rect.position.y + 0.5, 0.6, rect.size.y - 1.0)
+		var neighbour_top := -1.0
+		for other: Dictionary in plans:
+			if other != plan and (other["rect"] as Rect2).intersects(probe):
+				neighbour_top = maxf(neighbour_top, other["top"])
+		var y0 := neighbour_top + 1.5 if neighbour_top > 0.0 else 7.0
+		if neighbour_top < 0.0 and not _near_alley(probe):
+			continue  # courtyard side: nobody sees it
+		var y1 := wall_top - 1.2
+		if y1 - y0 < 4.0 or rng.randf() > 0.7:
+			continue
+		var h := minf(y1 - y0, rng.randf_range(4.0, 6.5))
+		var w := minf(length - 2.0, h * rng.randf_range(1.6, 2.4))
+		var s0 := (length - w) * rng.randf_range(0.3, 0.7)
+		var yb := y0 + (y1 - y0 - h) * rng.randf_range(0.2, 0.9)
+		out.append([k, s0, s0 + w, yb, yb + h, rng.randi_range(0, 15), rng.randi_range(0, 3)])
+	return out
+
+
+func _near_alley(probe: Rect2) -> bool:
+	for a: Rect2 in _alleys_all:
+		if a.grow(0.5).intersects(probe):
+			return true
+	return false
 
 
 ## Whether side k (S, E, N, W) of `rect` faces into the block rather than

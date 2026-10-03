@@ -16,7 +16,10 @@
 //   CUSTOM0   RGBA8 (texture layer, tint slot, kind, room variant) / 255.
 //             Layers: 0 brick, 1 trim stone, 2 metal + concrete, 3 ornaments,
 //             4 slate, 5 asphalt, 6 concrete, 7 soil. Slots: MegaKit.SLOT_*.
-//             Kind 0 solid, 1 fake interior window.
+//             Kind 0 solid, 1 fake interior window, 2 painted wall sign
+//             (a faded advertisement on a party wall: the brick of UV with
+//             paint over it; UV2 = sign coordinates 0..1, v down; CUSTOM0.a =
+//             sign atlas row + 16 * paint scheme).
 // Per instance: `palette` picks a row of palette_tex: per slot, RGB = the
 // colour that slot is recoloured to and A = how strongly (0 = the kit's own
 // colour). A building gets one palette (MegaKit.PALETTES).
@@ -49,6 +52,9 @@ uniform sampler2D palette_tex : source_color, filter_nearest, repeat_disable;
 // of 256 px, room * 5 + face (0 back, 1 left, 2 right, 3 floor, 4 ceiling).
 uniform sampler2D shops_atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform int shops_count = 12;
+// Lettering for painted wall signs: the city's shop sign atlas (16 rows of
+// 1024 x 128, A = lettering).
+uniform sampler2D signs_atlas : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 // Ground-floor windows below this world height show shops (sidewalk 0.15 m + 3 m).
 uniform float shop_top = 3.2;
 
@@ -68,6 +74,7 @@ instance uniform int palette = 0;
 varying flat int v_layer;
 varying flat int v_slot;
 varying flat int v_kind;
+varying flat int v_extra;
 varying vec3 v_world;
 varying vec3 v_wnormal;
 
@@ -82,6 +89,7 @@ void vertex() {
 	v_layer = int(CUSTOM0.r * 255.0 + 0.5);
 	v_slot = int(CUSTOM0.g * 255.0 + 0.5);
 	v_kind = int(CUSTOM0.b * 255.0 + 0.5);
+	v_extra = int(CUSTOM0.a * 255.0 + 0.5);
 	v_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_wnormal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
@@ -269,7 +277,7 @@ void fragment() {
 		vec3 n = tbn * nt;
 		float grime = 1.0 - COLOR.g;
 		float dist = length(VERTEX);
-		if (!low) {
+		if (!low && v_kind != 2) {
 			// Fake bevels: only where UV2 really spans the face (constant UV2
 			// interpolates with float noise, and a frame built from that noise
 			// points anywhere: TV-static speckle), and only up close.
@@ -290,6 +298,34 @@ void fragment() {
 			// A whisper of streaking on every wall, darker low down.
 			float wall = 1.0 - abs(v_wnormal.y);
 			grime = max(grime, wall * (1.0 - drip) * 0.18 * (1.0 - smoothstep(0.0, 14.0, v_world.y - 0.15)));
+		}
+		if (v_kind == 2) {
+			// Faded painted advertisement: a panel with a border and the
+			// lettering, worn away in streaks so the brick shows through.
+			int scheme = v_extra / 16;
+			float row = float(v_extra % 16);
+			vec3 bg = scheme == 0 ? vec3(0.42, 0.13, 0.1) : (scheme == 1 ? vec3(0.14, 0.27, 0.18)
+				: (scheme == 2 ? vec3(0.12, 0.17, 0.3) : vec3(0.1, 0.1, 0.1)));
+			vec3 ink = scheme == 2 ? vec3(0.85, 0.72, 0.35) : vec3(0.86, 0.82, 0.7);
+			// Sun-faded: pulled toward a chalky grey.
+			bg = srgb_to_linear(mix(bg, vec3(0.55, 0.53, 0.5), 0.3));
+			ink = srgb_to_linear(mix(ink, vec3(0.75, 0.73, 0.68), 0.25));
+			vec2 sc = UV2;
+			float border = 1.0 - band(sc.x, 0.03, 0.97) * band(sc.y, 0.06, 0.94);
+			float inner = band(sc.x, 0.05, 0.95) * band(sc.y, 0.1, 0.9) * (1.0 - band(sc.x, 0.06, 0.94) * band(sc.y, 0.12, 0.88));
+			float tv = (sc.y - 0.22) / 0.56;
+			float letters = 0.0;
+			if (tv > 0.0 && tv < 1.0) {
+				letters = textureGrad(signs_atlas, vec2(sc.x, (row + tv) / 16.0), d2uv1, d2uv2 / 16.0).a;
+			}
+			vec3 paint = mix(bg, ink, clamp(max(letters, max(border, inner) * 0.85), 0.0, 1.0));
+			vec2 wuv = vec2(v_world.x + v_world.z, v_world.y * 0.7) * 0.4;
+			float worn = texture(detail_tex, wuv * 0.6 + 0.37).b;
+			float cover = smoothstep(0.25, 0.65, worn) * 0.62;
+			vec3 lw = vec3(0.2126, 0.7152, 0.0722);
+			paint *= 0.7 + 0.6 * clamp(dot(base, lw) / max(dot(LAYER_AVG[0], lw), 1e-3), 0.0, 1.5) * 0.5;
+			base = mix(base, paint, cover);
+			rough = mix(rough, 0.8, cover);
 		}
 		base *= 1.0 - grime * grime_strength;
 		rough = mix(rough, min(rough + 0.15, 1.0), grime);
