@@ -132,7 +132,7 @@ void fragment() {
 		}
 		NORMAL = props_perturb(NORMAL, VERTEX, uv, nt);
 	}
-	if (quality == 2) {
+	if (quality >= 2) {
 		float macro = texture(detail, (world_pos.xz + world_pos.y * 0.7) * 0.37).g;
 		col *= 1.0 + (macro - 0.5) * 0.14;
 		rough = clamp(rough + (0.5 - macro) * 0.08, 0.04, 1.0);

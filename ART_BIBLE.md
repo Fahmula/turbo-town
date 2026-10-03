@@ -99,10 +99,18 @@ don't touch:
   (`facade_common.gdshaderinc`); trees with photo leaf clusters and bark,
   woodland on the hills, shrubs and hedges, a quadtree LOD (`tree_lod.gd`,
   `tree_scatter.gd`); street props and landmarks with PBR materials.
-- **Steam Deck:** not yet measured when released (the owner's son is testing
-  it). High does about twice the GPU work of 0.6.2 on the dev PC; Medium and
-  Low keep the old lighting and are the safety net. The package grew from
-  35 MB to about 125 MB.
+- **Steam Deck:** 0.7.0 ran High at about 30 fps with drops below 20 while
+  driving (the owner's son, on the Deck); Medium ran at 50+. Measured with
+  `--perfsweep` on the dev PC's Intel iGPU (about 1.6× slower than the Deck),
+  SDFGI cost the most, worst while moving (it re-voxelises as the camera
+  moves), then PCSS soft sun, SSIL, SSR and volumetric haze. So since 0.7.1
+  **High is tuned for the Deck** (SSAO at low quality, glow, the car's
+  reflection probe, all materials, grass and trees; ambient warmed by
+  `DayNight.WARM_BOUNCE` since nothing bounces light) and **Ultra** (new,
+  PC) adds SDFGI, SSIL, SSR, volumetric haze and soft sun shadows. On the
+  iGPU High went from 40–54 ms to 23–30 ms standing and from 57 ms average /
+  172 ms worst to 25 / 43 ms driving. Trees are the dearest remaining family
+  (up to ~10 ms there in the park). The package grew from 35 MB to 119 MB.
 
 ---
 

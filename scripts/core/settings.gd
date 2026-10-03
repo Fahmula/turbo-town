@@ -15,7 +15,7 @@ const PATH := "user://settings.cfg"
 const DEFAULTS := {
 	"units_mph": false,
 	"traffic_density": 1,  # 0 few, 1 normal, 2 busy
-	"graphics": 2,  # 0 low, 1 medium, 2 high
+	"graphics": 2,  # 0 low, 1 medium, 2 high (tuned for the Steam Deck), 3 ultra
 	"fullscreen": false,
 	"master_volume": 0.8,
 	"speakers": 0,  # speaker boost (AudioMix profile): 0 auto (on for a Steam Deck), 1 on, 2 off
@@ -32,7 +32,7 @@ const DEFAULTS := {
 
 const TRAFFIC_LABELS := ["Few", "Normal", "Busy"]
 const TRAFFIC_CARS := [10, 22, 30]
-const GRAPHICS_LABELS := ["Low", "Medium", "High"]
+const GRAPHICS_LABELS := ["Low", "Medium", "High", "Ultra"]
 const TIME_LABELS := ["Day", "Sunset", "Night", "Day & night"]
 const SPEAKER_LABELS := ["Auto", "On", "Off"]
 

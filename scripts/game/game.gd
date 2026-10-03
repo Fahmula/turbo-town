@@ -350,6 +350,7 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 			hud.minimap.visible = value
 		"graphics":
 			GraphicsQuality.apply(value, get_viewport(), world)
+			day_night.refresh()
 			get_tree().call_group("night_lights", "set_night", day_night.is_night)
 			_fit_reflection()
 		"time_of_day":

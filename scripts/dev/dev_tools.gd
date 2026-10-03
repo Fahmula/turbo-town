@@ -3,6 +3,8 @@ extends Node
 ##   --tour=<dir>     save screenshots from a set of viewpoints, then quit
 ##   --drive=<dir>    drive the player car with scripted input, snapping shots
 ##   --garage=<dir>   garage menu, customising, changing into every vehicle (checks and shots)
+##   --perfsweep=<dir> GPU cost of each High-only effect, Medium/Low, grass and trees, in heavy
+##                    views and while driving (run it on a weak GPU: --gpu-index 0 = the iGPU)
 ##   --wheels=<dir>   every rim, rim colour, tyre and tyre stripe in the garage's wheel view,
 ##                    plus custom wheels on a few vehicles and on the road (shots for review)
 ##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
@@ -103,6 +105,9 @@ func _ready() -> void:
 		elif arg.begins_with("--wheels="):
 			_mode = "wheels"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--perfsweep="):
+			_mode = "perfsweep"
+			_dir = arg.split("=")[1]
 		elif arg == "--bench":
 			_mode = "bench"
 			_dir = OS.get_user_data_dir()
@@ -175,6 +180,8 @@ func _run() -> void:
 		await _garage(game)
 	elif _mode == "wheels":
 		await _wheels(game)
+	elif _mode == "perfsweep":
+		await _perfsweep(game)
 	elif _mode == "menus":
 		await _menus(game)
 	elif _mode == "lanes":
@@ -2573,9 +2580,11 @@ func _scenery(game: Game) -> void:
 		times.clear()
 		for h in hours:
 			times.append("h%05.2f" % h)
-	for q in ([GraphicsQuality.HIGH] if quick else [GraphicsQuality.HIGH, GraphicsQuality.LOW]):
+	# --ultra: the "high" shots use Ultra (the full PC look) instead.
+	var top := GraphicsQuality.ULTRA if OS.get_cmdline_user_args().has("--ultra") else GraphicsQuality.HIGH
+	for q in ([top] if quick else [top, GraphicsQuality.LOW]):
 		Settings.set_value("graphics", q)
-		for t in (range(hours.size()) if not hours.is_empty() else (range(3) if q == GraphicsQuality.HIGH and not quick else [0])):
+		for t in (range(hours.size()) if not hours.is_empty() else (range(3) if q == top and not quick else [0])):
 			if hours.is_empty():
 				Settings.set_value("time_of_day", t)
 			else:
@@ -2603,10 +2612,10 @@ func _scenery(game: Game) -> void:
 					get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 					get_viewport().scaling_3d_scale = 2.0
 				await _wait(12)
-				var tag := "%s_%s_%s" % [view[0], times[t], "high" if q == GraphicsQuality.HIGH else "low"]
-				if OS.get_cmdline_user_args().has("--profile") and q == GraphicsQuality.HIGH and t == 0:
+				var tag := "%s_%s_%s" % [view[0], times[t], "high" if q == top else "low"]
+				if OS.get_cmdline_user_args().has("--profile") and q == top and t == 0:
 					await _profile_families(game, view[0])
-				if q == GraphicsQuality.HIGH and t == 0:
+				if q == top and t == 0:
 					var calls := 0
 					var objs := 0
 					var prims := 0
@@ -2638,6 +2647,132 @@ func _render_stats(frames: int) -> Array:
 		prims += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
 		gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp_rid)
 	return [calls / frames, prims / frames, gpu / frames]
+
+
+## Steam Deck tuning: GPU time in a few heavy views on High, with each
+## High-only effect turned off in turn, on Medium and Low, without grass or
+## trees; then along a 300 m drive (SDFGI re-voxelises as the camera moves,
+## so moving costs more than standing). Results go to stdout and perf.txt.
+## --views=a,b limits the views, --configs=a,b the settings tried.
+func _perfsweep(game: Game) -> void:
+	game.traffic.set_enabled(false)
+	game.hud.visible = false
+	var vp := get_viewport()
+	RenderingServer.viewport_set_measure_render_time(vp.get_viewport_rid(), true)
+	var world := game.world
+	var env := (world.get_node("WorldEnvironment") as WorldEnvironment).environment
+	var sun := world.get_node("Sun") as DirectionalLight3D
+	var grass: Array[Node] = world.find_children("*", "GrassField", true, false)
+	var trees := world.find_child("Trees", true, false) as Node3D
+	var hide := func(nodes: Array, on: bool) -> void:
+		for n in nodes:
+			if n is Node3D:
+				(n as Node3D).visible = not on
+	var configs := [
+		["high", func() -> void: pass],
+		["-sdfgi", func() -> void: env.sdfgi_enabled = false],
+		["-ssil", func() -> void: env.ssil_enabled = false],
+		["-ssr", func() -> void: env.ssr_enabled = false],
+		["-volfog", func() -> void: env.volumetric_fog_enabled = false],
+		["-ssao", func() -> void: env.ssao_enabled = false],
+		["-softsun", func() -> void: sun.light_angular_distance = 0.0],
+		["-glow", func() -> void: env.glow_enabled = false],
+		["-msaa", func() -> void: vp.msaa_3d = Viewport.MSAA_DISABLED],
+		["-grass", func() -> void: hide.call(grass, true)],
+		["-trees", func() -> void: hide.call([trees], true)],
+		["fsr80", func() -> void:
+			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+			vp.scaling_3d_scale = 0.8],
+		["-treeshadow", func() -> void:
+			for mmi in trees.find_children("*", "GeometryInstance3D", true, false):
+				(mmi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF],
+		["shadow2048", func() -> void: RenderingServer.directional_shadow_atlas_set_size(2048, true)],
+		["-shadows", func() -> void: sun.shadow_enabled = false],
+		["-probe", func() -> void:
+			var probe := game.vehicle.get_node_or_null("Reflection") as Node3D
+			if probe:
+				probe.visible = false],
+		["ultra", func() -> void: Settings.set_value("graphics", GraphicsQuality.ULTRA)],
+		["medium", func() -> void: Settings.set_value("graphics", GraphicsQuality.MEDIUM)],
+		["low", func() -> void: Settings.set_value("graphics", GraphicsQuality.LOW)],
+	]
+	var views := [
+		["downtown_street", Vector3(9.0, 2.4, 2.0), Vector3(42.0, 3.0, 2.0)],
+		["avenue_chase", Vector3(2.4, 2.4, -30.0), Vector3(2.4, 1.4, -62.0)],
+		["park", Vector3(38.0, 1.7, -77.0), Vector3(36.0, 3.0, -120.0)],
+		["aerial", Vector3(95.0, 70.0, 15.0), Vector3(-10.0, 0.0, -110.0)],
+		["hill_junction", Vector3(6.0, 3.5, -280.0), Vector3(25.0, 6.0, -322.0)],
+	]
+	var only_views: PackedStringArray = []
+	var only_configs: PackedStringArray = []
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--views="):
+			only_views = arg.split("=")[1].split(",")
+		if arg.begins_with("--configs="):
+			only_configs = arg.split("=")[1].split(",")
+	var reset := func() -> void:
+		Settings.set_value("graphics", GraphicsQuality.HIGH)
+		GraphicsQuality.apply(GraphicsQuality.HIGH, vp, world)
+		hide.call(grass, false)
+		hide.call([trees], false)
+		var probe := game.vehicle.get_node_or_null("Reflection") as Node3D
+		if probe:
+			probe.visible = true
+	var lines: PackedStringArray = []
+	var cam := game.camera
+	cam.set_process(false)
+	for view: Array in views:
+		if not only_views.is_empty() and not only_views.has(view[0]):
+			continue
+		cam.global_position = view[1]
+		cam.look_at(view[2], Vector3.UP)
+		var base := 0.0
+		for c: Array in configs:
+			if not only_configs.is_empty() and not only_configs.has(c[0]):
+				continue
+			reset.call()
+			(c[1] as Callable).call()
+			await _wait(45)  # SDFGI and the LOD settle
+			var st: Array = await _render_stats(45)
+			if c[0] == "high":
+				base = st[2]
+			var line := "PERF %-16s %-9s %6.2f ms  (%+6.2f vs high)  %4d calls %8d prims" % [view[0], c[0], st[2], st[2] - base, st[0], st[1]]
+			print(line)
+			lines.append(line)
+	# Driving: 300 m up the avenue and under the highway, 0.5 m a frame.
+	for c: Array in configs:
+		if not (c[0] in ["high", "-ssil", "-probe", "ultra", "medium"]):
+			continue
+		if not only_configs.is_empty() and not only_configs.has(c[0]):
+			continue
+		reset.call()
+		(c[1] as Callable).call()
+		cam.global_position = Vector3(2.4, 2.4, -20.0)
+		cam.look_at(Vector3(2.4, 1.6, -60.0), Vector3.UP)
+		# The player's car rides along 8 m ahead, so its reflection probe
+		# recaptures as it would in play.
+		var car := game.vehicle
+		car.freeze = true
+		car.global_transform = Transform3D(Basis.IDENTITY, Vector3(2.4, 0.6, -28.0))
+		await _wait(45)
+		var times: Array[float] = []
+		for k in 600:
+			cam.global_position.z -= 0.5
+			car.global_position.z -= 0.5
+			await RenderingServer.frame_post_draw
+			times.append(RenderingServer.viewport_get_measured_render_time_gpu(vp.get_viewport_rid()))
+		times.sort()
+		var avg := 0.0
+		for t in times:
+			avg += t
+		avg /= times.size()
+		var line := "PERF drive            %-9s avg %6.2f ms  p95 %6.2f ms  max %6.2f ms" % [c[0], avg, times[int(times.size() * 0.95)], times[times.size() - 1]]
+		print(line)
+		lines.append(line)
+	reset.call()
+	var f := FileAccess.open(_dir.path_join("perf.txt"), FileAccess.WRITE)
+	if f:
+		f.store_string("\n".join(lines) + "\n")
 
 
 ## Hides one family of meshes at a time and prints what it cost

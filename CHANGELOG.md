@@ -9,6 +9,12 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Fixed
+- High runs much faster on the Steam Deck (about 30 fps before, with drops
+  below 20 while driving; now close to 60). It keeps the new look: textures,
+  grass, trees, skies and car reflections. The heaviest lighting effects
+  moved to a new Ultra setting for PCs.
+
 ## [0.7.0] - 2026-10-03
 
 ### Garage

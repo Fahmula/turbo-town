@@ -137,7 +137,8 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - [x] Buildings: wall scans, recessed windows, interior-mapped rooms, shop signs, weathering, downpipes
 - [x] Trees: photo leaf clusters and bark, woodland on the hills, shrubs and hedges, quadtree LOD
 - [x] Street props, stunt park and landmarks rebuilt with real parts and PBR materials (one draw call per prop kept)
-- [ ] Measure on the Steam Deck (High is much heavier; Medium/Low keep the old cheap path); the owner's son is testing 0.7.0
+- [x] Steam Deck: 0.7.0's High ran ~30 fps (drops below 20 driving). Measured with `--perfsweep` on the iGPU; High retuned for
+      the Deck (no SDFGI/SSIL/SSR/haze/soft sun), new Ultra for PCs (v0.7.1). Next if needed: trees (up to ~10 ms in the park)
 - [ ] Far-tree impostors (distant forest reads dark), far-building banding at night
 - [x] Owner decision: keep it all; merged into `dev` and `main`, released as v0.7.0
 

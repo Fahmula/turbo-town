@@ -29,6 +29,9 @@ const KEYS := [
 ## Colour of the ground half of the sky (what car paint and glass reflect
 ## below the horizon): earthy, scaled by how bright the light is.
 const GROUND_BOUNCE := Color(0.38, 0.38, 0.35)
+## Sunlit ground bounced into the shade, mixed into the ambient when SDFGI is
+## off (High and below, GraphicsQuality).
+const WARM_BOUNCE := Color(0.95, 0.85, 0.72)
 ## Real skies (assets/textures/sky/sky_<name>.jpg, SkyCatalog) through the
 ## day: [hour, sky, median brightness (linear)]. Between two keys the skies
 ## crossfade; at a key the sun (or moon) is as high as in that photo, and the
@@ -129,7 +132,13 @@ func _apply() -> void:
 		_sky.set_shader_parameter("disc", 0.0)
 		_sky.set_shader_parameter("haze", Vector3(minf(horizon.r, 1.0), minf(horizon.g, 1.0), minf(horizon.b, 1.0)))
 	if _env:
-		_env.ambient_light_color = k[4]
+		var ambient: Color = k[4]
+		# Below Ultra there's no SDFGI to bounce the warm, sunlit ground into
+		# the shade, so mix some of that colour in (scaled by the sunlight), or
+		# shadows read cold next to Ultra.
+		if not _env.sdfgi_enabled:
+			ambient = ambient.lerp(WARM_BOUNCE, 0.35 * clampf(float(k[3]) / 1.4, 0.0, 1.0))
+		_env.ambient_light_color = ambient
 		_env.ambient_light_energy = k[5]
 		# Haze takes the colour of the sky at the horizon.
 		var fog := Color(minf(horizon.r, 1.0), minf(horizon.g, 1.0), minf(horizon.b, 1.0)).linear_to_srgb()
@@ -144,6 +153,12 @@ func _apply() -> void:
 		is_night = night
 		get_tree().call_group("night_lights", "set_night", night)
 		night_changed.emit(night)
+
+
+## Re-applies the current hour (after a graphics change: the ambient depends
+## on whether SDFGI is on).
+func refresh() -> void:
+	_apply()
 
 
 ## The two skies to show now: [sky a, sky b, mix 0-1, brightness a, brightness b].
