@@ -136,7 +136,7 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - [x] Terrain from material weights (grass, dry grass, dirt, rock, sand), 3D grass tufts, scanned boulders, new sea
 - [x] Buildings: wall scans, recessed windows, interior-mapped rooms, shop signs, weathering, downpipes
 - [x] Trees: photo leaf clusters and bark, woodland on the hills, shrubs and hedges, quadtree LOD
-- [~] Street props and landmarks with PBR materials
+- [x] Street props, stunt park and landmarks rebuilt with real parts and PBR materials (one draw call per prop kept)
 - [ ] Measure on the Steam Deck (High is much heavier; Medium/Low keep the old cheap path)
 - [ ] Far-tree impostors (distant forest reads dark), far-building banding at night
 - [ ] Owner decision: keep (merge into `dev`), keep parts, or drop

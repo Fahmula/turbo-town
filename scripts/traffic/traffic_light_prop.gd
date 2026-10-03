@@ -19,6 +19,8 @@ func _ready() -> void:
 	add_to_group("traffic_lights")
 	if model and kit_kind != "":
 		model.mesh = StreetKit.mesh(kit_kind)
+		# Dirt and road spray low on the pole, like the other street props.
+		model.set_instance_shader_parameter("grime", 1.0)
 	set_state(TrafficNetwork.SignalState.RED if intersection_id >= 0 else TrafficNetwork.SignalState.GREEN)
 
 
