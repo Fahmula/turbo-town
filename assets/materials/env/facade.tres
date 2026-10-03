@@ -1,9 +1,19 @@
 [gd_resource type="ShaderMaterial" format=3]
 
 [ext_resource type="Shader" path="res://assets/shaders/facade.gdshader" id="1_shader"]
-[ext_resource type="Texture2D" path="res://assets/textures/ground/ground_detail.png" id="2_detail"]
+[ext_resource type="CompressedTexture2DArray" path="res://assets/textures/building/facade_albedo.jpg" id="2_albedo"]
+[ext_resource type="CompressedTexture2DArray" path="res://assets/textures/building/facade_normal.png" id="3_normal"]
+[ext_resource type="CompressedTexture2DArray" path="res://assets/textures/building/facade_orm.png" id="4_orm"]
+[ext_resource type="Texture2D" path="res://assets/textures/building/facade_weather.png" id="5_weather"]
+[ext_resource type="Texture2D" path="res://assets/textures/building/facade_interiors_rooms.jpg" id="6_rooms"]
+[ext_resource type="Texture2D" path="res://assets/textures/building/facade_interiors_shops.jpg" id="7_shops"]
 
 [resource]
 render_priority = 0
 shader = ExtResource("1_shader")
-shader_parameter/detail = ExtResource("2_detail")
+shader_parameter/wall_albedo = ExtResource("2_albedo")
+shader_parameter/wall_normal = ExtResource("3_normal")
+shader_parameter/wall_orm = ExtResource("4_orm")
+shader_parameter/weather = ExtResource("5_weather")
+shader_parameter/rooms_atlas = ExtResource("6_rooms")
+shader_parameter/shops_atlas = ExtResource("7_shops")

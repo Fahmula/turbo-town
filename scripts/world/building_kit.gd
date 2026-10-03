@@ -13,6 +13,8 @@ extends RefCounted
 
 enum Style { STUCCO, LIMESTONE, BRICK, CURTAIN, RIBBON }
 const SHOPS := 8
+## Facade style of flat roofs (facade.gdshader: roof membrane and ballast).
+const ROOF_STYLE := 5
 const GROUND_FLOOR := 4.6
 const FLOOR := 3.4
 const BAY := [3.0, 3.2, 2.9, 3.0, 3.0]
@@ -96,7 +98,6 @@ func add_building(fp: Rect2, base_y: float, height: float, look: Dictionary) -> 
 ## above the building's base, which is what the facade shader's floors use.
 func _walls(fp: Rect2, base_y: float, v0: float, v1: float, col: Color, style: int, seed: float) -> void:
 	facade.set_uv2(Vector2(seed, style))
-	var c := Color(col, 1.0)
 	var corners := [Vector2(fp.position.x, fp.position.y), Vector2(fp.end.x, fp.position.y),
 		Vector2(fp.end.x, fp.end.y), Vector2(fp.position.x, fp.end.y)]
 	var target: float = BAY[style % 8]
@@ -108,6 +109,10 @@ func _walls(fp: Rect2, base_y: float, v0: float, v1: float, col: Color, style: i
 		# right seen from outside, i.e. from b to a.
 		var length := a.distance_to(b)
 		var bays := maxf(roundf(length / target), 1.0)
+		# COLOR.a carries the bay width for the shader (room and window sizes):
+		# 0.5 + 0.5 * (width - 2 m) / 4 m. Below 0.5 means plain surface.
+		var bay_w := length / bays
+		var c := Color(col, 0.5 + 0.5 * clampf((bay_w - 2.0) / 4.0, 0.0, 1.0))
 		var pa := Vector3(b.x, base_y + v0, b.y)
 		var pb := Vector3(a.x, base_y + v0, a.y)
 		var up := Vector3.UP * (v1 - v0)
@@ -153,6 +158,10 @@ func _parapet(fp: Rect2, y: float, h: float, col: Color) -> void:
 
 ## Roof membrane over `fp` at `y`, leaving out `hole` (where a tier stands).
 func _roof(fp: Rect2, y: float, hole: Rect2) -> void:
+	# Roof deck: facade style 5 (membrane and ballast in facade.gdshader), keeping
+	# the building's seed; the walls' UV2 comes back afterwards (tier trims follow).
+	var walls_uv2 := facade.uv2
+	facade.set_uv2(Vector2(walls_uv2.x, ROOF_STYLE))
 	var col := Color(ArtPalette.ROOF, 0.0)
 	var r := fp.grow(-0.29)
 	var yy := y + 0.02
@@ -164,6 +173,7 @@ func _roof(fp: Rect2, y: float, hole: Rect2) -> void:
 		_roof_quad(Rect2(hole.end.x, hole.position.y, r.end.x - hole.end.x, hole.size.y), yy, col)
 	else:
 		_roof_quad(r, yy, col)
+	facade.set_uv2(walls_uv2)
 
 
 func _roof_quad(r: Rect2, y: float, col: Color) -> void:
