@@ -29,11 +29,16 @@ const FAR_LEVEL := 2
 ## Tier 1 units are at most this level (160 m cells).
 const MID_LEVEL := 2
 const STRIDE := 16  # floats per instance: 12 transform + 4 custom data
+## Mid-detail units farther than this don't cast shadows.
+const SHADOW_MID_RANGE := 120.0
 
 var _groups: Array[Group] = []
 var _visible := {}
 var _last_cam := Vector3(1e9, 0.0, 0.0)
 var _since := 0.0
+## Scales the LOD distances: 0.7 on Low, 0.85 on Medium, 1 on High (see
+## GraphicsQuality; read from the global `quality` shader parameter).
+var _k := 1.0
 ## Stats of the last update, for the dev tools.
 var drawn := {"t0": 0, "t1": 0, "t2": 0}
 
@@ -124,6 +129,8 @@ func _process(delta: float) -> void:
 
 ## Re-chooses what is drawn for a camera at `cam`.
 func update(cam: Vector3) -> void:
+	var q: Variant = RenderingServer.global_shader_parameter_get("quality")
+	_k = [0.7, 0.85, 1.0][clampi(int(q) if q != null else 2, 0, 2)]
 	var want := {}
 	drawn = {"t0": 0, "t1": 0, "t2": 0}
 	for g in _groups:
@@ -158,26 +165,27 @@ func debug_summary() -> String:
 
 func _visit(g: Group, key: Vector3i, cell: Cell, cam: Vector3, want: Dictionary) -> void:
 	var dmin := _dist_min(cell, cam)
-	if dmin > g.cull:
+	if dmin > g.cull * _k:
 		return
+	var r0 := g.r0 * _k
+	var r1 := g.r1 * _k
 	var lvl := key.x
 	var size := LEAF * float(1 << lvl)
-	if lvl >= FAR_LEVEL and dmin >= g.r1:
+	if lvl >= FAR_LEVEL and dmin >= r1:
 		cell.last_tier = 2
-		_show(g, cell, key, 2, want)
+		_show(g, cell, key, 2, want, dmin)
 		return
 	if lvl == 0:
 		var c := Vector3((key.y + 0.5) * LEAF + ORIGIN, (cell.mn.y + cell.mx.y) * 0.5, (key.z + 0.5) * LEAF + ORIGIN)
 		var dc := Vector2(c.x - cam.x, c.z - cam.z).length()
-		var r0 := g.r0 * (1.15 if cell.last_tier == 0 else 1.0)
-		var tier := 0 if dc < r0 else 1
+		var tier := 0 if dc < r0 * (1.15 if cell.last_tier == 0 else 1.0) else 1
 		# beyond the cull distance of the whole cell's near corner, the blob is enough
 		cell.last_tier = tier
-		_show(g, cell, key, tier, want)
+		_show(g, cell, key, tier, want, dmin)
 		return
-	if lvl <= MID_LEVEL and dmin >= g.r0 * 1.15 and _dist_max(cell, cam) <= g.r1 * 1.6:
+	if lvl <= MID_LEVEL and dmin >= r0 * 1.15 and _dist_max(cell, cam) <= r1 * 1.6:
 		cell.last_tier = 1
-		_show(g, cell, key, 1, want)
+		_show(g, cell, key, 1, want, dmin)
 		return
 	for dz in 2:
 		for dx in 2:
@@ -197,18 +205,27 @@ func _dist_max(cell: Cell, p: Vector3) -> float:
 	return d.length()
 
 
-func _show(g: Group, cell: Cell, key: Vector3i, tier: int, want: Dictionary) -> void:
+func _show(g: Group, cell: Cell, key: Vector3i, tier: int, want: Dictionary, dmin: float) -> void:
 	drawn["t%d" % tier] += 1
 	if tier >= 1:
 		# mid and far detail share one mesh per species
 		var m1 := _mmi(g, cell, key, tier, 0)
 		if m1:
 			want[m1] = true
+			_set_shadows(m1, tier == 1 and dmin < SHADOW_MID_RANGE * _k)
 		return
 	for vi in g.variants.size():
 		var m := _mmi(g, cell, key, tier, vi)
 		if m:
 			want[m] = true
+
+
+## Mid-detail trees cast shadows only while the unit is near (the far
+## cascades' resolution can't show them, and they cost as much as lit trees).
+func _set_shadows(m: MultiMeshInstance3D, on: bool) -> void:
+	var mode := GeometryInstance3D.SHADOW_CASTING_SETTING_ON if on else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if m.cast_shadow != mode:
+		m.cast_shadow = mode
 
 
 ## The MultiMeshInstance3D of a cell at a tier (variant `vi` for tiers 0 and 1),

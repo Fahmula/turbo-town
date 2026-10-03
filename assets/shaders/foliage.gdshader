@@ -85,7 +85,7 @@ void fragment() {
 		AO = ao;
 		AO_LIGHT_AFFECT = 0.6;
 		ROUGHNESS = 0.7;
-		SPECULAR = 0.3;
+		SPECULAR = 0.12;
 		BACKLIGHT = col * COLOR.b * translucency;
 	} else if (kind > 0.25) {
 		ALPHA = 1.0;
@@ -96,7 +96,7 @@ void fragment() {
 		AO = ao;
 		AO_LIGHT_AFFECT = 0.6;
 		ROUGHNESS = 0.9;
-		SPECULAR = 0.25;
+		SPECULAR = 0.1;
 		BACKLIGHT = ALBEDO * 0.2 * translucency;
 	} else {
 		ALPHA = 1.0;
@@ -105,7 +105,7 @@ void fragment() {
 		AO = ao;
 		AO_LIGHT_AFFECT = 0.5;
 		ROUGHNESS = 0.92;
-		SPECULAR = 0.2;
+		SPECULAR = 0.1;
 		if (quality > 0) {
 			NORMAL_MAP = texture(bark_normal, UV).rgb;
 			NORMAL_MAP_DEPTH = 1.0;

@@ -389,13 +389,30 @@ BARKS = {
 }
 
 
+BARK_AUTHORS = {"bark_platanus": ("Bark Platanus", "Dimitrios Savva"), "bark_brown_02": ("Bark Brown 02", "Rob Tuytel"),
+                "chinese_cedar_bark": ("Chinese Cedar Bark", "Charlotte Baglioni"),
+                "palm_tree_bark": ("Palm Tree Bark", "Dimitrios Savva, Rico Cilliers")}
+
+
+def register_credits():
+    """Everything this script uses, for SOURCES.md (whatever subset runs)."""
+    for title, aid, use in [
+            ("Leaf Set 024, Leaf Set 014", "LeafSet024", "broadleaf_a: beech / hornbeam-type leaf-cluster atlas"),
+            ("Leaf Set 016", "LeafSet016", "broadleaf_b: oak-type leaf-cluster atlas"),
+            ("Leaf Set 004, Leaf Set 023", "LeafSet004", "broadleaf_c: heart-shaped leaves (lilac / linden type) leaf-cluster atlas"),
+            ("Leaf Set 002", "LeafSet002", "shrub and hedge leaf-cluster atlas (box-type sprigs)"),
+            ("Leaf Set 019", "LeafSet019", "conifer branch-spray atlas"),
+            ("Foliage 008", "Foliage008", "palm frond atlas (blades as leaflets)")]:
+        credit(FAMILY, title, "ambientCG", "https://ambientcg.com/a/" + aid, use=use)
+    for kind, (asset, use) in BARKS.items():
+        title, author = BARK_AUTHORS[asset]
+        credit(FAMILY, title, author, "https://polyhaven.com/a/" + asset, use=use)
+
+
 def build_bark(kind, asset, use):
     src = polyhaven(asset, "1k", maps=("Diffuse", "nor_gl"))
     save_color(src["diff"], out(FAMILY, "foliage_bark_%s_albedo.jpg" % kind), 1024, quality=88)
     save_normal(src["nor_gl"], out(FAMILY, "foliage_bark_%s_normal.png" % kind), 512)
-    info = polyhaven_info(asset)
-    authors = ", ".join(info.get("authors", {}).keys()) or "Poly Haven"
-    credit(FAMILY, info.get("name", asset), authors, "https://polyhaven.com/a/" + asset, use=use)
 
 
 def patch_imports():
@@ -428,40 +445,32 @@ def main(which):
     # Godot must not scan the download cache (build/ is gitignored).
     os.makedirs(os.path.join(ROOT, "build"), exist_ok=True)
     open(os.path.join(ROOT, "build", ".gdignore"), "a").close()
+    register_credits()
     todo = which or ["broadleaf_a", "broadleaf_b", "broadleaf_c", "shrub", "conifer", "palm", "bark"]
     if "broadleaf_a" in todo:
         print("broadleaf_a")
         a = build_round([("LeafSet024", {}), ("LeafSet014", {})], 11, grade=(0.74, 0.8, 0.68), sat=0.9)
         bleed_and_save(a, out(FAMILY, "foliage_leaves_broadleaf_a.png"))
-        credit(FAMILY, "Leaf Set 024, Leaf Set 014", "ambientCG", "https://ambientcg.com/a/LeafSet024",
-               use="broadleaf (street/park tree) leaf-cluster atlas")
     if "broadleaf_b" in todo:
         print("broadleaf_b")
         a = build_round([("LeafSet016", {})], 12, grade=(0.72, 0.78, 0.6), sat=0.9, leaf_len=(0.095, 0.13), n_leaves=(90, 120))
         bleed_and_save(a, out(FAMILY, "foliage_leaves_broadleaf_b.png"))
-        credit(FAMILY, "Leaf Set 016", "ambientCG", "https://ambientcg.com/a/LeafSet016",
-               use="broadleaf (oak type) leaf-cluster atlas")
     if "broadleaf_c" in todo:
         print("broadleaf_c")
         a = build_round([("LeafSet004", {}), ("LeafSet023", {"rot": 90})], 16, grade=(0.7, 0.8, 0.66), sat=0.9,
                         leaf_len=(0.1, 0.14), n_leaves=(80, 110))
         bleed_and_save(a, out(FAMILY, "foliage_leaves_broadleaf_c.png"))
-        credit(FAMILY, "Leaf Set 004, Leaf Set 023", "ambientCG", "https://ambientcg.com/a/LeafSet004",
-               use="broadleaf (heart-shaped leaves, lilac / linden type) leaf-cluster atlas")
     if "shrub" in todo:
         print("shrub")
         a = build_round([("LeafSet002", {})], 13, grade=(0.72, 0.8, 0.64), sat=0.9,
                         leaf_len=(0.15, 0.22), n_leaves=(45, 65), fan=(15, 55), n_side=(5, 7))
         bleed_and_save(a, out(FAMILY, "foliage_leaves_shrub.png"))
-        credit(FAMILY, "Leaf Set 002", "ambientCG", "https://ambientcg.com/a/LeafSet002",
-               use="shrub and hedge leaf-cluster atlas (box-type sprigs)")
     if "conifer" in todo:
         print("conifer")
         rng = random.Random(14)
         sprays = load_leaves("LeafSet019", rot=90)
-        tiles = [make_conifer_branch(sprays, rng, grade=(0.62, 0.74, 0.6), sat=0.9) for _ in range(8)]
+        tiles = [make_conifer_branch(sprays, rng, grade=(0.82, 0.97, 0.8), sat=0.9) for _ in range(8)]
         bleed_and_save(atlas(tiles, 2, 1024, 512), out(FAMILY, "foliage_leaves_conifer.png"))
-        credit(FAMILY, "Leaf Set 019", "ambientCG", "https://ambientcg.com/a/LeafSet019", use="conifer branch-spray atlas")
     if "palm" in todo:
         print("palm")
         rng = random.Random(15)
@@ -469,7 +478,6 @@ def main(which):
         tiles = [make_palm_frond(blades, rng, grade=(0.8, 0.9, 0.62), sat=0.95),
                  make_palm_frond(blades, rng, n_pairs=64, angle=(56, 74), width=(2.0, 2.8), reach=0.4, grade=(0.78, 0.86, 0.6), sat=0.95)]
         bleed_and_save(atlas(tiles, 1, 2048, 1024), out(FAMILY, "foliage_leaves_palm.png"))
-        credit(FAMILY, "Foliage 008", "ambientCG", "https://ambientcg.com/a/Foliage008", use="palm frond atlas (blades as leaflets)")
     if "bark" in todo:
         print("bark")
         for kind, (asset, use) in BARKS.items():

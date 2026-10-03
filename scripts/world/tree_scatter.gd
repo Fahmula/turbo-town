@@ -53,6 +53,8 @@ func build(root: Node3D, city_tree_spots: Array[Vector3]) -> void:
 		var variant := _pick(_rng.randf(), [0.4, 0.25, 0.35])
 		_add("broadleaf", variant, p, 0.85, 1.15, false)
 	_scatter()
+	_tree_lines()
+	_islet()
 	_add_park_greens(city_tree_spots)
 	var lod := TreeLod.new()
 	lod.name = "Trees"
@@ -116,8 +118,8 @@ func _scatter() -> void:
 			var pat := _woods.get_noise_2d(x, z) * 0.5 + 0.5
 			var mountain := smoothstep(-300.0, -400.0, z)
 			pat += mountain * 0.2
-			var forest := smoothstep(0.46, 0.64, pat)
-			var chance := 0.02 + forest * 0.7
+			var forest := smoothstep(0.4, 0.56, pat)
+			var chance := 0.02 + forest * 0.85
 			var edge := smoothstep(0.34, 0.46, pat) * (1.0 - forest)
 			if _rng.randf() > chance + edge * 0.1:
 				continue
@@ -161,6 +163,67 @@ func _scatter() -> void:
 				q.y = _h(q.x, q.z) - 0.05
 				if not _blocked(q.x, q.z) and not _near_road(q.x, q.z) and q.y > 1.4:
 					_add("shrub", 0, q, 1.0, 1.9, false, false)
+
+
+## Rows of trees along the edges of the cleared areas (dirt fields, stunt park,
+## airfield), like windbreaks and field hedgerows.
+func _tree_lines() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var pm := MapLayout.PARK_MIN
+	var px := MapLayout.PARK_MAX
+	# [start, end] of each row, just outside the cleared rectangles
+	var rows := [
+		[Vector2(322, -213), Vector2(322, 213)],       # dirt fields, west edge
+		[Vector2(332, -222), Vector2(555, -222)],      # dirt fields, north edge
+		[Vector2(240, 214), Vector2(240, 346)],        # airfield, west edge
+		[Vector2(245, 352), Vector2(565, 352)],        # airfield, south edge
+		[Vector2(pm.x - 20, pm.y - 22), Vector2(px.x + 20, pm.y - 22)],  # stunt park, north edge
+		[Vector2(pm.x - 22, pm.y - 18), Vector2(pm.x - 22, px.y + 20)],  # stunt park, west edge
+		[Vector2(px.x + 22, pm.y - 18), Vector2(px.x + 22, px.y + 20)],  # stunt park, east edge
+	]
+	for r: Array in rows:
+		var a: Vector2 = r[0]
+		var b: Vector2 = r[1]
+		var len := a.distance_to(b)
+		var d := rng.randf_range(0.0, 8.0)
+		while d < len:
+			var q := a.lerp(b, d / len) + Vector2(rng.randf_range(-1.8, 1.8), rng.randf_range(-1.8, 1.8))
+			d += rng.randf_range(7.0, 11.5)
+			if rng.randf() < 0.12:
+				continue
+			if _blocked(q.x, q.y) or absf(q.x) > 620.0 or absf(q.y) > 620.0:
+				continue
+			var h := _h(q.x, q.y)
+			if h < 1.4 or _near_road(q.x, q.y) or _slope(q.x, q.y) > 0.5:
+				continue
+			var p := Vector3(q.x, h - 0.1, q.y)
+			if rng.randf() < 0.22:
+				_add("conifer", _pick(rng.randf(), [0.6, 0.4]), p, 0.8, 1.15, false)
+			else:
+				_add("broadleaf", _pick(rng.randf(), [0.45, 0.1, 0.45]), p, 0.85, 1.2, true)
+
+
+## Palms and scrub round the lighthouse on its islet.
+func _islet() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 31
+	var c := MapLayout.ISLET_CENTER
+	for k in 9:
+		var ang := TAU * k / 9.0 + rng.randf_range(-0.3, 0.3)
+		var dist := rng.randf_range(18.0, 25.0)
+		var x := c.x + cos(ang) * dist
+		var z := c.y + sin(ang) * dist
+		if absf(z) < 8.0 and x > c.x:  # the bridge side
+			continue
+		var h := _h(x, z)
+		if h < 1.3 or _blocked(x, z):
+			continue
+		var p := Vector3(x, h - 0.1, z)
+		if k % 3 == 2:
+			_add("shrub", 0, p, 1.0, 1.6, false, false)
+		else:
+			_add("palm", 0, p, 0.8, 1.1, false)
 
 
 func _h(x: float, z: float) -> float:

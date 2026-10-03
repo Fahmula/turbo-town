@@ -28,11 +28,11 @@ const BARK_TANGENT_W := 1.0
 
 ## Per species: variants, LOD switch distances (m) and when to stop drawing.
 const SPECIES := {
-	"broadleaf": {"variants": ["broadleaf_a", "broadleaf_b", "broadleaf_c"], "r0": 70.0, "r1": 250.0, "cull": 3000.0,
+	"broadleaf": {"variants": ["broadleaf_a", "broadleaf_b", "broadleaf_c"], "r0": 70.0, "r1": 190.0, "cull": 3000.0,
 		"trunk_r": 0.27, "trunk_h": 4.0},
-	"conifer": {"variants": ["conifer_a", "conifer_b"], "r0": 55.0, "r1": 260.0, "cull": 3000.0,
+	"conifer": {"variants": ["conifer_a", "conifer_b"], "r0": 55.0, "r1": 190.0, "cull": 3000.0,
 		"trunk_r": 0.25, "trunk_h": 5.0},
-	"palm": {"variants": ["palm"], "r0": 60.0, "r1": 220.0, "cull": 3000.0, "trunk_r": 0.2, "trunk_h": 5.0},
+	"palm": {"variants": ["palm"], "r0": 60.0, "r1": 170.0, "cull": 3000.0, "trunk_r": 0.2, "trunk_h": 5.0},
 	"shrub": {"variants": ["shrub"], "r0": 40.0, "r1": 110.0, "cull": 160.0, "trunk_r": 0.0, "trunk_h": 0.0},
 	"hedge": {"variants": ["hedge"], "r0": 45.0, "r1": 120.0, "cull": 170.0, "trunk_r": 0.0, "trunk_h": 0.0},
 }
@@ -40,14 +40,14 @@ const SPECIES := {
 ## Per variant: the build recipe.
 const VARIANTS := {
 	"broadleaf_a": {"seed": 11, "height": 9.2, "trunk_h": 2.8, "radius": 3.9, "trunk_r": 0.28, "limbs": 4,
-		"cards": 340, "size": Vector2(1.15, 1.6), "mat": "foliage_broadleaf", "wind_h": 9.0},
+		"cards": 380, "size": Vector2(1.4, 2.0), "mat": "foliage_broadleaf", "wind_h": 9.0},
 	"broadleaf_b": {"seed": 23, "height": 8.6, "trunk_h": 2.3, "radius": 4.8, "trunk_r": 0.36, "limbs": 5,
-		"cards": 330, "size": Vector2(1.2, 1.7), "mat": "foliage_broadleaf_b", "wind_h": 9.0},
+		"cards": 380, "size": Vector2(1.5, 2.1), "mat": "foliage_broadleaf_b", "wind_h": 9.0},
 	"broadleaf_c": {"seed": 37, "height": 10.5, "trunk_h": 3.4, "radius": 3.0, "trunk_r": 0.25, "limbs": 4,
-		"cards": 300, "size": Vector2(1.1, 1.55), "mat": "foliage_broadleaf_c", "wind_h": 10.0},
-	"conifer_a": {"seed": 7, "height": 12.0, "base_h": 1.6, "radius": 2.7, "step": 0.62, "n_low": 6.0, "n_high": 4.0,
-		"elev_low": -14.0, "elev_high": 24.0, "taper": 0.85, "mat": "foliage_conifer", "wind_h": 13.0},
-	"conifer_b": {"seed": 19, "height": 15.0, "base_h": 2.2, "radius": 1.85, "step": 0.55, "n_low": 5.0, "n_high": 4.0,
+		"cards": 340, "size": Vector2(1.35, 1.9), "mat": "foliage_broadleaf_c", "wind_h": 10.0},
+	"conifer_a": {"seed": 7, "height": 12.0, "base_h": 1.6, "radius": 2.7, "step": 0.5, "n_low": 7.0, "n_high": 4.0,
+		"elev_low": -10.0, "elev_high": 26.0, "taper": 0.85, "mat": "foliage_conifer", "wind_h": 13.0},
+	"conifer_b": {"seed": 19, "height": 15.0, "base_h": 2.2, "radius": 1.85, "step": 0.46, "n_low": 6.0, "n_high": 4.0,
 		"elev_low": -4.0, "elev_high": 32.0, "taper": 0.7, "mat": "foliage_conifer", "wind_h": 15.0},
 	"palm": {"seed": 5, "height": 9.5, "lean": 1.4, "fronds": 16, "mat": "foliage_palm", "wind_h": 10.0},
 	"shrub": {"seed": 3, "radius": 0.75, "height": 1.15, "cards": 40, "size": Vector2(0.55, 0.85), "mat": "foliage_shrub", "wind_h": 2.0},
@@ -395,15 +395,27 @@ static func _broadleaf(tb: TB, v: Dictionary, lod: int) -> void:
 ## looks outward-ish.
 static func _leaf_card(tb: TB, rng: RandomNumberGenerator, p: Vector3, crown: Crown, size: Vector2, grid: Vector2i,
 		blend_scale: float) -> void:
-	# Cards lie on the crown's surface like shingles, seen face-on from outside:
-	# the face looks outward, the tile's "up" runs along the surface (mostly
-	# upwards, leaves hang from their twig) and tips out a little.
-	var nc := (crown.normal(p) + _rand_unit(rng) * 0.5).normalized()
-	var tang := Vector3.UP - nc * nc.dot(Vector3.UP)
-	if tang.length() < 0.25:
-		tang = nc.cross(_rand_unit(rng))
-	tang = tang.normalized().rotated(nc, rng.randf_range(-1.1, 1.1))
-	var up := (tang + nc * 0.3).normalized()
+	# Half of the cards lie on the crown's surface like shingles, seen face-on
+	# from outside (the face looks outward, the tile's "up" runs along the
+	# surface, mostly upwards, tipped out a little); the other half stand
+	# radially (their twig grows outward), which fills the volume when seen from
+	# the side.
+	var nc: Vector3
+	var up: Vector3
+	var out := crown.normal(p)
+	if rng.randf() < 0.5:
+		nc = (out + _rand_unit(rng) * 0.5).normalized()
+		var tang := Vector3.UP - nc * nc.dot(Vector3.UP)
+		if tang.length() < 0.25:
+			tang = nc.cross(_rand_unit(rng))
+		tang = tang.normalized().rotated(nc, rng.randf_range(-1.1, 1.1))
+		up = (tang + nc * 0.3).normalized()
+	else:
+		up = (out * 0.75 + Vector3.UP * 0.35 + _rand_unit(rng) * 0.45).normalized()
+		nc = _rand_unit(rng)
+		nc = (nc - up * nc.dot(up)).normalized()
+		if nc.dot(out) < -0.1:
+			nc = -nc
 	var side := up.cross(nc).normalized()
 	var w := lerpf(size.x, size.y, rng.randf())
 	var tile := Vector2i(rng.randi() % grid.x, rng.randi() % grid.y)
@@ -442,7 +454,11 @@ static func _conifer(tb: TB, v: Dictionary, lod: int) -> void:
 		rad.append(lerpf(0.27, 0.025, pow(t, 0.7)) + 0.09 * exp(-trunk[i].y * 2.0))
 	tb.tube(trunk, rad, 8 if detail else 4, 2, 0.8, 0.8, 0.7, 0.0, 0.05)
 	# A dark cone inside, so the tree reads solid.
-	_cone_core(tb, base_h + 0.4, H - 0.8, Rm * 0.34, 9 if detail else 6, 6 if detail else 3)
+	if detail:
+		_cone_core(tb, base_h + 0.4, H - 0.8, Rm * 0.2, 9, 6, 0.35, 0.7)
+	else:
+		# mid detail: the cone carries the silhouette, a few big sprays break it up
+		_cone_core(tb, base_h * 0.6, H - 0.3, Rm * 0.62, 6, 3, 0.6, 0.95)
 	var grid := Vector2i(2, 4)
 	var y := base_h
 	var whorl := 0
@@ -475,15 +491,17 @@ static func _trunk_at(trunk: PackedVector3Array, y: float) -> Vector3:
 	return _at_height(trunk, y)
 
 
-## A conifer branch: a strip along the branch (stem down the middle, two
-## wings that droop either side), the tile's stem running base to tip.
+## A conifer branch: a strip along the branch with the stem along its ridge
+## and two wings hanging steeply either side (a tent), so it shows area from
+## the side as well as from above. The tile's stem runs base to tip.
 static func _spray(tb: TB, rng: RandomNumberGenerator, root: Vector3, az: float, L: float, elev: float, t: float,
 		tile: Vector2i, grid: Vector2i, detail: bool, H: float, Rm: float) -> void:
 	var dirh := Vector3(cos(az), 0.0, sin(az))
 	var across := Vector3(-dirh.z, 0.0, dirh.x)
-	var segs := 3 if detail else 1
-	var W := L * 0.8
-	var droop := L * (0.18 + 0.1 * (1.0 - t)) if elev < 0.3 else L * 0.05
+	var segs := 2 if detail else 1
+	var W := L * (0.62 if detail else 0.95)
+	var roll := deg_to_rad(rng.randf_range(42.0, 58.0))
+	var droop := L * (0.2 + 0.1 * (1.0 - t)) if elev < 0.3 else L * 0.06
 	var ids: Array[int] = []
 	var u0 := float(tile.x) / grid.x + 0.002
 	var u1 := float(tile.x + 1) / grid.x - 0.002
@@ -491,28 +509,28 @@ static func _spray(tb: TB, rng: RandomNumberGenerator, root: Vector3, az: float,
 	var vb := float(tile.y + 1) / grid.y - 0.002
 	var vm := (vt + vb) * 0.5
 	var phase := rng.randf()
-	var n_up := Vector3.UP
 	for i in segs + 1:
 		var f := float(i) / segs
 		var p := root + dirh * (L * f * cos(elev)) + Vector3.UP * (L * f * sin(elev) - droop * f * f)
-		var wing := W * 0.5 * lerpf(0.55, 1.0, sin(f * PI * 0.9 + 0.2))
-		var edge_drop := wing * 0.3
+		var wing := W * 0.5 * lerpf(0.6, 1.0, sin(f * PI * 0.9 + 0.2))
 		for col in 3:
 			var q := p
 			var vv := vm
+			var side := 0.0
 			if col == 0:
-				q = p - across * wing - Vector3.UP * edge_drop
+				side = -1.0
 				vv = vt
 			elif col == 2:
-				q = p + across * wing - Vector3.UP * edge_drop
+				side = 1.0
 				vv = vb
+			q = p + across * (side * wing * cos(roll)) - Vector3.UP * (absf(side) * wing * sin(roll))
 			var out := Vector3(q.x, 0.0, q.z)
 			var rn := out.normalized() if out.length() > 0.05 else dirh
 			# lighting normal: up and outward, so the crown's top is lit and its underside shaded
-			var nrm := (Vector3.UP * 0.8 + rn * 0.55).normalized()
+			var nrm := (Vector3.UP * 0.75 + rn * 0.45 + across * (side * 0.3)).normalized()
 			var radial := clampf(out.length() / maxf(Rm, 0.1), 0.0, 1.0)
-			var ao := lerpf(0.45, 1.0, smoothstep(0.0, 0.9, radial)) * lerpf(0.78, 1.0, clampf(q.y / (H * 0.8), 0.0, 1.0))
-			ids.append(tb.vert(q, nrm, Color(ao, 0.5, clampf(0.2 + f * 0.5, 0.0, 1.0), TreeKit.CARD),
+			var ao := lerpf(0.55, 1.0, smoothstep(0.0, 0.9, radial)) * lerpf(0.8, 1.0, clampf(q.y / (H * 0.8), 0.0, 1.0))
+			ids.append(tb.vert(q, nrm, Color(ao, 0.5, clampf(0.25 + f * 0.5, 0.0, 1.0), TreeKit.CARD),
 				Vector2(lerpf(u0, u1, f), vv), Vector2(phase, 0.3 + 0.7 * f)))
 	for i in segs:
 		for col in 2:
@@ -520,11 +538,11 @@ static func _spray(tb: TB, rng: RandomNumberGenerator, root: Vector3, az: float,
 			var b := ids[i * 3 + col + 1]
 			var c2 := ids[(i + 1) * 3 + col + 1]
 			var d := ids[(i + 1) * 3 + col]
-			tb.quad_n(a, b, c2, d, n_up)
+			tb.quad_n(a, b, c2, d, Vector3.UP + across * (float(col) * 2.0 - 1.0) * 0.6)
 
 
 ## A dark cone of foliage inside the tree.
-static func _cone_core(tb: TB, y0: float, y1: float, r0: float, sides: int, rings: int) -> void:
+static func _cone_core(tb: TB, y0: float, y1: float, r0: float, sides: int, rings: int, shade0: float, shade1: float) -> void:
 	var base := tb.verts.size()
 	for ri in rings + 1:
 		var t := float(ri) / rings
@@ -533,7 +551,7 @@ static func _cone_core(tb: TB, y0: float, y1: float, r0: float, sides: int, ring
 		for si in sides + 1:
 			var a := TAU * si / sides
 			var d := Vector3(cos(a), 0.0, sin(a))
-			tb.vert(Vector3(d.x * r, y, d.z * r), (d + Vector3.UP * 0.5).normalized(), Color(lerpf(0.35, 0.7, t), 0.5, 0.5, TreeKit.BLOB),
+			tb.vert(Vector3(d.x * r, y, d.z * r), (d + Vector3.UP * 0.5).normalized(), Color(lerpf(shade0, shade1, t), 0.5, 0.5, TreeKit.BLOB),
 				Vector2.ZERO, Vector2(0.0, 0.2))
 	for ri in rings:
 		for si in sides:
