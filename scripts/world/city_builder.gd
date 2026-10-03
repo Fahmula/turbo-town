@@ -300,12 +300,18 @@ func _add_kerbed_slab(mb: MeshBuilder, x0: float, z0: float, x1: float, z1: floa
 	for k in 4:
 		var k1 := (k + 1) % 4
 		var along_x := k % 2 == 0
+		# Each vertex gets its own metre along the kerb, so the stone joints
+		# (1.2 m) run straight across the slope and the flat band.
 		var u0: float = outer[k].x if along_x else outer[k].z
 		var u1: float = outer[k1].x if along_x else outer[k1].z
+		var s0: float = slope_top[k].x if along_x else slope_top[k].z
+		var s1: float = slope_top[k1].x if along_x else slope_top[k1].z
+		var b0: float = band_in[k].x if along_x else band_in[k].z
+		var b1: float = band_in[k1].x if along_x else band_in[k1].z
 		mb.add_quad(outer[k1], outer[k], slope_top[k], slope_top[k1], kerb,
-			Vector2(u1, 0), Vector2(u0, 0), Vector2(u0, 0), Vector2(u1, 0))
+			Vector2(u1, 0), Vector2(u0, 0), Vector2(s0, 0), Vector2(s1, 0))
 		mb.add_quad(slope_top[k1], slope_top[k], band_in[k], band_in[k1], kerb,
-			Vector2(u1, 0), Vector2(u0, 0), Vector2(u0, 0), Vector2(u1, 0))
+			Vector2(s1, 0), Vector2(s0, 0), Vector2(b0, 0), Vector2(b1, 0))
 	mb.add_quad(band_in[0], band_in[3], band_in[2], band_in[1], walk)
 
 

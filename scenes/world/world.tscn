@@ -2,11 +2,9 @@
 
 [ext_resource type="Script" path="res://scripts/world/world_builder.gd" id="1_world"]
 [ext_resource type="Shader" path="res://assets/shaders/sky.gdshader" id="2_sky"]
-[ext_resource type="Texture2D" path="res://assets/textures/sky/clouds.png" id="3_clouds"]
 
 [sub_resource type="ShaderMaterial" id="SkyMat"]
 shader = ExtResource("2_sky")
-shader_parameter/clouds = ExtResource("3_clouds")
 
 [sub_resource type="Sky" id="Sky"]
 sky_material = SubResource("SkyMat")
@@ -16,7 +14,7 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
 ambient_light_color = Color(0.86, 0.88, 0.92, 1)
-ambient_light_sky_contribution = 0.2
+ambient_light_sky_contribution = 0.6
 ambient_light_energy = 0.9
 tonemap_mode = 4
 tonemap_agx_contrast = 1.4
@@ -34,6 +32,23 @@ fog_aerial_perspective = 0.4
 fog_sky_affect = 0.0
 adjustment_enabled = true
 adjustment_saturation = 1.1
+ssil_radius = 3.0
+ssil_intensity = 0.8
+sdfgi_use_occlusion = true
+sdfgi_read_sky_light = true
+sdfgi_cascades = 4
+sdfgi_min_cell_size = 0.2
+sdfgi_y_scale = 1
+sdfgi_energy = 1.0
+ssr_max_steps = 64
+ssr_fade_in = 0.15
+ssr_fade_out = 2.0
+ssr_depth_tolerance = 0.2
+volumetric_fog_density = 0.0012
+volumetric_fog_albedo = Color(0.9, 0.92, 0.95, 1)
+volumetric_fog_anisotropy = 0.6
+volumetric_fog_length = 96.0
+volumetric_fog_sky_affect = 0.0
 
 [node name="World" type="Node3D"]
 script = ExtResource("1_world")

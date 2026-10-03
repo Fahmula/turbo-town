@@ -1,7 +1,8 @@
 class_name DayNight
 extends Node
-## Time of day: moves the sun (and a moon at night), recolours the sky, fog
-## and ambient light, lights building windows, shows stars, and switches the
+## Time of day: moves the sun (and a moon at night), crossfades the real
+## photographed skies (SKY_KEYS, SkyCatalog), recolours the fog and ambient
+## light, lights building windows, shows stars, and switches the
 ## "night_lights" group (street lamps, the lighthouse beam...) on after dark.
 ## Settings: Day / Sunset / Night, or Cycle (a whole day in DAY_MINUTES).
 
@@ -28,6 +29,22 @@ const KEYS := [
 ## Colour of the ground half of the sky (what car paint and glass reflect
 ## below the horizon): earthy, scaled by how bright the light is.
 const GROUND_BOUNCE := Color(0.38, 0.38, 0.35)
+## Real skies (assets/textures/sky/sky_<name>.jpg, SkyCatalog) through the
+## day: [hour, sky, median brightness (linear)]. Between two keys the skies
+## crossfade; at a key the sun (or moon) is as high as in that photo, and the
+## photo is turned so its sun is where the light comes from.
+const SKY_KEYS := [
+	[0.0, "night", 0.05],
+	[5.2, "night", 0.05],
+	[6.4, "dawn", 0.22],
+	[8.5, "morning", 0.42],
+	[11.0, "day", 0.45],
+	[16.5, "day", 0.45],
+	[17.75, "sunset", 0.34],
+	[18.6, "dusk", 0.13],
+	[19.8, "night", 0.05],
+	[24.0, "night", 0.05],
+]
 
 var hour := 13.0
 var cycling := false
@@ -38,6 +55,7 @@ var _env: Environment
 var _sky: ShaderMaterial
 var _stars: MultiMeshInstance3D
 var _star_mat: StandardMaterial3D
+var _sky_tex := {}
 
 
 func setup(world: Node) -> void:
@@ -48,6 +66,11 @@ func setup(world: Node) -> void:
 		if _env.sky:
 			_sky = _env.sky.sky_material as ShaderMaterial
 	_make_stars()
+	# Bulk-instanced things (trees, shrubs, scattered rocks) stay out of the
+	# bounce-light volume (SDFGI on High): alpha-tested leaves voxelised into
+	# it darken the canopies from the inside. They still receive its light.
+	for mmi in world.find_children("*", "MultiMeshInstance3D", true, false):
+		(mmi as GeometryInstance3D).gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 
 
 func set_mode(mode: int) -> void:
@@ -74,32 +97,42 @@ func sun_elevation() -> float:
 func _apply() -> void:
 	var k := _palette()
 	var elev := sun_elevation()
+	var sk := _sky_blend()
+	var a: Dictionary = SkyCatalog.SKIES[sk[0]]
+	var b: Dictionary = SkyCatalog.SKIES[sk[1]]
+	var t: float = sk[2]
+	# The sun crosses from east to west; below the horizon a moon takes over.
+	# Its height comes from the photographed skies.
+	var az := deg_to_rad(lerpf(-100.0, 100.0, clampf((hour - 6.0) / 12.0, 0.0, 1.0)))
+	if elev < 4.0:
+		az = deg_to_rad(-30.0)
+	var light_elev := deg_to_rad(maxf(lerpf(a["sun_el"], b["sun_el"], t), 3.0))
+	# Arc through the southern (+Z) sky, like the hand-placed daytime sun.
+	var dir := Vector3(sin(az) * cos(light_elev), sin(light_elev), cos(az) * cos(light_elev) * 0.6).normalized()
 	if _sun:
-		# The sun crosses from east to west; below the horizon a moon takes over.
-		var az := deg_to_rad(lerpf(-100.0, 100.0, clampf((hour - 6.0) / 12.0, 0.0, 1.0)))
-		var light_elev := elev
-		if elev < 4.0:
-			az = deg_to_rad(-30.0)
-			light_elev = lerpf(4.0, 38.0, smoothstep(4.0, -10.0, elev))
-		# Arc through the southern (+Z) sky, like the hand-placed daytime sun.
-		var dir := Vector3(sin(az) * cos(deg_to_rad(light_elev)), sin(deg_to_rad(light_elev)), cos(az) * cos(deg_to_rad(light_elev)) * 0.6)
-		_sun.global_basis = Basis.looking_at(-dir.normalized(), Vector3.UP)
+		_sun.global_basis = Basis.looking_at(-dir, Vector3.UP)
 		_sun.light_color = k[2]
 		_sun.light_energy = k[3]
+	var horizon: Color = (a["horizon"] as Color) * float(sk[3]) * (1.0 - t) + (b["horizon"] as Color) * float(sk[4]) * t
 	if _sky:
-		_sky.set_shader_parameter("sky_top_color", k[0])
-		_sky.set_shader_parameter("sky_horizon_color", k[1])
-		_sky.set_shader_parameter("ground_horizon_color", k[1])
-		_sky.set_shader_parameter("ground_bottom_color", (k[1] as Color).lerp(GROUND_BOUNCE * clampf(k[3] / 1.4, 0.1, 1.0), 0.75))
-		# Clouds: lit by the sun's colour (warm at sunset, dim grey-blue under
-		# the moon), shaded with the horizon's colour.
-		var light_amount := clampf(k[3] / 1.4, 0.12, 1.0)
-		_sky.set_shader_parameter("cloud_light", Color.WHITE.lerp(k[2], 0.5) * light_amount)
-		_sky.set_shader_parameter("cloud_shade", (k[1] as Color) * 0.84)
+		# Turn each photo so its sun lines up with the light.
+		var light_az := atan2(dir.x, -dir.z)
+		_sky.set_shader_parameter("sky_a", _sky_texture(sk[0]))
+		_sky.set_shader_parameter("sky_b", _sky_texture(sk[1]))
+		_sky.set_shader_parameter("sky_mix", t)
+		_sky.set_shader_parameter("energy_a", a["energy"] * sk[3])
+		_sky.set_shader_parameter("energy_b", b["energy"] * sk[4])
+		_sky.set_shader_parameter("rot_a", float(a["sun_az"]) - light_az)
+		_sky.set_shader_parameter("rot_b", float(b["sun_az"]) - light_az)
+		var ground := (GROUND_BOUNCE.srgb_to_linear() * clampf(k[3] / 1.4, 0.1, 1.0))
+		_sky.set_shader_parameter("ground_bottom", Vector3(ground.r, ground.g, ground.b))
+		_sky.set_shader_parameter("disc", 0.0)
 	if _env:
 		_env.ambient_light_color = k[4]
 		_env.ambient_light_energy = k[5]
-		_env.fog_light_color = k[6]
+		# Haze takes the colour of the sky at the horizon.
+		var fog := Color(minf(horizon.r, 1.0), minf(horizon.g, 1.0), minf(horizon.b, 1.0)).linear_to_srgb()
+		_env.fog_light_color = fog
 	var night_amount := smoothstep(3.0, -6.0, elev)
 	RenderingServer.global_shader_parameter_set("night", night_amount)
 	if _stars:
@@ -110,6 +143,23 @@ func _apply() -> void:
 		is_night = night
 		get_tree().call_group("night_lights", "set_night", night)
 		night_changed.emit(night)
+
+
+## The two skies to show now: [sky a, sky b, mix 0-1, brightness a, brightness b].
+func _sky_blend() -> Array:
+	for i in SKY_KEYS.size() - 1:
+		var a: Array = SKY_KEYS[i]
+		var b: Array = SKY_KEYS[i + 1]
+		if hour >= a[0] and hour <= b[0]:
+			var t := smoothstep(a[0], b[0], hour) if a[1] != b[1] else 0.0
+			return [a[1], b[1], t, a[2], b[2]]
+	return ["day", "day", 0.0, 0.45, 0.45]
+
+
+func _sky_texture(sky_name: String) -> Texture2D:
+	if not _sky_tex.has(sky_name):
+		_sky_tex[sky_name] = load("res://assets/textures/sky/sky_%s.jpg" % sky_name)
+	return _sky_tex[sky_name]
 
 
 ## Colours for the current hour, blended between keyframes.
