@@ -54,6 +54,8 @@ def _get(url):
 def download(url, md5=None, sha256=None, name=None):
     """Downloads `url` into the cache (once) and returns the local path."""
     os.makedirs(CACHE, exist_ok=True)
+    # Keep Godot from importing the raw downloads (HDRIs, zips, 4k scans).
+    open(os.path.join(CACHE, ".gdignore"), "a").close()
     path = os.path.join(CACHE, name or url.rsplit("/", 1)[-1].split("?")[-1].replace("file=", ""))
     if not os.path.exists(path):
         data = _get(url)

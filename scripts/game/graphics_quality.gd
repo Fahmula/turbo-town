@@ -20,6 +20,7 @@ static func apply(level: int, viewport: Viewport, world: Node) -> void:
 		# Realism experiment: real bounce light and sky occlusion, screen-space
 		# reflections and light haze with sun shafts on High.
 		env.sdfgi_enabled = level >= HIGH
+		env.ssil_enabled = level >= HIGH
 		env.ssr_enabled = level >= HIGH
 		env.volumetric_fog_enabled = level >= HIGH
 	if sun:
