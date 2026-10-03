@@ -10,6 +10,9 @@ extends Prop
 func _ready() -> void:
 	if model:
 		model.mesh = StreetKit.mesh(kind)
+		# These all stand on the ground: dirt and road spray gather low on them
+		# (street_props.gdshader `grime`).
+		model.set_instance_shader_parameter("grime", 1.0)
 	super._ready()
 
 
