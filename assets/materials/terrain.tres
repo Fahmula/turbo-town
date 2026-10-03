@@ -19,6 +19,9 @@
 [ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_sand_orm.png" id="17_so"]
 [ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_sand_macro_albedo.jpg" id="18_sm"]
 
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_churn_albedo.jpg" id="19_ca"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_churn_normal.png" id="20_cn"]
+
 [resource]
 render_priority = 0
 shader = ExtResource("1_shader")
@@ -39,3 +42,5 @@ shader_parameter/sand_albedo = ExtResource("15_sa")
 shader_parameter/sand_normal = ExtResource("16_sn")
 shader_parameter/sand_orm = ExtResource("17_so")
 shader_parameter/sand_macro = ExtResource("18_sm")
+shader_parameter/churn_albedo = ExtResource("19_ca")
+shader_parameter/churn_normal = ExtResource("20_cn")

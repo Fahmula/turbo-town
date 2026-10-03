@@ -134,6 +134,14 @@ def make_scans():
     save_linear_jpg(lin, out(FAMILY, "terrain_dirt_macro_albedo.jpg"), 88)
     credit(FAMILY, "dirt_aerial_02", "Poly Haven (Rob Tuytel)", "https://polyhaven.com/a/dirt_aerial_02", "CC0 1.0",
            "macro tint and wear patches of the dirt fields")
+    # Tyre-churned mud: tread prints and ruts (8 m tile), laid over the dirt fields.
+    print("  churn")
+    m = polyhaven("aerial_mud_1", "1k")
+    lin = condition(load_linear(m["diff"], 512), 0.05, flatten=0.5, sat=0.8)
+    save_linear_jpg(lin, out(FAMILY, "terrain_churn_albedo.jpg"), 88)
+    save_normal(m["nor_gl"], out(FAMILY, "terrain_churn_normal.png"), 1024)
+    credit(FAMILY, "aerial_mud_1", "Poly Haven (Rob Tuytel)", "https://polyhaven.com/a/aerial_mud_1", "CC0 1.0",
+           "tyre tracks and ruts in the churned dirt fields")
     # Macro ripples for the beach sand: 30 m tile.
     print("  sand macro")
     m = polyhaven("aerial_beach_01", "1k")

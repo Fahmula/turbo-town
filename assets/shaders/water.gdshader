@@ -17,8 +17,8 @@ render_mode cull_disabled;
 
 #include "res://assets/shaders/world_common.gdshaderinc"
 
-uniform vec4 deep_color : source_color = vec4(0.035, 0.17, 0.27, 1.0);
-uniform vec4 shallow_color : source_color = vec4(0.16, 0.52, 0.5, 1.0);
+uniform vec4 deep_color : source_color = vec4(0.03, 0.14, 0.25, 1.0);
+uniform vec4 shallow_color : source_color = vec4(0.13, 0.5, 0.5, 1.0);
 uniform vec4 foam_color : source_color = vec4(0.92, 0.94, 0.93, 1.0);
 uniform sampler2D wave_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D foam_tex : filter_linear_mipmap_anisotropic, repeat_enable;
@@ -59,7 +59,7 @@ void fragment() {
 	}
 	// Flatter in the shallows (the swell dies as it reaches the beach).
 	float calm = mix(0.35, 1.0, smoothstep(0.0, 1.5, d_m));
-	vec3 n = normalize(vec3(sl * 0.62 * calm, 1.0));
+	vec3 n = normalize(vec3(sl * 0.8 * calm, 1.0));
 	NORMAL_MAP = n * 0.5 + 0.5;
 
 	// ----------------------------------------------------------- colour ----

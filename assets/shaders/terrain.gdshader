@@ -34,6 +34,8 @@ uniform sampler2D sand_albedo : source_color, filter_linear_mipmap_anisotropic, 
 uniform sampler2D sand_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D sand_orm : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D sand_macro : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D churn_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D churn_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 
 // World size (m) of one texture tile.
 uniform float grass_tile = 2.0;
@@ -41,6 +43,8 @@ uniform float dry_tile = 2.5;
 uniform float dirt_tile = 1.3;
 uniform float rock_tile = 2.7;
 uniform float sand_tile = 1.5;
+uniform float churn_tile = 8.0;
+uniform float churn_lum = 0.05;
 // Average linear luminance of each albedo (the fetch script's targets).
 uniform float grass_lum = 0.155;
 uniform float dry_lum = 0.20;
@@ -143,6 +147,22 @@ void fragment() {
 		}
 		rough = mix(rough, r, w_dirt);
 		spec = mix(spec, 0.4, w_dirt);
+	}
+	// ----------------------------------------------------- churned mud -----
+	// Tyre tracks and ruts over the dirt fields, in patches (high only).
+	if (high && w_dirt > 0.3) {
+		float patch = smoothstep(0.42, 0.66, nz.g * 0.6 + macro.z * 0.5 + 0.05 + (1.0 - N.y) * 1.5) * smoothstep(0.3, 0.7, w_dirt);
+		if (patch > 0.001) {
+			mat2 rc = rot2(0.35 + 1.3 * step(0.5, nz.r));
+			vec2 cuv = (rc * wp) / churn_tile;
+			vec2 cdx = rc * dx / churn_tile;
+			vec2 cdy = rc * dy / churn_tile;
+			float cl = dot(textureGrad(churn_albedo, cuv, cdx, cdy).rgb, LUMA);
+			vec2 ctn = nrm_xy(textureGrad(churn_normal, cuv, cdx, cdy));
+			col *= mix(1.0, 0.7 * clamp(cl / churn_lum, 0.45, 1.7), patch);
+			tn = mix(tn, tn * 0.4 + vec2(ctn.x, ctn.y) * 1.2, patch);
+			rough = mix(rough, 0.72, patch);
+		}
 	}
 	// -------------------------------------------------------------- sand ---
 	if (w_sand > 0.001) {
