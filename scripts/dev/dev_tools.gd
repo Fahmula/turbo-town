@@ -2593,6 +2593,16 @@ func _scenery(game: Game) -> void:
 		["dt_avenue_south", Vector3(2.4, 2.4, -6.0), Vector3(2.4, 3.0, 45.0), null, false],
 		["dt_car_park", Vector3(-95.0, 2.2, 14.0), Vector3(-140.0, 7.0, 62.0), null, false],
 	]
+	# --cams=px,py,pz,lx,ly,lz;... : extra views named cam0, cam1... (camera
+	# position, look-at point), e.g. close-ups for a visual review.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cams="):
+			var k := 0
+			for c in arg.split("=")[1].split(";"):
+				var f := c.split_floats(",")
+				if f.size() == 6:
+					views.append(["cam%d" % k, Vector3(f[0], f[1], f[2]), Vector3(f[3], f[4], f[5]), null, true])
+					k += 1
 	# Chase-style views at the teleport spots outside the city (spawn_beach,
 	# spawn_dirt_fields, spawn_mountain_top...): nature, terrain and landmarks.
 	for sp: Dictionary in game.world.spawn_points.slice(2):

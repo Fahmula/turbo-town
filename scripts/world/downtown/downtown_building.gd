@@ -38,7 +38,8 @@ const QUOIN := 0.97  # how far a corner column reaches along each wall
 const STYLES := {
 	"loft": {"corner": "plain", "base": "metal", "wide": ["Brick_Inset_Window_Curved"],
 		"narrow": ["Brick_Window_Square_Single"], "top": "Brick_Window_Square_Single", "pilaster": "",
-		"cornice": "metal", "roof": "flat", "ac": 0.1, "palettes": [0, 1, 7, 4]},
+		"cornice": "metal", "roof": "flat", "ac": 0.1, "fire_escape": 0.5, "palettes": [0, 1, 7, 4]},
+	# (warehouse below may also carry one)
 	"hotel": {"corner": "quoin", "base": "trim", "wide": [], "narrow": ["Brick_Window_Trim"],
 		"top": "Brick_Window_Trim_Single", "pilaster": "half", "cornice": "trim", "roof": "flat",
 		"ac": 0.0, "palettes": [1, 3, 4, 8]},
@@ -48,10 +49,10 @@ const STYLES := {
 		"top": "", "pilaster": "", "cornice": "trim", "roof": "mansard", "ac": 0.0, "palettes": [3, 4, 6, 8]},
 	"tenement": {"corner": "plain", "base": "brick", "wide": [], "narrow": ["Brick_Window_Square_Single"],
 		"top": "Brick_Window_Trim_Single", "pilaster": "", "cornice": "brick", "roof": "flat", "ac": 0.18,
-		"palettes": [2, 5, 6, 7]},
+		"fire_escape": 0.85, "palettes": [2, 5, 6, 7]},
 	"warehouse": {"corner": "plain", "base": "brick", "wide": ["Brick_Window_CurvedDouble"],
 		"narrow": ["Brick_Window_Square_Single"], "top": "", "pilaster": "column", "cornice": "brick",
-		"roof": "flat", "ac": 0.0, "palettes": [0, 7, 2, 4]},
+		"roof": "flat", "ac": 0.0, "fire_escape": 0.35, "palettes": [0, 7, 2, 4]},
 }
 
 var batch: MegaKit.Batch
@@ -62,6 +63,7 @@ var colliders: Array = []
 ## [Transform3D (wall frame, origin at the band's centre), width m].
 var sign_spots: Array = []
 var top_height := 0.0
+var fire_escapes := 0
 ## The roof deck (for roof clutter): rectangle and height.
 var roof_rect := Rect2()
 var roof_y := 0.0
@@ -179,6 +181,16 @@ func _dressed_wall(o: Vector3, n: Vector3, length: float, quoin: bool, prev_fron
 				x += bays[i - 1]
 				_pilaster(o, n, x, y, f)
 
+	# A fire escape on some street frontages of older walk-ups, over the
+	# joint between two bays away from the door.
+	if not secondary and _floors >= 2 and bays.size() >= 3 and rng.randf() < _style.get("fire_escape", 0.0):
+		var j := 1 if bays.size() / 2 != 1 else bays.size() - 2
+		var jx := r0
+		for i in j:
+			jx += bays[i]
+		_fire_escape(o, n, jx)
+		fire_escapes += 1
+
 	# Corners.
 	if quoin:
 		_quoin(o + Vector3.UP.cross(n) * length, n)
@@ -188,6 +200,73 @@ func _dressed_wall(o: Vector3, n: Vector3, length: float, quoin: bool, prev_fron
 		_brick_corner(o, n)
 	if _style["roof"] != "mansard":  # the mansard pieces carry their own cornice
 		_cornice(o, n, length, prev_front, next_front)
+
+
+## A New York fire escape centred on `x` metres along the wall: a landing
+## at every upper floor (grating, railings, brackets into the wall), stair
+## flights between them, and a drop ladder above the sidewalk. Kit painted
+## metal (the dark band of the metal / concrete slice, coloured by the
+## palette's metal slot), thin boxes. Far away only the landings remain.
+func _fire_escape(o: Vector3, n: Vector3, x: float) -> void:
+	var xa := Vector3.UP.cross(n)
+	var b := Basis(xa, Vector3.UP, n)
+	var L := MegaKit.LAYER_METAL
+	var S := MegaKit.SLOT_METAL
+	var uv := Vector2(0.37, 0.09)  # the painted metal band of the slice
+	var w := 3.6
+	var d := 1.0
+	var box := func(c: Vector3, size: Vector3, far_too := false) -> void:
+		batch.add_box(Transform3D(b, o + xa * (x + c.x) + Vector3.UP * c.y + n * c.z), size, L, S, uv, far_too)
+	for f in _floors:
+		var y := GROUND + FLOOR * f + 0.35  # landing at sill height
+		# Grating, edge beams, brackets into the wall.
+		box.call(Vector3(0.0, y, 0.1 + d * 0.5), Vector3(w, 0.04, d), true)
+		box.call(Vector3(0.0, y - 0.06, 0.1 + d), Vector3(w, 0.12, 0.05))
+		for sx: float in [-w * 0.5 + 0.1, w * 0.5 - 0.1]:
+			box.call(Vector3(sx, y - 0.4, 0.1 + d * 0.45), Vector3(0.05, 0.05, d * 1.05))
+			var brace := Basis(xa, deg_to_rad(-38.0)) * b
+			batch.add_box(Transform3D(brace, o + xa * (x + sx) + Vector3.UP * (y - 0.42) + n * (0.1 + d * 0.5)),
+				Vector3(0.04, 0.04, 1.15), L, S, uv)
+		# Railing: top rail, mid rail, balusters on the front and ends.
+		for ry: float in [1.0, 0.5]:
+			box.call(Vector3(0.0, y + ry, 0.1 + d), Vector3(w, 0.04, 0.04))
+			for sx: float in [-w * 0.5, w * 0.5]:
+				box.call(Vector3(sx, y + ry, 0.1 + d * 0.5), Vector3(0.04, 0.04, d))
+		var bx := -w * 0.5
+		while bx <= w * 0.5 + 0.01:
+			box.call(Vector3(bx, y + 0.5, 0.1 + d), Vector3(0.025, 1.0, 0.025))
+			bx += 0.3
+		for sx: float in [-w * 0.5, w * 0.5]:
+			box.call(Vector3(sx, y + 0.5, 0.1 + d * 0.5), Vector3(0.025, 1.0, 0.025))
+		# Stairs down to the landing below (alternating direction), along the front.
+		if f > 0:
+			var dir := 1.0 if f % 2 == 0 else -1.0
+			var y0 := y - FLOOR
+			var run := 2.4
+			var steps := 11
+			var zc := 0.1 + d * 0.62
+			var x_top := -dir * (w * 0.5 - 0.45)
+			var x_bot := x_top + dir * run
+			var mid := Vector3((x_top + x_bot) * 0.5, (y + y0) * 0.5, zc)
+			var ang := atan2(FLOOR, run)
+			var sb := Basis(n, -dir * ang) * b
+			for side: float in [-0.32, 0.32]:
+				batch.add_box(Transform3D(sb, o + xa * (x + mid.x) + Vector3.UP * mid.y + n * (zc + side)),
+					Vector3(sqrt(run * run + FLOOR * FLOOR), 0.1, 0.03), L, S, uv)
+				batch.add_box(Transform3D(sb, o + xa * (x + mid.x) + Vector3.UP * (mid.y + 0.85) + n * (zc + side)),
+					Vector3(sqrt(run * run + FLOOR * FLOOR), 0.035, 0.035), L, S, uv)
+			for k in steps:
+				var t := (float(k) + 0.5) / float(steps)
+				box.call(Vector3(lerpf(x_top, x_bot, t), lerpf(y, y0, t), zc), Vector3(0.2, 0.025, 0.62))
+	# Drop ladder from the lowest landing toward the sidewalk.
+	var y1 := GROUND + 0.35
+	var lx := w * 0.5 - 0.5
+	for side: float in [-0.22, 0.22]:
+		box.call(Vector3(lx + side, y1 - 1.0, 0.1 + d - 0.12), Vector3(0.04, 2.0, 0.04))
+	var ry := y1 - 1.9
+	while ry < y1:
+		box.call(Vector3(lx, ry, 0.1 + d - 0.12), Vector3(0.44, 0.03, 0.03))
+		ry += 0.3
 
 
 ## Splits a bay run into 4 m and 2 m bays, symmetric about the middle.

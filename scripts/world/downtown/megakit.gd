@@ -243,6 +243,31 @@ class Batch:
 		if far != null:
 			far.add_quad(p, uv, layer, slot, clean)
 
+	## A box (all six faces) of `size` centred on `xf`, in one layer, every
+	## face on one flat spot `uv` of the texture (thin metalwork, frames).
+	## `far_too` = also in the far LOD.
+	func add_box(xf: Transform3D, size: Vector3, layer: int, slot: int, uv: Vector2, far_too := false) -> void:
+		var h := size * 0.5
+		var c := [Vector3(-h.x, -h.y, h.z), Vector3(h.x, -h.y, h.z), Vector3(h.x, h.y, h.z), Vector3(-h.x, h.y, h.z),
+			Vector3(-h.x, -h.y, -h.z), Vector3(h.x, -h.y, -h.z), Vector3(h.x, h.y, -h.z), Vector3(-h.x, h.y, -h.z)]
+		var faces := [[0, 1, 2, 3], [5, 4, 7, 6], [1, 5, 6, 2], [4, 0, 3, 7], [3, 2, 6, 7], [4, 5, 1, 0]]
+		# UVs run along the box's longest axis (u, 2 m per unit) with a sliver
+		# of v across it, so the texture frame is well defined (a constant UV
+		# interpolates with float noise and the normal map turns to static).
+		var la := 0 if size.x >= size.y and size.x >= size.z else (1 if size.y >= size.z else 2)
+		var keep := far
+		if not far_too:
+			far = null
+		for f: Array in faces:
+			var q: Array[Vector3] = []
+			var quv: Array[Vector2] = []
+			for i: int in f:
+				var lc: Vector3 = c[i]
+				q.append(xf * lc)
+				quv.append(uv + Vector2(lc[la] * 0.5, (lc[(la + 1) % 3] + lc[(la + 2) % 3]) * 0.02))
+			add_quad(q, quv, layer, slot)
+		far = keep
+
 	## The batch as a mesh; with `lods`, automatic LODs (index buffers over
 	## the same vertices, so the kit's vertex data survives) like
 	## MeshBuilder.with_lods.

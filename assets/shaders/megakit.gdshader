@@ -262,7 +262,9 @@ void fragment() {
 
 		mat3 tbn = cotangent_frame(n_geo, dp1, dp2, duv1, duv2);
 		// OpenGL normal maps: +Y is up the image, i.e. towards -v.
-		vec3 nt = unpack_xy(nra.rg, normal_strength);
+		// No normal map where UV doesn't really change across the pixel.
+		float uv_k = smoothstep(2e-6, 2e-5, max(length(duv1), length(duv2)));
+		vec3 nt = unpack_xy(nra.rg, normal_strength * uv_k);
 		nt.y = -nt.y;
 		vec3 n = tbn * nt;
 		float grime = 1.0 - COLOR.g;
