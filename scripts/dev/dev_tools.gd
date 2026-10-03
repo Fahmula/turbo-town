@@ -3,6 +3,13 @@ extends Node
 ##   --tour=<dir>     save screenshots from a set of viewpoints, then quit
 ##   --drive=<dir>    drive the player car with scripted input, snapping shots
 ##   --garage=<dir>   garage menu, customising, changing into every vehicle (checks and shots)
+##   --onfoot=<dir>   the player character: walking, getting in and out of every kind of
+##                    vehicle, traffic and parked cars, exits by walls, damage, the garage,
+##                    teleports, being bumped by a car, leak check (checks and shots)
+##   --onfootbench    cost of the character: draw calls / CPU / GPU with it shown and
+##                    hidden, physics time with and without it, walking (window)
+##   --charsheet=<dir> the character from fixed cameras (front, 3/4, side, game camera,
+##                    face) in day / sunset / night, plus each animation sampled over time
 ##   --perfsweep=<dir> GPU cost of each High-only effect, Medium/Low, grass and trees, in heavy
 ##                    views and while driving (run it on a weak GPU: --gpu-index 0 = the iGPU)
 ##   --wheels=<dir>   every rim, rim colour, tyre and tyre stripe in the garage's wheel view,
@@ -26,6 +33,7 @@ extends Node
 ##                    of meshes at a time and prints what it cost, --stress
 ##                    renders at 2x resolution so fill costs dominate,
 ##                    --traffic-on keeps traffic running for the shots)
+## Add --graphics=<0-3> (low, medium, high, ultra) to run any of them at that quality.
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -102,6 +110,15 @@ func _ready() -> void:
 		elif arg.begins_with("--garage="):
 			_mode = "garage"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--onfoot="):
+			_mode = "onfoot"
+			_dir = arg.split("=")[1]
+		elif arg == "--onfootbench":
+			_mode = "onfootbench"
+			_dir = OS.get_user_data_dir()
+		elif arg.begins_with("--charsheet="):
+			_mode = "charsheet"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--wheels="):
 			_mode = "wheels"
 			_dir = arg.split("=")[1]
@@ -155,6 +172,9 @@ func _run() -> void:
 		return
 	# Automatic crash cams would pause the other tests mid-crash.
 	Settings.set_value("crash_cam", _mode == "replay")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--graphics="):
+			Settings.set_value("graphics", clampi(int(arg.split("=")[1]), 0, 3))
 	if _vehicle_id != "":
 		var vi := VehicleCatalog.index_of_id(_vehicle_id)
 		if vi < 0:
@@ -178,6 +198,12 @@ func _run() -> void:
 		await _uturn(game)
 	elif _mode == "garage":
 		await _garage(game)
+	elif _mode == "onfoot":
+		await _onfoot(game)
+	elif _mode == "onfootbench":
+		await _onfootbench(game)
+	elif _mode == "charsheet":
+		await _charsheet(game)
 	elif _mode == "wheels":
 		await _wheels(game)
 	elif _mode == "perfsweep":
@@ -856,7 +882,7 @@ func _check_wiring(game: Game, label: String) -> void:
 	var v := game.vehicle
 	var players := 0
 	for child in game.get_children():
-		if child is Vehicle:
+		if child is Vehicle and not game.left_vehicles.has(child):
 			players += 1
 	_check(players == 1, "%s: one player vehicle in the scene (%d)" % [label, players])
 	_check(game.controller.vehicle == v and game.camera.target == v and game.hud.vehicle == v,
@@ -3281,3 +3307,744 @@ func _cpu_seconds() -> float:
 	var parts := f.get_line().split(") ")[1].split(" ")
 	# Fields 14 and 15 (utime, stime) are parts 11 and 12 after the comm field.
 	return (float(parts[11]) + float(parts[12])) / 100.0
+
+
+# --- On foot: the character and getting in and out of vehicles ---------------
+
+const FOOT_ACTIONS := ["move_forward", "move_back", "move_left", "move_right", "sprint", "walk", "jump", "interact"]
+
+
+func _foot_release() -> void:
+	for a: String in FOOT_ACTIONS:
+		Input.action_release(a)
+
+
+## Pushes the move stick toward world direction `dir` (0..1 strength),
+## relative to the on-foot camera, like a player would.
+func _foot_push(game: Game, dir: Vector3, strength := 1.0) -> void:
+	var f := -game.foot_camera.global_basis.z
+	f.y = 0.0
+	f = f.normalized()
+	var r := f.cross(Vector3.UP)
+	dir.y = 0.0
+	var d := dir.normalized() * strength
+	for a in ["move_forward", "move_back", "move_left", "move_right"]:
+		Input.action_release(a)
+	var x := d.dot(r)
+	var y := d.dot(f)
+	if y > 0.01:
+		Input.action_press("move_forward", y)
+	elif y < -0.01:
+		Input.action_press("move_back", -y)
+	if x > 0.01:
+		Input.action_press("move_right", x)
+	elif x < -0.01:
+		Input.action_press("move_left", -x)
+
+
+## Walks the character toward `target` until within `stop` metres or `limit` s.
+func _foot_walk_to(game: Game, target: Vector3, stop := 0.6, limit := 8.0) -> bool:
+	var t := 0.0
+	while t < limit:
+		var to := target - game.character.global_position
+		to.y = 0.0
+		if to.length() < stop:
+			_foot_release()
+			return true
+		_foot_push(game, to, 1.0)
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	_foot_release()
+	return false
+
+
+## Average ground speed over `seconds` while pushing toward `dir`.
+func _foot_speed(game: Game, dir: Vector3, strength: float, seconds: float, extra := "") -> float:
+	if extra != "":
+		Input.action_press(extra)
+	_foot_push(game, dir, strength)
+	await _wait_s(0.8)  # get up to speed
+	var p0 := game.character.global_position
+	await _wait_s(seconds)
+	var p1 := game.character.global_position
+	_foot_release()
+	return Vector2(p1.x - p0.x, p1.z - p0.z).length() / seconds
+
+
+## Does the character's capsule overlap anything solid at `feet`?
+func _overlaps(game: Game, feet: Vector3, exclude: Array[RID] = []) -> bool:
+	var q := PhysicsShapeQueryParameters3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.28
+	cap.height = 1.6
+	q.shape = cap
+	q.transform = Transform3D(Basis.IDENTITY, feet + Vector3.UP * 0.95)
+	q.collision_mask = 0b111
+	q.exclude = exclude
+	for hit in game.get_world_3d().direct_space_state.intersect_shape(q, 4):
+		var col: Object = hit["collider"]
+		if col is RigidBody3D and not (col is Vehicle) and (col as RigidBody3D).mass < 150.0:
+			continue
+		return true
+	return false
+
+
+## Waits until the Possession reaches `mode` (or `limit` seconds pass), then
+## until the interact button works again.
+func _wait_mode(game: Game, mode: Possession.Mode, limit := 4.0) -> bool:
+	var t := 0.0
+	while game.possession.mode != mode and t < limit:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	if game.possession.mode == mode:
+		await _wait_s(Possession.COOLDOWN + 0.05)
+	return game.possession.mode == mode
+
+
+## A vehicle of catalog `id` parked upright on the ground at `pos` facing `fwd`.
+func _park_new(game: Game, id: String, pos: Vector3, fwd: Vector3) -> Vehicle:
+	var car := VehicleCatalog.scene(VehicleCatalog.index_of_id(id)).instantiate() as Vehicle
+	var space := game.get_world_3d().direct_space_state
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(pos + Vector3.UP * 5.0, pos + Vector3.DOWN * 10.0, 1))
+	if not hit.is_empty():
+		pos = hit["position"]
+	var xf := Transform3D(Basis.looking_at(fwd.normalized(), Vector3.UP), pos + Vector3.UP * (car.ride_height() + 0.1))
+	car.transform = xf
+	var holder := game.get_node_or_null("TestVehicles")
+	if holder == null:
+		holder = Node3D.new()
+		holder.name = "TestVehicles"
+		game.add_child(holder)
+	holder.add_child(car)
+	car.teleport(xf)
+	return car
+
+
+func _ground(game: Game, p: Vector3) -> Vector3:
+	var space := game.get_world_3d().direct_space_state
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 5.0, p + Vector3.DOWN * 10.0, 1))
+	return hit["position"] if not hit.is_empty() else p
+
+
+func _wall(game: Game, center: Vector3, size: Vector3, yaw: float) -> StaticBody3D:
+	var wall := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	cs.shape = box
+	wall.add_child(cs)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	wall.add_child(mi)
+	game.add_child(wall)
+	wall.global_transform = Transform3D(Basis(Vector3.UP, yaw), center)
+	return wall
+
+
+## Gets in (interact pressed), checks, drives forward for `seconds`, gets out
+## (interact again) and checks the exit. Returns the vehicle driven.
+func _enter_drive_exit(game: Game, v: Vehicle, label: String, seconds := 2.0, use_pad := false) -> void:
+	var p := game.possession
+	if use_pad:
+		await _pad(JOY_BUTTON_B)
+	else:
+		await _tap("interact")
+	var entered := await _wait_mode(game, Possession.Mode.IN_VEHICLE, 3.0)
+	_check(entered and p.vehicle == v and game.vehicle == v, "%s: got in (%s)" % [label, "gamepad B" if use_pad else "F"])
+	if not entered:
+		return
+	var c := Controllable.of(v)
+	_check(game.controller.vehicle == v and game.foot_controller.character == null and c.controller == p,
+		"%s: the player's vehicle controller drives it, nothing else" % label)
+	_check(not game.character.visible and game.character.collision_layer == 0, "%s: character hidden, no collisions" % label)
+	var audio := v.get_node_or_null("Audio") as VehicleAudio
+	_check(audio == null or (audio.detail == VehicleAudio.Detail.FULL and audio.engine_running), "%s: full engine sound, engine running" % label)
+	_check(game.traffic.player == v and game.hud.vehicle == v and game.camera.target == v, "%s: traffic, HUD and camera follow it" % label)
+	await _wait_s(0.9)
+	_check(game.camera.current, "%s: chase camera after the blend" % label)
+	var p0 := v.global_position
+	Input.action_press("accelerate")
+	await _wait_s(seconds)
+	Input.action_release("accelerate")
+	var moved := v.global_position.distance_to(p0)
+	_check(moved > 4.0, "%s: drives (%.1f m in %.1f s, %.0f km/h)" % [label, moved, seconds, v.speed_kmh])
+	await _shot("onfoot_%s_driving" % label.to_snake_case())
+	await _tap("interact")
+	var out := await _wait_mode(game, Possession.Mode.ON_FOOT, 6.0)
+	_check(out, "%s: got out (from %.0f km/h)" % [label, v.speed_kmh])
+	if not out:
+		return
+	await _wait_s(0.5)
+	var ch := game.character
+	var d := ch.global_position.distance_to(v.global_position)
+	_check(d < v.body_length() * 0.5 + 4.0, "%s: out next to it (%.1f m from its centre)" % [label, d])
+	_check(not _overlaps(game, ch.global_position), "%s: standing clear of everything" % label)
+	_check(ch.is_on_floor() and ch.visible, "%s: on the ground, visible" % label)
+	_check(v.linear_velocity.length() < 1.0 and v.handbrake_input, "%s: parked, handbrake on" % label)
+	_check(audio == null or (audio.detail == VehicleAudio.Detail.LITE and not audio.engine_running), "%s: engine off, quiet sound" % label)
+	_check(game.controller.vehicle == null and game.foot_controller.character == ch and c.is_free(), "%s: controls back on the character" % label)
+	await _wait_s(0.7)
+	_check(game.foot_camera.current, "%s: on-foot camera after the blend" % label)
+
+
+func _onfoot(game: Game) -> void:
+	var p := game.possession
+	var ch := game.character
+	var tm := game.traffic
+	tm.set_enabled(false)
+	await _wait_s(1.0)
+
+	# --- Start on foot ---
+	_check(p.on_foot() and ch.visible and ch.state == PlayerCharacter.State.ACTIVE, "starts on foot")
+	_check(game.foot_camera.current, "on-foot camera is showing")
+	_check(game.controller.vehicle == null and game.foot_controller.character == ch, "only the character is controlled")
+	_check(ch.global_position.distance_to(game.vehicle.global_position) < 4.0,
+		"standing next to the vehicle (%.1f m)" % ch.global_position.distance_to(game.vehicle.global_position))
+	_check(not game.hud.speedometer.visible and game.hud.minimap.target == ch and game.hud.minimap.car == game.vehicle,
+		"HUD on foot: no speedometer, map follows the character and marks the vehicle")
+	_check(tm.focus == ch, "traffic is centred on the character")
+	await _shot("onfoot_spawn")
+
+	# --- Teleport on foot: the vehicle comes along ---
+	game.teleport_to(6)  # Airfield: a big flat apron
+	await _wait_s(1.0)
+	var car := game.vehicle
+	_check(p.on_foot() and ch.global_position.distance_to(car.global_position) < 4.5, "teleport on foot: vehicle comes along, character beside it")
+	_check(not _overlaps(game, ch.global_position), "teleport on foot: character clear of the vehicle")
+
+	# --- Walk, run, sprint, jump: on the runway (long, flat, nothing on it yet) ---
+	var away := Vector3.RIGHT
+	ch.place(Transform3D(Basis.looking_at(away, Vector3.UP), _ground(game, Vector3(330.0, 1.0, 296.0))))
+	game.foot_camera.yaw = atan2(-away.x, -away.z)
+	game.foot_camera.snap()
+	await _wait_s(0.5)
+	game.foot_camera.yaw = atan2(-away.x, -away.z)
+	var walk := await _foot_speed(game, away, 0.45, 1.5)
+	var anim_walk := ch._current_anim
+	_check(walk > 0.8 and walk < 2.2 and anim_walk == "walk", "gentle push walks (%.2f m/s, %s)" % [walk, anim_walk])
+	_foot_push(game, -away, 1.0)
+	await _wait_s(0.3)
+	await _shot("onfoot_walk_turn")
+	_foot_release()
+	await _wait_s(0.4)
+	var run := await _foot_speed(game, away, 1.0, 1.5)
+	_check(run > 3.5 and run < 5.0 and ch._current_anim == "run", "full push runs (%.2f m/s, %s)" % [run, ch._current_anim])
+	var slow := await _foot_speed(game, -away, 1.0, 1.5, "walk")
+	_check(slow > 0.8 and slow < 2.0, "Ctrl walks (%.2f m/s)" % slow)
+	_foot_push(game, away, 1.0)
+	Input.action_press("sprint")
+	await _wait_s(1.0)
+	await _shot("onfoot_sprint")
+	var sp0 := ch.global_position
+	await _wait_s(1.0)
+	var sprint := Vector2(ch.global_position.x - sp0.x, ch.global_position.z - sp0.z).length()
+	_check(sprint > 5.5 and ch._current_anim == "sprint", "Shift sprints (%.2f m/s, %s)" % [sprint, ch._current_anim])
+	_foot_release()
+	await _wait_s(0.8)
+	_check(ch.ground_speed < 0.3 and ch._current_anim == "idle", "stops and idles (%s)" % ch._current_anim)
+	await _shot("onfoot_idle")
+	# Gamepad: left stick moves, L3 click sprints until the stick is let go.
+	game.foot_camera.yaw = atan2(-away.x, -away.z)
+	var ev := InputEventJoypadMotion.new()
+	ev.device = 0
+	ev.axis = JOY_AXIS_LEFT_Y
+	ev.axis_value = -1.0
+	Input.parse_input_event(ev)
+	await _pad(JOY_BUTTON_LEFT_STICK)
+	await _wait_s(1.2)
+	_check(ch.ground_speed > 5.5, "gamepad: stick + L3 sprints (%.1f m/s)" % ch.ground_speed)
+	ev.axis_value = 0.0
+	Input.parse_input_event(ev)
+	await _wait_s(0.8)
+	var y0 := ch.global_position.y
+	await _tap("jump")
+	await _wait_s(0.25)
+	var rise := ch.global_position.y - y0
+	await _shot("onfoot_jump")
+	_check(rise > 0.3 and not ch.is_on_floor(), "jumps (%.2f m up after 0.25 s)" % rise)
+	await _wait_s(1.2)
+	_check(ch.is_on_floor(), "lands")
+
+	# --- Walk to the vehicle, prompt, get in, drive, get out ---
+	# From 6 m out to the side of the driver's door.
+	var door := (car.get_node("Entry") as VehicleEntry).door_spot(car.global_position - car.global_basis.x * 5.0)
+	var out_dir := (door - car.global_position) * Vector3(1, 0, 1)
+	ch.place(Transform3D(Basis.IDENTITY, _ground(game, door + out_dir.normalized() * 6.0)))
+	game.foot_camera.snap()
+	await _wait_s(0.5)
+	var reached := await _foot_walk_to(game, door, 0.9)
+	await _wait_s(0.3)
+	_check(reached and game.hud.prompt_text().begins_with("Get in the"), "walking up shows the prompt ('%s')" % game.hud.prompt_text())
+	await _shot("onfoot_prompt")
+	# Press, then watch every physics tick: walking to the door, the camera gliding.
+	var press := InputEventAction.new()
+	press.action = "interact"
+	press.pressed = true
+	Input.parse_input_event(press)
+	var walked := false
+	var glided := false
+	for i in 240:
+		await get_tree().physics_frame
+		if p.mode == Possession.Mode.ENTERING:
+			walked = walked or ch.state == PlayerCharacter.State.SCRIPTED
+			glided = glided or game.camera_blend.current
+		if p.mode != Possession.Mode.ON_FOOT:
+			break
+	press.pressed = false
+	Input.parse_input_event(press)
+	_check(walked and glided, "getting in: walks to the door, camera glides")
+	await _shot("onfoot_entering")
+	await _tap("interact")  # pressing again mid-way changes nothing
+	while p.mode == Possession.Mode.ENTERING:
+		await get_tree().physics_frame
+	await _tap("interact")  # nor does mashing it right after getting in
+	await _wait_s(0.2)
+	_check(p.driving() and p.vehicle == car, "in the vehicle (presses while getting in and just after are ignored; mode %d)" % p.mode)
+	await _wait_s(0.6)
+	# Re-press out at once and get back in: covered below. Drive + exit:
+	await _tap("interact")
+	await _wait_mode(game, Possession.Mode.ON_FOOT)
+	(car.get_node("Entry") as VehicleEntry).interact(ch)
+	await _wait_mode(game, Possession.Mode.IN_VEHICLE)
+	p.exit()
+	await _wait_mode(game, Possession.Mode.ON_FOOT)
+	await _enter_drive_exit(game, car, "Sports Car", 3.0)
+	await _shot("onfoot_out_of_car")
+	# Getting out keeps the view's heading (no swing round): the on-foot camera
+	# starts looking the way the chase camera looked.
+	(car.get_node("Entry") as VehicleEntry).interact(ch)
+	await _wait_mode(game, Possession.Mode.IN_VEHICLE)
+	await _wait_s(1.5)
+	var chase_f := -game.camera.global_basis.z
+	await _tap("interact")
+	await _wait_mode(game, Possession.Mode.ON_FOOT)
+	var foot_f := -game.foot_camera.global_basis.z
+	var turn := rad_to_deg(Vector2(chase_f.x, chase_f.z).angle_to(Vector2(foot_f.x, foot_f.z)))
+	_check(absf(turn) < 35.0, "getting out keeps the view's heading (turned %.0f deg)" % turn)
+	_check(not game.start_replay(), "no instant replay on foot")
+
+	# --- Every vehicle type: get in with the gamepad, drive, get out ---
+	# Along the runway (x 285..525, z 300), 35 m apart, facing down it.
+	var fwd := Vector3.RIGHT
+	var right := fwd.cross(Vector3.UP)
+	var k := 0
+	for id: String in ["sedan", "van", "pickup", "box_truck", "bus", "buggy", "monster_truck"]:
+		var v := _park_new(game, id, Vector3(292.0 + 35.0 * k, 1.0, 300.0), fwd)
+		k += 1
+		await _wait_s(0.6)
+		var entry := v.get_node("Entry") as VehicleEntry
+		var door_l := entry.door_spot(v.global_position - right * 5.0)
+		ch.place(Transform3D(Basis.IDENTITY, _ground(game, door_l - right * 3.0)))
+		game.foot_camera.snap()
+		await _wait_s(0.3)
+		await _foot_walk_to(game, door_l, 0.8)
+		await _wait_s(0.3)
+		await _enter_drive_exit(game, v, v.display_name, 2.0, k % 2 == 1)
+	_check(game.left_vehicles.size() <= Game.MAX_LEFT_VEHICLES + 1, "left vehicles kept in check (%d)" % game.left_vehicles.size())
+
+	# --- Exits by walls ---
+	var wcar := _park_new(game, "sedan", Vector3(360.0, 1.0, 250.0), fwd)
+	await _wait_s(0.5)
+	var wr := wcar.global_basis.x
+	var hw := wcar.body_half_width
+	var len := wcar.body_length() + 2.0
+	var left_wall := _wall(game, wcar.global_position - wr * (hw + 0.35), Vector3(0.4, 3.0, len), atan2(fwd.x, fwd.z))
+	ch.place(Transform3D(Basis.IDENTITY, _ground(game, wcar.global_position + wr * (hw + 1.0))))
+	await _wait_s(0.3)
+	(wcar.get_node("Entry") as VehicleEntry).interact(ch)
+	await _wait_mode(game, Possession.Mode.IN_VEHICLE)
+	await _tap("interact")
+	await _wait_mode(game, Possession.Mode.ON_FOOT)
+	await _wait_s(0.3)
+	var side := (ch.global_position - wcar.global_position).dot(wr)
+	_check(side > hw, "wall on the driver's side: out on the passenger side (%.1f m right)" % side)
+	_check(not _overlaps(game, ch.global_position), "wall on the driver's side: clear of the wall")
+	await _shot("onfoot_exit_wall_left")
+	var right_wall := _wall(game, wcar.global_position + wr * (hw + 0.35), Vector3(0.4, 3.0, len), atan2(fwd.x, fwd.z))
+	(wcar.get_node("Entry") as VehicleEntry).interact(ch)
+	await _wait_mode(game, Possession.Mode.IN_VEHICLE)
+	await _tap("interact")
+	await _wait_mode(game, Possession.Mode.ON_FOOT)
+	await _wait_s(0.3)
+	var along := (ch.global_position - wcar.global_position).dot(-wcar.global_basis.z)
+	_check(absf(along) > wcar.body_length() * 0.5 - 0.2 and not _overlaps(game, ch.global_position),
+		"walls on both sides: out at the front or back (%.1f m along)" % along)
+	await _shot("onfoot_exit_walls_both")
+	# Boxed in front and back too: out on the roof (or not at all).
+	var front_wall := _wall(game, wcar.global_position - wcar.global_basis.z * (wcar.body_front + 0.5), Vector3(hw * 2.0 + 1.2, 3.0, 0.4), atan2(fwd.x, fwd.z))
+	var back_wall := _wall(game, wcar.global_position + wcar.global_basis.z * (wcar.body_rear + 0.5), Vector3(hw * 2.0 + 1.2, 3.0, 0.4), atan2(fwd.x, fwd.z))
+	(wcar.get_node("Entry") as VehicleEntry).interact(ch)
+	var boxed_in := await _wait_mode(game, Possession.Mode.IN_VEHICLE)
+	if not boxed_in:
+		# Couldn't reach the car from the gap: put the player in directly.
+		game.adopt_vehicle(wcar)
+		p.start_in_vehicle(wcar)
+	await _tap("interact")
+	await _wait_s(1.0)
+	var on_roof := p.on_foot() and ch.global_position.y > wcar.global_position.y + 0.3
+	var stayed := p.driving()
+	_check((on_roof and not _overlaps(game, ch.global_position)) or stayed, "boxed in: out onto the roof, or stays in (%s)" % ("roof" if on_roof else "stayed in" if stayed else "??"))
+	await _shot("onfoot_exit_boxed_in")
+	if p.driving():
+		for w in [left_wall, right_wall, front_wall, back_wall]:
+			w.queue_free()
+		await _wait_s(0.2)
+		await _tap("interact")
+		await _wait_mode(game, Possession.Mode.ON_FOOT)
+	else:
+		for w in [left_wall, right_wall, front_wall, back_wall]:
+			w.queue_free()
+	await _wait_s(1.0)
+
+	# --- Overturned vehicle: get out, then flip it back over ---
+	(wcar.get_node("Entry") as VehicleEntry).interact(ch)
+	await _wait_mode(game, Possession.Mode.IN_VEHICLE)
+	wcar.global_transform = Transform3D(wcar.global_basis.rotated(wcar.global_basis.z, PI), wcar.global_position + Vector3.UP * 1.2)
+	wcar.reset_physics_interpolation()
+	await _wait_s(2.0)
+	await _tap("interact")
+	var flipped_out := await _wait_mode(game, Possession.Mode.ON_FOOT, 5.0)
+	await _wait_s(0.4)
+	_check(flipped_out and not _overlaps(game, ch.global_position), "upside down: gets out clear of it")
+	var fe := wcar.get_node("Entry") as VehicleEntry
+	_check(fe.is_overturned() and fe.prompt(ch).begins_with("Flip"), "upside down: prompt offers to flip it ('%s')" % fe.prompt(ch))
+	await _foot_walk_to(game, wcar.global_position, wcar.body_half_width + 0.9)
+	await _wait_s(0.3)
+	await _shot("onfoot_flip_prompt")
+	await _tap("interact")
+	await _wait_s(1.5)
+	_check(not fe.is_overturned(), "flipping it puts it back on its wheels")
+
+	# --- A damaged vehicle: crash it, get out, get back in, it still drives ---
+	car = game.vehicle
+	game.ensure_driving()
+	await _ram_wall(game, 55.0)
+	var dmg := car.get_node("Damage") as VehicleDamage
+	var hurt := dmg.total_damage
+	_check(hurt > 10.0, "crashed (%.0f%% damage)" % hurt)
+	await _tap("interact")
+	await _wait_mode(game, Possession.Mode.ON_FOOT, 5.0)
+	await _wait_s(0.4)
+	_check(p.on_foot() and not _overlaps(game, ch.global_position), "damaged: gets out")
+	await _shot("onfoot_damaged_car")
+	await _foot_walk_to(game, (car.get_node("Entry") as VehicleEntry).door_spot(ch.global_position), 0.8)
+	await _enter_drive_exit(game, car, "Damaged " + car.display_name.to_lower(), 2.0)
+	_check(dmg.total_damage >= hurt - 0.01, "damage stays (%.0f%%)" % dmg.total_damage)
+
+	# --- Bumped by a moving car: knocked aside, unhurt, the car barely notices ---
+	var bump := _park_new(game, "sedan", Vector3(300.0, 1.0, 290.0), fwd)
+	await _wait_s(0.5)
+	ch.place(Transform3D(Basis.IDENTITY, _ground(game, bump.global_position + fwd * 12.0)))
+	await _wait_s(0.3)
+	var knocked := [false]
+	ch.knocked.connect(func(_s: float) -> void: knocked[0] = true, CONNECT_ONE_SHOT)
+	bump.linear_velocity = fwd * 9.0
+	var v_before := 9.0
+	await _wait_s(1.6)
+	_check(knocked[0], "a car driving into the character knocks it aside")
+	_check(bump.linear_velocity.length() > v_before * 0.6 or bump.global_position.distance_to(ch.global_position) > 2.0,
+		"the car isn't stopped dead by the character (%.1f m/s)" % bump.linear_velocity.length())
+	await _wait_s(1.5)
+	_check(ch.state == PlayerCharacter.State.ACTIVE and ch.is_on_floor() and not _overlaps(game, ch.global_position),
+		"back on its feet, clear of the car")
+
+	# --- A traffic car: it stops for the character, the player takes it over ---
+	var lane: TrafficNetwork.Lane = null
+	for l in tm.network.lanes:
+		if not l.connector and l.length > 140.0 and l.speed < 16.0 and l.stops.is_empty():
+			var curvy := false
+			for kk in l.curv:
+				curvy = curvy or kk > 0.01
+			if not curvy:
+				lane = l
+				break
+	_check(lane != null, "found a straight city lane")
+	if lane:
+		var start := lane.point_at(15.0)
+		ch.place(Transform3D(Basis.IDENTITY, _ground(game, lane.point_at(75.0))))
+		game.foot_camera.snap()
+		await _wait_s(0.5)
+		var d := tm.spawn_near(load("res://scenes/vehicles/sedan.tscn"), start)
+		var tcar := d.vehicle
+		var closest := INF
+		var t := 0.0
+		while t < 14.0:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			closest = minf(closest, tcar.global_position.distance_to(ch.global_position) - tcar.body_front)
+			if t > 3.0 and tcar.linear_velocity.length() < 0.2:
+				break
+		await _wait_s(1.0)
+		_check(closest > 0.5 and d.blocker == "pedestrian", "traffic stops for a person in the road (%.1f m short, waiting for '%s')" % [closest, d.blocker])
+		await _shot("onfoot_traffic_stopped")
+		await _wait_s(3.0)
+		var tentry := tcar.get_node("Entry") as VehicleEntry
+		await _foot_walk_to(game, tentry.door_spot(ch.global_position), 0.8)
+		await _wait_s(0.3)
+		_check(tentry.prompt(ch).begins_with("Get in"), "traffic car offers to get in ('%s')" % tentry.prompt(ch))
+		await _enter_drive_exit(game, tcar, "Traffic sedan", 2.0)
+		_check(tm.driver_of(tcar) == null and tcar.get_parent() == game and tcar.get_node_or_null("Driver") == null,
+			"traffic car taken over: no AI driver left, it's the player's")
+		_check(not tm.drivers.any(func(dd: TrafficDriver) -> bool: return dd.vehicle == tcar), "traffic no longer manages it")
+
+	# --- A parked car in a lot: swapped for the real vehicle, driven ---
+	game.teleport_to(0)
+	await _wait_s(1.0)
+	var best: ParkedCarEntry = null
+	var best_d := INF
+	for node in get_tree().get_nodes_in_group(Interactable.GROUP):
+		var pe := node as ParkedCarEntry
+		if pe and pe.prop and pe.prompt(ch) != "":
+			var dd := pe.prop.global_position.distance_to(ch.global_position)
+			if dd < best_d:
+				best_d = dd
+				best = pe
+	_check(best != null, "found a parked car (%.0f m away)" % best_d)
+	if best:
+		var prop := best.prop
+		var px := prop.global_transform
+		var spot := Vector3.INF
+		for off: Vector3 in [Vector3(-2.0, 0, 0), Vector3(2.0, 0, 0), Vector3(0, 0, -3.6), Vector3(0, 0, 3.6)]:
+			var cand := _ground(game, px * off)
+			if not _overlaps(game, cand) and best.reach_distance(cand) < INF:
+				spot = cand
+				break
+		_check(spot != Vector3.INF, "room to stand by the parked car")
+		if spot != Vector3.INF:
+			ch.place(Transform3D(Basis.IDENTITY, spot))
+			game.foot_camera.snap()
+			await _wait_s(0.5)
+			_check(game.hud.prompt_text().begins_with("Get in"), "parked car prompt ('%s')" % game.hud.prompt_text())
+			await _shot("onfoot_parked_prompt")
+			var before := game.vehicle
+			await _tap("interact")
+			await _wait_mode(game, Possession.Mode.IN_VEHICLE, 3.0)
+			var gone := not is_instance_valid(prop) or prop.is_queued_for_deletion() or not prop.is_inside_tree()
+			_check(p.driving() and game.vehicle != before and gone, "parked car became a real vehicle and the player is in it")
+			if p.driving():
+				var pv := game.vehicle
+				await _tap("interact")
+				await _wait_mode(game, Possession.Mode.ON_FOOT)
+				await _wait_s(0.3)
+				await _enter_drive_exit(game, pv, "Parked car", 2.0)
+
+	# --- The garage on foot: pick a vehicle, it's brought to you, you're in it ---
+	_check(p.on_foot(), "on foot before the garage")
+	game.open_garage()
+	await _wait(10)
+	game.picker.picked.emit(VehicleCatalog.index_of_id("pickup"))
+	await _wait_s(0.5)
+	_check(p.driving() and VehicleCatalog.id_of_vehicle(game.vehicle) == "pickup", "garage on foot: in the new pickup")
+	_check(game.vehicle.global_position.distance_to(ch.global_position) < 8.0, "garage on foot: brought to where you stood")
+	_check_wiring(game, "garage on foot")
+	await _tap("interact")
+	await _wait_mode(game, Possession.Mode.ON_FOOT)
+
+	# --- A race picked from the menu while on foot: in the vehicle at the start ---
+	game._on_menu_action("race:0")
+	await _wait_s(0.5)
+	_check(p.driving() and game.race.is_active() and game.controller.vehicle == game.vehicle and game.camera.current,
+		"race from on foot: driving, chase camera, race on")
+	game.race.end_race()
+	await _wait_s(0.3)
+	await _tap("interact")
+	await _wait_mode(game, Possession.Mode.ON_FOOT)
+	_check(p.on_foot(), "out again after the race")
+
+	# --- Fell in the sea on foot: back to the spawn point ---
+	ch.place(Transform3D(Basis.IDENTITY, Vector3(-600, MapLayout.SEA_LEVEL - 3.0, 3)))
+	await _wait_s(3.0)
+	_check(p.on_foot() and ch.global_position.y > MapLayout.SEA_LEVEL,
+		"fell in the sea: respawned on foot (mode %d, y %.1f, state %d, paused %s)" % [p.mode, ch.global_position.y, game.state, get_tree().paused])
+
+	# --- Title screen -> PLAY! on foot ---
+	game._enter_title()
+	await _wait(5)
+	game.menu.action.emit("drive")
+	await _wait(5)
+	_check(game.state == Game.State.DRIVING and p.on_foot() and game.foot_camera.current and game.foot_controller.enabled,
+		"title -> PLAY: walking, on-foot camera (state %d, mode %d, cam %s)" % [game.state, p.mode, get_viewport().get_camera_3d().name])
+
+	# --- Many times in and out: nothing piles up ---
+	await _wait_s(0.5)
+	var v0 := game.vehicle
+	ch.place(Transform3D(Basis.IDENTITY, _ground(game, (v0.get_node("Entry") as VehicleEntry).door_spot(ch.global_position))))
+	await _wait_s(0.5)
+	game._tidy_left_vehicles()
+	await _wait_s(0.5)
+	var nodes0 := get_tree().get_node_count()
+	var objs0 := Performance.get_monitor(Performance.OBJECT_COUNT)
+	var players0 := get_tree().root.find_children("*", "AudioStreamPlayer3D", true, false).size()
+	for i in 12:
+		await _tap("interact")
+		await _wait_mode(game, Possession.Mode.IN_VEHICLE)
+		await _wait_s(0.3)
+		await _tap("interact")
+		await _wait_mode(game, Possession.Mode.ON_FOOT)
+		await _wait_s(0.3)
+	await _wait_s(1.0)
+	var nodes1 := get_tree().get_node_count()
+	var objs1 := Performance.get_monitor(Performance.OBJECT_COUNT)
+	var players1 := get_tree().root.find_children("*", "AudioStreamPlayer3D", true, false).size()
+	_check(nodes1 - nodes0 <= 4, "12 trips in and out: no more nodes (%d -> %d)" % [nodes0, nodes1])
+	_check(objs1 - objs0 < 60.0, "12 trips: no more objects (%d -> %d)" % [objs0, objs1])
+	_check(players1 <= players0 + 2, "12 trips: audio players steady (%d -> %d)" % [players0, players1])
+	var controllers := 0
+	for n in game.get_children():
+		if n is PlayerVehicleController or n is PlayerCharacterController:
+			controllers += 1
+	_check(controllers == 2, "one vehicle controller and one character controller (%d)" % controllers)
+	var chars := game.find_children("*", "PlayerCharacter", true, false).size()
+	_check(chars == 1, "one character (%d)" % chars)
+
+
+## What the character costs: rendering (shown vs hidden, same view), physics
+## (its script on vs off) and frame times while walking, in the city centre
+## with normal traffic. Run with a window; add --gpu-index 0 for the iGPU.
+func _onfootbench(game: Game) -> void:
+	var ch := game.character
+	var tm := game.traffic
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	game.hud.visible = false
+	game.teleport_to(0)
+	tm.set_enabled(true)
+	await _wait_s(5.0)
+	game.foot_camera.yaw = ch.facing
+	await _wait(30)
+	print("--- on foot, city centre, %d traffic cars, graphics %s" % [tm.drivers.size(), Settings.GRAPHICS_LABELS[Settings.get_value("graphics")]])
+	# Rendering, shown vs hidden, with traffic off so the view stays the same.
+	tm.set_enabled(false)
+	await _wait_s(1.0)
+	for round in 3:
+		ch.visible = true
+		await _wait(20)
+		var a := await _frame_stats(240)
+		ch.visible = false
+		await _wait(20)
+		var b := await _frame_stats(240)
+		ch.visible = true
+		print("character shown:  %d draw calls, render CPU %.2f ms, GPU %.2f ms (peak %.2f)" % [a[0], a[1], a[3], a[4]])
+		print("character hidden: %d draw calls, render CPU %.2f ms, GPU %.2f ms (peak %.2f)" % [b[0], b[1], b[3], b[4]])
+	tm.set_enabled(true)
+	await _wait_s(4.0)
+	# The character's own physics step (movement, kerbs, vehicle checks,
+	# footsteps) and the interaction scan, timed directly: their physics is
+	# switched off and the same calls are made from here, walking in circles
+	# next to traffic.
+	ch.set_physics_process(false)
+	game.possession.set_physics_process(false)
+	var parts := {"controller": 0, "character": 0, "scan": 0}
+	var ticks := 0
+	var t := 0.0
+	while t < 6.0:
+		_foot_push(game, Vector3(cos(t * 1.5), 0.0, sin(t * 1.5)), 1.0)
+		await get_tree().physics_frame
+		var dt := get_physics_process_delta_time()
+		t += dt
+		var t0 := Time.get_ticks_usec()
+		game.foot_controller._physics_process(dt)
+		var t1 := Time.get_ticks_usec()
+		ch._physics_process(dt)
+		var t2 := Time.get_ticks_usec()
+		game.possession._physics_process(dt)
+		var t3 := Time.get_ticks_usec()
+		parts["controller"] += t1 - t0
+		parts["character"] += t2 - t1
+		parts["scan"] += t3 - t2
+		ticks += 1
+	_foot_release()
+	ch.set_physics_process(true)
+	game.possession.set_physics_process(true)
+	var total: int = parts["controller"] + parts["character"] + parts["scan"]
+	print("character + controller + interaction scan: %.3f ms per physics tick (%.2f ms per 60 fps frame); character %.3f, controller %.3f, scan %.3f" % [
+		total / 1000.0 / ticks, total / 1000.0 / ticks * 2.0, parts["character"] / 1000.0 / ticks,
+		parts["controller"] / 1000.0 / ticks, parts["scan"] / 1000.0 / ticks])
+	tm.set_enabled(true)
+	await _wait_s(4.0)
+	# Walking and sprinting along the street.
+	var fwd := Vector3(-sin(ch.facing), 0.0, -cos(ch.facing))
+	_foot_push(game, fwd, 1.0)
+	var w := await _frame_stats(300)
+	Input.action_press("sprint")
+	var r := await _frame_stats(300)
+	_foot_release()
+	print("walking/running: %d draw calls, render CPU %.2f ms (peak %.2f), GPU %.2f ms (peak %.2f)" % [w[0], w[1], w[2], w[3], w[4]])
+	print("sprinting:       %d draw calls, render CPU %.2f ms (peak %.2f), GPU %.2f ms (peak %.2f)" % [r[0], r[1], r[2], r[3], r[4]])
+	print("process frame: %.2f ms, physics frame %.2f ms (Performance monitors)" % [
+		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0])
+
+
+## Average physics step time (ms) over `seconds`.
+func _physics_ms(seconds: float) -> float:
+	var t := 0.0
+	var sum := 0.0
+	var n := 0
+	while t < seconds:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		sum += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)
+		n += 1
+	return sum / maxi(n, 1) * 1000.0
+
+
+## Look-development shots of the character on the airfield apron (open, flat,
+## neutral concrete): fixed cameras at three times of day, then every
+## locomotion clip sampled at 8 points of its loop from the side.
+func _charsheet(game: Game) -> void:
+	var ch := game.character
+	game.traffic.set_enabled(false)
+	game.hud.visible = false
+	game.teleport_to(6)
+	await _wait_s(1.0)
+	var pos := _ground(game, Vector3(360.0, 1.0, 250.0))
+	ch.place(Transform3D(Basis.IDENTITY, pos))
+	ch.set_physics_process(false)  # hold still where it's put
+	var cam := Camera3D.new()
+	cam.fov = 40.0
+	cam.far = 3000.0
+	game.add_child(cam)
+	cam.current = true
+	var anim := ch._anim
+	var views := {
+		"front": [Vector3(0, 1.1, -4.2), Vector3(0, 0.95, 0)],
+		"q3": [Vector3(2.8, 1.4, -3.2), Vector3(0, 0.95, 0)],
+		"side": [Vector3(4.2, 1.1, 0), Vector3(0, 0.95, 0)],
+		"back": [Vector3(0, 1.3, 4.2), Vector3(0, 0.95, 0)],
+		"face": [Vector3(0.35, 1.68, -1.1), Vector3(0, 1.6, 0)],
+		"game": [Vector3(0.0, 2.3, 3.6), Vector3(0.0, 1.45, -1.5)],
+	}
+	var times := ["day", "sunset", "night"]
+	for t in times:
+		game.day_night.set_mode(times.find(t))
+		await _wait(10)
+		anim.play(ch._clips["idle"], 0.0)
+		anim.seek(0.6, true)
+		anim.pause()
+		for v: String in views:
+			var setup: Array = views[v]
+			cam.fov = 70.0 if v == "game" else 40.0
+			cam.global_position = pos + setup[0]
+			cam.look_at(pos + setup[1], Vector3.UP)
+			await _wait(4)
+			await _shot("char_%s_%s" % [t, v])
+	game.day_night.set_mode(0)
+	await _wait(10)
+	cam.fov = 40.0
+	cam.global_position = pos + Vector3(4.4, 1.0, 0)
+	cam.look_at(pos + Vector3(0, 0.9, 0), Vector3.UP)
+	for key in ["idle", "walk", "run", "sprint", "jump", "fall", "land"]:
+		if not ch._clips.has(key):
+			continue
+		var clip: String = ch._clips[key]
+		var length := anim.get_animation(clip).length
+		anim.play(clip, 0.0)
+		for k in 8:
+			anim.seek(length * k / 8.0, true)
+			anim.pause()
+			await _wait(3)
+			await _shot("anim_%s_%d" % [key, k])
+	anim.play(ch._clips["idle"])
+	ch.set_physics_process(true)
+	cam.queue_free()
