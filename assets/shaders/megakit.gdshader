@@ -53,6 +53,11 @@ uniform sampler2D palette_tex : source_color, filter_nearest, repeat_disable;
 // of 256 px, room * 5 + face (0 back, 1 left, 2 right, 3 floor, 4 ceiling).
 uniform sampler2D shops_atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform int shops_count = 12;
+// For variety some upper-floor windows show one of the city's room renders
+// instead of the kit's photos (same atlas layout as the shops).
+uniform sampler2D rooms_atlas : source_color, filter_linear_mipmap, repeat_disable;
+uniform int rooms_count = 12;
+uniform float city_room_share = 0.4;
 // Lettering for painted wall signs: the city's shop sign atlas (16 rows of
 // 1024 x 128, A = lettering).
 uniform sampler2D signs_atlas : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
@@ -111,12 +116,12 @@ vec3 unpack_xy(vec2 xy, float strength) {
 	return vec3(v, sqrt(max(1.0 - dot(v, v), 0.0)));
 }
 
-vec3 shop_texel(int room, int face, vec2 fuv, float lod) {
+vec3 atlas_texel(bool shop, int room, int face, vec2 fuv, float lod) {
 	int idx = room * 5 + face;
 	vec2 cell = vec2(float(idx % 8), float(idx / 8));
 	vec2 inner = vec2(fuv.x * 0.5 + 0.5, 0.5 - fuv.y * 0.5);
 	inner = (inner * 248.0 + 4.0) / 256.0;
-	return textureLod(shops_atlas, (cell + inner) / 8.0, lod).rgb;
+	return shop ? textureLod(shops_atlas, (cell + inner) / 8.0, lod).rgb : textureLod(rooms_atlas, (cell + inner) / 8.0, lod).rgb;
 }
 
 // Screen derivatives of UV with the per-window offsets (multiples of 4 in u)
@@ -180,10 +185,22 @@ void fragment() {
 			vec2 img = h.xy / (1.0 + h.z * (1.0 - room_back) / room_back);
 			img.x *= mir;
 			vec2 ruv = vec2(img.x * 0.5 + 0.5, 0.5 - img.y * 0.5);
-			// Lit rooms by day are offices; the dark photo reads as a flat.
-			int layer = h3 < 0.22 ? 2 : (room > 1 ? 0 : room);
-			room_rgb = textureLod(room_tex, vec3(clamp(ruv, 0.002, 0.998), float(layer)),
-				clamp(log2(max(max(length(duv1), length(duv2)) * 512.0, 1.0)), 0.0, 4.0)).rgb;
+			float lod = clamp(log2(max(max(length(duv1), length(duv2)) * 512.0, 1.0)), 0.0, 4.0);
+			if (fract(h2 * 3.7 + h4) < city_room_share) {
+				// One of the city's rendered rooms: a box room behind the window
+				// (facade_common's room_hit; x right, y up, z into the room).
+				vec3 bp = vec3(p0, -1.0);
+				vec3 bd = vec3(d.x, d.y, d.z * 2.0);  // the box spans 2 units over room_depth
+				int face;
+				vec2 fuv;
+				float tr;
+				room_hit(clamp(bp, vec3(-0.995, -0.995, -1.0), vec3(0.995, 0.995, 1.0)), bd, face, fuv, tr);
+				room_rgb = atlas_texel(false, int(h1 * float(rooms_count)) % rooms_count, face, clamp(fuv, vec2(-1.0), vec2(1.0)), min(lod, 2.0));
+			} else {
+				// The kit's photos: lit offices by day, the dark one reads as a flat.
+				int layer = h3 < 0.22 ? 2 : (room > 1 ? 0 : room);
+				room_rgb = textureLod(room_tex, vec3(clamp(ruv, 0.002, 0.998), float(layer)), lod).rgb;
+			}
 		} else {
 			room_rgb = vec3(0.09, 0.08, 0.07);
 		}
@@ -232,7 +249,7 @@ void fragment() {
 			room_hit(rp, rd, face, fuv, tr);
 			float sh = hash12(vec2(cell, floor(dot(v_world, nw) + 0.5)) + 3.7);
 			float lod = clamp(log2(max(max(length(duv1), length(duv2)) * 256.0, 1.0)), 0.0, 2.0);
-			room_rgb = shop_texel(int(sh * float(shops_count)) % shops_count, face, clamp(fuv, vec2(-1.0), vec2(1.0)), lod);
+			room_rgb = atlas_texel(true, int(sh * float(shops_count)) % shops_count, face, clamp(fuv, vec2(-1.0), vec2(1.0)), lod);
 			lit = step(0.15, fract(sh * 17.3));  // most shops are lit at night
 			gain = day_room_gain * 2.2;  // shops are bright inside by day
 			cover = 0.0;

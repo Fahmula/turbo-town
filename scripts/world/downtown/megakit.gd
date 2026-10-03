@@ -126,6 +126,7 @@ static func material() -> ShaderMaterial:
 		_material.set_shader_parameter("palette_tex", _palette_texture())
 		_material.set_shader_parameter("shops_atlas", load("res://assets/textures/building/facade_interiors_shops.jpg"))
 		_material.set_shader_parameter("signs_atlas", load("res://assets/textures/building/facade_signs.png"))
+		_material.set_shader_parameter("rooms_atlas", load("res://assets/textures/building/facade_interiors_rooms.jpg"))
 	return _material
 
 
