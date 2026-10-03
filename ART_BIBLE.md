@@ -48,8 +48,9 @@ Contents: 0 Quick rules · 1 Identity · 2 References · 3 Today's baseline ·
 5. **One lighting setup**, owned by `DayNight` and `world.tscn`: sun or moon,
    sky ambient, fog. No GI, no SSR, no volumetrics, and no motion blur or DOF
    during gameplay.
-6. **60 fps on the Steam Deck.** Budgets are in §27. Every new effect has
-   Low/Medium/High behaviour in `GraphicsQuality`.
+6. **60 fps on the Steam Deck on Medium** (and Low); High and Ultra may be
+   heavier. Budgets are in §27. Every new effect has Low/Medium/High
+   behaviour in `GraphicsQuality`.
 7. **Vehicles** are generic, unbranded archetypes with deformation-ready
    topology and **≤ 6,000 deformable vertices**. Keep the name contracts (§13).
 8. **Damage** should be satisfying, readable and kid-safe: dents, scrapes,
@@ -1666,12 +1667,17 @@ Output goes to `assets/models/`.
 
 ## 27. Steam Deck performance
 
-**Target:** 60 fps (16.7 ms) at 1280×800 on the Deck, in the busiest views:
-city centre at night with busy traffic, a big crash with parts and smoke, the
-overview from the mountain.
-- **High** is the default (`Settings.DEFAULTS.graphics = 2`) and should hold
-  60 fps.
-- **Medium** must always hold 60 fps.
+**Target:** 60 fps (16.7 ms) at 1280×800 on the Deck **on Medium**, in the
+busiest views: city centre at night with busy traffic, a big crash with parts
+and smoke, the overview from the mountain. (Owner, 2026-10-03: don't limit the
+look to the Deck; the Deck needn't run the top presets at 60.)
+- **Medium** must always hold 60 fps on the Deck: it's the Deck setting.
+- **High** is the default (`Settings.DEFAULTS.graphics = 2`); since 0.7.1 it
+  is tuned to stay close to the Deck, but it may be heavier than 60 fps there.
+  **Ultra** is for PCs and may be much heavier.
+- Don't count on frame generation to fix performance: native frame rate and
+  sensible presets come first. Keep profiling every change for regressions
+  (the iGPU with `--gpu-index 0` is a rough Deck stand-in, about 1.6× slower).
 - **Low** is the safety net: FSR at 0.75 scale, no glow or SSAO, 2 shadow
   splits, glow-only lamps.
 
@@ -1756,7 +1762,7 @@ window):
 |---|---|
 | Draw calls | ≤ 1,200. Any single feature adding more than ~100 needs discussion. |
 | Visible primitives, incl. shadow passes | ≤ 1.5 M |
-| Deck GPU frame time | ≤ 13 ms on High, ≤ 11 ms on Medium |
+| Deck GPU frame time | ≤ 11 ms on Medium; High as close to 13 ms as it reasonably gets |
 | Shadow casters | the directional light only (§10) |
 | Visible local lights | ≤ 16, none with shadows |
 | Live particles | ≤ 1,500 |
@@ -2127,4 +2133,6 @@ everything else: **stylized realism**, believable first.
   with one standard rim fit, rim finishes, tyre stripes, calipers only on
   open rims. §12, §24, §26 and §27 updated.
 - 2026-10-03: the player character (branch `player-character`): §34
-  Characters added; §27 baseline (on-foot cost).
+  Characters added; §27 baseline (on-foot cost). §0 rule 6 and §27 target:
+  60 fps on the Deck is the Medium preset's job, High/Ultra may be heavier,
+  no relying on frame generation (owner, 2026-10-03).
