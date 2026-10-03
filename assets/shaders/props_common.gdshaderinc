@@ -48,7 +48,7 @@ const float PROPS_TILE[16] = float[16](
 // How much of the scan's albedo variation shows (0 = none, 1 = as scanned).
 const float PROPS_ALBEDO_K[16] = float[16](
 	0.6, 0.8, 1.0, 0.7, 0.6, 0.9, 1.0, 0.45,
-	0.8, 0.8, 0.7, 1.0, 1.0, 0.9, 0.6, 1.0);
+	0.8, 0.8, 0.7, 1.0, 1.0, 0.45, 0.6, 1.0);
 
 // Normal map strength per layer.
 const float PROPS_NORMAL_K[16] = float[16](

@@ -161,8 +161,8 @@ func _build_gantries(root: Node3D) -> void:
 		var face := -dir if toward_right else dir
 		var board_basis := Basis(face.cross(Vector3.UP) * -1.0, Vector3.UP, face)
 		var board := Transform3D(board_basis, p + off + Vector3.UP * 6.3)
-		mb.add_bevel_box(board, Vector3(10.2, 2.8, 0.12), 0.03, Color(0.9, 0.9, 0.88, SIGN))
-		mb.add_bevel_box(board * Transform3D(Basis.IDENTITY, Vector3(0, 0, 0.03)), Vector3(9.9, 2.5, 0.1), 0.02, Color(0.118, 0.42, 0.235, SIGN))
+		mb.add_bevel_box(board, Vector3(10.2, 2.8, 0.12), 0.03, Color(0.9, 0.9, 0.88, StreetKit.RETRO))
+		mb.add_bevel_box(board * Transform3D(Basis.IDENTITY, Vector3(0, 0, 0.03)), Vector3(9.9, 2.5, 0.1), 0.02, Color(0.118, 0.42, 0.235, StreetKit.RETRO))
 		mb.add_bevel_box(board * Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.09)), Vector3(10.2, 2.8, 0.06), 0.02, Color(0.45, 0.47, 0.48, METAL))
 		var label := Label3D.new()
 		label.text = s[2]
@@ -210,12 +210,23 @@ func _build_gas_station(root: Node3D, c: Vector3) -> void:
 		mb.add_bevel_box(island, Vector3(1.4, 0.2, 7.0), 0.04, Color(ArtPalette.CONCRETE, CONCRETE))
 		for pz: float in [-2.0, 2.0]:
 			var pump := Transform3D(Basis.IDENTITY, c + Vector3(px, 1.0, pz))
-			mb.add_bevel_box(pump, Vector3(0.85, 1.8, 0.65), 0.06, WHITE, Color(0.6, 0.6, 0.58, PAINTED))
+			var gal := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+			mb.add_bevel_box(pump, Vector3(0.85, 1.8, 0.65), 0.1, Color(WHITE, StreetKit.GLOSS), Color(0.6, 0.6, 0.58, StreetKit.GLOSS))
 			_collider(body, pump, Vector3(0.9, 1.8, 0.7))
-			mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px, 1.55, pz)), Vector3(0.88, 0.45, 0.68), 0.03, red)
+			mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px, 1.55, pz)), Vector3(0.88, 0.45, 0.68), 0.08, Color(red, StreetKit.GLOSS))
+			mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px, 0.14, pz)), Vector3(0.9, 0.18, 0.7), 0.03, Color(0.2, 0.2, 0.21, StreetKit.PAINTED))
 			for side: float in [-1.0, 1.0]:
-				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px, 1.15, pz + side * 0.33)), Vector3(0.5, 0.3, 0.02), 0.005, Color(0.1, 0.12, 0.13, GLOW))
-				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px + side * 0.44, 0.9, pz)), Vector3(0.06, 0.35, 0.12), 0.01, Color(0.15, 0.15, 0.16, RUBBER))
+				# Display window (dark glass with a lit readout) and a grade label.
+				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px, 1.28, pz + side * 0.33)), Vector3(0.5, 0.26, 0.02), 0.005, Color(0.08, 0.1, 0.12, GLASS), Color(0, 0, 0, -1), false)
+				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px, 1.3, pz + side * 0.336)), Vector3(0.34, 0.1, 0.006), 0.002, Color(0.5, 0.75, 0.35, GLOW), Color(0, 0, 0, -1), false)
+				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px - 0.2, 0.85, pz + side * 0.33)), Vector3(0.14, 0.2, 0.02), 0.004, Color(0.2, 0.4, 0.7, StreetKit.GLOSS), Color(0, 0, 0, -1), false)
+				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px + 0.2, 0.85, pz + side * 0.33)), Vector3(0.14, 0.2, 0.02), 0.004, Color(0.72, 0.16, 0.12, StreetKit.GLOSS), Color(0, 0, 0, -1), false)
+				# Nozzle holster on the end, a hose sagging to a nozzle.
+				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px + side * 0.45, 0.9, pz)), Vector3(0.08, 0.3, 0.2), 0.012, Color(0.15, 0.15, 0.16, RUBBER))
+				var hose := PackedVector3Array([c + Vector3(px + side * 0.3, 1.15, pz - 0.2), c + Vector3(px + side * 0.55, 1.0, pz - 0.18), c + Vector3(px + side * 0.62, 0.7, pz - 0.1),
+					c + Vector3(px + side * 0.52, 0.45, pz), c + Vector3(px + side * 0.5, 0.78, pz)])
+				StreetKit.tube_path(mb, hose, PackedFloat32Array([0.025]), 6, Color(0.08, 0.08, 0.09, StreetKit.RUBBER), false)
+				StreetKit.rod(mb, c + Vector3(px + side * 0.5, 0.78, pz), c + Vector3(px + side * 0.5, 1.0, pz + 0.04), 0.022, 0.016, 6, gal)
 	# Shop: a single-storey building from the building kit.
 	var kit := BuildingKit.new(ground, body)
 	kit.rng.seed = 77
@@ -291,6 +302,14 @@ func _build_airport(root: Node3D) -> void:
 	_ground_quad(ground, ac.x - 10, tz0, ac.x + 10, tz1, y, asphalt)
 	_collider(body, Transform3D(Basis.IDENTITY, Vector3(ac.x, a.y - 0.5, (tz0 + tz1) * 0.5)), Vector3(20, 1.0, tz1 - tz0))
 	_ground_quad(ground, ac.x - 0.3, tz0, ac.x + 0.3, tz1, ly, Color(ArtPalette.ROAD_YELLOW, 0.0))
+	# Edge lights along the runway: frangible yellow stems with a lens that glows white at night.
+	var rlx := a.x + 15.0
+	while rlx < b.x - 10.0:
+		for side: float in [-1.0, 1.0]:
+			var lp := Vector3(rlx, a.y, a.z + side * (hw + 0.6))
+			StreetKit.rod(mb, lp, lp + Vector3.UP * 0.32, 0.07, 0.06, 8, Color(0.85, 0.7, 0.15, StreetKit.PLASTIC))
+			mb.add_bevel_box(Transform3D(Basis.IDENTITY, lp + Vector3(0, 0.36, 0)), Vector3(0.14, 0.08, 0.14), 0.015, Color(0.95, 0.96, 1.0, StreetKit.LAMP_COOL), Color(0, 0, 0, -1), false)
+		rlx += 30.0
 	# Hangars along the back of the apron, open to the south: box-profile steel
 	# cladding on a concrete plinth, a barrel roof on arched trusses with
 	# strip lights, a lintel and door tracks across the front.
@@ -964,32 +983,75 @@ func _build_islet(root: Node3D) -> void:
 	var body := StaticBody3D.new()
 	body.name = "Lighthouse"
 	var mb := MeshBuilder.new()
-	# Lighthouse: a smooth tapered tower in red and white bands, a gallery
-	# with railings, the lamp room, a domed roof.
+	# Lighthouse: a tapered tower in painted red and white bands on a stone
+	# plinth, with a door, stair windows, a gallery with railings, the lantern
+	# room and a domed roof.
 	var c := MapLayout.ISLET_CENTER
 	var base := Vector3(c.x, t.height_at(c.x, c.y), c.y)
+	var gal := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+	var stone := Color(0.56, 0.55, 0.52, CONCRETE)
+	var red := Color(0.74, 0.17, 0.13, StreetKit.WORN)
+	var white := Color(0.92, 0.91, 0.88, StreetKit.WORN)
+	var r_at := func(y: float) -> float: return lerpf(2.6, 1.8, (y - 0.6) / 16.2)
+	# Stone plinth with a stepped top.
+	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3(0, -0.4, 0)), PackedVector2Array([Vector2(0.0, 0.0), Vector2(3.6, 0.0), Vector2(3.5, 0.5), Vector2(3.2, 0.9), Vector2(3.0, 1.0),
+		Vector2(2.85, 1.0), Vector2(2.7, 1.0), Vector2(0.0, 1.0)]), 20, PackedColorArray([stone]), 30.0)
+	var prof := PackedVector2Array([Vector2(0.0, 0.0), Vector2(2.9, 0.0), Vector2(2.7, 0.6)])
+	var cols := PackedColorArray([white, white, white])
 	var bands := 6
-	var prof := PackedVector2Array([Vector2(0.0, 0.0), Vector2(3.0, 0.0), Vector2(3.0, 0.5), Vector2(2.7, 0.6)])
-	var cols := PackedColorArray([Color(0.6, 0.58, 0.55, CONCRETE), Color(0.6, 0.58, 0.55, CONCRETE), Color(0.6, 0.58, 0.55, CONCRETE), Color(0.6, 0.58, 0.55, CONCRETE)])
-	for k in bands + 1:
-		var y := 0.6 + k * (16.2 / bands)
-		prof.append(Vector2(lerpf(2.6, 1.8, float(k) / bands), y))
-		cols.append(Color(0.74, 0.17, 0.13, PAINTED) if k % 2 == 0 else Color(0.9, 0.89, 0.86, PAINTED))
-	mb.add_lathe(Transform3D(Basis.IDENTITY, base), prof, 16, cols, 20.0)
+	for k in bands:
+		var y0 := 0.6 + k * (16.2 / bands)
+		var y1 := 0.6 + (k + 1) * (16.2 / bands)
+		var cc := red if k % 2 == 0 else white
+		prof.append(Vector2(r_at.call(y0 + 0.01), y0 + 0.01))
+		cols.append(cc)
+		prof.append(Vector2(r_at.call(y1), y1))
+		cols.append(cc)
+	mb.add_lathe(Transform3D(Basis.IDENTITY, base), prof, 24, cols, 20.0)
 	_collider(body, Transform3D(Basis.IDENTITY, base + Vector3.UP * 8.4), Vector3(4.4, 16.8, 4.4))
 	var dark := Color(0.2, 0.21, 0.22, PAINTED)
-	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 16.8), PackedVector2Array([Vector2(1.8, 0.0), Vector2(2.9, 0.15), Vector2(2.9, 0.4), Vector2(0.0, 0.4)]), 16,
+	# Door facing the bridge (+X) with a stone lintel and steps, and stair windows.
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, base + Vector3(2.62, 2.0, 0)), Vector3(0.3, 2.5, 1.5), 0.04, Color(stone, CONCRETE), Color(0, 0, 0, -1), false)
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, base + Vector3(2.7, 1.9, 0)), Vector3(0.14, 2.0, 1.0), 0.02, Color(0.14, 0.26, 0.42, StreetKit.WORN), Color(0, 0, 0, -1), false)
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, base + Vector3(3.0, 0.7, 0)), Vector3(0.9, 0.3, 1.8), 0.03, Color(stone, CONCRETE))
+	StreetKit.rod(mb, base + Vector3(2.8, 1.9, 0.35), base + Vector3(2.8, 1.9, 0.5), 0.03, 0.03, 8, gal)
+	for k in 6:
+		var y := 4.0 + k * 2.4
+		var a := k * 1.9
+		var rr: float = r_at.call(y)
+		mb.add_bevel_box(Transform3D(Basis(Vector3.UP, PI * 0.5 - a), base + Vector3(cos(a) * rr, y, sin(a) * rr)), Vector3(0.38, 0.9, 0.26), 0.03, Color(0.1, 0.14, 0.18, GLASS), Color(0, 0, 0, -1), false)
+		mb.add_bevel_box(Transform3D(Basis(Vector3.UP, PI * 0.5 - a), base + Vector3(cos(a) * (rr + 0.03), y, sin(a) * (rr + 0.03))), Vector3(0.5, 1.05, 0.1), 0.02, Color(stone, CONCRETE), Color(0, 0, 0, -1), false)
+	# Gallery: a steel deck on brackets, posts and two rails all round.
+	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 16.8), PackedVector2Array([Vector2(1.8, 0.0), Vector2(2.9, 0.15), Vector2(2.9, 0.4), Vector2(0.0, 0.4)]), 24,
 		PackedColorArray([dark]), 30.0)
 	for k in 16:
 		var a := TAU * k / 16.0
-		mb.add_bevel_box(Transform3D(Basis.IDENTITY, base + Vector3(cos(a) * 2.75, 17.65, sin(a) * 2.75)), Vector3(0.06, 0.9, 0.06), 0.01, dark)
-	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 18.05), PackedVector2Array([Vector2(2.78, 0.0), Vector2(2.78, 0.06), Vector2(0.0, 0.06)]), 16,
+		StreetKit.rod(mb, base + Vector3(cos(a) * 2.78, 17.2, sin(a) * 2.78), base + Vector3(cos(a) * 2.78, 18.25, sin(a) * 2.78), 0.028, 0.028, 6, gal)
+		StreetKit.beam(mb, base + Vector3(cos(a) * 1.9, 16.7, sin(a) * 1.9), base + Vector3(cos(a) * 2.7, 17.15, sin(a) * 2.7), 0.1, 0.05, dark, 0.008)
+	for ry: float in [17.7, 18.25]:
+		var ring := PackedVector3Array()
+		for k in 33:
+			var a := TAU * k / 32.0
+			ring.append(base + Vector3(cos(a) * 2.78, ry, sin(a) * 2.78))
+		StreetKit.tube_path(mb, ring, PackedFloat32Array([0.03]), 6, gal, false)
+	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 18.05), PackedVector2Array([Vector2(2.78, 0.0), Vector2(2.78, 0.06), Vector2(0.0, 0.06)]), 24,
 		PackedColorArray([dark]))
-	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 19.6), PackedVector2Array([Vector2(0.0, 0.0), Vector2(1.95, 0.0), Vector2(1.7, 0.6),
-		Vector2(1.0, 1.4), Vector2(0.25, 1.9), Vector2(0.2, 2.3), Vector2(0.0, 2.35)]), 16, PackedColorArray([Color(0.7, 0.17, 0.13, PAINTED)]), 40.0)
+	# Lantern room: a base ring, eight mullions and a transom, a domed roof with a vent ball and rod.
+	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 18.05), PackedVector2Array([Vector2(0.0, 0.0), Vector2(1.75, 0.0), Vector2(1.75, 0.35), Vector2(0.0, 0.35)]), 16,
+		PackedColorArray([Color(0.16, 0.17, 0.18, PAINTED)]), 30.0)
 	for k in 8:
 		var a := TAU * k / 8.0
-		mb.add_bevel_box(Transform3D(Basis(Vector3.UP, -a), base + Vector3(cos(a) * 1.5, 18.4, sin(a) * 1.5)), Vector3(0.06, 2.4, 0.06), 0.01, dark)
+		StreetKit.rod(mb, base + Vector3(cos(a) * 1.56, 18.4, sin(a) * 1.56), base + Vector3(cos(a) * 1.56, 20.0, sin(a) * 1.56), 0.045, 0.045, 6, Color(dark, StreetKit.PAINTED))
+	var ring2 := PackedVector3Array()
+	for k in 25:
+		var a := TAU * k / 24.0
+		ring2.append(base + Vector3(cos(a) * 1.56, 19.2, sin(a) * 1.56))
+	StreetKit.tube_path(mb, ring2, PackedFloat32Array([0.03]), 6, Color(dark, StreetKit.PAINTED), false)
+	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 19.6), PackedVector2Array([Vector2(0.0, 0.0), Vector2(1.95, 0.0), Vector2(1.9, 0.12), Vector2(1.7, 0.6),
+		Vector2(1.0, 1.4), Vector2(0.4, 1.85), Vector2(0.25, 1.9), Vector2(0.2, 2.15), Vector2(0.0, 2.35)]), 20, PackedColorArray([red]), 40.0)
+	mb.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 21.8), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.18, 0.1), Vector2(0.2, 0.25), Vector2(0.14, 0.4), Vector2(0.0, 0.45)]), 12,
+		PackedColorArray([gal]), 40.0)
+	StreetKit.rod(mb, base + Vector3.UP * 22.2, base + Vector3.UP * 23.6, 0.025, 0.012, 6, gal)
 	var lamp := MeshInstance3D.new()
 	var lm := MeshBuilder.new()
 	lm.add_lathe(Transform3D(Basis.IDENTITY, base + Vector3.UP * 17.2), PackedVector2Array([Vector2(1.5, 0.0), Vector2(1.5, 2.4), Vector2(0.0, 2.4)]), 16,
@@ -1001,17 +1063,45 @@ func _build_islet(root: Node3D) -> void:
 	beam.name = "LighthouseBeam"
 	beam.position = base + Vector3.UP * 18.4
 	root.add_child(beam)
-	# Keeper's cottage: whitewashed walls, a slate roof, a door and windows.
+	# Keeper's cottage: whitewashed walls on a stone plinth, a slate gable roof
+	# with rake boards and a ridge, a brick chimney, a door and trimmed windows.
 	var hx := base + Vector3(10.0, 0, 7.0)
-	_solid(mb, body, Transform3D(Basis.IDENTITY, hx + Vector3(0, 1.6, 0)), Vector3(7, 3.2, 5), Color(0.9, 0.88, 0.82, PAINTED), 0.05, Color(0.66, 0.65, 0.6, PAINTED))
+	var wall := Color(0.9, 0.88, 0.82, CONCRETE)
+	var trim := Color(0.94, 0.93, 0.9, StreetKit.WORN)
+	_solid(mb, body, Transform3D(Basis.IDENTITY, hx + Vector3(0, 1.6, 0)), Vector3(7, 3.2, 5), wall, 0.05, Color(0.66, 0.65, 0.6, CONCRETE))
 	_collider(body, Transform3D(Basis.IDENTITY, hx + Vector3(0, 3.5, 0)), Vector3(7.6, 0.6, 5.6))
-	var slate := Color(0.3, 0.33, 0.36, PAINTED)
-	for s: float in [-1.0, 1.0]:
-		mb.add_bevel_box(Transform3D(Basis(Vector3.RIGHT, s * 0.6), hx + Vector3(0, 4.0, s * 1.35)), Vector3(7.6, 0.14, 3.3), 0.03, slate)
-	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(-1.5, 1.05, 2.51)), Vector3(0.95, 2.1, 0.06), 0.02, Color(0.18, 0.3, 0.46, PAINTED))
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(0, 0.25, 0)), Vector3(7.14, 0.5, 5.14), 0.03, Color(0.52, 0.51, 0.48, CONCRETE))
+	var slate := Color(0.32, 0.35, 0.38, StreetKit.SLATE)
+	var path := PackedVector3Array([hx + Vector3(-3.95, 0, 0), hx + Vector3(3.95, 0, 0)])
+	mb.add_sweep(path, PackedVector2Array([Vector2(-2.95, 3.1), Vector2(0.0, 5.1), Vector2(2.95, 3.1)]), PackedColorArray([slate]), 30.0, false, false)
+	var under := PackedVector2Array([Vector2(2.95, 2.98), Vector2(0.0, 4.98), Vector2(-2.95, 2.98)])
+	mb.add_sweep(path, under, PackedColorArray([Color(0.2, 0.2, 0.2, StreetKit.PAINTED)]), 30.0, false, false)
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			StreetKit.beam(mb, hx + Vector3(sx * 3.95, 3.04, sz * 2.95), hx + Vector3(sx * 3.95, 5.04, 0.0), 0.12, 0.16, trim, 0.012)
+		mb._tri_out(hx + Vector3(sx * 3.5, 3.2, -2.5), hx + Vector3(sx * 3.5, 3.2, 2.5), hx + Vector3(sx * 3.5, 4.96, 0.0), Vector3(sx, 0, 0), Vector3(sx, 0, 0), Vector3(sx, 0, 0),
+			wall, wall, wall, Vector2(0, 0), Vector2(5.0, 0), Vector2(2.5, 1.8), Vector3(sx, 0, 0))
+	StreetKit.beam(mb, hx + Vector3(-3.97, 5.1, 0), hx + Vector3(3.97, 5.1, 0), 0.2, 0.12, Color(0.22, 0.24, 0.27, StreetKit.SLATE), 0.02)
+	# Chimney with a cap.
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(2.4, 4.6, -0.9)), Vector3(0.7, 2.2, 0.7), 0.03, Color(0.6, 0.28, 0.2, CONCRETE))
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(2.4, 5.75, -0.9)), Vector3(0.9, 0.14, 0.9), 0.02, Color(0.55, 0.54, 0.5, CONCRETE))
+	# Door with frame, step and a porch lamp; windows with frames, sills and shutters.
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(-1.5, 1.05, 2.51)), Vector3(0.95, 2.1, 0.06), 0.02, Color(0.18, 0.3, 0.46, StreetKit.WORN), Color(0, 0, 0, -1), false)
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(-1.5, 1.1, 2.49)), Vector3(1.15, 2.2, 0.03), 0.01, trim, Color(0, 0, 0, -1), false)
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(-1.5, 0.08, 2.9)), Vector3(1.3, 0.16, 0.7), 0.02, Color(0.55, 0.54, 0.5, CONCRETE))
+	StreetKit.rod(mb, hx + Vector3(-1.15, 1.0, 2.54), hx + Vector3(-1.15, 1.0, 2.62), 0.03, 0.03, 8, gal)
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(-0.2, 2.5, 2.58)), Vector3(0.14, 0.2, 0.14), 0.02, Color(1.0, 0.9, 0.7, StreetKit.LAMP))
 	for wx: float in [0.8, 2.4]:
-		mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(wx, 1.7, 2.51)), Vector3(0.9, 1.0, 0.05), 0.02, Color(0.14, 0.19, 0.24, GLASS))
-	mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(2.5, 4.4, 0)), Vector3(0.6, 1.4, 0.6), 0.04, Color(0.6, 0.58, 0.55, CONCRETE))
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(wx, 1.7, 2.49)), Vector3(1.1, 1.2, 0.03), 0.01, trim, Color(0, 0, 0, -1), false)
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(wx, 1.7, 2.51)), Vector3(0.9, 1.0, 0.05), 0.02, Color(0.14, 0.19, 0.24, GLASS), Color(0, 0, 0, -1), false)
+		StreetKit.beam(mb, hx + Vector3(wx, 1.2, 2.54), hx + Vector3(wx, 2.2, 2.54), 0.04, 0.03, trim, 0.005)
+		StreetKit.beam(mb, hx + Vector3(wx - 0.45, 1.7, 2.54), hx + Vector3(wx + 0.45, 1.7, 2.54), 0.04, 0.03, trim, 0.005)
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(wx, 1.08, 2.62)), Vector3(1.2, 0.08, 0.2), 0.015, Color(0.55, 0.54, 0.5, CONCRETE))
+		for s: float in [-1.0, 1.0]:
+			mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(wx + s * 0.78, 1.7, 2.52)), Vector3(0.5, 1.2, 0.04), 0.01, Color(0.18, 0.3, 0.46, StreetKit.WORN), Color(0, 0, 0, -1), false)
+	for wx: float in [-1.5, 1.5]:
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(wx, 1.7, -2.51)), Vector3(0.9, 1.0, 0.05), 0.02, Color(0.14, 0.19, 0.24, GLASS), Color(0, 0, 0, -1), false)
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, hx + Vector3(wx, 1.7, -2.49)), Vector3(1.1, 1.2, 0.03), 0.01, trim, Color(0, 0, 0, -1), false)
 	_mesh(body, mb, _props_mat)
 	root.add_child(body)
 	_label(root, "LIGHTHOUSE ISLAND", base + Vector3(0, 24.0, 0), 160, Color(1.0, 0.85, 0.25), 0.0, true)

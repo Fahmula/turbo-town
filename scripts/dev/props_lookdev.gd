@@ -39,7 +39,9 @@ var _views := {
 	"airfield_tower": [Vector3(366.0, 3.0, 262.0), Vector3(379.0, 14.0, 234.0), 70.0],
 	"lighthouse": [Vector3(-508.0, 4.0, 14.0), Vector3(-528.0, 10.0, 0.0), 70.0],
 	"cottage": [Vector3(-520.0, 4.0, 20.0), Vector3(-518.0, 3.0, 7.0), 65.0],
-	"bridge": [Vector3(-400.0, 4.0, 3.0), Vector3(-470.0, 3.0, 0.0), 65.0],
+	"cottage_gable": [Vector3(-508.0, 3.8, 13.0), Vector3(-518.0, 3.0, 7.0), 60.0],
+	"lighthouse_top": [Vector3(-515.0, 17.0, 12.0), Vector3(-528.0, 19.0, 0.0), 60.0],
+	"bridge":[Vector3(-400.0, 4.0, 3.0), Vector3(-470.0, 3.0, 0.0), 65.0],
 	"tunnel": [Vector3(0.0, 2.0, 160.0), Vector3(0.0, 4.0, 180.0), 70.0],
 	"gas_station": [Vector3(172.0, 3.0, -16.0), Vector3(198.0, 3.0, -32.0), 70.0],
 }
