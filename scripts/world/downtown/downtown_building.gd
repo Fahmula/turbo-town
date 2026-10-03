@@ -34,12 +34,12 @@ const QUOIN := 0.97  # how far a corner column reaches along each wall
 ##   cornice  "trim" (stone, mitred), "metal" (sheet metal), "brick"
 ##   roof     "flat" or "mansard"
 ##   ac       chance of a window air conditioner in a 2 m window
+##   fire_escape chance of a fire escape on each street frontage (optional)
 ##   palettes MegaKit.PALETTES rows the style is painted in
 const STYLES := {
 	"loft": {"corner": "plain", "base": "metal", "wide": ["Brick_Inset_Window_Curved"],
 		"narrow": ["Brick_Window_Square_Single"], "top": "Brick_Window_Square_Single", "pilaster": "",
 		"cornice": "metal", "roof": "flat", "ac": 0.1, "fire_escape": 0.5, "palettes": [0, 1, 7, 4]},
-	# (warehouse below may also carry one)
 	"hotel": {"corner": "quoin", "base": "trim", "wide": [], "narrow": ["Brick_Window_Trim"],
 		"top": "Brick_Window_Trim_Single", "pilaster": "half", "cornice": "trim", "roof": "flat",
 		"ac": 0.0, "palettes": [1, 3, 4, 8]},

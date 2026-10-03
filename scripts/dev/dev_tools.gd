@@ -2636,8 +2636,11 @@ func _scenery(game: Game) -> void:
 		times.clear()
 		for h in hours:
 			times.append("h%05.2f" % h)
-	# --ultra: the "high" shots use Ultra (the full PC look) instead.
+	# --ultra: the "high" shots use Ultra (the full PC look) instead;
+	# --medium: the Steam Deck preset instead.
 	var top := GraphicsQuality.ULTRA if OS.get_cmdline_user_args().has("--ultra") else GraphicsQuality.HIGH
+	if OS.get_cmdline_user_args().has("--medium"):
+		top = GraphicsQuality.MEDIUM
 	for q in ([top] if quick else [top, GraphicsQuality.LOW]):
 		Settings.set_value("graphics", q)
 		for t in (range(hours.size()) if not hours.is_empty() else (range(3) if q == top and not quick else [0])):
