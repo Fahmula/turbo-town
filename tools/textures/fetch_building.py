@@ -27,7 +27,12 @@ Outputs (all in assets/textures/building/):
                       G large blotches, B fine grain, A stain patches.
 
 Run from the project root: python3 tools/textures/fetch_building.py
-The interior room atlases are made by tools/blender/make_building_interiors.py.
+The interior room atlases are made by tools/blender/make_building_interiors.py
+(+ tools/textures/pack_building_interiors.py) and the shop signs by
+tools/textures/make_building_signs.py; this script only credits them.
+After running any of them: godot --headless --path . --import (the .import
+files are committed: 2d_array_texture 2 x 2 slices for the wall atlases,
+VRAM compressed with mipmaps).
 """
 import os
 import sys
@@ -98,8 +103,6 @@ def process_layer(key, asset, mortar):
         sel = mask < 0.5
         mean_b = diff[sel].mean(axis=0)
         mean_m = diff[~sel].mean(axis=0)
-        ratio = np.where(sel[..., None], diff / mean_b, diff / mean_m)
-        # Soften the seam between the two normalisations with the mask.
         ratio = np.where(sel[..., None], diff / mean_b, diff / mean_m)
         print("  brick mean", mean_b, "mortar mean", mean_m)
     else:
@@ -176,8 +179,10 @@ def main():
     make_weather().save(out(FAMILY, "facade_weather.png"), optimize=True)
     credit(FAMILY, "facade_weather.png", "Turbo Town", "tools/textures/fetch_building.py", "generated (CC0)",
            "rain streaks, blotches, grain, stains")
-    credit(FAMILY, "facade_interiors*.jpg", "Turbo Town", "tools/blender/make_building_interiors.py",
-           "generated (CC0)", "room atlases for interior mapping")
+    credit(FAMILY, "facade_interiors_*.jpg", "Turbo Town", "tools/blender/make_building_interiors.py + tools/textures/pack_building_interiors.py",
+           "generated (CC0)", "room atlases for interior mapping (Cycles renders of procedurally built rooms)")
+    credit(FAMILY, "facade_signs.png", "Turbo Town", "tools/textures/make_building_signs.py",
+           "generated (CC0); lettering set in Fira Sans and Noto Serif (SIL OFL 1.1)", "shop sign boards (generic trade words)")
     write_sources(FAMILY)
     print("done")
 

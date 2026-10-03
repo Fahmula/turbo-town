@@ -11,6 +11,7 @@ shader_type spatial;
 //         0 stucco, punched windows       1 limestone, tall windows with surrounds
 //         2 brick, white frames, sills     3 glass curtain wall (COLOR = mullions)
 //         4 ribbon windows (office)        5 roof membrane (flat roofs)
+//         6 shop sign board (BuildingKit._signs; UV.x = bays, UV.y = metres up)
 //         +8 = shopfronts on the ground floor (else a lobby / plain base)
 // COLOR.rgb = wall colour (sRGB; tints the scans). COLOR.a: < 0.5 plain
 //         surfaces (cornices, parapets, plinths, roofs); otherwise walls with
@@ -26,13 +27,15 @@ shader_type spatial;
 //   weather: R rain streaks, G blotches, B grain, A stains.
 //   rooms_atlas / shops_atlas: 8 x 8 cells of 256 px; room r, face f at cell
 //     r * 5 + f (back, left, right, floor, ceiling), 4 px inset borders.
+//   signs_atlas: 16 rows of 1024 x 128 (RGB board, A lettering; row = shop type).
 //
 // Windows are recessed boxes: the view ray is intersected with the opening
 // (reveal sides, sill, frame and glass plane), so depth, frames and reveals
 // are correct from every angle. Glass shows a room found by intersecting the
 // same ray with a room box (interior mapping); at night about half the rooms
-// are lit. On Low (quality 0) the shader drops every texture and the room and
-// recess maths and draws the flat look of the old toy facade.
+// are lit. On Low (quality 0) the shader drops the wall, weather and room
+// textures and the recess and room maths and draws the flat look of the old
+// toy facade (only the shop signs keep their one sample).
 
 #include "res://assets/shaders/facade_common.gdshaderinc"
 

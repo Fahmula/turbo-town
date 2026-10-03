@@ -9,4 +9,5 @@ Made by tools/textures/fetch_building.py from these CC0 assets.
 | sandstone_blocks_08 | Rob Tuytel | https://polyhaven.com/a/sandstone_blocks_08 | CC0 1.0 | facade_*.jpg/png layer 2 (limestone) |
 | concrete_wall_009 | Charlotte Baglioni | https://polyhaven.com/a/concrete_wall_009 | CC0 1.0 | facade_*.jpg/png layer 3 (concrete) |
 | facade_weather.png | Turbo Town | tools/textures/fetch_building.py | generated (CC0) | rain streaks, blotches, grain, stains |
-| facade_interiors*.jpg | Turbo Town | tools/blender/make_building_interiors.py | generated (CC0) | room atlases for interior mapping |
+| facade_interiors_*.jpg | Turbo Town | tools/blender/make_building_interiors.py + tools/textures/pack_building_interiors.py | generated (CC0) | room atlases for interior mapping (Cycles renders of procedurally built rooms) |
+| facade_signs.png | Turbo Town | tools/textures/make_building_signs.py | generated (CC0); lettering set in Fira Sans and Noto Serif (SIL OFL 1.1) | shop sign boards (generic trade words) |
