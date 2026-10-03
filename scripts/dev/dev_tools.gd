@@ -2867,6 +2867,8 @@ func _perfsweep(game: Game) -> void:
 		["park", Vector3(38.0, 1.7, -77.0), Vector3(36.0, 3.0, -120.0)],
 		["aerial", Vector3(95.0, 70.0, 15.0), Vector3(-10.0, 0.0, -110.0)],
 		["hill_junction", Vector3(6.0, 3.5, -280.0), Vector3(25.0, 6.0, -322.0)],
+		["dt_spawn", Vector3(-117.5, 2.6, 3.0), Vector3(-85.0, 1.8, 3.0)],
+		["dt_avenue_south", Vector3(2.4, 2.4, -6.0), Vector3(2.4, 3.0, 45.0)],
 	]
 	var only_views: PackedStringArray = []
 	var only_configs: PackedStringArray = []
