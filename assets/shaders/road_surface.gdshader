@@ -114,7 +114,7 @@ void fragment() {
 		col = mix(col, col * 0.84, patch);
 		col = mix(col, vec3(0.02), patch_edge * 0.8);
 		rough = mix(rough, 0.9, patch * 0.5);
-		rough = mix(rough, 0.45, patch_edge);
+		rough = mix(rough, 0.75, patch_edge);
 		nxy *= 1.0 - patch * 0.45;
 
 		float wheel = 0.0;

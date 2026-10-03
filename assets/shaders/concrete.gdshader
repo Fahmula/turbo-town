@@ -2,7 +2,7 @@ shader_type spatial;
 // Cast concrete (ART_BIBLE.md §16, realism experiment): Jersey barriers,
 // overpass piers, girders and fascias, retaining walls. A scan of weathered
 // formed concrete (pores, cloudy mottling) at two scales, rain streaks running
-// down vertical faces (more near the top edges, where water runs off), barrier
+// down vertical faces, barrier
 // joints and formwork lines. Texture coordinates come from the world position
 // (picked by the face's direction), so nothing needs unwrapping; layers and
 // textures: road_common.gdshaderinc.
@@ -26,8 +26,6 @@ void vertex() {
 }
 
 void fragment() {
-	float dist = length(VERTEX);
-	float near = detail_fade(dist);
 	vec3 n = normalize(world_normal);
 	vec3 an = abs(n);
 	bool vertical = an.y < 0.7;
@@ -49,9 +47,8 @@ void fragment() {
 	col *= mix(0.84, 1.14, mc.g);
 	col *= 0.94 + 0.1 * mc.a;
 	if (vertical && !low) {
-		// Rain streaks: noise stretched down the face, darker near the top.
+		// Rain streaks: noise stretched down the face.
 		float st = texture(road_macro, vec2(across * 0.17, world_pos.y * 0.012) + vec2(0.11, 0.47)).a;
-		float top = 1.0 - smoothstep(0.0, 2.2, 6.0 - world_pos.y);
 		col *= 1.0 - smoothstep(0.5, 0.82, st) * 0.18;
 	}
 	// Dirt from the road: darker near the ground (splash, exhaust), a little more where oily.

@@ -122,7 +122,7 @@ Surf asphalt_surface(vec2 wp, vec3 base, float wear, float crack_mul) {
 	col *= 1.0 - pit * 0.5;
 
 	s.col = col;
-	s.rough = mix(nra.b, 0.55, seal);
+	s.rough = mix(nra.b, 0.68, seal);
 	s.ao = nra.a * (1.0 - open * 0.7) * (1.0 - pit * 0.3);
 	s.nxy = low ? vec2(0.0) : (nra.rg * 2.0 - 1.0) * bump_strength;
 	return s;
