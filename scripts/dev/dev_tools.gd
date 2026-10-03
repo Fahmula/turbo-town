@@ -26,6 +26,11 @@ extends Node
 ##   --night=<dir>    sunset / night / cycle: lights switch, screenshots
 ##   --damage=<dir>   crash tests: parts falling off, broken lights/glass, pull, repair
 ##   --replay=<dir>   pausing freezes everything, instant replay, slow-motion crash cam
+##   --megakit=<dir>  the Downtown City MegaKit experiment: every building has
+##                    collision, a far proxy and an occluder; facades are where
+##                    their colliders are; a car driven into a facade stops and
+##                    dents; the chase camera stays out of the buildings; the
+##                    character can't walk into them (checks and shots)
 ##   --scenery=<dir>  fixed views of the city and the north bridge at day /
 ##                    sunset / night and Low / High, plus draw calls, primitives
 ##                    and GPU time per view (--views=a,b limits the views,
@@ -134,6 +139,9 @@ func _ready() -> void:
 		elif arg.begins_with("--scenery="):
 			_mode = "scenery"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--megakit="):
+			_mode = "megakit"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--lookdev="):
 			_mode = "lookdev"
 			_dir = arg.split("=")[1]
@@ -238,6 +246,8 @@ func _run() -> void:
 		await _spawncheck(game)
 	elif _mode == "scenery":
 		await _scenery(game)
+	elif _mode == "megakit":
+		await _megakit(game)
 	elif _mode == "lookdev":
 		await _lookdev(game)
 	elif _mode == "audio":
@@ -2679,6 +2689,112 @@ func _scenery(game: Game) -> void:
 	game.hud.visible = true
 	Settings.set_value("graphics", GraphicsQuality.HIGH)
 	Settings.set_value("time_of_day", 0)
+
+
+## The MegaKit downtown experiment (DowntownBlock): see the header.
+func _megakit(game: Game) -> void:
+	game.traffic.set_enabled(false)
+	await _wait_s(0.5)
+	var world := game.world
+	var downtown := world.find_child("Downtown", true, false)
+	_check(downtown != null, "downtown built")
+	if downtown == null:
+		return
+	var near := 0
+	var far := 0
+	var shadow := 0
+	for n in downtown.find_children("Building_*", "MeshInstance3D", true, false):
+		if String(n.name).ends_with("_Far"):
+			far += 1
+		elif String(n.name).ends_with("_Shadow"):
+			shadow += 1
+		else:
+			near += 1
+	var occluders := downtown.find_children("*", "OccluderInstance3D", true, false).size()
+	_check(near >= 30 and far == near and shadow == near and occluders == near,
+		"%d buildings: %d far proxies, %d shadow proxies, %d occluders" % [near, far, shadow, occluders])
+	_check(bool(ProjectSettings.get_setting("rendering/occlusion_culling/use_occlusion_culling")), "occlusion culling is on")
+
+	# Facades along the avenue (z = 0) are where their colliders are: rays at
+	# chest height from the road hit a building within the facade band.
+	var space := world.get_world_3d().direct_space_state
+	var hits := 0
+	var tries := 0
+	var hit_x := 1e9
+	# South of the avenue: blocks (1, 2) and (2, 2); north: (2, 1) (the
+	# plaza is north-west of the centre).
+	for side: float in [1.0, -1.0]:
+		var x := -64.0 if side > 0.0 else 6.0
+		while x < 70.0:
+			if absf(fmod(absf(x) + 37.5, 75.0) - 37.5) > 32.0:  # skip the cross streets
+				x += 5.0
+				continue
+			tries += 1
+			var q := PhysicsRayQueryParameters3D.create(Vector3(x, 1.2, side * 2.0), Vector3(x, 1.2, side * 14.0))
+			var r := space.intersect_ray(q)
+			if not r.is_empty() and absf(absf(r["position"].z) - 10.5) < 0.6:
+				hits += 1
+				if side > 0.0 and absf(x - 20.0) < absf(hit_x - 20.0):
+					hit_x = x
+			x += 5.0
+	_check(tries > 0 and hits >= tries * 0.7, "facade colliders on the avenue: %d / %d rays hit the facade band (alleys and gaps excepted)" % [hits, tries])
+
+	# Drive into a south facade at about 45 km/h.
+	var v := game.vehicle
+	var dmg := v.get_node("Damage") as VehicleDamage
+	if hit_x > 1e8:
+		hit_x = 20.0
+	v.teleport(Transform3D(Basis.looking_at(Vector3.BACK, Vector3.UP), Vector3(hit_x, 0.6, -5.0)))
+	await _wait_s(1.0)
+	var t := 0.0
+	var max_z := -1e9
+	var max_speed := 0.0
+	while t < 6.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if v.speed_kmh < 45.0 and v.global_position.z < 6.0:
+			Input.action_press("accelerate")
+		else:
+			Input.action_release("accelerate")
+		max_z = maxf(max_z, v.global_position.z + v.body_length() * 0.5)
+		max_speed = maxf(max_speed, v.speed_kmh)
+	_release()
+	await _wait_s(0.5)
+	await _shot("megakit_crash")
+	_check(max_z < 10.5 + 0.6, "car stopped at the facade (front reached z %.2f, facade 10.5, top speed %.0f km/h)" % [max_z, max_speed])
+	_check(dmg.total_damage > 0.02, "car dented by the building (damage %.2f)" % dmg.total_damage)
+	_check(v.speed_kmh < 8.0, "car no longer moving through the wall (%.1f km/h)" % v.speed_kmh)
+	# The chase camera stays outside every building collider.
+	var cam_p := game.camera.global_position
+	var pq := PhysicsPointQueryParameters3D.new()
+	pq.position = cam_p
+	var inside := space.intersect_point(pq)
+	var in_building := false
+	for h: Dictionary in inside:
+		if h["collider"] is StaticBody3D and String((h["collider"] as Node).name) == "Buildings":
+			in_building = true
+	_check(not in_building, "chase camera outside the buildings after the crash (%s)" % cam_p.snapped(Vector3.ONE * 0.1))
+
+	# On foot: walk straight at a facade; the character stops at it.
+	game.teleport_to(0)
+	await _wait_s(1.0)
+	if game.possession.driving():
+		await _tap("interact")
+		await _wait_mode(game, Possession.Mode.ON_FOOT, 6.0)
+	var ch := game.character
+	if game.possession.on_foot():
+		ch.place(Transform3D(Basis.IDENTITY, _ground(game, Vector3(hit_x + 1.0, 1.0, 8.0))))
+		game.foot_camera.yaw = PI
+		await _wait_s(0.5)
+		_foot_push(game, Vector3.BACK, 1.0)
+		await _wait_s(3.0)
+		_foot_release()
+		await _wait_s(0.3)
+		var cz := ch.global_position.z
+		_check(cz < 10.5 - 0.2, "character stopped at the facade (z %.2f)" % cz)
+		await _shot("megakit_onfoot_wall")
+	else:
+		_check(false, "could not get out of the vehicle for the on-foot check")
 
 
 ## Render cost of one view: averages over `frames`.
