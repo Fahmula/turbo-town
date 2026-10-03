@@ -30,6 +30,7 @@ idle loop; heavy crashes have a synthesised low thump mixed in.
 > HarveyHenkelmann, X5DragonFire, TinyWorlds / Till Behrend, rubberduck and
 > blacklodgegames. Sounds changed for Turbo Town (looped, filtered, mixed,
 > levels). Skies, textures and rock models from Poly Haven and ambientCG (CC0).
+> Character and animations from the Universal Animation Library by Quaternius (CC0).
 
 ## Textures, skies and models (realism branch)
 
@@ -129,9 +130,13 @@ copied here.
 | Ocean Buoy | Mateusz Sadek | https://polyhaven.com/a/ocean_buoy | CC0 1.0 | harbour channel markers (LandmarksBuilder) |
 | Lifebuoy | Hank Kaamura | https://polyhaven.com/a/lifebuoy | CC0 1.0 | lifebuoy stations on the quay and piers (LandmarksBuilder) |
 
-## Audio
+## Character
 
-| Asset | Original source | Creator | Licence | Attribution | Downloaded from | Used in |
+| Asset | Creator | Source | Licence | Attribution | Downloaded from | Used in |
+|---|---|---|---|---|---|---|
+| Universal Animation Library (Standard), 1.0: the mannequin mesh, its 53-bone skeleton and 18 of its animations (Idle, Idle_Talking, Walk, Walk_Formal, Jog_Fwd, Sprint, Jump_Start, Jump, Jump_Land, Crouch_Idle, Crouch_Fwd, Sitting_Enter / Idle / Exit, Driving, Interact, Push, Hit_Chest) | Quaternius | [opengameart.org/node/174563](https://opengameart.org/node/174563) (also quaternius.com) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (`License.txt` in the zip) | None required (credited anyway) | `https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip` (SHA-256 `18ff1a7215f4852b320203e8aaf02a1578b5c8eef9027fbaedfcedc7b85a3ac2`) | `assets/models/character/player.glb` via `tools/blender/make_character.py` (the player character). **Changes:** the segmented mannequin fused into one continuous skin (signed-distance volume), slimmed, with a newly modelled head (face, ears, eyes, brows, hair), T-shirt, jeans and sneakers, PBR materials and a 16×16 palette texture (`player_Char_Palette.png`); skin weights transferred and adjusted. Rig (53 bones) and the kept clips unchanged |
+
+ Creator | Licence | Attribution | Downloaded from | Used in |
 |---|---|---|---|---|---|---|
 | Engine loops, inline six "b-i6r" (`b-i6r-1..8.wav`, 1000–8000 rpm) | Stunt Rally 3 (`data/sounds/engines/`, credits in `data/sounds/_sounds.txt`) | CryHam (rendered in Engine Simulator) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | Credit CryHam, licence link, note changes (see Credits) | `https://raw.githubusercontent.com/stuntrally/stuntrally3/0fc4ac9ada5009be68df379940842ce80e31d493/data/sounds/engines/` | `assets/audio/engine/i6/` → sports car |
 | Engine loops, boxer four "su-low" (`su-low-1..7.wav`) | Stunt Rally 3 | CryHam | CC BY 4.0 | as above | same folder | `engine/four/` → sedan |
@@ -143,7 +148,7 @@ copied here.
 | Crash hits `crash/01..12.wav` | Stunt Rally 3 (`data/sounds/crash/`, credits in `_crash.txt`), made by CryHam from Halleck's "metal medium hit", "metal hits medium 1", "metal hits light 1", "metal thump", "big metal side impact 1/2", "metal crash 1" ([freesound 121668](https://freesound.org/people/Halleck/sounds/121668/), [121665](https://freesound.org/people/Halleck/sounds/121665/), [121664](https://freesound.org/people/Halleck/sounds/121664/), [121685](https://freesound.org/people/Halleck/sounds/121685/), [121621](https://freesound.org/people/Halleck/sounds/121621/), [121622](https://freesound.org/people/Halleck/sounds/121622/), [121655](https://freesound.org/people/Halleck/sounds/121655/)) | Halleck; edit CryHam | CC BY 4.0 | Credit Halleck and CryHam, licence link, note changes | `https://raw.githubusercontent.com/stuntrally/stuntrally3/0fc4ac9ada5009be68df379940842ce80e31d493/data/sounds/crash/` | `assets/audio/impact/thud_*`, `crunch_*`, `crash_*` (every vehicle's crashes) |
 | "metal screech and scraping" `crash/screech.wav` | [freesound 121677](https://freesound.org/people/Halleck/sounds/121677/) via Stunt Rally 3 | Halleck | CC BY 4.0 | as above | same folder | `assets/audio/body/scrape.wav` (bodywork sliding) |
 | "metal roll cage hits heavy" `crash/scrap.wav` | [freesound 121669](https://freesound.org/people/Halleck/sounds/121669/) via Stunt Rally 3 | Halleck | CC BY 4.0 | as above | same folder | `assets/audio/impact/metal_*` (metal deformation on big crashes) |
-| Kenney "Impact Sounds" 1.0: `impactGeneric_light`, `impactSoft_medium`, `impactWood_medium`, `impactPlank_medium`, `impactMetal_medium`, `impactPlate_heavy`, `impactPlate_light`, `impactTin_medium`, `impactGlass_heavy/medium/light` (`_000`–`_004`) | [kenney.nl/assets/impact-sounds](https://kenney.nl/assets/impact-sounds) | Kenney (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | None required (credited anyway) | `https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip` | `assets/audio/impact/plastic_*`, `wood_*`, `metal_*`, `debris_*` (hitting props, parts falling off); `glass_*` and `tinkle_*` are cascades built from the glass hits (windows and lamps breaking) |
+| Kenney "Impact Sounds" 1.0: `impactGeneric_light`, `impactSoft_medium`, `impactWood_medium`, `impactPlank_medium`, `impactMetal_medium`, `impactPlate_heavy`, `impactPlate_light`, `impactTin_medium`, `impactGlass_heavy/medium/light`, `footstep_concrete/grass/wood` (`_000`–`_004`) | [kenney.nl/assets/impact-sounds](https://kenney.nl/assets/impact-sounds) | Kenney (kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | None required (credited anyway) | `https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip` | `assets/audio/impact/plastic_*`, `wood_*`, `metal_*`, `debris_*` (hitting props, parts falling off); `glass_*` and `tinkle_*` are cascades built from the glass hits (windows and lamps breaking); `assets/audio/foot/*` (the character's footsteps: trimmed, peak-matched, 22.05 kHz) |
 | "Car tire squeal skid loop" `tires_squal_loop.wav` | [OpenGameArt](https://opengameart.org/content/car-tire-squeal-skid-loop) | Iwan "qubodup" Gabovitch, from a recording by Tom Haigh (audible-edge) | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) | "Tire squeal loop by Iwan 'qubodup' Gabovitch from a recording by Tom Haigh (audible-edge), CC BY 3.0", note changes | `https://opengameart.org/sites/default/files/tires_squal_loop.wav` | `assets/audio/tyre/squeal.wav` (every vehicle's tyre squeal) |
 | "gravel drive" `gravel.wav` | [Freesound 97605](https://freesound.org/people/cognito%20perceptu/sounds/97605/), redistributed by Trigger Rally (`doc/DATA_AUTHORS.txt`: "CC0, PD") | cognito perceptu | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | none | `https://svn.code.sf.net/p/trigger-rally/code/data/sounds/gravel.wav` | `assets/audio/tyre/roll_gravel.wav`, `skid_gravel.wav` (driving and sliding on dirt) |
 | "Car Horn" `Car_Horn.wav` | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Car_Horn.wav) (from Freesound 461679) | 15HPanska_Ruttner_Jan | CC0 1.0 | none | `https://upload.wikimedia.org/wikipedia/commons/8/8c/Car_Horn.wav` | `assets/audio/horn/car.wav` (cars, van, pickup; pitched for the bus and buggy) |
@@ -180,6 +185,15 @@ automatically), Freesound (login needed), every CC BY-SA / NC / GPL /
 tyre sounds, OpenGameArt's BY-SA engine packs), archive.org uploads of
 unclear origin, and recordings with engines or traffic mixed into the road
 noise.
+
+Characters (2026-10-03): Quaternius' "Universal Base Characters" (CC0, but the
+free download goes through itch.io's JavaScript "no thanks" step, so it wasn't
+fetched; its free tier is also unclothed base bodies), Quaternius "Animated Men"
+(CC0, real faces but few clips and a faceted low-poly look; runner-up),
+Quaternius' zombie / "Ultimate Animated Characters" and Kenney / KayKit
+characters (CC0, toy proportions), the Godot TPS demo's player (a robot, CC BY
+3.0), Mixamo and Sketchfab (login needed), MakeHuman (no ready-made rigged
+export).
 
 Models, textures and shaders: generated by `tools/blender/`, `tools/textures/`
 and the code in `scripts/` and `assets/shaders/`.

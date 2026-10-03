@@ -319,6 +319,19 @@ def build_kenney(write, fetch):
         write("impact/glass_%d.wav" % (k + 7), _cascade(glass_small, 700 + k, glass_heavy[k], 42, 0.6, 12.0))
     for k in range(2):
         write("impact/tinkle_%d.wav" % (k + 4), _cascade(glass_small, 800 + k, glass_small[k + 5], 13, 0.35, 18.0))
+    build_footsteps(write, zf)
+
+
+def build_footsteps(write, zf=None, fetch=None):
+    """The player character's footsteps: Kenney's concrete, grass and wood
+    takes, trimmed and peak-matched (five per surface, 22.05 kHz)."""
+    if zf is None:
+        zf = zipfile.ZipFile(io.BytesIO(Path(fetch(KENNEY)).read_bytes()))
+    print("footsteps (Kenney Impact Sounds, CC0):")
+    for surface in ["concrete", "grass", "wood"]:
+        for take in range(5):
+            x = _kenney(zf, "footstep_%s_%03d" % (surface, take))
+            write("foot/%s_%d.wav" % (surface, take + 1), dsp.fade(dsp.normalize_peak(x, -1.0), 0.0005, 0.02), rate=22050)
 
 
 def _onsets(x, count, length=0.55):

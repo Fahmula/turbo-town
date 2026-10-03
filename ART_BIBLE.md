@@ -30,7 +30,7 @@ Contents: 0 Quick rules · 1 Identity · 2 References · 3 Today's baseline ·
 19 Terrain/water · 20 UI · 21 Typography · 22 Icons · 23 Effects ·
 24 Blender · 25 Godot import · 26 LOD/detail · 27 Steam Deck ·
 28 Consistency rules · 29 Avoid list · 30 Workflow · 31 Migration order ·
-32 Open owner decisions · 33 Vehicle sound
+32 Open owner decisions · 33 Vehicle sound · 34 Characters
 
 ---
 
@@ -1742,6 +1742,14 @@ window):
     voices, traffic loops for at most 6 cars.
   - Deformable vertices: +18 to +68 per body (indicator patches), max 5,953.
 
+- **After the player character** (2026-10-03, `--onfootbench`, city centre,
+  22 cars): the character adds ~10–13 draw calls and no measurable GPU time
+  (iGPU at Medium ≈ +0.2 ms in alternating A/B runs, inside the noise), and
+  ~0.3 ms of CPU per 60 fps frame on foot (dev CPU). Driving is unchanged
+  (`--bench` A/B against the commit before: same physics tick, same 1,542
+  draw calls on the city drive). The same view on the iGPU is 35–44 ms at
+  Medium with or without it: the city centre itself is the Deck's problem.
+
 **Budgets** (busiest view, High)
 
 | Metric | Budget |
@@ -1756,6 +1764,7 @@ window):
 | Texture memory | ≤ 256 MB |
 | Deformable vertices per vehicle | ≤ 6,000 |
 | Draw surfaces per vehicle | ≤ 10 on the body mesh (detachable parts add 2–6), ≤ 2–3 per wheel (garage wheels on the player's car: 3–4) |
+| Player character | ≤ 20k triangles, ≤ 5 surfaces, ≤ 4 bone influences, single-sided (§34) |
 
 **Rules**
 
@@ -2025,6 +2034,67 @@ readable, kid-friendly (crashes are big and fun, never scary).
 - **Kid safety:** no screams, sirens of panic or injury sounds. Horns are
   friendly, crashes are metal and glass.
 
+## 34. Characters
+
+The player's character (2026-10-03, the on-foot milestone). Same direction as
+everything else: **stylized realism**, believable first.
+
+- **Proportions:** a real adult, ~1.8 m, ordinary fit build (no
+  bodybuilder, no chibi, no big heads or hands). Silhouette reads at 30–60 m:
+  a clear head, a shirt shape, legs.
+- **Face:** simple and friendly: nose, brow, ears, simple eyes, eyebrows,
+  short hair with some volume. No photoreal skin, pores, wrinkles or
+  subsurface tricks; nothing uncanny. At the on-foot camera (3.6 m, 70° FOV)
+  the face is ~25 px tall on the Deck: the shape matters, not detail.
+- **Clothes:** real shapes (sleeves with hems, a waistband, trouser cuffs,
+  sneakers with a sole band), not colours painted on a body. The shirt is a
+  medium-saturation colour so the player spots their character in a
+  naturalistic world (a gameplay element, like a vehicle's paint, §0 rule 2).
+- **Materials:** flat PBR colours (a tiny palette texture at most), one
+  surface per material: skin ~0.55 roughness, cotton ~0.85, denim ~0.8,
+  shoes ~0.6, hair ~0.6. Albedo within sRGB 0.11–0.94. Today: five materials sharing one 16×16
+  palette texture (4×4-texel cells; every face's UVs sit on one cell centre,
+  so mips never blend cells): `Char_Skin` 0.55 (skin sRGB 0.76, 0.56, 0.44;
+  lips, mouth and eyes are cells on it), `Char_Hair` 0.6 (dark brown 0.21,
+  0.14, 0.10, also the brows), `Char_Shirt` 0.85 (red-orange 0.77, 0.30,
+  0.20: the world is greens, greys, sand and sea blue, and it stays clear of
+  the UI yellow and marker colours), `Char_Trousers` 0.8 (denim 0.21, 0.30,
+  0.46), `Char_Shoes` 0.6 (off-white upper 0.88, 0.87, 0.84, dark sole 0.31,
+  0.30, 0.29). **Single-sided**: the surface is closed; double-sided
+  materials (Blender's default, exported as glTF `doubleSided`) cost +1.3 ms
+  on the iGPU at Medium.
+- **Rig and animation:** the Universal Animation Library (Quaternius, CC0)
+  skeleton, 53 bones, all clips in place (no root motion); the game moves the
+  body and scales clip speed to ground speed (`PlayerCharacter`: walk
+  1.45 m/s, jog 4.0, sprint 6.4 at speed 1). Never re-time clips in the
+  model: tune `*_anim_speed` instead.
+- **Generator:** `tools/blender/make_character.py` downloads the library
+  (pinned URL + SHA-256) and rebuilds the mesh; never hand-edit
+  `assets/models/character/player.glb`. It fuses the mannequin's ~100
+  segments into one skin (a signed-distance volume, 3.5 mm voxels), slims it
+  toward the bones, sculpts a head, hair, T-shirt, jeans and sneakers into
+  the volume, meshes and decimates it (face kept denser), cuts the surface
+  exactly along each material border, transfers and smooths the weights and
+  exports the kept clips. ~25 s, the same file every run.
+- **Budget:** ≤ 20k triangles, ≤ 5 surfaces, ≤ 4 bone influences per vertex,
+  no textures over 256². Same on every quality level (one skinned mesh is
+  cheap; it casts the sun shadow on all levels, it's what grounds it).
+  Measured (2026-10-03): 17,286 triangles, 8.6k vertices, 5 surfaces, 53
+  bones, 1.6 MB. In the city centre with traffic it adds ~10–13 draw calls;
+  GPU time is lost in the noise (RTX: none; iGPU at Medium ≈ +0.2 ms,
+  alternating A/B). CPU: the character, its input and the interaction scan
+  take ~0.13–0.16 ms per physics tick on the dev CPU (~0.3 ms per 60 fps
+  frame). In a vehicle it's hidden with physics and animation off: driving
+  costs the same as before (`--bench` A/B).
+- **Kid safety:** the character can't be hurt. A car that drives into it
+  shoves it aside with a short stagger (no ragdoll, no injury or death
+  animation, no sound of pain; the library's death clip is left out); it
+  can't fall to its death (the sea or the void respawns it).
+- **Look-dev:** `--charsheet=<dir>` shoots it from fixed cameras at day,
+  sunset and night plus strips of every locomotion clip.
+
+---
+
 *Revision log*
 - 2026-10-01: created (stylized realism direction, from three reference
   images; baseline measured at v0.3.1).
@@ -2056,3 +2126,5 @@ readable, kid-friendly (crashes are big and fun, never scary).
 - 2026-10-02: garage wheels (on `dev`): rims and tyres as separate parts
   with one standard rim fit, rim finishes, tyre stripes, calipers only on
   open rims. §12, §24, §26 and §27 updated.
+- 2026-10-03: the player character (branch `player-character`): §34
+  Characters added; §27 baseline (on-foot cost).

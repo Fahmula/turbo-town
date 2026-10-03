@@ -6,6 +6,7 @@ Run from the project root:
 
     python3 tools/audio/build_audio.py            # everything
     python3 tools/audio/build_audio.py synth      # only the synthesised parts
+    python3 tools/audio/build_audio.py footsteps  # only the character's footsteps
 
 Needs NumPy and ffmpeg. Third-party recordings are downloaded once into
 build/audio_sources/ (gitignored) from the URLs in sources.py and checked
@@ -138,6 +139,9 @@ def main(args):
     if "recorded" in parts:
         import recorded
         recorded.build(write, fetch)
+    elif "footsteps" in parts:
+        import recorded
+        recorded.build_footsteps(write, fetch=fetch)
     if "profiles" in parts or "recorded" in parts:
         import profiles
         import recorded
