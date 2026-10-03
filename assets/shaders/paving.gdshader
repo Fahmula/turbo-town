@@ -13,9 +13,13 @@ shader_type spatial;
 //   0.25  asphalt (car parks)
 //   0.0   plain: lawn, soil, gravel (grain and blotches only); near-white
 //         plain pieces are road paint (car park stall lines); brown ones
-//         (r - b of 0.17-0.32, like ArtPalette.DIRT) are the trail's packed dirt
+//         (r - b of 0.17-0.32, like ArtPalette.DIRT) are the trail's packed dirt;
+//         green ones (g - r > 0.03, ArtPalette.LAWN) are lawns: the same grass
+//         scan, macro variation and tint as the terrain (terrain.gdshader), so
+//         they match the grass tufts standing on them (grass.gdshader).
 
 #include "res://assets/shaders/road_common.gdshaderinc"
+#include "res://assets/shaders/terrain_common.gdshaderinc"
 
 // Concrete is lit as the scan says; the palette colours are brighter than
 // real concrete, so scale them down a little.
@@ -25,6 +29,14 @@ uniform float concrete_albedo_scale = 0.82;
 uniform sampler2D dirt_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D dirt_nra : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float dirt_tile = 1.3;
+
+// Lawns: the terrain's grass scan (assets/textures/terrain/), its macro noise.
+// Low = albedo only (no normal map, no second scale).
+uniform sampler2D grass_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D grass_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D grass_noise : filter_linear_mipmap, repeat_enable;
+uniform float grass_tile = 2.0;
+uniform float grass_lum = 0.155;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -65,6 +77,7 @@ void fragment() {
 	vec3 col = base;
 	float fade = 1.0 - smoothstep(3.0, 14.0, dist);
 	float rb = COLOR.r - COLOR.b;
+	float lawn_w = 0.0;
 	bool is_dirt = kind == 0 && rb > 0.17 && rb < 0.32 && COLOR.g > COLOR.b + 0.1 && COLOR.g < COLOR.r;
 
 	if (kind == 4 || kind == 2) {
@@ -149,23 +162,43 @@ void fragment() {
 			col = mix(col, vec3(0.03), chip * 0.45);
 			rough = 0.58;
 		} else {
-			// Plain ground (lawns etc.): clumps and faint mowing stripes.
+			// Plain ground (lawns etc.). Lawns are the terrain's grass.
 			float lawn = clamp((COLOR.g - COLOR.r) * 10.0, 0.0, 1.0);
-			float grain = low ? 0.0 : texture(asph_albedo, wp / 0.7).g * (1.0 / ALB_MEAN) - 1.0;
 			col *= 0.88 + 0.24 * mc.g;
-			col *= 1.0 + grain * 0.18;
-			col *= 1.0 - smoothstep(0.55, 0.85, mc.a) * 0.14 * near * lawn;
-			float stripe = grid_line(wp.x, 5.0, 2.5);
-			col *= 1.0 + (stripe - 0.5) * 0.07 * lawn;
 			rough = 0.95;
 			spec = 0.3;
+			if (lawn > 0.01) {
+				lawn_w = lawn;
+				float inv = 1.0 / grass_tile;
+				vec3 g = textureGrad(grass_albedo, wp * inv, dx_w * inv, dy_w * inv).rgb;
+				vec3 macro = vec3(0.0, 0.2, 0.5);
+				if (!low) {
+					macro = ground_macro(grass_noise, wp, 0.0);
+					// Second, rotated, much larger scale: breaks the tile up.
+					mat2 r2 = rot2(0.54);
+					float i2 = inv / 7.3;
+					vec3 b2 = textureGrad(grass_albedo, r2 * wp * i2 + vec2(0.31, 0.57), r2 * dx_w * i2, r2 * dy_w * i2).rgb;
+					g *= mix(1.0, clamp(dot(b2, LUMA) / grass_lum, 0.55, 1.5), 0.6 * (1.0 - smoothstep(60.0, 220.0, dist)));
+					nxy = (textureGrad(grass_normal, wp * inv, dx_w * inv, dy_w * inv).xy * 2.0 - 1.0) * 0.9 * lawn;
+				}
+				vec3 green = g * grass_tint(macro, 0.55);
+				// Dry patches, as on the terrain (same noise, so tufts and lawn agree).
+				float dry = smoothstep(0.35, 0.65, macro.x);
+				vec3 straw = vec3(0.36, 0.29, 0.125) * clamp(dot(g, LUMA) / grass_lum, 0.5, 1.6);
+				vec3 lawn_col = mix(green, straw, dry);
+				// Faint mowing stripes.
+				float stripe = grid_line(wp.x, 5.0, 2.5);
+				lawn_col *= 1.0 + (stripe - 0.5) * 0.06;
+				col = mix(col, lawn_col, lawn);
+				rough = mix(rough, 0.9, lawn);
+			}
 		}
 	}
 	ALBEDO = col;
 	ROUGHNESS = clamp(rough, 0.3, 1.0);
 	SPECULAR = spec;
 	AO = ao;
-	if (!low && (kind != 0 || is_dirt)) {
-		NORMAL = bump_normal(NORMAL, VERTEX, is_dirt ? wp / dirt_tile : (kind == 1 ? wp / asph_tile : uvw / slab_tile), nxy);
+	if (!low && (kind != 0 || is_dirt || lawn_w > 0.01)) {
+		NORMAL = bump_normal(NORMAL, VERTEX, lawn_w > 0.01 ? wp / grass_tile : (is_dirt ? wp / dirt_tile : (kind == 1 ? wp / asph_tile : uvw / slab_tile)), nxy);
 	}
 }
