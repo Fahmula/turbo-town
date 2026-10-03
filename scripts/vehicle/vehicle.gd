@@ -160,6 +160,8 @@ func _ready() -> void:
 			in_wheel = in_wheel or n is VehicleWheel
 			n = n.get_parent()
 		(gi as GeometryInstance3D).layers = WHEEL_LAYER if in_wheel else VISUAL_LAYER
+		# Moving things take bounce light (SDFGI on High) but never get baked into it.
+		(gi as GeometryInstance3D).gi_mode = GeometryInstance3D.GI_MODE_DYNAMIC
 	contact_monitor = true
 	max_contacts_reported = 8
 	continuous_cd = true

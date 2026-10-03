@@ -1,0 +1,150 @@
+"""Real skies for the day/night cycle, from Poly Haven's CC0 "pure sky" HDRIs.
+
+Run from the project root (needs Blender, used to read the .hdr files):
+    python3 tools/textures/fetch_sky.py
+
+For each sky it:
+  * downloads the 4k HDRI (cached in build/texture_sources/),
+  * finds the sun (or moon): direction and colour,
+  * clamps the sun's core (DayNight draws its own disc and the directional
+    light does the direct lighting, so the sky must not light the world twice),
+  * keeps the upper hemisphere, scaled so its brightest pixel is 1.0, as an
+    sRGB JPG (assets/textures/sky/sky_<key>.jpg, 4096 x 1024: elevation 90°
+    at the top row to 0° at the bottom, azimuth across),
+and writes scripts/world/sky_catalog.gd: per sky the energy that brings
+its median brightness to 1.0 (Poly Haven's exposures differ from sky to
+sky, so DayNight sets each time of day's brightness itself), the sun's
+azimuth/elevation/colour and the average horizon and zenith colours
+relative to that median (DayNight uses them for the fog and to aim the sun).
+
+Equirect convention (matches sky.gdshader): u = atan2(x, -z) / 2pi + 0.5,
+so u = 0.5 looks along -Z; v = elevation from 90° (row 0) down.
+"""
+import json
+import math
+import os
+import subprocess
+import sys
+
+import numpy as np
+from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fetch_common import CACHE, ROOT, credit, download, out, polyhaven_files, polyhaven_info, write_sources  # noqa: E402
+
+# key -> Poly Haven id. Hours and blending are in DayNight.SKY_KEYS.
+SKIES = {
+    "dawn": "qwantani_sunrise_puresky",
+    "morning": "kloofendal_38d_partly_cloudy_puresky",
+    "day": "kloofendal_48d_partly_cloudy_puresky",
+    "sunset": "kloppenheim_06_puresky",
+    "dusk": "qwantani_dusk_2_puresky",
+    "night": "qwantani_moonrise_puresky",
+}
+RES = "4k"
+
+_BLENDER_DUMP = r'''
+import bpy, numpy as np, sys
+src, dst = sys.argv[-2], sys.argv[-1]
+img = bpy.data.images.load(src)
+w, h = img.size
+px = np.empty(w * h * 4, dtype=np.float32)
+img.pixels.foreach_get(px)
+px = px.reshape(h, w, 4)[::-1, :, :3]  # Blender rows go bottom-up
+np.save(dst, px.astype(np.float32))
+'''
+
+
+def load_hdr(path):
+    npy = path + ".npy"
+    if not os.path.exists(npy):
+        script = os.path.join(CACHE, "_dump_hdr.py")
+        with open(script, "w") as f:
+            f.write(_BLENDER_DUMP)
+        subprocess.run(["blender", "-b", "--factory-startup", "-P", script, "--", path, npy],
+                       check=True, stdout=subprocess.DEVNULL)
+    return np.load(npy)
+
+
+def lum(c):
+    return c[..., 0] * 0.2126 + c[..., 1] * 0.7152 + c[..., 2] * 0.0722
+
+
+def linear_to_srgb(c):
+    c = np.clip(c, 0.0, 1.0)
+    return np.where(c <= 0.0031308, c * 12.92, 1.055 * np.power(c, 1.0 / 2.4) - 0.055)
+
+
+def process(key, asset):
+    files = polyhaven_files(asset)
+    e = files["hdri"][RES]["hdr"]
+    hdr = load_hdr(download(e["url"], md5=e.get("md5")))
+    h, w, _ = hdr.shape
+    upper = hdr[: h // 2]
+    L = lum(upper)
+    # Sun: the brightest pixels (circular mean across the seam).
+    peak = L.max()
+    ys, xs = np.nonzero(L > peak * 0.5)
+    wts = L[ys, xs]
+    ang = xs / w * 2 * math.pi
+    u = (math.atan2((np.sin(ang) * wts).sum(), (np.cos(ang) * wts).sum()) / (2 * math.pi)) % 1.0
+    v = float((ys * wts).sum() / wts.sum()) / (h // 2)
+    sun_az = (u - 0.5) * 2 * math.pi  # radians, 0 = -Z, + toward +X
+    sun_el = (1.0 - v) * 90.0
+    sun_col = upper[ys, xs].mean(axis=0)
+    sun_col = sun_col / sun_col.max()
+    # Clamp the sun's core: nothing brighter than the bright sky around it.
+    yy, xx = np.mgrid[0: h // 2, 0:w]
+    du = np.minimum(np.abs(xx / w - u), 1.0 - np.abs(xx / w - u)) * 360.0
+    dv = np.abs(yy / (h // 2) - v) * 90.0
+    far = (du * du + dv * dv) > 15.0 ** 2
+    ceiling = np.percentile(L[far], 99.7) * 3.0
+    scale = np.minimum(1.0, ceiling / np.maximum(L, 1e-6))
+    sky = upper * scale[..., None]
+    top = lum(sky).max()
+    rgb = sky / top
+    img = Image.fromarray((linear_to_srgb(rgb) * 255.0 + 0.5).astype(np.uint8), "RGB")
+    img.save(out("sky", "sky_%s.jpg" % key), quality=92, optimize=True)
+    # Average horizon (0-6° up) away from the sun, and zenith (60-90°).
+    rows_h = slice(int((1 - 6 / 90) * (h // 2)), h // 2)
+    mask_h = (du[rows_h] > 40.0)
+    horizon = sky[rows_h][mask_h].mean(axis=0)
+    zenith = sky[: int((30 / 90) * (h // 2))].reshape(-1, 3).mean(axis=0)
+    median = float(np.median(lum(sky)))
+    info = polyhaven_info(asset)
+    credit("sky", info.get("name", asset), ", ".join(info.get("authors", {}).keys()),
+           "https://polyhaven.com/a/%s" % asset, use="%s sky (sky.gdshader)" % key)
+    return {"top": float(top), "median": median, "sun_az": sun_az, "sun_el": sun_el,
+            "sun_color": sun_col.tolist(), "horizon": horizon.tolist(), "zenith": zenith.tolist()}
+
+
+def main():
+    data = {k: process(k, a) for k, a in SKIES.items()}
+    lines = [
+        "class_name SkyCatalog",
+        "extends RefCounted",
+        "## Generated by tools/textures/fetch_sky.py; don't edit by hand.",
+        "## Per sky (assets/textures/sky/sky_<key>.jpg): `energy` scales the stored",
+        "## 0-1 texture so the sky's median brightness is 1.0; the sun's azimuth",
+        "## (radians, 0 = toward -Z, + toward +X) and elevation (degrees) as",
+        "## photographed; its colour; the average horizon (0-6° up, away from the",
+        "## sun) and zenith colours, linear, relative to the median.",
+        "",
+        "const SKIES := {",
+    ]
+    for k, d in data.items():
+        energy = d["top"] / d["median"]
+        hz = [c / d["median"] for c in d["horizon"]]
+        zn = [c / d["median"] for c in d["zenith"]]
+        lines.append('\t"%s": {"energy": %.4f, "sun_az": %.4f, "sun_el": %.2f, "sun_color": Color(%.3f, %.3f, %.3f),'
+                     % (k, energy, d["sun_az"], d["sun_el"], *d["sun_color"]))
+        lines.append('\t\t"horizon": Color(%.4f, %.4f, %.4f), "zenith": Color(%.4f, %.4f, %.4f)},' % (*hz, *zn))
+        print(k, "energy %.3f sun az %.1f el %.1f" % (energy, math.degrees(d["sun_az"]), d["sun_el"]))
+    lines.append("}")
+    with open(os.path.join(ROOT, "scripts", "world", "sky_catalog.gd"), "w") as f:
+        f.write("\n".join(lines) + "\n")
+    write_sources("sky")
+
+
+if __name__ == "__main__":
+    main()

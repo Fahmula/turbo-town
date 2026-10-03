@@ -17,12 +17,19 @@ static func apply(level: int, viewport: Viewport, world: Node) -> void:
 	if env:
 		env.ssao_enabled = level >= HIGH
 		env.glow_enabled = level >= MEDIUM
+		# Realism experiment: real bounce light and sky occlusion, screen-space
+		# reflections and light haze with sun shafts on High.
+		env.sdfgi_enabled = level >= HIGH
+		env.ssr_enabled = level >= HIGH
+		env.volumetric_fog_enabled = level >= HIGH
 	if sun:
 		sun.shadow_enabled = true
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if level >= MEDIUM else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 		sun.directional_shadow_max_distance = [140.0, 200.0, 260.0][level]
 		# Low's coarser shadow map stripes the ground under a low sun (acne).
 		sun.shadow_normal_bias = [4.0, 2.0, 2.0][level]
+		# The sun's real size: shadows sharp at the contact, softer further out.
+		sun.light_angular_distance = 0.6 if level >= HIGH else 0.0
 	# World shaders drop their detail texture samples on Low (world_common.gdshaderinc).
 	RenderingServer.global_shader_parameter_set("quality", level)
 	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 4096][level], true)
