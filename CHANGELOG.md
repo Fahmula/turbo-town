@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-03
+
 ### Garage
 - Customise your wheels! A new WHEELS tab in the garage has 10 rim designs
   (sporty spokes, a deep-dish star, mesh, turbine, a twister, retro dish,
@@ -35,6 +37,9 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
   the windows, shops with signs, and lit windows at night.
 - Real-looking trees, bushes and hedges, and woods on the hills and the
   mountain.
+- This update is bigger to download (about 125 MB) because of all the new
+  textures. If the game feels slow on the Steam Deck, try Settings >
+  Graphics: Medium (it keeps the new look but uses lighter lighting).
 
 ## [0.6.2] - 2026-10-02
 

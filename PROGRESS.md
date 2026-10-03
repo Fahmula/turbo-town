@@ -130,16 +130,16 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 
 ## Backlog
 
-### Realism experiment (branch `realism`, 2026-10-03; owner to review)
+### Realism (owner approved 2026-10-03, released in v0.7.0)
 - [x] Real photographed skies through the day (6 CC0 HDRIs), SDFGI / SSIL / SSR / haze / soft shadows on High
 - [x] Roads, paving, kerbs and cast concrete from CC0 scans (cracks, patches, worn paint, manholes, drains)
 - [x] Terrain from material weights (grass, dry grass, dirt, rock, sand), 3D grass tufts, scanned boulders, new sea
 - [x] Buildings: wall scans, recessed windows, interior-mapped rooms, shop signs, weathering, downpipes
 - [x] Trees: photo leaf clusters and bark, woodland on the hills, shrubs and hedges, quadtree LOD
 - [x] Street props, stunt park and landmarks rebuilt with real parts and PBR materials (one draw call per prop kept)
-- [ ] Measure on the Steam Deck (High is much heavier; Medium/Low keep the old cheap path)
+- [ ] Measure on the Steam Deck (High is much heavier; Medium/Low keep the old cheap path); the owner's son is testing 0.7.0
 - [ ] Far-tree impostors (distant forest reads dark), far-building banding at night
-- [ ] Owner decision: keep (merge into `dev`), keep parts, or drop
+- [x] Owner decision: keep it all; merged into `dev` and `main`, released as v0.7.0
 
 ### Garage customization (ideas; the platform is ready for them)
 - [ ] Tyres that change grip (off-road tyres better on dirt, slicks on tarmac)? Needs an owner
@@ -267,4 +267,5 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - 2026-10-02 — Garage customization (dev): per-vehicle setups, garage tabs, custom wheels (rims,
   rim colours, tyres, tyre stripes, calipers).
 - 2026-10-03 — Realism experiment (branch `realism`): real skies, bounce light, scanned roads, terrain,
-  buildings and trees, grass, rocks, sea. Waiting for the owner's verdict.
+  buildings and trees, grass, rocks, sea.
+- 2026-10-03 — v0.7.0: garage wheel customization + the realism look, released for the Steam Deck.

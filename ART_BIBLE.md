@@ -66,12 +66,13 @@ Contents: 0 Quick rules · 1 Identity · 2 References · 3 Today's baseline ·
 
 ---
 
-## 0b. Realism branch (experiment, 2026-10-03)
+## 0b. Realism (approved 2026-10-03, released in 0.7.0)
 
-On the `realism` branch the owner asked "how good can we get things looking"
-and lifted the usual limits for the experiment. Until the owner approves it,
-it stays off `dev` and `main`. On this branch these rules override the rest
-of the bible:
+The owner asked "how good can we get things looking", lifted the usual
+limits for an experiment on a `realism` branch, then approved it and had it
+merged and released (0.7.0). These rules override the rest of the bible
+wherever they disagree; the older sections still describe the parts they
+don't touch:
 
 - **Direction:** as realistic as Godot and the Steam Deck allow. §4's
   "stylize" column and §29's bans on scanned/photo textures, "chasing
@@ -98,8 +99,10 @@ of the bible:
   (`facade_common.gdshaderinc`); trees with photo leaf clusters and bark,
   woodland on the hills, shrubs and hedges, a quadtree LOD (`tree_lod.gd`,
   `tree_scatter.gd`); street props and landmarks with PBR materials.
-- **Steam Deck:** not yet measured. The owner accepts a heavier High for the
-  experiment; Medium and Low stay the safety net. Measure before merging.
+- **Steam Deck:** not yet measured when released (the owner's son is testing
+  it). High does about twice the GPU work of 0.6.2 on the dev PC; Medium and
+  Low keep the old lighting and are the safety net. The package grew from
+  35 MB to about 125 MB.
 
 ---
 
