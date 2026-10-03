@@ -19,5 +19,5 @@ const SKIES := {
 	"dusk": {"energy": 7.0836, "sun_az": 0.6248, "sun_el": 16.66, "sun_color": Color(1.000, 0.571, 0.578),
 		"horizon": Color(0.8940, 0.7150, 0.9565), "zenith": Color(0.7677, 0.8679, 1.5117)},
 	"night": {"energy": 36.5276, "sun_az": 0.6290, "sun_el": 13.83, "sun_color": Color(1.000, 0.777, 0.621),
-		"horizon": Color(3.1415, 3.7111, 4.0307), "zenith": Color(0.4025, 0.7322, 1.3165)},
+		"horizon": Color(3.1415, 3.7111, 4.0307), "zenith": Color(0.4024, 0.7322, 1.3163)},
 }

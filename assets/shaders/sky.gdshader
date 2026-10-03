@@ -21,6 +21,10 @@ uniform float rot_a = 0.0;
 uniform float rot_b = 0.0;
 // Linear colours.
 uniform vec3 ground_bottom = vec3(0.12, 0.12, 0.11);
+// The haze the distant land and sea fade into (DayNight: the fog colour);
+// the lowest few degrees of sky fade into it too, so the horizon melts.
+uniform vec3 haze = vec3(0.6, 0.65, 0.7);
+uniform float haze_amount = 0.65;
 uniform float disc = 1.0;
 
 vec3 sample_sky(sampler2D tex, vec3 d, float rot, float energy) {
@@ -42,6 +46,7 @@ void sky() {
 	vec3 col;
 	if (d.y >= 0.0) {
 		col = sky_at(d);
+		col = mix(col, haze, haze_amount * (1.0 - smoothstep(0.0, 0.09, d.y)));
 		if (LIGHT0_ENABLED && disc > 0.0) {
 			float a = acos(clamp(dot(LIGHT0_DIRECTION, d), -1.0, 1.0));
 			float s = 1.0 - smoothstep(LIGHT0_SIZE * 0.8, LIGHT0_SIZE * 1.2, a);
@@ -49,7 +54,7 @@ void sky() {
 		}
 	} else {
 		// Haze at the horizon fading into the ground.
-		vec3 h = sky_at(normalize(vec3(d.x, 0.0, d.z)));
+		vec3 h = mix(sky_at(normalize(vec3(d.x, 0.0, d.z))), haze, haze_amount);
 		col = mix(h, ground_bottom, smoothstep(0.0, 0.25, -d.y));
 	}
 	COLOR = col;

@@ -34,16 +34,16 @@ const GROUND_BOUNCE := Color(0.38, 0.38, 0.35)
 ## crossfade; at a key the sun (or moon) is as high as in that photo, and the
 ## photo is turned so its sun is where the light comes from.
 const SKY_KEYS := [
-	[0.0, "night", 0.05],
-	[5.2, "night", 0.05],
+	[0.0, "night", 0.07],
+	[5.2, "night", 0.07],
 	[6.4, "dawn", 0.22],
 	[8.5, "morning", 0.42],
 	[11.0, "day", 0.45],
 	[16.5, "day", 0.45],
 	[17.75, "sunset", 0.34],
 	[18.6, "dusk", 0.13],
-	[19.8, "night", 0.05],
-	[24.0, "night", 0.05],
+	[19.8, "night", 0.07],
+	[24.0, "night", 0.07],
 ]
 
 var hour := 13.0
@@ -127,6 +127,7 @@ func _apply() -> void:
 		var ground := (GROUND_BOUNCE.srgb_to_linear() * clampf(k[3] / 1.4, 0.1, 1.0))
 		_sky.set_shader_parameter("ground_bottom", Vector3(ground.r, ground.g, ground.b))
 		_sky.set_shader_parameter("disc", 0.0)
+		_sky.set_shader_parameter("haze", Vector3(minf(horizon.r, 1.0), minf(horizon.g, 1.0), minf(horizon.b, 1.0)))
 	if _env:
 		_env.ambient_light_color = k[4]
 		_env.ambient_light_energy = k[5]

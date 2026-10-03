@@ -42,6 +42,10 @@ SKIES = {
     "night": "qwantani_moonrise_puresky",
 }
 RES = "4k"
+# Skies whose sun/moon halo is too big for the game: the moonrise photo is a
+# long exposure, so its moon glows like a second sun. Within this many
+# degrees the halo is pulled down toward the sky around it.
+SOFTEN_HALO = {"night": 30.0}
 
 _BLENDER_DUMP = r'''
 import bpy, numpy as np, sys
@@ -101,6 +105,18 @@ def process(key, asset):
     ceiling = np.percentile(L[far], 99.7) * 3.0
     scale = np.minimum(1.0, ceiling / np.maximum(L, 1e-6))
     sky = upper * scale[..., None]
+    if key in SOFTEN_HALO:
+        # Keep a fifth of the glow above the surrounding sky near the moon,
+        # easing back to all of it at the edge; the disc itself stays.
+        r = np.sqrt(du * du + dv * dv)
+        edge = SOFTEN_HALO[key]
+        ring = (r > edge) & (r < edge * 1.5)
+        base = np.percentile(lum(sky)[ring], 50)
+        t = np.clip((r - edge * 0.3) / (edge * 0.7), 0.0, 1.0)
+        g = 0.2 + 0.8 * t * t * (3.0 - 2.0 * t)
+        Ls = lum(sky)
+        new = np.where(r < 0.9, Ls, np.where(Ls > base, base + (Ls - base) * g, Ls))
+        sky = sky * (new / np.maximum(lum(sky), 1e-6))[..., None]
     top = lum(sky).max()
     rgb = sky / top
     img = Image.fromarray((linear_to_srgb(rgb) * 255.0 + 0.5).astype(np.uint8), "RGB")
