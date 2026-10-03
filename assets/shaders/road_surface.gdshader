@@ -104,6 +104,8 @@ void fragment() {
 
 		Surf s = asphalt_surface(wp, asphalt_base, wear, 1.0 - patch);
 		vec3 col = s.col;
+		// Each lane was paved in its own pass: a slightly different tone every few dozen metres.
+		col *= 1.0 + (hash12(vec2(floor(y / 37.0), lane_id + side * 7.0 + 21.0)) - 0.5) * 0.16 * wear;
 		float rough = s.rough;
 		float ao = s.ao;
 		vec2 nxy = s.nxy;
@@ -264,6 +266,9 @@ void fragment() {
 			}
 		}
 
+		// Binder-coated stone tops turn glossy at grazing angles.
+		float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+		rough *= 1.0 - 0.3 * pow(1.0 - ndv, 4.0);
 		ALBEDO = col;
 		ROUGHNESS = clamp(rough, 0.25, 1.0);
 		AO = ao;
