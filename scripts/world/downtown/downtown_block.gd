@@ -184,11 +184,21 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 		mi.visibility_range_end = FAR_DISTANCE
 		mi.visibility_range_end_margin = FAR_MARGIN
 		node.add_child(mi)
+		mi.add_to_group(&"megakit_near")
 		var far_mesh := batch.far.build()
 		var fmi := MegaKit.instance(far_mesh, palette, "Building_%d_Far" % building_count)
 		fmi.visibility_range_begin = FAR_DISTANCE
 		fmi.visibility_range_begin_margin = FAR_MARGIN
 		node.add_child(fmi)
+		# Shadow stand-in while the full mesh is shown (Medium / Low; see
+		# GraphicsQuality.apply).
+		var smi_proxy := MegaKit.instance(far_mesh, palette, "Building_%d_Shadow" % building_count)
+		smi_proxy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		smi_proxy.visibility_range_end = FAR_DISTANCE
+		smi_proxy.visibility_range_end_margin = FAR_MARGIN
+		smi_proxy.visible = false
+		smi_proxy.add_to_group(&"megakit_shadow_proxy")
+		node.add_child(smi_proxy)
 		# Buildings hide whatever is behind them (occlusion culling).
 		var occ := OccluderInstance3D.new()
 		var box_occ := BoxOccluder3D.new()
@@ -216,6 +226,19 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 		dressing._roof_clutter(b.roof_rect.grow(0.6), b.roof_y, b.water_tank, false)
 		building_count += 1
 		triangles += batch.tris
+	# The block's inside (yards behind the buildings, seen down the alleys):
+	# one quad of the kit's asphalt just over the slab.
+	var yard := MegaKit.Batch.new(1)
+	var gy := base_y + 0.006
+	var yp: Array[Vector3] = [Vector3(x0, gy, z1), Vector3(x1, gy, z1), Vector3(x1, gy, z0), Vector3(x0, gy, z0)]
+	var yuv: Array[Vector2] = []
+	for q in yp:
+		yuv.append(Vector2(q.x, q.z) / 6.0)  # the kit's 6 m asphalt tile
+	yard.add_quad(yp, yuv, MegaKit.LAYER_ASPHALT, MegaKit.SLOT_FIXED, [0.6, 0.6, 0.6, 0.6])
+	var ymi := MegaKit.instance(yard.build(), 0, "Yard")
+	ymi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ymi.visibility_range_end = 250.0
+	node.add_child(ymi)
 	if not signs.is_empty():
 		var smi := MeshInstance3D.new()
 		smi.name = "ShopSigns"
@@ -369,8 +392,8 @@ func _run(parcels: Array, a: float, b: float, rect_of: Callable, side: int) -> v
 	if length < 3.9:
 		return
 	var alley := -1.0
-	if length > 26.0 and rng.randf() < 0.45:
-		alley = a + _even(8.0, length - 12.0)
+	if length >= 16.0 and rng.randf() < 0.5:
+		alley = a + _even(6.0, length - 10.0)
 	var x := a
 	while b - x > 0.1:
 		if alley > 0.0 and absf(x - alley) < 0.1:

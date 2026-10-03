@@ -19,7 +19,8 @@
 //             Kind 0 solid, 1 fake interior window, 2 painted wall sign
 //             (a faded advertisement on a party wall: the brick of UV with
 //             paint over it; UV2 = sign coordinates 0..1, v down; CUSTOM0.a =
-//             sign atlas row + 16 * paint scheme).
+//             sign atlas row + 16 * paint scheme), 3 plain glass (doors and
+//             transoms: dark, reflective, a dimly lit lobby at night).
 // Per instance: `palette` picks a row of palette_tex: per slot, RGB = the
 // colour that slot is recoloured to and A = how strongly (0 = the kit's own
 // colour). A building gets one palette (MegaKit.PALETTES).
@@ -136,7 +137,15 @@ void fragment() {
 	vec2 d2uv1 = dFdx(UV2);
 	vec2 d2uv2 = dFdy(UV2);
 
-	if (v_kind == 1) {
+	if (v_kind == 3) {
+		// ------------------------------------------------------ plain glass
+		float fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(n_geo, view_dir), 0.0, 1.0), 5.0);
+		ALBEDO = glass_tint;
+		ROUGHNESS = 0.05;
+		METALLIC = 0.0;
+		SPECULAR = 0.5;
+		EMISSION = mix(vec3(0.012, 0.011, 0.01), vec3(1.0, 0.8, 0.58) * 0.35, night) * (1.0 - fres);
+	} else if (v_kind == 1) {
 		// ---------------------------------------------------------- windows
 		// u carries 4 * k (the instance's random number), see the header.
 		float k = floor((UV.x + 0.5) * 0.25);

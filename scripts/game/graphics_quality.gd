@@ -59,3 +59,16 @@ static func apply(level: int, viewport: Viewport, world: Node) -> void:
 	else:
 		viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		viewport.scaling_3d_scale = 1.0
+
+	# Downtown MegaKit buildings (experiment): on Medium and Low a building
+	# near the camera casts its shadow from its far-LOD proxy (a shadows-only
+	# copy, DowntownBlock) instead of every window frame and cornice; High
+	# and Ultra cast from the full mesh.
+	var tree := world.get_tree() if world and world.is_inside_tree() else null
+	if tree:
+		var full := level >= HIGH
+		for n in tree.get_nodes_in_group(&"megakit_near"):
+			(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if full \
+				else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for n in tree.get_nodes_in_group(&"megakit_shadow_proxy"):
+			(n as GeometryInstance3D).visible = not full

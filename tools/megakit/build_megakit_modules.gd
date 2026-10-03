@@ -37,6 +37,10 @@ const S_FIXED := 7
 # Kinds.
 const K_SOLID := 0
 const K_WINDOW := 1
+## Glass with nothing behind it in the kit (doors, transoms): kept, drawn as
+## dark reflective glass (megakit.gdshader kind 3); dropping it would leave a
+## hole into the hollow building.
+const K_GLASS := 3
 
 ## material name -> [layer, slot, kind, room variant]; missing = dropped.
 const MAT := {
@@ -94,6 +98,12 @@ func _initialize() -> void:
 		var scene := doc.generate_scene(st)
 		var solid := _Acc.new()
 		var decal := _Acc.new()
+		var has_interior := false
+		for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
+			for si in mi.mesh.get_surface_count():
+				var m0 := mi.mesh.surface_get_material(si)
+				if m0 and m0.resource_name.begins_with("MI_FakeInterior"):
+					has_interior = true
 		for mi: MeshInstance3D in scene.find_children("*", "MeshInstance3D", true, false):
 			var xf := _global_xform(mi, scene)
 			var mesh := mi.mesh
@@ -103,6 +113,8 @@ func _initialize() -> void:
 				var arrays := mesh.surface_get_arrays(s)
 				if mname == DECAL_MAT:
 					decal.add(arrays, xf, [0, S_FIXED, K_SOLID, 0])
+				elif mname == "MI_Glass" and not has_interior:
+					solid.add(arrays, xf, [0, S_FIXED, K_GLASS, 0])
 				elif MAT.has(mname):
 					solid.add(arrays, xf, MAT[mname])
 				else:

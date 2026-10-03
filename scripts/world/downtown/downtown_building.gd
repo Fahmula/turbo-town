@@ -206,7 +206,8 @@ func _dressed_wall(o: Vector3, n: Vector3, length: float, quoin: bool, prev_fron
 ## at every upper floor (grating, railings, brackets into the wall), stair
 ## flights between them, and a drop ladder above the sidewalk. Kit painted
 ## metal (the dark band of the metal / concrete slice, coloured by the
-## palette's metal slot), thin boxes. Far away only the landings remain.
+## palette's metal slot), thin boxes; kept whole in the far LOD (about 3k
+## triangles), so they don't pop at the switch.
 func _fire_escape(o: Vector3, n: Vector3, x: float) -> void:
 	var xa := Vector3.UP.cross(n)
 	var b := Basis(xa, Vector3.UP, n)
@@ -215,18 +216,18 @@ func _fire_escape(o: Vector3, n: Vector3, x: float) -> void:
 	var uv := Vector2(0.37, 0.09)  # the painted metal band of the slice
 	var w := 3.6
 	var d := 1.0
-	var box := func(c: Vector3, size: Vector3, far_too := false) -> void:
-		batch.add_box(Transform3D(b, o + xa * (x + c.x) + Vector3.UP * c.y + n * c.z), size, L, S, uv, far_too)
+	var box := func(c: Vector3, size: Vector3) -> void:
+		batch.add_box(Transform3D(b, o + xa * (x + c.x) + Vector3.UP * c.y + n * c.z), size, L, S, uv, true)
 	for f in _floors:
 		var y := GROUND + FLOOR * f + 0.35  # landing at sill height
 		# Grating, edge beams, brackets into the wall.
-		box.call(Vector3(0.0, y, 0.1 + d * 0.5), Vector3(w, 0.04, d), true)
+		box.call(Vector3(0.0, y, 0.1 + d * 0.5), Vector3(w, 0.04, d))
 		box.call(Vector3(0.0, y - 0.06, 0.1 + d), Vector3(w, 0.12, 0.05))
 		for sx: float in [-w * 0.5 + 0.1, w * 0.5 - 0.1]:
 			box.call(Vector3(sx, y - 0.4, 0.1 + d * 0.45), Vector3(0.05, 0.05, d * 1.05))
 			var brace := Basis(xa, deg_to_rad(-38.0)) * b
 			batch.add_box(Transform3D(brace, o + xa * (x + sx) + Vector3.UP * (y - 0.42) + n * (0.1 + d * 0.5)),
-				Vector3(0.04, 0.04, 1.15), L, S, uv)
+				Vector3(0.04, 0.04, 1.15), L, S, uv, true)
 		# Railing: top rail, mid rail, balusters on the front and ends.
 		for ry: float in [1.0, 0.5]:
 			box.call(Vector3(0.0, y + ry, 0.1 + d), Vector3(w, 0.04, 0.04))
@@ -252,9 +253,9 @@ func _fire_escape(o: Vector3, n: Vector3, x: float) -> void:
 			var sb := Basis(n, -dir * ang) * b
 			for side: float in [-0.32, 0.32]:
 				batch.add_box(Transform3D(sb, o + xa * (x + mid.x) + Vector3.UP * mid.y + n * (zc + side)),
-					Vector3(sqrt(run * run + FLOOR * FLOOR), 0.1, 0.03), L, S, uv)
+					Vector3(sqrt(run * run + FLOOR * FLOOR), 0.1, 0.03), L, S, uv, true)
 				batch.add_box(Transform3D(sb, o + xa * (x + mid.x) + Vector3.UP * (mid.y + 0.85) + n * (zc + side)),
-					Vector3(sqrt(run * run + FLOOR * FLOOR), 0.035, 0.035), L, S, uv)
+					Vector3(sqrt(run * run + FLOOR * FLOOR), 0.035, 0.035), L, S, uv, true)
 			for k in steps:
 				var t := (float(k) + 0.5) / float(steps)
 				box.call(Vector3(lerpf(x_top, x_bot, t), lerpf(y, y0, t), zc), Vector3(0.2, 0.025, 0.62))
