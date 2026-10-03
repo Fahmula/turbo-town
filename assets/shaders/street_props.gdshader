@@ -54,18 +54,21 @@ void vertex() {
 	cls = COLOR.a;
 }
 
-// Screws and seams of a 1.22 x 2.44 m plywood sheet laid in running bond.
-// p = (across, along) in metres. Returns (seam, screw) masks and a per-sheet hash.
-vec3 deck_sheets(vec2 p, float dist) {
-	float row = floor(p.y / 2.44);
-	float x = p.x + mod(row, 2.0) * 0.61;
-	float hsh = hash12(vec2(floor(x / 1.22), row));
-	float seam = max(grid_line(p.y, 2.44, 0.012), grid_line(x, 1.22, 0.012));
-	vec2 d = vec2(abs(fract(x / 1.22 + 0.5) - 0.5) * 1.22, abs(fract(p.y / 2.44 + 0.5) - 0.5) * 2.44);
-	float ysp = (fract(p.y / 0.305) - 0.5) * 0.305;
-	float xsp = (fract(x / 0.305) - 0.5) * 0.305;
-	float s1 = 1.0 - smoothstep(0.005, 0.009, length(vec2(d.x - 0.04, ysp)));
-	float s2 = 1.0 - smoothstep(0.005, 0.009, length(vec2(d.y - 0.04, xsp)));
+// Sheets laid in running bond with a screw or bolt row along every seam.
+// p = (across, along) in metres, sz = sheet size across x along, stagger =
+// how far every other row shifts (0..1 of the width), sp = fastener spacing,
+// inset = distance of the fasteners from the seam, rad = fastener radius.
+// Returns (seam, fastener) masks and a per-sheet hash.
+vec3 deck_sheets(vec2 p, vec2 sz, float stagger, float sp, float inset, float rad, float dist) {
+	float row = floor(p.y / sz.y);
+	float x = p.x + mod(row, 2.0) * sz.x * stagger;
+	float hsh = hash12(vec2(floor(x / sz.x), row));
+	float seam = max(grid_line(p.y, sz.y, 0.012), grid_line(x, sz.x, 0.012));
+	vec2 d = vec2(abs(fract(x / sz.x + 0.5) - 0.5) * sz.x, abs(fract(p.y / sz.y + 0.5) - 0.5) * sz.y);
+	float ysp = (fract(p.y / sp) - 0.5) * sp;
+	float xsp = (fract(x / sp) - 0.5) * sp;
+	float s1 = 1.0 - smoothstep(rad, rad * 1.8, length(vec2(d.x - inset, ysp)));
+	float s2 = 1.0 - smoothstep(rad, rad * 1.8, length(vec2(d.y - inset, xsp)));
 	float screws = max(s1, s2) * (1.0 - smoothstep(6.0, 22.0, dist));
 	return vec3(seam, screws, hsh);
 }
@@ -93,8 +96,12 @@ void fragment() {
 	// Deck: plywood sheets, the grain runs along the ramp.
 	vec3 sheet = vec3(0.0);
 	if (c == 30) {
-		sheet = deck_sheets(UV, dist);
+		sheet = deck_sheets(UV, vec2(1.22, 2.44), 0.5, 0.305, 0.04, 0.005, dist);
 		uvm = vec2(UV.y + sheet.z * 7.31, UV.x + sheet.z * 3.17);
+	} else if (c == 21) {
+		// Steel deck: 1.5 x 2 m painted plates, bolted along the seams.
+		sheet = deck_sheets(UV, vec2(1.5, 2.0), 0.0, 0.25, 0.035, 0.011, dist);
+		uvm = UV + vec2(sheet.z * 5.3, sheet.z * 2.9);
 	}
 
 	if (quality > 0) {
@@ -141,8 +148,20 @@ void fragment() {
 		bool on = signal == (c - 16) / 2;
 		col = on ? lens : lens * 0.12 + 0.02;
 		emit = on ? lens * 3.0 : vec3(0.0);
+	} else if (c == 19) {
+		rough = min(rough * 0.45, 0.3);
+	} else if (c == 21) {
+		col *= 1.0 - sheet.x * 0.45;
+		col *= 1.0 + (sheet.z - 0.5) * 0.06;
+		col = mix(col, vec3(0.5, 0.5, 0.52), sheet.y * 0.8);
+		rough = mix(rough, 0.35, sheet.y);
+		rough = max(rough, sheet.x * 0.8);
+		metal = sheet.y;
 	} else if (c == 22) {
 		rough = 0.3;
+	} else if (c == 23) {
+		rough = 0.22;
+		spec = 0.8;
 	} else if (c == 24) {
 		spec = 0.3;
 	} else if (c == 28) {

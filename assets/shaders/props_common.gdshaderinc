@@ -24,7 +24,10 @@
 //    15     roof slate               15 slate
 //    16/18/20  signal lens red / amber / green (instance uniform `signal`)
 //    17     polished aluminium / chrome (no texture)
+//    19     glossy plastic / lacquer    3 plastic   roughness x 0.45 (pins, buoys)
+//    21     steel deck panels           0 paint     bolted plates (loop, bowl)
 //    22     sign face (glossy sheeting)
+//    23     retroreflective sheeting (signs, reflectors)
 //    24     fabric (awnings)          5 fabric
 //    26     wood                      6 wood
 //    28     always-on glow (screens, beacons)
@@ -32,8 +35,8 @@
 
 const int PROPS_LAYER[31] = int[31](
 	0, 8, 1, 9, 2, 10, 3, 11, 4, 12,
-	-1, 13, -1, 14, -1, 15, -1, -1, -1, -1,
-	-1, -1, -1, -1, 5, -1, 6, -1, -1, -1,
+	-1, 13, -1, 14, -1, 15, -1, -1, -1, 3,
+	-1, 0, -1, -1, 5, -1, 6, -1, -1, -1,
 	7);
 
 // Tile size in metres per texture layer.
