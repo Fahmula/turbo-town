@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" path="res://assets/textures/building/facade_weather.png" id="5_weather"]
 [ext_resource type="Texture2D" path="res://assets/textures/building/facade_interiors_rooms.jpg" id="6_rooms"]
 [ext_resource type="Texture2D" path="res://assets/textures/building/facade_interiors_shops.jpg" id="7_shops"]
+[ext_resource type="Texture2D" path="res://assets/textures/building/facade_signs.png" id="8_signs"]
 
 [resource]
 render_priority = 0
@@ -17,3 +18,4 @@ shader_parameter/wall_orm = ExtResource("4_orm")
 shader_parameter/weather = ExtResource("5_weather")
 shader_parameter/rooms_atlas = ExtResource("6_rooms")
 shader_parameter/shops_atlas = ExtResource("7_shops")
+shader_parameter/signs_atlas = ExtResource("8_signs")

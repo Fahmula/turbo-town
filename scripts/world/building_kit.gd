@@ -15,6 +15,11 @@ enum Style { STUCCO, LIMESTONE, BRICK, CURTAIN, RIBBON }
 const SHOPS := 8
 ## Facade style of flat roofs (facade.gdshader: roof membrane and ballast).
 const ROOF_STYLE := 5
+## Facade style of shop sign boards (facade.gdshader draws the word).
+const SIGN_STYLE := 6
+const SIGN_V0 := 3.725  # sign board: metres above the base, height, margin in bays
+const SIGN_H := 0.5
+const SIGN_MARGIN := 0.12
 const GROUND_FLOOR := 4.6
 const FLOOR := 3.4
 const BAY := [3.0, 3.2, 2.9, 3.0, 3.0]
@@ -65,6 +70,7 @@ func add_building(fp: Rect2, base_y: float, height: float, look: Dictionary) -> 
 	_ring(fp, base_y, base_y + 0.45, 0.06, Color(base_col, 0.0), 0.03)
 	if shops:
 		_ring(fp, base_y + 3.55, base_y + 4.4, 0.14, Color(look.get("fascia", trim.darkened(0.35)), 0.0), 0.03)
+		_signs(fp, base_y, seed, Style.LIMESTONE if podium > 0 else style)
 	if podium > 0:
 		_ring(fp, base_y + podium_top - 0.1, base_y + podium_top + 0.35, 0.22, Color(stone.lightened(0.05), 0.0), 0.05)
 	elif not modern:
@@ -207,6 +213,42 @@ func _aprons(fp: Rect2, y: float) -> void:
 	for k in 4:
 		var k1 := (k + 1) % 4
 		ground.add_quad_ex(inner[k] + lift, outer[k] + lift, outer[k1] + lift, inner[k1] + lift, up, up, up, up, dark, lite, lite, dark)
+
+
+## Sign boards on the fascia: one per pair of shop bays (the shader picks the
+## word from the same hash as the shop interior behind the glass, so UV.x is
+## the wall's bay coordinate and UV.y metres up from the base). `style` is the
+## style the shop walls were built with (it sets the bay width).
+func _signs(fp: Rect2, base_y: float, seed: float, style: int) -> void:
+	var prev_uv2 := facade.uv2
+	var srng := RandomNumberGenerator.new()
+	srng.seed = int(seed * 100000.0) + 17
+	facade.set_uv2(Vector2(seed, SIGN_STYLE))
+	var corners := [Vector2(fp.position.x, fp.position.y), Vector2(fp.end.x, fp.position.y),
+		Vector2(fp.end.x, fp.end.y), Vector2(fp.position.x, fp.end.y)]
+	var target: float = BAY[style]
+	var y0 := base_y + SIGN_V0
+	var up := Vector3.UP * SIGN_H
+	for k in 4:
+		var a: Vector2 = corners[k]
+		var b: Vector2 = corners[(k + 1) % 4]
+		var length := a.distance_to(b)
+		var bays := maxf(roundf(length / target), 1.0)
+		var dir := (b - a) / length
+		var out2 := Vector2(dir.y, -dir.x)  # outside of a clockwise ring
+		var off := Vector3(out2.x, 0.0, out2.y) * 0.16  # a little proud of the fascia (0.14)
+		for g in int(bays / 2.0):
+			if srng.randf() < 0.15:
+				continue  # not every shop has a sign
+			var s0 := 2.0 * g + SIGN_MARGIN
+			var s1 := 2.0 * g + 2.0 - SIGN_MARGIN
+			var p0 := b + (a - b) * (s0 / bays)
+			var p1 := b + (a - b) * (s1 / bays)
+			var pa := Vector3(p0.x, y0, p0.y) + off
+			var pb := Vector3(p1.x, y0, p1.y) + off
+			facade.add_quad(pa, pb, pb + up, pa + up, Color(1, 1, 1, 0.9),
+				Vector2(s0, SIGN_V0), Vector2(s1, SIGN_V0), Vector2(s1, SIGN_V0 + SIGN_H), Vector2(s0, SIGN_V0 + SIGN_H))
+	facade.set_uv2(prev_uv2)
 
 
 ## Fabric awnings over a few shopfront bays on each street side.

@@ -42,6 +42,7 @@ uniform sampler2DArray wall_orm : hint_default_white, filter_linear_mipmap_aniso
 uniform sampler2D weather : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D rooms_atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D shops_atlas : source_color, filter_linear_mipmap, repeat_disable;
+uniform sampler2D signs_atlas : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 
 uniform float ground_floor = 4.6;
 uniform float floor_height = 3.4;
@@ -56,6 +57,7 @@ uniform float day_gain = 0.075;     // room brightness seen through glass by day
 uniform float night_gain = 1.15;     // lit rooms at night
 uniform int rooms_count = 12;
 uniform int shops_count = 12;
+uniform int signs_rows = 16;
 // Brick courses in the scan: 39 per 3 m (windows snap to course lines).
 const float COURSE = 0.0769231;
 
@@ -104,19 +106,45 @@ void fragment() {
 	bool shops = style_full >= 8;
 	int style = style_full % 8;
 	bool is_roof = style == 5;
+	bool is_sign = style == 6;
 	bool horiz = abs(n.y) > 0.7;
 	vec3 up = vec3(0.0, 1.0, 0.0);
 	vec3 T = horiz ? vec3(1.0, 0.0, 0.0) : normalize(cross(up, n));
 	vec3 Bt = horiz ? vec3(0.0, 0.0, -1.0) : up;
 	float perp = abs(n.x) > abs(n.z) ? world_pos.x : world_pos.z;
+	if (is_sign) {
+		perp -= (abs(n.x) > abs(n.z) ? n.x : n.z) * 0.16;  // the board stands 0.16 m off the wall
+	}
 	float wall_id = floor(perp + 0.37);
 
 	vec3 wall = srgb_to_linear(COLOR.rgb);
 	wall = mix(vec3(luma(wall)), wall, style == 0 ? 0.82 : 0.92);  // a touch less candy
 	wall *= 0.95 + 0.1 * hash12(vec2(seed * 91.7, 3.1));   // per-building tone
 
+	// ------------------------------------------------------------ shop sign boards
+	if (is_sign) {
+		// One board per pair of shop bays (BuildingKit._signs); the word matches the
+		// shop interior behind the glass (same hash as the room choice).
+		float grp = floor(UV.x / 2.0);
+		float su = clamp((UV.x - grp * 2.0 - 0.12) / 1.76, 0.0, 1.0);
+		float sv = clamp(1.0 - (UV.y - 3.725) / 0.5, 0.03, 0.97);
+		vec2 swk = vec2(grp, -1.0) + seed * 53.0 + wall_id * 0.917;
+		int sroom = int(floor(hash12(swk + 11.3) * float(shops_count)));
+		float alt = hash12(swk + 61.0);
+		float row = alt > 0.8 ? 12.0 + floor(fract(alt * 37.0) * 4.0) : float(sroom);
+		vec4 sg = texture(signs_atlas, vec2(su, (row + sv) / float(signs_rows)));
+		float slit_h = hash12(swk);
+		float slit = step(0.18, slit_h);
+		vec3 slamp = mix(vec3(1.0, 0.78, 0.55), vec3(0.88, 0.95, 1.0), step(0.85, fract(slit_h * 13.7)));
+		float sdirt = 1.0 - 0.15 * smoothstep(0.55, 0.9, texture(weather, vec2(world_pos.x + world_pos.z, world_pos.y * 0.2) * 0.3).r);
+		ALBEDO = sg.rgb * sdirt;
+		ROUGHNESS = 0.55;
+		METALLIC = 0.0;
+		SPECULAR = 0.6;
+		EMISSION = (slamp * sg.a * 1.3 + sg.rgb * 0.1) * night * slit;
+		NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
+	} else if (COLOR.a < 0.5 || horiz) {
 	// ------------------------------------------------------------ plain surfaces
-	if (COLOR.a < 0.5 || horiz) {
 		vec3 col = wall;
 		float rough = 0.88;
 		vec3 nrm_w = n;
