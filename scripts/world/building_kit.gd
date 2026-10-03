@@ -82,6 +82,8 @@ func add_building(fp: Rect2, base_y: float, height: float, look: Dictionary) -> 
 	var roof_fp := fp
 	var roof_y := _top(fp, top, wall, trim, modern)
 	_aprons(fp, base_y)
+	if not modern and height < 28.0:
+		_downpipes(fp, base_y, top, wall, seed, shops)
 	var tiers: Array = look.get("tiers", [])
 	var tier_base := height
 	for t: Array in tiers:
@@ -213,6 +215,32 @@ func _aprons(fp: Rect2, y: float) -> void:
 	for k in 4:
 		var k1 := (k + 1) % 4
 		ground.add_quad_ex(inner[k] + lift, outer[k] + lift, outer[k1] + lift, inner[k1] + lift, up, up, up, up, dark, lite, lite, dark)
+
+
+## One or two rain downpipes down the corners of low and mid-rise buildings
+## (clutter mesh, street_props.gdshader): a round pipe with a few collars,
+## painted like the wall or dark metal.
+func _downpipes(fp: Rect2, base_y: float, top: float, wall: Color, seed: float, shops: bool) -> void:
+	var prng := RandomNumberGenerator.new()
+	prng.seed = int(seed * 100000.0) + 91
+	var corners := [Vector2(fp.position.x, fp.position.y), Vector2(fp.end.x, fp.position.y),
+		Vector2(fp.end.x, fp.end.y), Vector2(fp.position.x, fp.end.y)]
+	var k0 := prng.randi_range(0, 3)
+	var painted := prng.randf() < 0.5
+	var col := Color(wall.darkened(0.12), PAINTED) if painted else Color(0.27, 0.28, 0.29, METAL)
+	var length := top - base_y - 0.85
+	var profile := PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.05, 0.0)])
+	for h: float in [0.35, length * 0.5, length - 0.4]:
+		profile.append_array(PackedVector2Array([Vector2(0.05, h - 0.03), Vector2(0.068, h - 0.03), Vector2(0.068, h + 0.03), Vector2(0.05, h + 0.03)]))
+	profile.append_array(PackedVector2Array([Vector2(0.05, length), Vector2(0.0, length)]))
+	for n in 1 + prng.randi_range(0, 1):
+		var k := (k0 + n * 2) % 4
+		var a: Vector2 = corners[k]
+		var b: Vector2 = corners[(k + 1) % 4]
+		var dir := (b - a).normalized()
+		var out2 := Vector2(dir.y, -dir.x)  # outside of a clockwise ring
+		var p2 := a + dir * (0.14 if shops else 0.15 + prng.randf() * 0.4) + out2 * 0.07
+		clutter.add_lathe(Transform3D(Basis.IDENTITY, Vector3(p2.x, base_y + 0.1, p2.y)), profile, 6, PackedColorArray([col]), 25.0)
 
 
 ## Sign boards on the fascia: one per pair of shop bays (the shader picks the

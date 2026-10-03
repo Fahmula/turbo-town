@@ -52,7 +52,6 @@ uniform vec4 frame_dark : source_color = vec4(0.2, 0.21, 0.22, 1.0);
 // Metres covered by one repeat of each wall layer (brick, stucco, limestone, concrete).
 uniform vec4 tile_m = vec4(3.0, 2.0, 3.0, 1.8);
 uniform vec4 normal_gain = vec4(1.0, 1.7, 1.0, 1.0);  // per layer: brick, stucco, limestone, concrete
-uniform int debug_mode = 0;
 uniform float day_gain = 0.075;     // room brightness seen through glass by day
 uniform float night_gain = 1.15;     // lit rooms at night
 uniform int rooms_count = 12;
@@ -77,10 +76,6 @@ vec3 room_texel(bool shop, int room, int face, vec2 fuv, float lod) {
 	vec2 inner = vec2(fuv.x * 0.5 + 0.5, 0.5 - fuv.y * 0.5);
 	inner = (inner * 248.0 + 4.0) / 256.0;
 	vec2 at = (cell + inner) / 8.0;
-	if (debug_mode == 1) {
-		vec3 dc[5] = vec3[5](vec3(0.8, 0.8, 0.8), vec3(1.0, 0.1, 0.1), vec3(0.1, 0.1, 1.0), vec3(0.1, 0.8, 0.1), vec3(0.9, 0.9, 0.1));
-		return dc[face] * (0.4 + 0.6 * fract(inner.x * 4.0));
-	}
 	return shop ? textureLod(shops_atlas, at, lod).rgb : textureLod(rooms_atlas, at, lod).rgb;
 }
 
@@ -452,7 +447,7 @@ void fragment() {
 					vec3 p = vec3(rx / Wr * 2.0 - 1.0, (P1.y - 0.1) / Hr * 2.0 - 1.0, -1.0 + 2.0 * rdepth / Dr);
 					p.xy = clamp(p.xy, vec2(-0.995), vec2(0.995));
 					vec3 dn = vec3(dot(ray, T) / (Wr * 0.5), dot(ray, up) / (Hr * 0.5), dN / (Dr * 0.5));
-					float mir = (fract(rh3 * 5.7) > 0.5 && debug_mode == 0) ? -1.0 : 1.0;
+					float mir = fract(rh3 * 5.7) > 0.5 ? -1.0 : 1.0;
 					p.x *= mir;
 					dn.x *= mir;
 					int face;
