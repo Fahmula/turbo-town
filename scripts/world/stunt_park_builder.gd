@@ -241,7 +241,7 @@ func _build_loop(root: Node3D) -> void:
 	var shape := mb.build_collision_shape()
 	var steel := Color(0.3, 0.32, 0.34, StreetKit.PAINTED)
 	var gal := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
-	for i in range(0, LOOP_STEPS, 3):
+	for i in range(0, LOOP_STEPS, 5):
 		var n := loop_normal(i)
 		var t := (pts[mini(i + 1, LOOP_STEPS)] - pts[maxi(i - 1, 0)]).normalized()
 		mb.add_bevel_box(Transform3D(Basis(Vector3.RIGHT, n, t), pts[i] - n * (thick + 0.06)), Vector3(LOOP_WIDTH + 0.1, 0.12, 0.12), 0.015, steel, Color(0, 0, 0, -1), false)

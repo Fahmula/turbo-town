@@ -621,6 +621,27 @@ func _build_tunnel(root: Node3D) -> void:
 		lights.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, wall_h + arch - 0.08, z)), Vector3(0.5, 0.12, 2.2), 0.02, Color(0.3, 0.3, 0.32, PAINTED))
 		lights.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, wall_h + arch - 0.15, z)), Vector3(0.42, 0.02, 2.1), 0.005, Color(1.0, 0.92, 0.75, GLOW))
 		z += 6.0
+	# Cable trays and conduit along both walls, amber wall reflectors, emergency
+	# phones and extinguisher boxes in recesses, green exit signs.
+	var tgal := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+	for sx: float in [-1.0, 1.0]:
+		var wx := sx * (hw - 0.14)
+		StreetKit.beam(lights, Vector3(wx, 3.9, z0 + 0.3), Vector3(wx, 3.9, z1 - 0.3), 0.32, 0.04, tgal, 0.006)
+		StreetKit.rod(lights, Vector3(wx, 4.0, z0 + 0.3), Vector3(wx, 4.0, z1 - 0.3), 0.035, 0.035, 8, Color(0.12, 0.12, 0.13, StreetKit.PLASTIC))
+		StreetKit.rod(lights, Vector3(wx - sx * 0.1, 4.0, z0 + 0.3), Vector3(wx - sx * 0.1, 4.0, z1 - 0.3), 0.025, 0.025, 8, Color(0.8, 0.25, 0.15, StreetKit.PLASTIC))
+		var zb := z0 + 2.0
+		while zb < z1 - 1.0:
+			StreetKit.beam(lights, Vector3(wx, 3.6, zb), Vector3(wx, 3.92, zb), 0.05, 0.04, tgal, 0.006)
+			zb += 4.0
+		var zr := z0 + 4.0
+		while zr < z1 - 2.0:
+			lights.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * (hw - 0.03), 1.1, zr)), Vector3(0.05, 0.16, 0.16), 0.01, Color(0.95, 0.65, 0.1, StreetKit.RETRO), Color(0, 0, 0, -1), false)
+			zr += 6.0
+		for pz: float in [z0 + 14.0, z1 - 14.0]:
+			lights.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * (hw - 0.1), 1.5, pz)), Vector3(0.2, 0.7, 0.5), 0.02, Color(0.9, 0.45, 0.1, StreetKit.PLASTIC))
+			lights.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * (hw - 0.21), 1.65, pz)), Vector3(0.02, 0.28, 0.34), 0.004, Color(0.1, 0.12, 0.14, GLASS), Color(0, 0, 0, -1), false)
+			lights.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * (hw - 0.1), 1.5, pz + 3.0)), Vector3(0.2, 0.5, 0.4), 0.02, Color(0.75, 0.15, 0.1, StreetKit.PLASTIC))
+			lights.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * (hw - 0.12), 2.6, pz + 1.5)), Vector3(0.06, 0.26, 0.6), 0.01, Color(0.15, 0.7, 0.35, GLOW), Color(0, 0, 0, -1), false)
 	_mesh(root, lights, _props_mat)
 	# A few real lights so the inside isn't dark (on day and night).
 	for k in 3:
@@ -1145,6 +1166,18 @@ func _build_islet(root: Node3D) -> void:
 			Color(0.7, 0.69, 0.66, 1.0), Color(0.38, 0.4, 0.38, 1.0))
 		px -= 16.0
 	_mesh(root, pillars, _concrete_mat)
+	# Bridge lamps (the same knock-over lamps as in town) on alternating parapets,
+	# and amber reflector posts between them.
+	var lamp_scene := load("res://scenes/props/street_lamp.tscn") as PackedScene
+	var lamp_x := xe - 10.0
+	var lamp_side := 1.0
+	while lamp_x > xw + 8.0:
+		var bl := lamp_scene.instantiate() as Node3D
+		bl.position = Vector3(lamp_x, deck_y.call(lamp_x) + 1.0, lamp_side * (hw - 0.1))
+		bl.rotation.y = 0.0 if lamp_side > 0.0 else PI
+		root.add_child(bl)
+		lamp_side = -lamp_side
+		lamp_x -= 16.0
 
 
 func _glow_material(col: Color, energy := 2.0) -> StandardMaterial3D:
