@@ -2550,6 +2550,13 @@ func _scenery(game: Game) -> void:
 		["aerial", Vector3(95.0, 70.0, 15.0), Vector3(-10.0, 0.0, -110.0), null, true],
 		["aerial_overpass", Vector3(60.0, 32.0, -185.0), Vector3(0.0, 5.0, -258.0), null, false],
 	]
+	# Chase-style views at the teleport spots outside the city (spawn_beach,
+	# spawn_dirt_fields, spawn_mountain_top...): nature, terrain and landmarks.
+	for sp: Dictionary in game.world.spawn_points.slice(2):
+		var xf: Transform3D = sp["xform"]
+		var fwd := -xf.basis.z
+		views.append(["spawn_" + String(sp["name"]).to_lower().replace(" ", "_"),
+			xf.origin - fwd * 7.5 + Vector3.UP * 2.6, xf.origin + fwd * 25.0 + Vector3.UP * 1.0, xf, false])
 	var times := ["day", "sunset", "night"]
 	var only: PackedStringArray = []
 	var quick := false
