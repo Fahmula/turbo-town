@@ -2560,14 +2560,28 @@ func _scenery(game: Game) -> void:
 	var times := ["day", "sunset", "night"]
 	var only: PackedStringArray = []
 	var quick := false
+	# --hours=6.4,9,18.2: shoot these clock times (day/night cycle) instead.
+	var hours: PackedFloat64Array = []
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--views="):
 			only = arg.split("=")[1].split(",")
-		quick = quick or arg == "--quick"
+		if arg.begins_with("--hours="):
+			for h in arg.split("=")[1].split(","):
+				hours.append(float(h))
+		quick = quick or arg == "--quick" or not hours.is_empty()
+	if not hours.is_empty():
+		times.clear()
+		for h in hours:
+			times.append("h%05.2f" % h)
 	for q in ([GraphicsQuality.HIGH] if quick else [GraphicsQuality.HIGH, GraphicsQuality.LOW]):
 		Settings.set_value("graphics", q)
-		for t in (range(3) if q == GraphicsQuality.HIGH and not quick else [0]):
-			Settings.set_value("time_of_day", t)
+		for t in (range(hours.size()) if not hours.is_empty() else (range(3) if q == GraphicsQuality.HIGH and not quick else [0])):
+			if hours.is_empty():
+				Settings.set_value("time_of_day", t)
+			else:
+				game.day_night.cycling = false
+				game.day_night.hour = hours[t]
+				game.day_night._apply()
 			for view: Array in views:
 				if q == GraphicsQuality.LOW and not view[4]:
 					continue
