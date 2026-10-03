@@ -13,7 +13,10 @@ const GALLERY_Z := 316.0
 
 # name -> [camera position, look-at, fov]
 var _views := {
-	"gal_small": [Vector3(-1.0, 1.5, 325.5), Vector3(-1.0, 0.55, 316.0), 55.0],
+	"city_avenue": [Vector3(2.4, 2.4, -30.0), Vector3(2.4, 1.4, -62.0), 75.0],
+	"city_intersection": [Vector3(10.0, 1.7, -60.0), Vector3(-6.0, 1.2, -80.0), 75.0],
+	"city_downtown": [Vector3(9.0, 2.4, 2.0), Vector3(42.0, 3.0, 2.0), 75.0],
+	"gal_small":[Vector3(-1.0, 1.5, 325.5), Vector3(-1.0, 0.55, 316.0), 55.0],
 	"gal_small_l": [Vector3(-9.0, 0.9, 322.0), Vector3(-9.0, 0.55, 316.0), 50.0],
 	"gal_small_r": [Vector3(7.0, 0.9, 322.0), Vector3(7.0, 0.55, 316.0), 50.0],
 	"gal_tall": [Vector3(26.0, 3.0, 334.0), Vector3(26.0, 3.2, 316.0), 60.0],
@@ -51,6 +54,7 @@ var _only: PackedStringArray = []
 var _times := ["day"]
 var _quality := 2
 var _game: Game
+var _old: ShaderMaterial
 
 
 func _ready() -> void:
@@ -63,6 +67,13 @@ func _ready() -> void:
 			_times = Array(arg.split("=")[1].split(","))
 		elif arg.begins_with("--quality="):
 			_quality = int(arg.split("=")[1])
+		elif arg.begins_with("--oldshader="):
+			# Measure this shader against the one in the project (see SHADERCMP lines).
+			var sh := Shader.new()
+			sh.code = FileAccess.get_file_as_string(arg.split("=")[1])
+			_old = ShaderMaterial.new()
+			_old.shader = sh
+			_old.set_shader_parameter("detail", load("res://assets/textures/ground/ground_detail.png"))
 	if _dir == "":
 		push_error("props_lookdev: pass --props=<dir>")
 		get_tree().quit(1)
@@ -126,8 +137,41 @@ func _run() -> void:
 			print("LOOK %-14s %-6s %4d calls %8d prims  gpu %.2f ms" % [n, t, calls / 20, prims / 20, gpu / 20.0])
 			var img := get_viewport().get_texture().get_image()
 			img.save_png(_dir.path_join("%s_%s.png" % [n, t]))
+			if _old != null:
+				# Same geometry, this shader vs the old one, alternating to cancel GPU noise.
+				var a := 0.0
+				var b := 0.0
+				for rep in 3:
+					_swap(game, false)
+					await _wait(4)
+					a += await _measure(vp, 25)
+					_swap(game, true)
+					await _wait(4)
+					b += await _measure(vp, 25)
+				_swap(game, false)
+				print("SHADERCMP %-14s %-6s new %.2f ms  old %.2f ms  (%+.2f)" % [n, t, a / 3.0, b / 3.0, (a - b) / 3.0])
 	cam.set_process(true)
 	get_tree().quit(0)
+
+
+func _measure(vp: RID, frames: int) -> float:
+	var gpu := 0.0
+	for k in frames:
+		await RenderingServer.frame_post_draw
+		gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp)
+	return gpu / frames
+
+
+## Puts the old shader (or the real material back) on every surface that uses the props material.
+func _swap(game: Game, old_on: bool) -> void:
+	var mat := StreetKit.material()
+	for node in game.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			if mi.mesh.surface_get_material(i) == mat:
+				mi.set_surface_override_material(i, _old if old_on else null)
 
 
 ## Every physics prop and the kit-only meshes in two rows on the stunt park pad.

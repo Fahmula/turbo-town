@@ -102,11 +102,13 @@ void fragment() {
 		// Steel deck: 1.5 x 2 m painted plates, bolted along the seams.
 		sheet = deck_sheets(UV, vec2(1.5, 2.0), 0.0, 0.25, 0.035, 0.011, dist);
 		uvm = UV + vec2(sheet.z * 5.3, sheet.z * 2.9);
-	} else if (c == 25) {
-		// Decking: 152 mm boards across UV.x, each with its own grain and tone.
-		float idx = floor(UV.x / 0.152);
-		float h = hash12(vec2(idx, 3.7));
-		sheet = vec3(grid_line(UV.x + 0.076, 0.152, 0.012), 0.0, h);
+	} else if (c == 25 || c == 27) {
+		// Decking (152 mm) and crate slats (210 mm): boards across UV.x, each
+		// with its own grain and tone.
+		float pitch = c == 25 ? 0.152 : 0.21;
+		float idx = floor(UV.x / pitch);
+		float h = hash12(vec2(idx, 3.7 + UV2.x * 11.0));
+		sheet = vec3(grid_line(UV.x + pitch * 0.5, pitch, 0.012), 0.0, h);
 		uvm = vec2(UV.x + h * 7.1, UV.y + h * 3.3);
 	}
 
@@ -170,7 +172,7 @@ void fragment() {
 		spec = 0.8;
 	} else if (c == 24) {
 		spec = 0.3;
-	} else if (c == 25) {
+	} else if (c == 25 || c == 27) {
 		col *= 1.0 - sheet.x * 0.55;
 		col *= 0.78 + sheet.z * 0.44;
 		rough = max(rough, sheet.x * 0.9);

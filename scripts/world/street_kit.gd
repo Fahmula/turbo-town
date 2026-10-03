@@ -43,6 +43,7 @@ const SIGN := 11.0 / 15.0
 const RETRO := 23.0 / 30.0
 const FABRIC := 12.0 / 15.0
 const DECKING := 25.0 / 30.0
+const SLATS := 27.0 / 30.0
 const WOOD := 13.0 / 15.0
 const GLOW := 14.0 / 15.0
 const DECK := 15.0 / 15.0
@@ -548,7 +549,7 @@ static func _cone(mb: MeshBuilder) -> void:
 	prof.append(Vector2(0.03, 0.705)); cols.append(orange)
 	prof.append(Vector2(0.026, 0.72)); cols.append(orange)
 	prof.append(Vector2(0.0, 0.722)); cols.append(orange)
-	mb.add_lathe(Transform3D.IDENTITY, prof, 20, cols, 28.0)
+	mb.add_lathe(Transform3D.IDENTITY, prof, 16, cols, 28.0)
 
 
 ## Painted steel oil drum with rolling hoops (colour from the prop's tint).
@@ -561,7 +562,7 @@ static func _drum(mb: MeshBuilder) -> void:
 		Vector2(0.292, 0.3), Vector2(0.292, 0.62), Vector2(0.3, 0.63), Vector2(0.3, 0.65), Vector2(0.292, 0.66), Vector2(0.292, 0.88), Vector2(0.298, 0.89), Vector2(0.298, 0.92),
 		Vector2(0.308, 0.93), Vector2(0.308, 0.945), Vector2(0.285, 0.945), Vector2(0.272, 0.93), Vector2(0.0, 0.93)])
 	var cols := PackedColorArray([low, low, low, paint, paint, paint, paint, paint, paint, paint, paint, paint, paint, paint, paint, paint, bare, bare, paint, paint, paint])
-	mb.add_lathe(Transform3D.IDENTITY, prof, 20, cols, 28.0)
+	mb.add_lathe(Transform3D.IDENTITY, prof, 16, cols, 28.0)
 	# Bungs on the lid.
 	for o: Array in [[Vector3(0.14, 0.93, 0.08), 0.034], [Vector3(-0.1, 0.93, -0.12), 0.024]]:
 		var p: Vector3 = o[0]
@@ -573,23 +574,9 @@ static func _crate(mb: MeshBuilder) -> void:
 	var board := Color(0.66, 0.5, 0.32)
 	var batten := Color(0.5, 0.36, 0.22)
 	var e := 0.55
-	# The body behind the boards (so the gaps show dark timber, not the sky).
-	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, 0.6, 0)), Vector3(1.12, 1.12, 1.12), 0.01, k(board.darkened(0.45), WOOD), Color(0, 0, 0, -1), false)
-	var seed_i := 0
-	for face in 6:
-		var n := [Vector3.UP, Vector3.DOWN, Vector3.RIGHT, Vector3.LEFT, Vector3.BACK, Vector3.FORWARD][face] as Vector3
-		if face == 1:
-			continue
-		var t := n.cross(Vector3.UP if absf(n.y) < 0.9 else Vector3.RIGHT).normalized()  # along the boards
-		var s := t.cross(n)
-		for kk in 5:
-			seed_i += 1
-			mb.set_uv2(Vector2(fmod(seed_i * 0.371, 1.0), fmod(seed_i * 0.529, 1.0)))
-			var off := (kk - 2) * 0.225
-			var c := Vector3(0, 0.6, 0) + n * 0.567 + s * off
-			var b := Basis(t, n, s)
-			mb.add_bevel_box(Transform3D(b, c), Vector3(1.1, 0.026, 0.21), 0.006, k(board.lerp(batten, fmod(seed_i * 0.37, 0.3)), WOOD), Color(0, 0, 0, -1), false)
-	mb.set_uv2(Vector2.ZERO)
+	# The faces are slatted boards drawn by the shader (class 27: 0.21 m boards
+	# with gaps and their own grain), inside a frame of corner battens.
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, 0.6, 0)), Vector3(1.14, 1.14, 1.14), 0.012, k(board, SLATS), Color(0, 0, 0, -1), false)
 	for a: float in [-1.0, 1.0]:
 		for b: float in [-1.0, 1.0]:
 			mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(a * e, 0.6, b * e)), Vector3(0.1, 1.2, 0.1), 0.012, k(batten, WOOD), Color(0, 0, 0, -1), false)
@@ -606,7 +593,7 @@ static func _pin(mb: MeshBuilder) -> void:
 		Vector2(1.15, 0.215), Vector2(1.27, 0.19), Vector2(1.4, 0.205), Vector2(1.55, 0.245), Vector2(1.7, 0.235), Vector2(1.82, 0.16), Vector2(1.88, 0.0)]
 	var prof := PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.24, 0.0)])
 	var cols := PackedColorArray([white, white])
-	var steps := 36
+	var steps := 28
 	for i in steps + 1:
 		var u := float(i) / steps * (key.size() - 1)
 		var s := mini(int(u), key.size() - 2)
@@ -621,4 +608,4 @@ static func _pin(mb: MeshBuilder) -> void:
 		cols.append(red if stripe else white)
 	prof.append(Vector2(0.0, 1.885))
 	cols.append(white)
-	mb.add_lathe(Transform3D.IDENTITY, prof, 24, cols, 50.0)
+	mb.add_lathe(Transform3D.IDENTITY, prof, 20, cols, 50.0)
