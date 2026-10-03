@@ -100,7 +100,7 @@ func _add(species: String, variant: int, p: Vector3, smin: float, smax: float, a
 	var autumn := 0.0
 	# a few autumn-tinted broadleaf trees (ART_BIBLE.md §5: accents <= 10%)
 	if species == "broadleaf" and _rng.randf() < (0.08 if autumn_ok else 0.05):
-		autumn = _rng.randf_range(0.35, 0.9)
+		autumn = _rng.randf_range(0.3, 0.7)
 	if flowering:
 		autumn = 0.0
 	set.customs.append(Color(autumn, _rng.randf(), _rng.randf_range(0.2, 0.8), 1.0 if flowering else 0.0))

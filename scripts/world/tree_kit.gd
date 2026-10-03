@@ -28,11 +28,11 @@ const BARK_TANGENT_W := -1.0
 
 ## Per species: variants, LOD switch distances (m) and when to stop drawing.
 const SPECIES := {
-	"broadleaf": {"variants": ["broadleaf_a", "broadleaf_b", "broadleaf_c"], "r0": 70.0, "r1": 190.0, "cull": 3000.0,
+	"broadleaf": {"variants": ["broadleaf_a", "broadleaf_b", "broadleaf_c"], "r0": 55.0, "r1": 190.0, "cull": 3000.0,
 		"trunk_r": 0.27, "trunk_h": 4.0},
-	"conifer": {"variants": ["conifer_a", "conifer_b", "conifer_c"], "r0": 55.0, "r1": 190.0, "cull": 3000.0,
+	"conifer": {"variants": ["conifer_a", "conifer_b", "conifer_c"], "r0": 45.0, "r1": 190.0, "cull": 3000.0,
 		"trunk_r": 0.25, "trunk_h": 5.0},
-	"palm": {"variants": ["palm"], "r0": 60.0, "r1": 170.0, "cull": 3000.0, "trunk_r": 0.2, "trunk_h": 5.0},
+	"palm": {"variants": ["palm"], "r0": 50.0, "r1": 170.0, "cull": 3000.0, "trunk_r": 0.2, "trunk_h": 5.0},
 	"shrub": {"variants": ["shrub"], "r0": 40.0, "r1": 110.0, "cull": 160.0, "trunk_r": 0.0, "trunk_h": 0.0},
 	"hedge": {"variants": ["hedge"], "r0": 45.0, "r1": 120.0, "cull": 170.0, "trunk_r": 0.0, "trunk_h": 0.0},
 }
@@ -40,11 +40,11 @@ const SPECIES := {
 ## Per variant: the build recipe.
 const VARIANTS := {
 	"broadleaf_a": {"seed": 11, "height": 9.2, "trunk_h": 2.5, "radius": 3.9, "trunk_r": 0.28, "limbs": 4,
-		"cards": 380, "size": Vector2(1.4, 2.0), "mat": "foliage_broadleaf", "wind_h": 9.0},
+		"cards": 300, "size": Vector2(1.5, 2.15), "mat": "foliage_broadleaf", "wind_h": 9.0},
 	"broadleaf_b": {"seed": 23, "height": 8.6, "trunk_h": 2.1, "radius": 4.8, "trunk_r": 0.36, "limbs": 5,
-		"cards": 380, "size": Vector2(1.5, 2.1), "mat": "foliage_broadleaf_b", "wind_h": 9.0},
+		"cards": 300, "size": Vector2(1.6, 2.25), "mat": "foliage_broadleaf_b", "wind_h": 9.0},
 	"broadleaf_c": {"seed": 37, "height": 10.5, "trunk_h": 3.1, "radius": 3.0, "trunk_r": 0.25, "limbs": 4,
-		"cards": 340, "size": Vector2(1.35, 1.9), "mat": "foliage_broadleaf_c", "wind_h": 10.0},
+		"cards": 270, "size": Vector2(1.45, 2.05), "mat": "foliage_broadleaf_c", "wind_h": 10.0},
 	"conifer_a": {"seed": 7, "height": 12.0, "base_h": 1.6, "radius": 2.7, "step": 0.5, "n_low": 7.0, "n_high": 4.0,
 		"elev_low": -10.0, "elev_high": 26.0, "taper": 0.85, "mat": "foliage_conifer", "wind_h": 13.0},
 	"conifer_b": {"seed": 19, "height": 15.0, "base_h": 2.2, "radius": 1.85, "step": 0.46, "n_low": 6.0, "n_high": 4.0,

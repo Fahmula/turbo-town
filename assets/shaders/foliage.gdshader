@@ -39,7 +39,7 @@ uniform float alpha_cut = 0.5;
 // 1: thin leaves, lit from both sides with the same normal; 0: the face turned away is shaded (conifer sprays).
 uniform float two_sided = 1.0;
 // Flowering accent trees (instance custom w = 1): patches of blossom colour on the leaf clusters.
-uniform vec3 blossom_color : source_color = vec3(0.86, 0.5, 0.6);
+uniform vec3 blossom_color : source_color = vec3(0.92, 0.66, 0.72);
 
 varying vec3 v_world;
 varying vec4 v_inst;
@@ -86,7 +86,7 @@ void fragment() {
 		col = fol_autumn(col, v_inst.x, fract(v_inst.y * 7.3));
 		if (v_inst.w > 0.5) {
 			float blossom = smoothstep(0.52, 0.68, fol_noise(UV * vec2(70.0, 70.0) + v_inst.y * 31.0));
-			col = mix(col, srgb_to_linear(blossom_color) * (0.8 + 0.4 * t.g), blossom * 0.85);
+			col = mix(col, srgb_to_linear(blossom_color) * (0.8 + 0.4 * t.g), blossom * 0.6);
 		}
 		ALBEDO = col * mix(1.0, ao, 0.55);
 		AO = ao;
