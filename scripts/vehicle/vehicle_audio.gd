@@ -32,6 +32,9 @@ enum Detail { FULL, LITE }
 
 ## Set by the AudioDirector (LITE): may this vehicle's loops play?
 var audible := true
+## False after stop_engine() (a vehicle the player got out of): the engine
+## loops fade out until start_engine().
+var engine_running := true
 ## Dev tests: called with (sound path, world position) for every one-shot.
 static var on_shot := Callable()
 ## Dev tests: called with (sound path, "start" / "resume" / "pause") when a
@@ -165,6 +168,7 @@ func set_detail(d: Detail) -> void:
 
 ## Plays the start-up sound; the engine fades in when it catches.
 func start_engine() -> void:
+	engine_running = true
 	if _startup_t >= 0.0 and _startup_t < 0.2:
 		return  # already starting
 	if profile and profile.startup and detail == Detail.FULL:
@@ -173,6 +177,12 @@ func start_engine() -> void:
 		# The recording ends on the idle: -7 dB hands over to the idle loop
 		# at about the same level.
 		_shot(profile.startup, -7.0, 1.0, ENGINE)
+
+
+## Turns the engine off (the player got out): its sound fades away.
+func stop_engine() -> void:
+	engine_running = false
+	_startup_t = -1.0
 
 
 ## A short beep of the horn (traffic).
@@ -189,6 +199,7 @@ static func ensure_buses() -> void:
 	AudioMix.ensure()
 
 func _build() -> void:
+	_stop_all()  # paused playbacks would otherwise outlive their players
 	for p in _on + _off + _shots:
 		p.queue_free()
 	for p: AudioStreamPlayer3D in _loops.values():
@@ -197,6 +208,7 @@ func _build() -> void:
 	_off.clear()
 	_shots.clear()
 	_loops.clear()
+	_shot_i = 0
 	_built = detail
 	var full := detail == Detail.FULL
 	_on_rpm = profile.engine_on_rpm
@@ -293,12 +305,16 @@ func _process(dt: float) -> void:
 	_impact_cooldown -= dt
 	_knock_cooldown -= dt
 	_air_cooldown -= dt
-	if _startup_t >= 0.0:
+	if not engine_running:
+		_engine_fade = move_toward(_engine_fade, 0.0, dt * 2.5)
+	elif _startup_t >= 0.0:
 		_startup_t += dt
 		if _startup_t > profile.startup_catch:
 			_engine_fade = move_toward(_engine_fade, 1.0, dt * 3.0)
 			if _engine_fade >= 1.0:
 				_startup_t = -1.0
+	elif _engine_fade < 1.0:
+		_engine_fade = move_toward(_engine_fade, 1.0, dt * 3.0)
 	if detail == Detail.LITE and not _registered and AudioDirector.instance:
 		AudioDirector.instance.register(self)
 		_registered = true

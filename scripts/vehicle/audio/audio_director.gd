@@ -60,8 +60,12 @@ func _process(dt: float) -> void:
 	_timer = 0.25
 	var by_dist := []
 	for a in _members:
-		if is_instance_valid(a) and a.vehicle and a.is_inside_tree():
-			by_dist.append([a.vehicle.global_position.distance_squared_to(pos), a])
+		if not is_instance_valid(a) or a.vehicle == null or not a.is_inside_tree():
+			continue
+		if not a.engine_running:
+			a.audible = false  # parked with the engine off: no voice needed
+			continue
+		by_dist.append([a.vehicle.global_position.distance_squared_to(pos), a])
 	by_dist.sort_custom(func(x: Array, y: Array) -> bool: return x[0] < y[0])
 	for i in by_dist.size():
 		var a: VehicleAudio = by_dist[i][1]
