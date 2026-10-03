@@ -2,9 +2,10 @@ class_name PlayerVehicleController
 extends Node
 ## Feeds player input into a Vehicle and plays gamepad rumble for crashes and
 ## landings. The vehicle itself doesn't know or care who is driving (traffic
-## uses a TrafficDriver instead).
+## uses a TrafficDriver instead). The Possession gives it the vehicle the
+## player sits in (control()); on foot it has none.
 
-## Swapping this (the garage does) moves input and rumble to the new vehicle.
+## Swapping this moves input and rumble to the new vehicle.
 @export var vehicle: Vehicle:
 	set(v):
 		if vehicle and vehicle.impact.is_connected(_on_impact):
@@ -37,6 +38,15 @@ var _righting := false
 func _ready() -> void:
 	# Run before the vehicle so it sees this tick's input.
 	process_physics_priority = -10
+
+
+## Takes control of `pawn` (a Vehicle), or lets go with null (the player is
+## on foot). Called by the Possession.
+func control(pawn: Node3D) -> void:
+	if vehicle != pawn:
+		vehicle = pawn as Vehicle
+	_steer = 0.0
+	_righting = false
 
 
 func _physics_process(dt: float) -> void:

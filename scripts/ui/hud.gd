@@ -1,9 +1,23 @@
 class_name Hud
 extends CanvasLayer
-## In-game overlay: speedometer, controls help, location toasts, stunt popups
-## and the "flip your car" hint. Built in code so it has no layout files.
+## In-game overlay: speedometer, controls help, location toasts, stunt popups,
+## the "flip your car" hint and the interaction prompt ("F  Get in the van").
+## Built in code so it has no layout files. On foot the speedometer and damage
+## readout hide and the maps follow the character (set_on_foot).
 
 @export var vehicle: Vehicle
+
+const FOOT_HELP_TEXT := """[b]ON FOOT[/b]
+[color=#ffd54a]W A S D[/color]   walk / run
+[color=#ffd54a]Shift[/color]   sprint     [color=#ffd54a]Ctrl[/color]   walk slowly
+[color=#ffd54a]Space[/color]   jump
+[color=#ffd54a]F[/color]   get in a vehicle (walk up to it)
+      or flip one back onto its wheels
+[color=#ffd54a]V[/color]   garage: pick a vehicle to drive
+[color=#ffd54a]1 - 9 / Tab[/color]   teleport (your vehicle comes too)
+[color=#ffd54a]Mouse[/color]   look around     [color=#ffd54a]C[/color]   camera distance
+[color=#ffd54a]G[/color]   traffic on/off     [color=#ffd54a]M[/color]   map
+[color=#ffd54a]H / F1[/color]   hide this help     [color=#ffd54a]Esc[/color]   menu"""
 
 const HELP_TEXT := """[b]CONTROLS[/b]
 [color=#ffd54a]W / S[/color]   gas / brake + reverse
@@ -12,6 +26,7 @@ const HELP_TEXT := """[b]CONTROLS[/b]
 [color=#ffd54a]In the air[/color]   A/D spin,
       Space + W/S flip, Space + A/D barrel roll
 [color=#ffd54a]R[/color]   flip car upright
+[color=#ffd54a]F[/color]   get out
 [color=#ffd54a]V[/color]   garage: vehicle, paint, wheels
 [color=#ffd54a]P[/color]   instant replay
 [color=#ffd54a]Backspace[/color]   back to spawn point
@@ -42,6 +57,16 @@ var _combo_lines: Array[Label] = []
 var _combo_total: Label
 var _combo_fade := 0.0
 var _race_label: Label
+var _help_text: RichTextLabel
+var _prompt_box: PanelContainer
+var _prompt_key: Label
+var _prompt_label: Label
+var _prompt := ""
+var _temp_prompt := ""
+var _temp_prompt_time := 0.0
+## Last input came from a gamepad (prompts show its buttons).
+var using_pad := false
+var on_foot := false
 ## Set by Game: shows its status line while a race is on.
 var race: RaceManager
 
@@ -69,6 +94,7 @@ func _ready() -> void:
 	rt.add_theme_font_size_override("normal_font_size", 17)
 	rt.add_theme_font_size_override("bold_font_size", 20)
 	rt.text = HELP_TEXT
+	_help_text = rt
 	_help.add_child(rt)
 	_help.position = Vector2(20, 20)
 	root.add_child(_help)
@@ -92,6 +118,29 @@ func _ready() -> void:
 	_hint.text = "Upside down? Press R to flip your car!"
 	_hint.visible = false
 	root.add_child(_hint)
+
+	# Interaction prompt: a key cap (keyboard key or gamepad button) + what it does.
+	_prompt_box = _make_panel()
+	_prompt_box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_prompt_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_prompt_box.offset_top = -216.0
+	_prompt_box.offset_bottom = -216.0
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_prompt_box.add_child(row)
+	var cap := PanelContainer.new()
+	cap.add_theme_stylebox_override("panel", UiKit.box(UiKit.ACCENT, 8, 4))
+	cap.custom_minimum_size = Vector2(38, 38)
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(cap)
+	_prompt_key = UiKit.label("F", 24, UiKit.DARK_TEXT)
+	_prompt_key.add_theme_constant_override("outline_size", 0)
+	cap.add_child(_prompt_key)
+	_prompt_label = _make_label(26, Color.WHITE)
+	row.add_child(_prompt_label)
+	_prompt_box.visible = false
+	root.add_child(_prompt_box)
 
 	_damage_label = _make_label(18, Color(1, 0.75, 0.6))
 	_damage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -141,7 +190,7 @@ func _ready() -> void:
 	minimap.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	minimap.position = Vector2(20, -250)
 	minimap.size = Vector2(230, 230)
-	minimap.vehicle = vehicle
+	minimap.target = vehicle
 	root.add_child(minimap)
 
 	var tip := _make_label(15, Color(1, 1, 1, 0.6))
@@ -154,7 +203,7 @@ func _ready() -> void:
 	big_map = BigMap.new()
 	big_map.set_anchors_preset(Control.PRESET_FULL_RECT)
 	big_map.visible = false
-	big_map.vehicle = vehicle
+	big_map.target = vehicle
 	root.add_child(big_map)
 
 
@@ -200,9 +249,70 @@ func toggle_big_map() -> void:
 ## Points the speedometer, damage readout and maps at a different vehicle.
 func set_vehicle(v: Vehicle) -> void:
 	vehicle = v
-	minimap.vehicle = v
-	big_map.vehicle = v
+	if not on_foot:
+		minimap.target = v
+		big_map.target = v
+	minimap.car = v if on_foot else null
+	big_map.car = v if on_foot else null
 	_damage = v.get_node_or_null("Damage") as VehicleDamage if v else null
+
+
+## On foot: no speedometer or damage readout, the maps follow `character`
+## (heading-up with `camera`) and mark where the vehicle is; the help shows
+## the on-foot controls.
+func set_on_foot(foot: bool, character: Node3D = null, camera: Camera3D = null) -> void:
+	on_foot = foot
+	speedometer.visible = not foot
+	_damage_label.visible = not foot
+	_hint.visible = false
+	minimap.target = character if foot else vehicle
+	minimap.heading = camera if foot else null
+	big_map.target = character if foot else vehicle
+	minimap.car = vehicle if foot else null
+	big_map.car = vehicle if foot else null
+	_help_text.text = FOOT_HELP_TEXT if foot else HELP_TEXT
+	_temp_prompt = ""
+	_refresh_prompt()
+
+
+## The interaction prompt ("Get in the van"); "" hides it.
+func show_prompt(text: String) -> void:
+	_prompt = text
+	_refresh_prompt()
+
+
+## A reminder prompt that goes away by itself (unless a real one is showing).
+func show_prompt_for(text: String, seconds: float) -> void:
+	_temp_prompt = text
+	_temp_prompt_time = seconds
+	_refresh_prompt()
+
+
+func prompt_text() -> String:
+	return _prompt if _prompt != "" else _temp_prompt
+
+
+func _refresh_prompt() -> void:
+	var text := prompt_text()
+	_prompt_box.visible = text != ""
+	_prompt_label.text = text
+	_prompt_key.text = "B" if using_pad else "F"
+	_prompt_box.modulate.a = 1.0 if _prompt != "" else clampf(_temp_prompt_time / 0.5, 0.0, 1.0)
+	# Re-centre on the anchor (the box grows with the text).
+	var w := _prompt_box.get_combined_minimum_size().x
+	_prompt_box.offset_left = -w * 0.5
+	_prompt_box.offset_right = w * 0.5
+
+
+func _input(event: InputEvent) -> void:
+	var pad := using_pad
+	if event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf((event as InputEventJoypadMotion).axis_value) > 0.5):
+		pad = true
+	elif event is InputEventKey or event is InputEventMouseButton:
+		pad = false
+	if pad != using_pad:
+		using_pad = pad
+		_refresh_prompt()
 
 
 func toggle_help() -> void:
@@ -280,8 +390,13 @@ func _process(dt: float) -> void:
 	var race_text := race.status_text() if race else ""
 	_race_label.get_parent().visible = race_text != ""
 	_race_label.text = race_text
+	if _temp_prompt != "":
+		_temp_prompt_time -= dt
+		if _temp_prompt_time <= 0.0:
+			_temp_prompt = ""
+		_refresh_prompt()
 
-	if vehicle == null:
+	if vehicle == null or on_foot:
 		return
 	speedometer.speed_kmh = vehicle.speed_kmh
 	speedometer.rpm_fraction = vehicle.engine_rpm / vehicle.redline_rpm

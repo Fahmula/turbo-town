@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/player/player_character.gd" id="1_char"]
+[ext_resource type="PackedScene" path="res://assets/models/character/player.glb" id="2_model"]
+
+[node name="PlayerCharacter" type="CharacterBody3D"]
+script = ExtResource("1_char")
+
+[node name="Model" type="Node3D" parent="."]
+
+[node name="Mesh" parent="Model" instance=ExtResource("2_model")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)

@@ -110,6 +110,12 @@ static func index_of_vehicle(v: Vehicle) -> int:
 	return -1
 
 
+## The catalog id of a vehicle node ("" if it isn't one of the catalog's).
+static func id_of_vehicle(v: Vehicle) -> String:
+	var i := index_of_vehicle(v)
+	return ENTRIES[i]["id"] if i >= 0 else ""
+
+
 ## Index into COLORS of the colour closest to `c`.
 static func closest_color(c: Color) -> int:
 	var best := 0

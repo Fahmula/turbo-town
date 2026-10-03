@@ -1,12 +1,12 @@
 # Turbo Town (v0.1)
 
-A stylized driving sandbox made in Godot 4.7. Drive around a small city, a ring
+A stylized driving sandbox made in Godot 4.7. Walk around a small city, a ring
 highway with overpasses, a mountain road, dirt fields, a beach and a stunt park
-full of ramps.
+full of ramps, and get into any car, truck or bus you find.
 
 Open the folder in Godot and press **Play (F5)**. The game opens on the title
-screen (DRIVE! / GARAGE / SETTINGS / CONTROLS / QUIT); Esc or Start opens the
-pause menu while driving.
+screen (PLAY! / GARAGE / SETTINGS / CONTROLS / QUIT); PLAY! puts you on foot
+next to your vehicle. Esc or Start opens the pause menu.
 
 Feature checklist, backlog and known issues: see [PROGRESS.md](PROGRESS.md).
 Stable Steam Deck builds and how to make a release: see [RELEASING.md](RELEASING.md).
@@ -14,8 +14,23 @@ Visual direction (stylized realism) and asset rules: see [ART_BIBLE.md](ART_BIBL
 
 ## Controls
 
+On foot:
+
 | Action | Keyboard | Gamepad |
 |---|---|---|
+| Walk / run | W A S D / arrows | Left stick (a gentle push walks) |
+| Sprint | Shift (hold) | L3 (click; lasts until you stop) |
+| Walk slowly | Ctrl (hold) | |
+| Jump | Space | A (Cross) |
+| Get in a vehicle / flip one back over | F | B (Circle) |
+| Look around | Mouse | Right stick |
+| Camera distance | C | RB |
+
+Driving:
+
+| Action | Keyboard | Gamepad |
+|---|---|---|
+| Get out | F | B (Circle) |
 | Gas | W / Up | Right trigger |
 | Brake / reverse | S / Down | Left trigger |
 | Steer | A D / Left Right | Left stick |
@@ -39,7 +54,18 @@ Visual direction (stylized realism) and asset rules: see [ART_BIBLE.md](ART_BIBL
 | Pause menu | Esc | Start / Menu |
 
 Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields, 6 Beach,
-7 Airfield, 8 Harbour, 9 Lighthouse.
+7 Airfield, 8 Harbour, 9 Lighthouse. Garage, teleports, respawn, traffic, map,
+help and pause work on foot too.
+
+**On foot**: walk up to any vehicle (yours, one parked in a lot, or a traffic
+car that has stopped) and the prompt says "Get in the ..."; press F (B on a
+gamepad). Press it again to get out: a moving vehicle stops first, and you
+step out by the driver's door, or wherever there's room if a wall is in the
+way. Your vehicle stays where you left it (a yellow square on the minimap and
+the island map); teleporting on foot brings it with you, and the garage brings
+the one you pick to where you stand. An overturned vehicle offers "Flip it back
+over". Traffic stops for you (and honks if you stay in the road); a car that
+bumps into you just knocks you aside.
 
 **Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck,
 bus, pickup, buggy or monster truck and set it up. Tabs (Q / E or LB / RB):
@@ -47,9 +73,10 @@ CAR (left/right = vehicle), PAINT (colour, racing stripes) and WHEELS (rims,
 rim colour, tyres, tyre stripe, brake caliper colour; the camera zooms in on a
 wheel). On PAINT and WHEELS, up/down picks a row and left/right changes it.
 X / Y = surprise me (a random vehicle, or random choices on the tab), Enter / A =
-drive, Esc / B = back. Each vehicle keeps its own setup, changes stick even
-when you back out, and everything is remembered next time the game starts.
-The game is paused while the garage is open.
+drive (on foot, the vehicle is brought to you and you get in), Esc / B = back.
+Each vehicle keeps its own setup, changes stick even when you back out, and
+everything is remembered next time the game starts. The game is paused while
+the garage is open.
 
 **Stunts**: big air, flips, barrel rolls, air spins, drifts and near misses
 (squeezing past traffic) score points. Tricks chain into a combo with a
@@ -71,25 +98,35 @@ Gold/silver/bronze times, best times saved. Backspace (or falling in the sea)
 puts you back at the last gate; END RACE in the pause menu stops it.
 
 **Settings** (title screen or pause menu): traffic amount (few / normal / busy),
-graphics quality (low / medium / high), time of day (day / sunset / night /
+graphics quality (low / medium / high / ultra), time of day (day / sunset / night /
 day & night cycle), speed units, driving assists, gamepad vibration, minimap,
-crash cam, fullscreen and volume. Saved to `user://settings.cfg`
+crash cam, speaker boost, fullscreen and volume. Saved to `user://settings.cfg`
 (`~/.local/share/godot/app_userdata/Turbo Town/` on Linux and the Steam Deck).
+What is and isn't saved: see **Saving** below.
 
 ## Project layout
 
 ```
 scenes/
-  main.tscn                 Game root: world + player car + camera + HUD
+  main.tscn                 Game root: world + player car + camera + HUD (Game adds the
+                            character, its camera and the Possession at startup)
+  player/player_character.tscn  The walking character (model from assets/models/character/)
   vehicles/sports_car.tscn  The default player car (physics, wheels, visuals, audio, FX, damage)
   vehicles/sedan.tscn, van.tscn, box_truck.tscn, bus.tscn, pickup.tscn   Used by
                             traffic and drivable from the garage (every vehicle scene is both)
   vehicles/buggy.tscn, monster_truck.tscn   Garage-only (AWD, long-travel suspension)
   world/world.tscn          Environment, sun, and the WorldBuilder that generates the map
   props/                    Cone, barrel, crate, bowling pin, lamp, traffic light,
-                            parked car, and the parametric Ramp
+                            parked cars (drivable: `drive_scene`), and the parametric Ramp
   dev/physics_test.tscn     Flat test track for tuning the car
 scripts/
+  player/    possession.gd (what the player controls; getting in and out),
+             controllable.gd (component: who drives a pawn, which rig controls it),
+             player_character.gd (walk/run/sprint/jump, kerbs, animation,
+             footsteps, being bumped), player_character_controller.gd (input),
+             interactable.gd (things you use with F / B), vehicle_entry.gd (a
+             vehicle's doors and safe exit spots), parked_car_entry.gd (parked
+             car props you can drive)
   vehicle/   vehicle.gd (engine, gearbox, steering, assists), vehicle_wheel.gd
              (raycast suspension + tire model), player_vehicle_controller.gd (input),
              vehicle_body_visual.gd (materials, lamps, indicators, grime, contact shadow),
@@ -106,7 +143,8 @@ scripts/
   traffic/   traffic_network.gd (lane graph built from the roads, turn curves,
              junctions, U-turns), traffic_manager.gd (spawning, signal timing),
              traffic_driver.gd (AI driver, turn signals), traffic_light_prop.gd
-  camera/    chase_camera.gd
+  camera/    chase_camera.gd (driving), on_foot_camera.gd (walking), camera_blend.gd
+             (glides between them), menu_camera.gd (title screen)
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
              landmark builders, building_kit.gd / street_kit.gd / tree_kit.gd (the
              buildings, street furniture and trees, built in code), mesh_builder.gd
@@ -131,6 +169,7 @@ scripts/
              autoload: saved player settings), records.gd (Records autoload:
              best combos, biggest air...)
   dev/       autotest.gd, dev_tools.gd, audio_check.gd (testing helpers)
+assets/models/character/player.glb   The character (tools/blender/make_character.py)
 assets/      models (.glb from Blender), shaders (world_common.gdshaderinc is shared;
              vehicle/ = car paint, glass, lamps, trim, tyres), materials (env/ = the
              world's materials), textures (generated), audio (built by tools/audio/;
@@ -145,6 +184,8 @@ tools/blender/make_buggy.py    Buggy
 tools/blender/make_monster.py  Monster truck
 tools/blender/make_wheels.py   All four wheel types (sports, sedan, steel, off-road)
 tools/blender/body_kit.py      Shared loft body builder and modelling helpers
+tools/blender/make_character.py  The player character from Quaternius' CC0 Universal Animation
+                               Library (downloads it, rebuilds the mesh, keeps the animations)
 tools/textures/make_textures.py  Ground detail, cloud and leaf textures:  python3 tools/textures/make_textures.py
 tools/textures/fetch_*.py      Download CC0 scans (Poly Haven, ambientCG) and make the game textures:
                                fetch_sky.py (real skies), fetch_road.py, fetch_terrain.py,
@@ -226,6 +267,51 @@ ASSET_MANIFEST.md              Every third-party asset: source, creator, licence
   poses them from the recording while the tree is paused and puts the live
   state back afterwards. Damage, debris and props aren't recorded. The crash
   cam is triggered by `VehicleDamage.crashed` (severity >= 0.5).
+* **Player character and vehicles** (`scripts/player/`): the player controls a
+  *pawn*, the character or a vehicle. Anything controllable has a
+  `Controllable` component (Vehicle and PlayerCharacter add one) that says
+  who drives it right now (the player's `Possession`, a `TrafficDriver`, or
+  nobody) and its `kind`, which picks a *rig*: the input controller and camera
+  for that kind (`PlayerCharacterController` + `OnFootCamera`,
+  `PlayerVehicleController` + `ChaseCamera`). Only one rig has a pawn at a
+  time, so the character and a vehicle can never both take input, and a
+  traffic car is first taken off its driver (`TrafficManager.claim`). A boat
+  or a plane later is a new kind with its own controller and camera.
+  Getting in: the `Interactable` nearest the character (a vehicle's
+  `VehicleEntry`, a parked car's `ParkedCarEntry`) shows its prompt; F / B
+  walks the character to the door for a moment while the `CameraBlend` glides
+  to the chase camera, then hides it and hands the vehicle the controls;
+  `Game.adopt_vehicle` points the HUD, maps, traffic, stunts, replay,
+  headlights, reflections and full engine sound at it. Getting out brakes the
+  vehicle to a stop, `VehicleEntry.find_exit` picks a spot (driver's door,
+  then the other side, behind, in front, rings further out, the roof: each
+  needs walkable ground at about the same height, room for the capsule and no
+  wall between the seat and it), the vehicle is parked (handbrake, engine off,
+  quiet sound) and the camera glides back keeping its heading. Vehicles you
+  left stay parked; up to three older ones are kept, and they go when far away
+  and out of sight. Characters are on physics layer 4: vehicles don't collide
+  with them (a car would hit a person like a wall); instead the character is
+  shoved aside by anything that drives into it, and traffic drivers stop for
+  it (`TrafficManager.pedestrians`).
+* **Saving**: two files in `user://` (on Linux and the Deck
+  `~/.local/share/godot/app_userdata/Turbo Town/`). `settings.cfg` (the
+  `Settings` autoload) holds the options *and* the player's garage: which
+  vehicle they drive (`vehicle`) and every vehicle's setup (`loadouts`:
+  vehicle id -> only the parts that differ from stock, so new garage slots and
+  parts need no save changes). `records.cfg` (`Records`) holds best combos,
+  biggest air, longest drift, most flips, near misses, total score and race
+  best times. The dev audio panel writes `audio_mix.cfg`. Both autoloads load
+  at startup, save on every change, type-check what they read, and migrate
+  older formats in `load_file()`; dev/test runs (any command-line user
+  argument) never read or write them. Not saved: where you are, on foot or in
+  a vehicle (every session starts at the City Center beside your vehicle),
+  damage, traffic, parked vehicles you left, the session's stunt score. New
+  saved state goes in the same places: an option or a choice about the
+  player's things is a key in `Settings.DEFAULTS` (typed, with a default),
+  customization follows `Loadout`'s overrides-of-stock pattern, a record goes
+  in `Records`. If progress grows (unlocks, money, character outfits, several
+  profiles), move the player's things (`vehicle`, `loadouts`) to a
+  `user://profile.cfg` with a one-off migration in `load_file()`.
 * **Pausing**: `Game` processes always (menus, input), so it sets its gameplay
   children (world, traffic, the player car, camera, stunts, races) to
   pausable; anything that should run in menus sets its own process mode.
@@ -276,6 +362,13 @@ godot --path . -- --traffic=/tmp/shots  watch traffic 150 s, log speeds/stuck/cr
 godot --path . -- --rampage=/tmp/shots  player drives wrong-way into traffic
 godot --path . -- --showcase=/tmp/shots one of each traffic vehicle in a filmed convoy
 godot --path . -- --garage=/tmp/shots   garage menu, customising + changing into every vehicle (pass/fail checks)
+godot --path . -- --onfoot=/tmp/shots   the character: walk/run/sprint/jump, in and out of every vehicle type
+                                        (keyboard + gamepad), traffic and parked cars, exits by walls, overturned
+                                        and damaged vehicles, being bumped, garage/teleport/race/sea on foot,
+                                        leak check (pass/fail)
+godot --path . -- --onfootbench         character cost: draw calls / CPU / GPU shown vs hidden, physics time
+godot --path . -- --charsheet=/tmp/shots  the character from fixed cameras at day/sunset/night + animation strips
+    add --graphics=0..3 to any dev run to use Low / Medium / High / Ultra
 godot --path . --gpu-index 0 -- --perfsweep=/tmp/perf   GPU cost of each graphics effect, Medium/Low, trees and grass,
                                         standing and driving (--gpu-index 0 = a weak integrated GPU, close to the Deck)
 godot --path . -- --wheels=/tmp/shots   every rim, rim colour, tyre and tyre stripe in the garage + on the road (shots)

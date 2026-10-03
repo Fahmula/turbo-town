@@ -60,7 +60,7 @@ func mark_cut() -> void:
 
 
 func _physics_process(dt: float) -> void:
-	if playing or get_tree().paused or game == null or game.state != Game.State.DRIVING:
+	if playing or get_tree().paused or game == null or game.state != Game.State.DRIVING or not game.driving():
 		return
 	now += dt
 	_tick += 1

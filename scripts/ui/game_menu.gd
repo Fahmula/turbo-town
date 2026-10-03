@@ -7,6 +7,7 @@ extends CanvasLayer
 ## "drive", "garage", "resume", "title", "quit", "race:<index>" or "end_race".
 signal action(name: String)
 
+## Controls page, two columns: driving, then on foot and anywhere.
 const CONTROLS := [
 	["Gas", "W / Up", "RT"],
 	["Brake / reverse", "S / Down", "LT"],
@@ -15,18 +16,29 @@ const CONTROLS := [
 	["Air: spin", "A / D", "Left stick"],
 	["Air: flip / barrel roll", "Space + W S / A D", "A + RT LT / stick"],
 	["Flip car upright", "R", "Y"],
+	["Get out", "F", "B"],
 	["Horn", "E", "L3 (press left stick)"],
-	["Garage: vehicle, paint, wheels", "V", "D-pad down"],
 	["Instant replay", "P", "X"],
-	["Back to spawn point", "Backspace", "View"],
-	["Teleport", "1-9, Tab", "D-pad right"],
 	["Camera view", "C", "RB"],
 	["Look back", "Q", "LB"],
-	["Look around", "Mouse", "Right stick"],
 	["Assists on/off (drift mode)", "T", ""],
+	["km/h / mph", "U", ""],
+]
+const CONTROLS_FOOT := [
+	["Walk / run", "W A S D", "Left stick"],
+	["Sprint", "Shift (hold)", "L3 (click)"],
+	["Walk slowly", "Ctrl (hold)", "Push the stick gently"],
+	["Jump", "Space", "A"],
+	["Get in a vehicle", "F", "B"],
+	["Camera distance", "C", "RB"],
+]
+const CONTROLS_ANYWHERE := [
+	["Look around", "Mouse", "Right stick"],
+	["Garage: vehicle, paint, wheels", "V", "D-pad down"],
+	["Back to spawn point", "Backspace", "View"],
+	["Teleport", "1-9, Tab", "D-pad right"],
 	["Traffic on/off", "G", "D-pad up"],
 	["Map", "M", "D-pad left"],
-	["km/h / mph", "U", ""],
 	["Help", "H / F1", ""],
 	["Pause", "Esc", "Menu"],
 ]
@@ -163,7 +175,7 @@ func _build_title() -> Control:
 	buttons.custom_minimum_size = Vector2(340, 0)
 	buttons.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	col.add_child(buttons)
-	var drive := _button(buttons, "DRIVE!", func() -> void: action.emit("drive"))
+	var drive := _button(buttons, "PLAY!", func() -> void: action.emit("drive"))
 	drive.add_theme_font_size_override("font_size", 32)
 	_button(buttons, "RACES", func() -> void: show_page("races", true))
 	_button(buttons, "GARAGE", func() -> void: action.emit("garage"))
@@ -295,22 +307,37 @@ func _build_controls() -> Control:
 	col.add_theme_constant_override("separation", 12)
 	p.add_child(col)
 	col.add_child(UiKit.label("CONTROLS", 40, UiKit.ACCENT))
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 36)
-	grid.add_theme_constant_override("v_separation", 2)
-	col.add_child(grid)
-	for h in ["", "Keyboard", "Gamepad"]:
-		grid.add_child(UiKit.label(h, 18, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_LEFT))
-	for row: Array in CONTROLS:
-		grid.add_child(UiKit.label(row[0], 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
-		grid.add_child(UiKit.label(row[1], 18, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT))
-		grid.add_child(UiKit.label(row[2], 18, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT))
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 56)
+	col.add_child(columns)
+	var left := VBoxContainer.new()
+	columns.add_child(left)
+	_controls_grid(left, "DRIVING", CONTROLS)
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 14)
+	columns.add_child(right)
+	_controls_grid(right, "ON FOOT", CONTROLS_FOOT)
+	_controls_grid(right, "ANYWHERE", CONTROLS_ANYWHERE)
 	var back := _button(col, "BACK", _back)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.custom_minimum_size = Vector2(200, 0)
 	_first_focus["controls"] = back
 	return center
+
+
+func _controls_grid(parent: Control, title: String, rows: Array) -> void:
+	parent.add_child(UiKit.label(title, 22, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT))
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 24)
+	grid.add_theme_constant_override("v_separation", 2)
+	parent.add_child(grid)
+	for h in ["", "Keyboard", "Gamepad"]:
+		grid.add_child(UiKit.label(h, 18, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_LEFT))
+	for row: Array in rows:
+		grid.add_child(UiKit.label(row[0], 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
+		grid.add_child(UiKit.label(row[1], 18, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT))
+		grid.add_child(UiKit.label(row[2], 18, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT))
 
 
 ## Third-party sounds and their licences (ASSET_MANIFEST.md has the full
@@ -321,7 +348,8 @@ const CREDITS := "[b]TURBO TOWN[/b]\n\n" \
 	+ "[color=#ffd54a]Tyre squeal[/color]  by Iwan \"qubodup\" Gabovitch from a recording by Tom Haigh (audible-edge). CC BY 3.0\n" \
 	+ "[color=#ffd54a]Air Break, Window Shattering[/color]  by Mike Koenig (SoundBible.com). CC BY 3.0\n" \
 	+ "[color=#ffd54a]CC0 sounds[/color]  by Kenney, cognito perceptu, 15HPanska_Ruttner_Jan, HarveyHenkelmann, X5DragonFire, TinyWorlds / Till Behrend, rubberduck, blacklodgegames\n\n" \
-	+ "[color=#ffd54a]Skies, textures, rock models[/color]  from Poly Haven and ambientCG. CC0\n\n" \
+	+ "[color=#ffd54a]Skies, textures, rock models[/color]  from Poly Haven and ambientCG. CC0\n" \
+	+ "[color=#ffd54a]Character and animations[/color]  from the Universal Animation Library by Quaternius. CC0\n\n" \
 	+ "Sounds changed for Turbo Town (looped, filtered, mixed, levels).\n" \
 	+ "CC BY: creativecommons.org/licenses/by/4.0 and /by/3.0\n" \
 	+ "Everything else is made for this game."

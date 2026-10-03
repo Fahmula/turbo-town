@@ -128,6 +128,39 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 
 ---
 
+## v0.8 — On foot (dev, 2026-10-03)
+
+### Player character and vehicles (done, `player-character` branch)
+- [x] Possession architecture: `Controllable` component on every pawn (who drives it, which rig),
+      `Possession` hands control between the character and vehicles; one rig at a time; traffic
+      cars are claimed from their driver first. Ready for boats/planes as new kinds
+- [x] Third-person character: walk / run / sprint / jump, kerb step-up, analog walk on the stick,
+      camera-relative movement, smooth turning, speed-matched animations, landings, footsteps
+      by surface, pushes light props, knocked aside (unhurt) by moving vehicles
+- [x] Character model and animations from Quaternius' CC0 Universal Animation Library, rebuilt
+      by `tools/blender/make_character.py`
+- [x] On-foot camera (orbit, wall collision, drifts behind while walking, close/wide) and a
+      camera glide between it and the chase camera
+- [x] Interaction system (`Interactable`): get in any vehicle (player's, traffic, parked props),
+      flip an overturned one; prompt with keyboard / gamepad button
+- [x] Getting out: brakes first; safe spot search (doors, other side, behind/front, rings, roof)
+      with ground, capsule room and wall checks
+- [x] Traffic stops (and honks) for a person in the road, waits while someone stands by the car
+- [x] Game flow on foot: start on foot, teleports bring the vehicle, garage brings the vehicle,
+      races put you in it, replays/crash cam only while driving, minimap/big map mark your vehicle
+- [x] Left vehicles stay parked (engine off, quiet sound), up to 3 older ones, cleaned up out of sight
+- [x] Tests: `--onfoot` (pass/fail), `--onfootbench`, `--charsheet`
+- [ ] Owner review on the Deck (controls, feel, look)
+
+### Ideas for later (not started)
+- [ ] Visible driver in the seat (the `Driving` animation is in the model), door open/close animations
+- [ ] Character customization (outfit colours) saved like vehicle loadouts
+- [ ] Pedestrians in the city (the character class takes any controller)
+- [ ] Swimming instead of respawning in the sea; climbing; ragdoll falls
+- [ ] Passenger seats; entering from the passenger side and sliding across
+
+---
+
 ## Backlog
 
 ### Realism (owner approved 2026-10-03, released in v0.7.0)
@@ -270,3 +303,4 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - 2026-10-03 — Realism experiment (branch `realism`): real skies, bounce light, scanned roads, terrain,
   buildings and trees, grass, rocks, sea.
 - 2026-10-03 — v0.7.0: garage wheel customization + the realism look, released for the Steam Deck.
+- 2026-10-03 — On foot (dev, branch `player-character`): a walking character who gets in and out of any vehicle.

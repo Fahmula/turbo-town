@@ -54,13 +54,14 @@ func _index_at(road: RoadBuilder.Road, d: float) -> int:
 	return 0
 
 
-func _collider(body: StaticBody3D, xf: Transform3D, size: Vector3) -> void:
+func _collider(body: StaticBody3D, xf: Transform3D, size: Vector3) -> CollisionShape3D:
 	var cs := CollisionShape3D.new()
 	var sh := BoxShape3D.new()
 	sh.size = size
 	cs.shape = sh
 	cs.transform = xf
 	body.add_child(cs)
+	return cs
 
 
 ## A bevelled box that's both drawn and solid.
@@ -721,7 +722,8 @@ func _build_harbor(root: Node3D) -> void:
 	for pz: float in [qa.z - 15.0, (qa.z + qb.z) * 0.5, qb.z + 15.0]:
 		var x0 := edge - 46.0
 		var deck := Transform3D(Basis.IDENTITY, Vector3((x0 + edge) * 0.5, y - 0.2, pz))
-		_collider(body, deck, Vector3(edge - x0, 0.4, 6.0))
+		# Footsteps sound like wood here (PlayerCharacter).
+		_collider(body, deck, Vector3(edge - x0, 0.4, 6.0)).set_meta("surface", "wood")
 		# Decking in 6 m panels (the shader draws the 152 mm boards).
 		var px := x0
 		while px < edge - 0.01:

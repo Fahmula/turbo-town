@@ -19,6 +19,7 @@ center_of_mass_mode = 1
 center_of_mass = Vector3(0, 0.55, 0)
 script = ExtResource("1_prop")
 traffic_paint = true
+drive_scene = "res://scenes/vehicles/van.tscn"
 
 [node name="Shape0" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0.04)

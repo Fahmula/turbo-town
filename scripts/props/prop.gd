@@ -11,6 +11,12 @@ extends RigidBody3D
 ## Parked cars: paint from the weighted traffic mix (PaintPalette) instead of
 ## `random_colors`.
 @export var traffic_paint := false
+## Parked cars: the drivable vehicle scene the player gets into when they use
+## it (ParkedCarEntry swaps the prop for it). "" = can't be driven.
+@export_file("*.tscn") var drive_scene := ""
+
+## The paint it was given (TRANSPARENT if none).
+var paint := Color.TRANSPARENT
 
 
 ## Parked cars are drawn out to this distance (with a fade); beyond it
@@ -26,6 +32,8 @@ func _ready() -> void:
 	# Parked cars share the vehicles' models: optional racing stripes stay off.
 	for stripes in find_children("Stripes", "MeshInstance3D", true, false):
 		(stripes as MeshInstance3D).visible = false
+	if drive_scene != "":
+		add_child(ParkedCarEntry.new())
 	if traffic_paint:
 		for gi in find_children("*", "GeometryInstance3D", true, false):
 			(gi as GeometryInstance3D).visibility_range_end = PARKED_CAR_RANGE
@@ -40,6 +48,7 @@ func _ready() -> void:
 		col = PaintPalette.pick_traffic(rng)
 	else:
 		col = random_colors.pick_random()
+	paint = col
 	_apply_color(col)
 
 

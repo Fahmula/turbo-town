@@ -111,6 +111,9 @@ func setup(mgr: TrafficManager, lane: TrafficNetwork.Lane, s: float) -> void:
 	for sp in 41:
 		_curv_limit[sp] = tan(deg_to_rad(0.8 * vehicle.max_steer_for_speed(sp))) / _wheelbase
 	vehicle.auto_reverse = false
+	var c := Controllable.of(vehicle)
+	if c:
+		c.take(self, true)  # the player may take the car
 	vehicle.impact.connect(_on_impact)
 	_body = vehicle.get_node_or_null("Body") as VehicleBodyVisual
 	_ray.exclude = [vehicle.get_rid()]
@@ -128,10 +131,14 @@ static func _alive(v: Variant) -> bool:
 	return v != null and is_instance_valid(v) and (v as Node).is_inside_tree()
 
 
-## The car is going back to the traffic pool: let go of it.
+## The car is going back to the traffic pool (or the player takes it): let go of it.
 func release() -> void:
 	if vehicle.impact.is_connected(_on_impact):
 		vehicle.impact.disconnect(_on_impact)
+	var c := Controllable.of(vehicle)
+	if c:
+		c.drop(self)
+	vehicle.auto_reverse = true
 	vehicle.throttle_input = 0.0
 	vehicle.brake_input = 0.0
 	vehicle.steer_input = 0.0
@@ -192,9 +199,10 @@ func honk() -> void:
 
 
 func _update_audio(dt: float) -> void:
-	# Impatient honking at a player who blocks the road.
+	# Impatient honking at a player who blocks the road (in a vehicle or on foot).
 	_honk_cooldown -= dt
-	if blocker_vehicle != null and blocker_vehicle == manager.player and vehicle.linear_velocity.length() < 1.0:
+	var by_player := blocker == "pedestrian" or (blocker_vehicle != null and blocker_vehicle == manager.player)
+	if by_player and vehicle.linear_velocity.length() < 1.0:
 		_blocked_by_player += dt
 	else:
 		_blocked_by_player = 0.0
@@ -286,8 +294,7 @@ func _path_point(ahead: float) -> Vector3:
 func _physics_process(dt: float) -> void:
 	if vehicle == null or _plan.is_empty():
 		return
-	var player := manager.player
-	if player and vehicle.global_position.distance_squared_to(player.global_position) > LOD_DISTANCE * LOD_DISTANCE:
+	if vehicle.global_position.distance_squared_to(manager.focus_position()) > LOD_DISTANCE * LOD_DISTANCE:
 		_lod_skip = not _lod_skip
 		if _lod_skip:
 			_lod_carry += dt
@@ -594,6 +601,33 @@ func _plan_speed() -> float:
 			blocker = "car %s" % other.name
 			blocker_vehicle = other
 
+	# People on foot in our lane: stop for them (they're not on the physics
+	# layers the sensor rays see). Stopped with someone right beside the car
+	# (walking up to the door), stay put.
+	for ped in manager.pedestrians:
+		if not _alive(ped) or not ped.visible:
+			continue
+		var pp := ped.global_position
+		var straight := pp.distance_to(my_pos)
+		if straight > horizon or absf(pp.y - my_pos.y) > 3.0:
+			continue
+		var gap := INF
+		if _in_corridor(pp):
+			gap = maxf(straight - _front - 1.2, 0.1)
+		elif v < 3.0:
+			var local := vehicle.global_transform.affine_inverse() * pp
+			if absf(local.x) < _half_width + 1.6 and local.z > -_front - 2.0 and local.z < vehicle.body_rear + 1.0:
+				gap = 0.1
+		if gap == INF:
+			continue
+		var a := _idm(v, INF, gap, 0.0)
+		if a < best:
+			best = a
+			blocker = "pedestrian"
+			blocker_vehicle = null
+			if gap <= 0.1:
+				_hold = true
+
 	# Static obstacles (walls, knocked-over lamp posts...) along the path.
 	var ray_len := minf(horizon, 25.0)
 	_ray.from = vehicle.global_transform * Vector3(0, 0.55, -_front)
@@ -824,12 +858,11 @@ func _lane_logic(dt: float) -> void:
 	_consider_lane_change()
 
 
-## Parked = the player (stopped) or a traffic car that gave up after a crash.
+## Parked = the player's vehicle (stopped), one they left, or a traffic car
+## that gave up after a crash.
 func _is_parked(v: Vehicle) -> bool:
-	if v == manager.player:
-		return true
 	var d := manager.driver_of(v)
-	return d != null and d.state == State.LOST
+	return d == null or d.state == State.LOST
 
 
 func _consider_lane_change() -> void:

@@ -18,6 +18,18 @@ func _enter_tree() -> void:
 	_bind("horn", [KEY_E], [JOY_BUTTON_LEFT_STICK], [])
 	_bind("toggle_traction_control", [KEY_T], [], [])
 
+	# On foot (the same keys and sticks as driving: only one is in use at a time)
+	_bind("move_forward", [KEY_W, KEY_UP], [], [[JOY_AXIS_LEFT_Y, -1.0]])
+	_bind("move_back", [KEY_S, KEY_DOWN], [], [[JOY_AXIS_LEFT_Y, 1.0]])
+	_bind("move_left", [KEY_A, KEY_LEFT], [], [[JOY_AXIS_LEFT_X, -1.0]])
+	_bind("move_right", [KEY_D, KEY_RIGHT], [], [[JOY_AXIS_LEFT_X, 1.0]])
+	_bind("sprint", [KEY_SHIFT], [], [])
+	_bind("sprint_toggle", [], [JOY_BUTTON_LEFT_STICK], [])  # click: sprint until you stop
+	_bind("walk", [KEY_CTRL], [], [])
+	_bind("jump", [KEY_SPACE], [JOY_BUTTON_A], [])
+	# Get in / out of a vehicle, use things.
+	_bind("interact", [KEY_F], [JOY_BUTTON_B], [])
+
 	# Vehicle recovery
 	_bind("reset_vehicle", [KEY_R], [JOY_BUTTON_Y], [])
 	_bind("respawn", [KEY_BACKSPACE], [JOY_BUTTON_BACK], [])

@@ -78,6 +78,22 @@ func snap() -> void:
 	_initialized = false
 
 
+## Starts out looking the way `cam` looks (getting into a vehicle), then
+## swings round behind the vehicle as usual.
+func snap_view(cam: Camera3D) -> void:
+	_initialized = false
+	_orbit_pitch = 0.0
+	if cam == null or target == null:
+		_orbit_yaw = 0.0
+		return
+	var f := -cam.global_basis.z
+	var fwd := -target.global_basis.z
+	var flat := Vector3(fwd.x, 0.0, fwd.z)
+	var car_yaw := atan2(-flat.x, -flat.z) if flat.length() > 0.15 else 0.0
+	_orbit_yaw = wrapf(atan2(-f.x, -f.z) - car_yaw, -PI, PI)
+	_orbit_idle = orbit_return_delay - 0.6
+
+
 func add_shake(amount: float) -> void:
 	_shake = clampf(_shake + amount, 0.0, 1.0)
 
@@ -87,6 +103,8 @@ func _on_impact(strength: float, _pos: Vector3, _normal: Vector3) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not current:
+		return  # on foot, another camera is looking around
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var rel: Vector2 = event.relative
 		_orbit_yaw -= rel.x * mouse_sensitivity
@@ -106,7 +124,7 @@ func _process(dt: float) -> void:
 
 	# Right stick orbit.
 	var stick := Vector2(Input.get_axis("camera_left", "camera_right"), Input.get_axis("camera_down", "camera_up"))
-	if stick.length() > 0.1:
+	if stick.length() > 0.1 and current:
 		_orbit_yaw -= stick.x * stick_speed * dt
 		_orbit_pitch = clampf(_orbit_pitch + stick.y * stick_speed * 0.6 * dt, -0.5, 1.1)
 		_orbit_idle = 0.0

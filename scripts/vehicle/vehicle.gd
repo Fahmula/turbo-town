@@ -162,6 +162,15 @@ func _ready() -> void:
 		(gi as GeometryInstance3D).layers = WHEEL_LAYER if in_wheel else VISUAL_LAYER
 		# Moving things take bounce light (SDFGI on High) but never get baked into it.
 		(gi as GeometryInstance3D).gi_mode = GeometryInstance3D.GI_MODE_DYNAMIC
+	# Whoever drives it (the player or a TrafficDriver) takes its
+	# Controllable; its Entry lets the player get in and out.
+	if get_node_or_null("Controllable") == null:
+		var c := Controllable.new()
+		c.name = "Controllable"
+		c.kind = Controllable.VEHICLE
+		add_child(c)
+	if get_node_or_null("Entry") == null:
+		add_child(VehicleEntry.new())
 	contact_monitor = true
 	max_contacts_reported = 8
 	continuous_cd = true

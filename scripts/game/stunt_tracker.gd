@@ -63,6 +63,13 @@ func _physics_process(dt: float) -> void:
 			_bank()
 
 
+## Banks the combo in progress now (the player got out of the vehicle).
+func bank_now() -> void:
+	_end_drift(true)
+	if not _combo.is_empty() and vehicle and is_instance_valid(vehicle):
+		_bank()
+
+
 func combo_total() -> int:
 	var sum := 0
 	for t: Array in _combo:

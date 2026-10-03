@@ -9,6 +9,25 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### On foot
+- You're a person now! The game starts with you standing next to your car.
+  Walk, run, sprint (Shift, or click the left stick) and jump around the
+  island, then walk up to any car, truck or bus and press F (B on a
+  gamepad) to get in. Press it again to get out.
+- Drive anything you find: your own vehicle, the cars parked in the lots, or a
+  traffic car that has stopped (it's yours once you get in).
+- Get out anywhere: the vehicle stops first and you step out by the door, or
+  on the other side if there's a wall in the way. Your vehicle waits where you
+  left it and shows on the map as a yellow square.
+- Traffic stops for you when you walk into the road (and honks if you stay
+  there). A car that bumps into you just knocks you aside.
+- A vehicle on its roof? Walk up to it and press F to flip it back over.
+- Teleporting on foot brings your vehicle along, and the garage brings the
+  vehicle you pick right to where you're standing.
+- Footsteps on concrete, grass and the wooden piers.
+- The title screen's DRIVE! button is now PLAY!, and the controls page lists
+  the on-foot controls.
+
 ### Fixed
 - High runs much faster on the Steam Deck (about 30 fps before, with drops
   below 20 while driving; now close to 60). It keeps the new look: textures,

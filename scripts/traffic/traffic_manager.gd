@@ -13,8 +13,14 @@ extends Node3D
 signal traffic_toggled(on: bool)
 
 @export var world: WorldBuilder
+## The player's vehicle (the one they drive, or last drove when on foot).
 @export var player: Vehicle
 @export var camera: Camera3D
+## What traffic lives around: the player's character on foot, or their
+## vehicle (null = `player`).
+var focus: Node3D
+## People on foot that drivers stop for (the player's character).
+var pedestrians: Array[Node3D] = []
 ## Vehicle types that appear in traffic, and how often (relative weights).
 @export var car_scenes: Array[PackedScene] = [
 	preload("res://scenes/vehicles/sports_car.tscn"),
@@ -35,8 +41,10 @@ signal traffic_toggled(on: bool)
 
 var network: TrafficNetwork
 var drivers: Array[TrafficDriver] = []
-## All vehicles AI should avoid (traffic + player).
+## All vehicles AI should avoid (traffic + the player's + ones they left parked).
 var vehicles: Array[Vehicle] = []
+## Vehicles the player left parked (see track()).
+var _tracked: Array[Vehicle] = []
 var time := 0.0
 
 ## Per city intersection signal controller:
@@ -89,8 +97,8 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 		return
 	max_cars = Settings.TRAFFIC_CARS[value]
 	# Fewer cars: drop the ones furthest from the player.
-	if drivers.size() > max_cars and player:
-		var ppos := player.global_position
+	if drivers.size() > max_cars and _focus_node():
+		var ppos := focus_position()
 		var by_dist := drivers.duplicate()
 		by_dist.sort_custom(func(a: TrafficDriver, b: TrafficDriver) -> bool:
 			return a.vehicle.global_position.distance_squared_to(ppos) > b.vehicle.global_position.distance_squared_to(ppos))
@@ -101,8 +109,9 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 ## Tells traffic which vehicle the player drives (after a vehicle change).
 func set_player(v: Vehicle) -> void:
 	if player:
-		vehicles.erase(player)
-		if player.vehicle_reset.is_connected(_on_player_reset):
+		if not _tracked.has(player):
+			vehicles.erase(player)
+		if is_instance_valid(player) and player.vehicle_reset.is_connected(_on_player_reset):
 			player.vehicle_reset.disconnect(_on_player_reset)
 	player = v
 	if player:
@@ -115,6 +124,48 @@ func set_player(v: Vehicle) -> void:
 # After a teleport/respawn, repopulate around the new position right away.
 func _on_player_reset() -> void:
 	_initial_fill = enabled
+
+
+## Where traffic is centred: the player's character or vehicle.
+func _focus_node() -> Node3D:
+	if focus and is_instance_valid(focus):
+		return focus
+	return player if player and is_instance_valid(player) else null
+
+
+func focus_position() -> Vector3:
+	var f := _focus_node()
+	return f.global_position if f else Vector3.ZERO
+
+
+## A vehicle the player left parked: drivers treat it as an obstacle (they
+## wait or drive round it) until untrack().
+func track(v: Vehicle) -> void:
+	if not _tracked.has(v):
+		_tracked.append(v)
+	if not vehicles.has(v):
+		vehicles.append(v)
+
+
+func untrack(v: Vehicle) -> void:
+	_tracked.erase(v)
+	if v != player:
+		vehicles.erase(v)
+
+
+## The player takes traffic car `v`: its driver lets go and is removed, and
+## the car is no longer traffic (never pooled or despawned). False if `v`
+## isn't a traffic car.
+func claim(v: Vehicle) -> bool:
+	var d := driver_of(v)
+	if d == null:
+		return false
+	drivers.erase(d)
+	d.release()
+	v.remove_child(d)
+	d.queue_free()
+	v.handbrake_input = true
+	return true
 
 
 ## The traffic driver of `v`, or null if it isn't a traffic vehicle.
@@ -199,7 +250,7 @@ func _physics_process(dt: float) -> void:
 		return
 	_manage_timer = 0.25
 	_despawn_pass()
-	if not enabled or player == null:
+	if not enabled or _focus_node() == null:
 		return
 	if _initial_fill:
 		# First fill: spawn a batch at once (visible spawns allowed, not too close).
@@ -234,7 +285,7 @@ func _is_visible(p: Vector3) -> bool:
 
 
 func _despawn_pass() -> void:
-	var ppos := player.global_position if player else Vector3.ZERO
+	var ppos := focus_position()
 	for d: TrafficDriver in drivers.duplicate():
 		if not is_instance_valid(d.vehicle):
 			drivers.erase(d)
@@ -311,7 +362,7 @@ func _try_spawn(allow_visible: bool) -> bool:
 	var lane: TrafficNetwork.Lane = pick["lane"]
 	var s: float = pick["s"]
 	var p := lane.point_at(s)
-	var ppos := player.global_position
+	var ppos := focus_position()
 	var dist := p.distance_to(ppos)
 	var min_d := 40.0 if allow_visible else spawn_min_distance
 	if dist < min_d or dist > spawn_max_distance:

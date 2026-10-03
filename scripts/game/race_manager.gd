@@ -83,9 +83,11 @@ func status_text() -> String:
 	return ""
 
 
-## Teleports to race `index`'s start and begins the countdown.
+## Teleports to race `index`'s start and begins the countdown (in the
+## player's vehicle, getting them into it if they're on foot).
 func start(index: int) -> void:
 	end_race(false)
+	game.ensure_driving()
 	race = races[index]
 	game.vehicle.teleport(race["start"])
 	game.camera.snap()
@@ -157,7 +159,7 @@ func on_teleport() -> void:
 
 
 func _check_start_circles(v: Vehicle) -> void:
-	var allowed := game.state == Game.State.DRIVING and _skip_check <= 0
+	var allowed := game.state == Game.State.DRIVING and _skip_check <= 0 and game.driving()
 	_skip_check -= 1
 	for i in races.size():
 		var inside := v.global_position.distance_to((races[i]["start"] as Transform3D).origin) < START_RADIUS
