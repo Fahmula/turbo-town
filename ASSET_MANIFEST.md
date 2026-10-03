@@ -31,6 +31,7 @@ idle loop; heavy crashes have a synthesised low thump mixed in.
 > blacklodgegames. Sounds changed for Turbo Town (looped, filtered, mixed,
 > levels). Skies, textures and rock models from Poly Haven and ambientCG (CC0).
 > Character and animations from the Universal Animation Library by Quaternius (CC0).
+> Downtown buildings and street pieces from the Downtown City MegaKit by Quaternius (CC0).
 
 ## Textures, skies and models (realism branch)
 
@@ -165,6 +166,12 @@ Stunt Rally 3's code is GPL-3.0, but its sound files carry their own
 licences, recorded per file in `data/sounds/_sounds.txt` and `_crash.txt`.
 Only files listed there as CC BY 4.0 or CC0 are used. Its older VDrift sounds
 (tyre squeal, gravel, grass, bumps, wind) are GPL and are **not** used.
+
+## Downtown environment kit (experiment/quaternius-downtown-city only)
+
+| Asset | Creator | Source | Licence | Attribution | Downloaded from | Used in |
+|---|---|---|---|---|---|---|
+| Downtown City MegaKit (Standard, the free version, released May 2026): 124 of its 153 models (building, street and prop modules; not the floor pieces) and its textures (brick, trim stone, metal/concrete, ornaments, slate, asphalt, concrete, soil, street markings, the corner "fake bevel" normal, drip noise, three fake-interior room photos, blinds, curtains) | Quaternius | [quaternius.com/packs/downtowncitymegakit.html](https://quaternius.com/packs/downtowncitymegakit.html) (itch.io: [quaternius.itch.io/downtown-city-megakit](https://quaternius.itch.io/downtown-city-megakit)) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (`License_Standard.txt` in the zip, and the pack page) | None required (credited anyway) | `Downtown City MegaKit[Standard].zip` from the itch.io page's free download (SHA-256 `5b1a945576d54cdbb4ccc9c3d52711e6d530da74c74c586407ecc28b165335da`), fetched and checked by `tools/megakit/megakit_common.py` into `build/asset_sources/` (gitignored) | `assets/models/megakit/megakit_modules.res` via `tools/megakit/build_megakit_modules.gd`, `assets/textures/megakit/` via `tools/megakit/build_megakit_textures.py`: the downtown showcase buildings and street details (`scripts/world/downtown/`). **Changes:** glass, interior walls and interior floors dropped; every module's materials merged into one surface tagged with its texture layer and tint slot; far-LOD proxies generated; textures resized to 1024² (rooms and covers 512²), repacked into texture arrays (normal XY + roughness + AO), metallic dropped, the soil's broken AO replaced. The Source version (paid; Godot/Unity/Unreal projects and the original shaders) was not bought or used: the kit's shader features (fake interiors, wear, fake bevels) are re-implemented in `assets/shaders/megakit.gdshader` |
 
 ## Made by this project
 

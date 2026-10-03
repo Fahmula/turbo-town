@@ -13,6 +13,10 @@ var tree_spots: Array[Vector3] = []
 var prop_spawns: Array[Dictionary] = []
 ## Static bollards (one merged mesh with colliders).
 var _bollards: Array[Vector3] = []
+## The Downtown City MegaKit showcase blocks (DowntownBlock).
+var downtown: DowntownBlock
+var _showcase := false
+var _block_name := ""
 
 
 func _init(terrain: TerrainBuilder) -> void:
@@ -35,6 +39,9 @@ func build(parent: Node3D, intersections: Array[Vector3]) -> void:
 
 	var g := MapLayout.CITY_GRID
 	var hw := MapLayout.CITY_ROAD_WIDTH * 0.5
+	var downtown_node := Node3D.new()
+	downtown_node.name = "Downtown"
+	downtown = DowntownBlock.new(downtown_node, building_body)
 	for j in g.size() - 1:
 		for i in g.size() - 1:
 			var x0 := g[i] + hw
@@ -43,8 +50,17 @@ func build(parent: Node3D, intersections: Array[Vector3]) -> void:
 			var z1 := g[j + 1] - hw
 			var type: String = MapLayout.BLOCK_TYPES[j][i]
 			var kit := BuildingKit.new(ground, building_body)
+			_showcase = DowntownBlock.is_showcase(i, j)
+			_block_name = "Block_%d_%d" % [i, j]
 			_add_block(ground, kit, building_body, type, x0, z0, x1, z1)
-			_add_block_meshes(blocks, kit, "Block_%d_%d" % [i, j])
+			_add_block_meshes(blocks, kit, _block_name)
+	if downtown.building_count > 0:
+		root.add_child(downtown_node)
+		DowntownStreets.new(self, downtown).build(root, building_body, intersections)
+		print("Downtown (MegaKit): %d buildings, %d triangles (far LOD %d), built in %d ms" % [
+			downtown.building_count, downtown.triangles, downtown.far_triangles, downtown.build_usec / 1000])
+	else:
+		downtown_node.free()
 
 	_add_street_lamps(intersections)
 	_add_billboards(root)
@@ -98,6 +114,13 @@ func _add_block(ground: MeshBuilder, kit: BuildingKit, body: StaticBody3D,
 	var iz0 := z0 + sw
 	var iz1 := z1 - sw
 	var top := h + 0.004
+	var centrality := 1.0 - clampf(Vector2((x0 + x1) * 0.5, (z0 + z1) * 0.5).length() / 200.0, 0.0, 1.0)
+	if _showcase and type == "parking":
+		# Showcase car park: MegaKit buildings along its south and west
+		# edges, the lot in the north-east corner, open to the avenue.
+		downtown.build(_block_name, ix0, iz0, ix1, iz1, h, centrality, [true, false, false, true])
+		ix0 += 18.0
+		iz1 -= 18.0
 	match type:
 		"park":
 			_flat_quad(ground, ix0, iz0, ix1, iz1, top, Color(ArtPalette.LAWN, 0.0))
@@ -107,7 +130,10 @@ func _add_block(ground: MeshBuilder, kit: BuildingKit, body: StaticBody3D,
 			_flat_quad(ground, ix0, iz0, ix1, iz1, top, Color(ArtPalette.ASPHALT, 0.25))
 	match type:
 		"buildings":
-			_add_buildings(kit, ix0, iz0, ix1, iz1)
+			if _showcase:
+				downtown.build(_block_name, ix0, iz0, ix1, iz1, h, centrality)
+			else:
+				_add_buildings(kit, ix0, iz0, ix1, iz1)
 		"park":
 			_add_park(ground, kit.clutter, ix0, iz0, ix1, iz1)
 		"plaza":
