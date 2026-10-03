@@ -39,11 +39,11 @@ const SPECIES := {
 
 ## Per variant: the build recipe.
 const VARIANTS := {
-	"broadleaf_a": {"seed": 11, "height": 9.2, "trunk_h": 2.8, "radius": 3.9, "trunk_r": 0.28, "limbs": 4,
+	"broadleaf_a": {"seed": 11, "height": 9.2, "trunk_h": 2.5, "radius": 3.9, "trunk_r": 0.28, "limbs": 4,
 		"cards": 380, "size": Vector2(1.4, 2.0), "mat": "foliage_broadleaf", "wind_h": 9.0},
-	"broadleaf_b": {"seed": 23, "height": 8.6, "trunk_h": 2.3, "radius": 4.8, "trunk_r": 0.36, "limbs": 5,
+	"broadleaf_b": {"seed": 23, "height": 8.6, "trunk_h": 2.1, "radius": 4.8, "trunk_r": 0.36, "limbs": 5,
 		"cards": 380, "size": Vector2(1.5, 2.1), "mat": "foliage_broadleaf_b", "wind_h": 9.0},
-	"broadleaf_c": {"seed": 37, "height": 10.5, "trunk_h": 3.4, "radius": 3.0, "trunk_r": 0.25, "limbs": 4,
+	"broadleaf_c": {"seed": 37, "height": 10.5, "trunk_h": 3.1, "radius": 3.0, "trunk_r": 0.25, "limbs": 4,
 		"cards": 340, "size": Vector2(1.35, 1.9), "mat": "foliage_broadleaf_c", "wind_h": 10.0},
 	"conifer_a": {"seed": 7, "height": 12.0, "base_h": 1.6, "radius": 2.7, "step": 0.5, "n_low": 7.0, "n_high": 4.0,
 		"elev_low": -10.0, "elev_high": 26.0, "taper": 0.85, "mat": "foliage_conifer", "wind_h": 13.0},
@@ -340,7 +340,7 @@ static func _broadleaf(tb: TB, v: Dictionary, lod: int) -> void:
 		var ys := tr_h - 0.3 + rng.randf() * crown_h * 0.3
 		var s := _at_height(trunk, ys)
 		var reach := R * rng.randf_range(0.8, 1.0)
-		var e := c + Vector3(cos(az) * reach, rng.randf_range(-0.3, 0.7) * crown.r.y, sin(az) * reach)
+		var e := c + Vector3(cos(az) * reach, rng.randf_range(-0.7, 0.75) * crown.r.y, sin(az) * reach)
 		var ctrl := Vector3(lerpf(s.x, e.x, 0.3), maxf(s.y, e.y) + 0.7, lerpf(s.z, e.z, 0.3))
 		var seg := 7 if detail else 3
 		var limb := _bezier(s, ctrl, e, seg)
@@ -378,15 +378,20 @@ static func _broadleaf(tb: TB, v: Dictionary, lod: int) -> void:
 	# Cards: clusters at the anchors, plus fill on the crown's shell.
 	var total: int = int(v["cards"]) if detail else int(float(v["cards"]) * 0.2)
 	var size: Vector2 = v["size"] if detail else (v["size"] as Vector2) * 2.1
-	var per := maxi(1, int(ceil(float(total) * 0.7 / anchors.size())))
+	var per := maxi(1, int(ceil(float(total) * 0.25 / anchors.size())))
 	var placed := 0
 	for a in anchors:
 		for j in per:
 			_leaf_card(tb, rng, a + _rand_unit(rng) * 0.35, crown, size, grid, 1.0)
 			placed += 1
+	# the rest spread over the crown's shell (uniform in direction, a little more
+	# on top than underneath), which gives the round, full crown of a planted tree
 	while placed < total:
 		var d := _rand_unit(rng)
-		var p := crown.c + d * crown.r * rng.randf_range(0.6, 1.0)
+		if d.y < -0.2:
+			d.y *= 0.45
+			d = d.normalized()
+		var p := crown.c + d * crown.r * rng.randf_range(0.62, 1.0)
 		_leaf_card(tb, rng, p, crown, size, grid, 1.0)
 		placed += 1
 

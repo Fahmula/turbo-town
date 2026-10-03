@@ -17,7 +17,8 @@ render_mode cull_disabled, diffuse_lambert_wrap, alpha_to_coverage;
 //   NORMAL    on cards: the crown's "spherical" normal (the canopy shades as one
 //             soft mass); on wood: the surface normal. TANGENT: round the tube.
 // Per-instance (MultiMesh custom data): x autumn amount 0..1, y random seed,
-//   z brightness variation 0..1 (0.5 = none), w = which blob colour (0, 1, 2).
+//   z brightness variation 0..1 (0.5 = none), w = 1 for a flowering tree (blossom
+//   patches on the leaf clusters).
 // Quality: Low (quality == 0) drops sway, the bark normal map and the macro
 // colour noise.
 
@@ -37,6 +38,8 @@ uniform float tree_height = 9.0;
 uniform float alpha_cut = 0.5;
 // 1: thin leaves, lit from both sides with the same normal; 0: the face turned away is shaded (conifer sprays).
 uniform float two_sided = 1.0;
+// Flowering accent trees (instance custom w = 1): patches of blossom colour on the leaf clusters.
+uniform vec3 blossom_color : source_color = vec3(0.86, 0.5, 0.6);
 
 varying vec3 v_world;
 varying vec4 v_inst;
@@ -81,6 +84,10 @@ void fragment() {
 			col *= vec3(mix(0.9, 1.08, n), mix(0.94, 1.04, n), mix(1.05, 0.9, n));
 		}
 		col = fol_autumn(col, v_inst.x, fract(v_inst.y * 7.3));
+		if (v_inst.w > 0.5) {
+			float blossom = smoothstep(0.52, 0.68, fol_noise(UV * vec2(70.0, 70.0) + v_inst.y * 31.0));
+			col = mix(col, srgb_to_linear(blossom_color) * (0.8 + 0.4 * t.g), blossom * 0.85);
+		}
 		ALBEDO = col * mix(1.0, ao, 0.55);
 		AO = ao;
 		AO_LIGHT_AFFECT = 0.6;

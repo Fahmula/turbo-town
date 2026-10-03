@@ -36,8 +36,8 @@ var _groups: Array[Group] = []
 var _visible := {}
 var _last_cam := Vector3(1e9, 0.0, 0.0)
 var _since := 0.0
-## Scales the LOD distances: 0.7 on Low, 0.85 on Medium, 1 on High (see
-## GraphicsQuality; read from the global `quality` shader parameter).
+## Scales the LOD distances: 0.7 on Low (the viewport renders at 0.75 scale
+## then, see GraphicsQuality), 1 otherwise.
 var _k := 1.0
 ## Stats of the last update, for the dev tools.
 var drawn := {"t0": 0, "t1": 0, "t2": 0}
@@ -129,8 +129,9 @@ func _process(delta: float) -> void:
 
 ## Re-chooses what is drawn for a camera at `cam`.
 func update(cam: Vector3) -> void:
-	var q: Variant = RenderingServer.global_shader_parameter_get("quality")
-	_k = [0.7, 0.85, 1.0][clampi(int(q) if q != null else 2, 0, 2)]
+	# Low renders at 0.75 scale with FSR (GraphicsQuality.apply): shorter LOD distances there.
+	var vp := get_viewport()
+	_k = 0.7 if vp and vp.scaling_3d_scale < 0.99 else 1.0
 	var want := {}
 	drawn = {"t0": 0, "t1": 0, "t2": 0}
 	for g in _groups:

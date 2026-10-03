@@ -51,7 +51,8 @@ func _init(terrain: TerrainBuilder) -> void:
 func build(root: Node3D, city_tree_spots: Array[Vector3]) -> void:
 	for p in city_tree_spots:
 		var variant := _pick(_rng.randf(), [0.4, 0.25, 0.35])
-		_add("broadleaf", variant, p, 0.85, 1.15, false)
+		# a few flowering trees along the streets and in the parks (ART_BIBLE.md §18)
+		_add("broadleaf", variant, p, 0.85, 1.15, false, true, _rng.randf() < 0.07)
 	_scatter()
 	_tree_lines()
 	_islet()
@@ -85,7 +86,7 @@ func _pick(r: float, weights: Array) -> int:
 
 
 ## One instance. `trunk`: also gives it a collider.
-func _add(species: String, variant: int, p: Vector3, smin: float, smax: float, autumn_ok: bool, trunk := true) -> void:
+func _add(species: String, variant: int, p: Vector3, smin: float, smax: float, autumn_ok: bool, trunk := true, flowering := false) -> void:
 	var set: TreeSet = _sets[species]
 	var s := _rng.randf_range(smin, smax)
 	var b := Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3(s, s * _rng.randf_range(0.92, 1.1), s))
@@ -95,7 +96,9 @@ func _add(species: String, variant: int, p: Vector3, smin: float, smax: float, a
 	# a few autumn-tinted broadleaf trees (ART_BIBLE.md §5: accents <= 10%)
 	if species == "broadleaf" and _rng.randf() < (0.08 if autumn_ok else 0.05):
 		autumn = _rng.randf_range(0.35, 0.9)
-	set.customs.append(Color(autumn, _rng.randf(), _rng.randf_range(0.2, 0.8), 0.0))
+	if flowering:
+		autumn = 0.0
+	set.customs.append(Color(autumn, _rng.randf(), _rng.randf_range(0.2, 0.8), 1.0 if flowering else 0.0))
 	var info: Dictionary = TreeKit.VARIANTS[TreeKit.SPECIES[species]["variants"][variant]]
 	var tr := float(info.get("trunk_r", TreeKit.SPECIES[species]["trunk_r"]))
 	var th := float(TreeKit.SPECIES[species]["trunk_h"])
