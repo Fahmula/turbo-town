@@ -3,6 +3,12 @@ class_name TerrainBuilder
 extends RefCounted
 ## Island heightfield: procedural hills + mountain, flattened under roads and
 ## special areas, then turned into chunked meshes and a HeightMapShape3D.
+##
+## Vertex data for terrain.gdshader (material weights, not a blended colour):
+##   COLOR.r = sand, COLOR.g = dirt, COLOR.b = dry grass, COLOR.a = patch noise
+##   UV.x    = road influence (worn verge), UV.y = lush grass (1 - the rest)
+## Rock comes from the slope, per pixel. The same weights feed the grass
+## tufts (grass_field.gd) through `grass_textures()`.
 
 const CHUNK_CELLS := 64
 
@@ -14,9 +20,17 @@ var heights := PackedFloat32Array()
 var _road_w := PackedFloat32Array()
 var _road_h := PackedFloat32Array()
 var _road_d := PackedFloat32Array()
+## Distance (m) from each vertex to the nearest road/flat-area edge (negative
+## under it), 99 when nothing is near. Keeps grass tufts off the verges.
+var _road_e := PackedFloat32Array()
+## Areas where no grass should grow, as Rect2(x, z, w, d) in metres: paved
+## sites the road raster doesn't cover (stunt park, city blocks).
+var grass_exclusions: Array[Rect2] = []
 var _noise := FastNoiseLite.new()
 var _detail := FastNoiseLite.new()
 var _color_noise := FastNoiseLite.new()
+var _height_tex: ImageTexture
+var _mask_tex: ImageTexture
 
 
 func _init() -> void:
@@ -31,6 +45,12 @@ func _init() -> void:
 	_detail.fractal_octaves = 3
 	_color_noise.seed = 3
 	_color_noise.frequency = 0.035
+	# Paved sites that the road raster doesn't cover.
+	grass_exclusions.append(Rect2(MapLayout.PARK_MIN, MapLayout.PARK_MAX - MapLayout.PARK_MIN))
+	# The bridge to the lighthouse islet (its deck meets the ground at both ends).
+	grass_exclusions.append(Rect2(MapLayout.BRIDGE_WEST_X - 3.0, -MapLayout.BRIDGE_WIDTH * 0.5 - 1.5, MapLayout.BRIDGE_EAST_X - MapLayout.BRIDGE_WEST_X + 6.0, MapLayout.BRIDGE_WIDTH + 3.0))
+	var ac := MapLayout.APRON_CENTER
+	grass_exclusions.append(Rect2(ac.x - 45.0, ac.z - MapLayout.APRON_SIZE.y * 0.5 - 24.0, 100.0, 24.0))
 
 
 # ---------------------------------------------------------------- heights ---
@@ -97,8 +117,10 @@ func generate_base() -> void:
 	_road_w.resize(n * n)
 	_road_h.resize(n * n)
 	_road_d.resize(n * n)
+	_road_e.resize(n * n)
 	_road_w.fill(0.0)
 	_road_d.fill(1e9)
+	_road_e.fill(99.0)
 	for j in n:
 		var z := -half + j * cell
 		for i in n:
@@ -134,6 +156,7 @@ func raster_segment(a: Vector3, b: Vector3, half_width: float, shoulder: float) 
 				continue
 			var w := 1.0 - smoothstep(inner, r, d)
 			var idx := j * n + i
+			_road_e[idx] = minf(_road_e[idx], d - half_width)
 			# Take the strongest influence; on ties (e.g. both fully flattened)
 			# the nearest segment decides the height, so slopes stay accurate.
 			var cur := _road_w[idx]
@@ -156,6 +179,7 @@ func raster_circle(center: Vector2, radius: float, height: float, blend: float) 
 				continue
 			var w := 1.0 - smoothstep(radius, r, d)
 			var idx := j * n + i
+			_road_e[idx] = minf(_road_e[idx], d - radius)
 			if w > _road_w[idx] + 0.001:
 				_road_w[idx] = w
 				_road_h[idx] = height
@@ -208,11 +232,16 @@ func build(parent: Node3D, material: Material) -> void:
 	root.name = "Terrain"
 	parent.add_child(root)
 
-	# Per-vertex normals and colours, shared by all chunks.
+	# Per-vertex normals and material weights, shared by all chunks.
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var mask := PackedByteArray()
 	normals.resize(n * n)
 	colors.resize(n * n)
+	uvs.resize(n * n)
+	mask.resize(n * n * 4)
+	var park_rects := parks()
 	for j in n:
 		for i in n:
 			var idx := j * n + i
@@ -222,12 +251,24 @@ func build(parent: Node3D, material: Material) -> void:
 			var hu := heights[mini(j + 1, n - 1) * n + i]
 			var nrm := Vector3(hl - hr, 2.0 * cell, hd - hu).normalized()
 			normals[idx] = nrm
-			colors[idx] = _color_for(-half + i * cell, -half + j * cell, heights[idx], nrm.y, _road_w[idx])
+			var x := -half + i * cell
+			var z := -half + j * cell
+			var wgt := _weights_for(x, z, heights[idx], nrm.y, _road_w[idx], _road_e[idx])
+			colors[idx] = wgt
+			uvs[idx] = Vector2(_road_w[idx], clampf(1.0 - wgt.r - wgt.g - wgt.b * 0.5, 0.0, 1.0))
+			var dens := _grass_density(x, z, heights[idx], nrm.y, wgt, _road_e[idx], park_rects)
+			mask[idx * 4] = int(dens * 255.0)
+			mask[idx * 4 + 1] = int(clampf(wgt.b, 0.0, 1.0) * 255.0)
+			mask[idx * 4 + 2] = int(wgt.a * 255.0)
+			mask[idx * 4 + 3] = 255
+	# Textures for the grass shader: exact heights (R32F) and the density mask.
+	_height_tex = ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_RF, heights.to_byte_array()))
+	_mask_tex = ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_RGBA8, mask))
 
 	var chunks := (n - 1) / CHUNK_CELLS
 	for cz in chunks:
 		for cx in chunks:
-			root.add_child(_build_chunk(cx, cz, normals, colors, material))
+			root.add_child(_build_chunk(cx, cz, normals, colors, uvs, material))
 
 	# Collision: one heightmap, scaled to the cell size.
 	var body := StaticBody3D.new()
@@ -244,15 +285,17 @@ func build(parent: Node3D, material: Material) -> void:
 	root.add_child(body)
 
 
-func _build_chunk(cx: int, cz: int, normals: PackedVector3Array, colors: PackedColorArray, material: Material) -> MeshInstance3D:
+func _build_chunk(cx: int, cz: int, normals: PackedVector3Array, colors: PackedColorArray, uvs: PackedVector2Array, material: Material) -> MeshInstance3D:
 	var size := CHUNK_CELLS + 1
 	var verts := PackedVector3Array()
 	var nrm := PackedVector3Array()
 	var cols := PackedColorArray()
+	var uv := PackedVector2Array()
 	var idx := PackedInt32Array()
 	verts.resize(size * size)
 	nrm.resize(size * size)
 	cols.resize(size * size)
+	uv.resize(size * size)
 	for lj in size:
 		for li in size:
 			var i := cx * CHUNK_CELLS + li
@@ -262,6 +305,7 @@ func _build_chunk(cx: int, cz: int, normals: PackedVector3Array, colors: PackedC
 			verts[k] = Vector3(-half + i * cell, heights[g], -half + j * cell)
 			nrm[k] = normals[g]
 			cols[k] = colors[g]
+			uv[k] = uvs[g]
 	idx.resize(CHUNK_CELLS * CHUNK_CELLS * 6)
 	var w := 0
 	for lj in CHUNK_CELLS:
@@ -278,6 +322,7 @@ func _build_chunk(cx: int, cz: int, normals: PackedVector3Array, colors: PackedC
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = nrm
 	arrays[Mesh.ARRAY_COLOR] = cols
+	arrays[Mesh.ARRAY_TEX_UV] = uv
 	arrays[Mesh.ARRAY_INDEX] = idx
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
@@ -288,23 +333,73 @@ func _build_chunk(cx: int, cz: int, normals: PackedVector3Array, colors: PackedC
 	return mi
 
 
-func _color_for(x: float, z: float, h: float, up: float, road_w: float) -> Color:
+## Material weights for one vertex (see the class comment): the shader turns
+## them into ground using real texture scans.
+func _weights_for(x: float, z: float, h: float, _up: float, _road_weight: float, road_e: float) -> Color:
 	var cn := _color_noise.get_noise_2d(x, z) * 0.5 + 0.5
-	var grass := ArtPalette.GRASS_DARK.lerp(ArtPalette.GRASS_LIGHT, cn)
-	var c := grass
-	# Dry, yellowish grass high on the mountain.
-	c = c.lerp(ArtPalette.GRASS_DRY, smoothstep(22.0, 40.0, h) * 0.7)
+	# Dry grass high on the mountain (the shader adds dry patches lower down).
+	var dry := smoothstep(26.0, 44.0, h) * 0.6
 	# Dirt fields to the east.
 	var fields := smoothstep(330.0, 360.0, x) * (1.0 - smoothstep(170.0, 200.0, absf(z)))
-	c = c.lerp(ArtPalette.DIRT.lerp(ArtPalette.DIRT_DARK, cn), fields * 0.9)
-	# Rock on steep slopes.
-	var steep := 1.0 - smoothstep(0.72, 0.9, up)
-	c = c.lerp(ArtPalette.ROCK_DARK.lerp(ArtPalette.ROCK_LIGHT, cn), steep)
-	# Road verges slightly worn.
-	c = c.lerp(c.darkened(0.12), road_w * 0.6)
+	var dirt := fields * 0.9
+	# Road verges: a worn, gravelly strip along country roads.
+	dirt = maxf(dirt, smoothstep(-0.5, 0.5, road_e) * (1.0 - smoothstep(0.5, 3.5, road_e)) * 0.35 * (1.0 - fields))
 	# Beach and sea floor.
+	var sand := 0.0
 	var shore := shore_factor(x, z)
 	if shore > 0.02:
-		var sand := ArtPalette.SAND_LIGHT.lerp(ArtPalette.SAND_DARK, cn)
-		c = c.lerp(sand, smoothstep(2.2, 0.8, h) * smoothstep(0.02, 0.12, shore))
-	return c
+		sand = smoothstep(2.2, 0.8, h) * smoothstep(0.02, 0.12, shore)
+	return Color(sand, dirt, dry, cn)
+
+
+## A flat approximate ground colour (the world map still draws with it):
+## the old palette blend, driven by the same weights as the shader.
+func _color_for(x: float, z: float, h: float, up: float, road_w: float) -> Color:
+	var w := _weights_for(x, z, h, up, road_w, 99.0)
+	var c := ArtPalette.GRASS_DARK.lerp(ArtPalette.GRASS_LIGHT, w.a)
+	c = c.lerp(ArtPalette.GRASS_DRY, w.b)
+	c = c.lerp(ArtPalette.DIRT.lerp(ArtPalette.DIRT_DARK, w.a), w.g)
+	c = c.lerp(ArtPalette.ROCK_DARK.lerp(ArtPalette.ROCK_LIGHT, w.a), 1.0 - smoothstep(0.72, 0.9, up))
+	c = c.lerp(c.darkened(0.12), road_w * 0.6)
+	return c.lerp(ArtPalette.SAND_LIGHT.lerp(ArtPalette.SAND_DARK, w.a), w.r)
+
+
+## 0..1 where grass tufts may grow: not on sand, dirt, steep rock, under
+## water, on or at the edge of roads, paved sites or the city blocks.
+func _grass_density(x: float, z: float, h: float, up: float, wgt: Color, road_e: float, _park_rects: Array[Rect2]) -> float:
+	var d := 1.0 - smoothstep(0.25, 0.7, wgt.r)
+	d *= 1.0 - smoothstep(0.1, 0.8, wgt.g)
+	d *= smoothstep(0.62, 0.82, up)
+	d *= smoothstep(-1.0, -0.4, h)
+	d *= smoothstep(1.0, 2.6, road_e)
+	# The city: blocks are paved; the parks' lawns get tufts in the shader.
+	d *= smoothstep(0.5, 4.0, _outside(Rect2(-156.0, -156.0, 312.0, 312.0), x, z))
+	for r: Rect2 in grass_exclusions:
+		d *= smoothstep(0.5, 4.0, _outside(r, x, z))
+	return d
+
+
+## Distance from (x, z) to the outside of `r` (negative inside).
+func _outside(r: Rect2, x: float, z: float) -> float:
+	var dx := maxf(r.position.x - x, x - r.end.x)
+	var dz := maxf(r.position.y - z, z - r.end.y)
+	return maxf(dx, dz)
+
+
+## Lawn rectangles of the city's parks (inner lawn of each "park" block,
+## after the kerb and sidewalk), as Rect2(x, z, w, d).
+static func parks() -> Array[Rect2]:
+	var list: Array[Rect2] = []
+	var g := MapLayout.CITY_GRID
+	var inset := MapLayout.CITY_ROAD_WIDTH * 0.5 + MapLayout.SIDEWALK_WIDTH
+	for j in g.size() - 1:
+		for i in g.size() - 1:
+			if MapLayout.BLOCK_TYPES[j][i] == "park":
+				list.append(Rect2(g[i] + inset, g[j] + inset, g[i + 1] - g[i] - 2.0 * inset, g[j + 1] - g[j] - 2.0 * inset))
+	return list
+
+
+## Textures for grass_field.gd: "heights" (R32F, one texel per vertex) and
+## "mask" (RGBA8: R grass density, G dry grass, B patch noise). Valid after build().
+func grass_textures() -> Dictionary:
+	return {"heights": _height_tex, "mask": _mask_tex}
