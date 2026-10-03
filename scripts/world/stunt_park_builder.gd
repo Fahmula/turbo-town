@@ -86,19 +86,39 @@ func _build_gate(root: Node3D) -> void:
 	var mb := MeshBuilder.new()
 	var body := StaticBody3D.new()
 	body.name = "Gate"
-	var red := Color(0.72, 0.18, 0.14, StreetKit.PAINTED)
+	var red := Color(0.72, 0.18, 0.14, StreetKit.WORN)
+	var galv := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
 	for sx in [-1.0, 1.0]:
 		var xf := Transform3D(Basis.IDENTITY, Vector3(sx * 9.0, 4.0, z))
-		mb.add_bevel_box(xf, Vector3(1.2, 8.0, 1.2), 0.1, red, Color(0.45, 0.12, 0.1, StreetKit.PAINTED))
-		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * 9.0, 0.2, z)), Vector3(1.8, 0.4, 1.8), 0.05, Color(ArtPalette.CONCRETE, StreetKit.CONCRETE))
+		mb.add_bevel_box(xf, Vector3(1.2, 8.0, 1.2), 0.1, red, Color(0.45, 0.12, 0.1, StreetKit.WORN))
+		# Concrete footing, base plate with four bolts, a hand-hole cover.
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * 9.0, 0.15, z)), Vector3(2.0, 0.3, 2.0), 0.05, Color(ArtPalette.CONCRETE, StreetKit.CONCRETE))
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * 9.0, 0.33, z)), Vector3(1.6, 0.06, 1.6), 0.01, galv)
+		for bx in [-1.0, 1.0]:
+			for bz in [-1.0, 1.0]:
+				StreetKit.bolt(mb, Vector3(sx * 9.0 + bx * 0.68, 0.36, z + bz * 0.68), Vector3.UP, 0.05, galv)
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(sx * 9.0 + 0.0, 1.0, z + 0.605)), Vector3(0.5, 0.7, 0.025), 0.005, Color(0.8, 0.2, 0.15, StreetKit.WORN))
+		# Floodlights on top of each column.
+		for fz in [-0.25, 0.25]:
+			StreetKit.beam(mb, Vector3(sx * 9.0, 8.0, z + fz), Vector3(sx * 9.0, 8.5, z + fz * 1.6), 0.08, 0.08, galv, 0.01)
+			mb.add_bevel_box(Transform3D(Basis(Vector3.RIGHT, 0.5 * signf(fz)), Vector3(sx * 9.0, 8.6, z + fz * 1.8)), Vector3(0.5, 0.3, 0.12), 0.03, Color(0.2, 0.21, 0.22, StreetKit.PAINTED))
+			mb.add_bevel_box(Transform3D(Basis(Vector3.RIGHT, 0.5 * signf(fz)), Vector3(sx * 9.0, 8.6, z + fz * 1.8 + 0.07 * signf(fz))), Vector3(0.42, 0.22, 0.02), 0.004, Color(0.95, 0.93, 0.86, StreetKit.LAMP))
 		var cs := CollisionShape3D.new()
 		var sh := BoxShape3D.new()
 		sh.size = Vector3(1.2, 8.0, 1.2)
 		cs.shape = sh
 		cs.transform = xf
 		body.add_child(cs)
-	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, 8.6, z)), Vector3(20.0, 2.4, 1.0), 0.1, Color(0.18, 0.36, 0.64, StreetKit.SIGN))
+	# Sign board on a steel frame: the face is retroreflective sheeting, with a
+	# white band below it and a catwalk rail above.
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, 8.6, z)), Vector3(20.0, 2.4, 1.0), 0.1, Color(0.18, 0.36, 0.64, StreetKit.PAINTED))
+	for side in [-1.0, 1.0]:
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, 8.6, z + side * 0.505)), Vector3(19.6, 2.1, 0.02), 0.005, Color(0.18, 0.36, 0.64, StreetKit.RETRO))
 	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(0, 7.32, z)), Vector3(20.0, 0.16, 1.02), 0.03, Color(0.9, 0.89, 0.86, StreetKit.PAINTED))
+	StreetKit.beam(mb, Vector3(-9.8, 10.5, z), Vector3(9.8, 10.5, z), 0.06, 0.06, galv, 0.01)
+	StreetKit.beam(mb, Vector3(-9.8, 10.1, z), Vector3(9.8, 10.1, z), 0.04, 0.04, galv, 0.01)
+	for rx in range(-9, 10, 3):
+		StreetKit.beam(mb, Vector3(rx, 9.8, z), Vector3(rx, 10.5, z), 0.05, 0.05, galv, 0.01)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mb.build_mesh(StreetKit.material())
 	body.add_child(mi)
@@ -178,8 +198,8 @@ func _build_loop(root: Node3D) -> void:
 		var n1 := loop_normal(i + 1)
 		var seg := p0.distance_to(p1)
 		# Painted steel deck panels in blue and white blocks, red-and-white kerbs.
-		var col := Color(0.2, 0.42, 0.72, StreetKit.DECK) if (i / 5) % 2 == 0 else Color(0.9, 0.9, 0.88, StreetKit.DECK)
-		var edge_col := Color(0.72, 0.18, 0.14, StreetKit.DECK) if (i / 5) % 2 == 0 else Color(0.9, 0.9, 0.88, StreetKit.DECK)
+		var col := Color(0.2, 0.42, 0.72, StreetKit.STEEL_DECK) if (i / 5) % 2 == 0 else Color(0.9, 0.9, 0.88, StreetKit.STEEL_DECK)
+		var edge_col := Color(0.72, 0.18, 0.14, StreetKit.STEEL_DECK) if (i / 5) % 2 == 0 else Color(0.9, 0.9, 0.88, StreetKit.STEEL_DECK)
 		var n_mid := (n0 + n1).normalized()
 		var steel := Color(0.3, 0.32, 0.34, StreetKit.PAINTED)
 		for k in prof.size() - 1:
@@ -204,7 +224,7 @@ func _build_loop(root: Node3D) -> void:
 			var e: Vector2 = prof[0] if side < 0.0 else prof[prof.size() - 1]
 			var t0: Vector3 = p0 + Vector3.RIGHT * e.x + n0 * e.y
 			var t1: Vector3 = p1 + Vector3.RIGHT * e.x + n1 * e.y
-			_quad(mb, t0 - n0 * thick, t1 - n1 * thick, t1, t0, Vector3.RIGHT * side, Color(0.3, 0.32, 0.34, StreetKit.PAINTED))
+			_quad(mb, t0 - n0 * thick, t1 - n1 * thick, t1, t0, Vector3.RIGHT * side, Color(0.62, 0.64, 0.66, StreetKit.METAL))
 	var top := pts[LOOP_STEPS / 2]
 	# Gantry holding up the top: pillars outside both lanes (the top of the
 	# loop is right above the way in), joined by a beam over the track.
@@ -216,7 +236,24 @@ func _build_loop(root: Node3D) -> void:
 		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(left, top_y * 0.5, z)), Vector3(0.7, top_y, 0.7), 0.06, grey)
 		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(right, top_y * 0.5, z)), Vector3(0.7, top_y, 0.7), 0.06, grey)
 		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3((left + right) * 0.5, top_y + 0.35, z)), Vector3(right - left + 0.7, 0.7, 0.7), 0.06, grey)
-	var node := mb.build_node("Loop", StreetKit.material(), true, 1.0)
+	# Looks only (not in the collider): floor beams under the deck, base plates
+	# and bolts on the gantry, bracing between its legs.
+	var shape := mb.build_collision_shape()
+	var steel := Color(0.3, 0.32, 0.34, StreetKit.PAINTED)
+	var gal := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+	for i in range(0, LOOP_STEPS, 3):
+		var n := loop_normal(i)
+		var t := (pts[mini(i + 1, LOOP_STEPS)] - pts[maxi(i - 1, 0)]).normalized()
+		mb.add_bevel_box(Transform3D(Basis(Vector3.RIGHT, n, t), pts[i] - n * (thick + 0.06)), Vector3(LOOP_WIDTH + 0.1, 0.12, 0.12), 0.015, steel, Color(0, 0, 0, -1), false)
+	for gx: float in [left, right]:
+		for z in [top.z - 3.0, top.z + 3.0]:
+			mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(gx, 0.04, z)), Vector3(1.1, 0.08, 1.1), 0.01, gal)
+			for bx in [-1.0, 1.0]:
+				for bz in [-1.0, 1.0]:
+					StreetKit.bolt(mb, Vector3(gx + bx * 0.45, 0.08, z + bz * 0.45), Vector3.UP, 0.04, gal)
+		StreetKit.beam(mb, Vector3(gx, 0.3, top.z - 3.0), Vector3(gx, top_y - 0.4, top.z + 3.0), 0.1, 0.1, gal, 0.015)
+		StreetKit.beam(mb, Vector3(gx, 0.3, top.z + 3.0), Vector3(gx, top_y - 0.4, top.z - 3.0), 0.1, 0.1, gal, 0.015)
+	var node := _body("Loop", mb, shape)
 	_make_slick(node)
 	root.add_child(node)
 	var sign := Label3D.new()
@@ -229,6 +266,22 @@ func _build_loop(root: Node3D) -> void:
 	sign.position = Vector3(LOOP_X - 7.0, 3.0, LOOP_Z - 30.0)
 	sign.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	root.add_child(sign)
+
+
+## A static body drawing `mb` (the shared props material) with a collider that
+## may be smaller than the drawing (trim and ribs are looks only).
+static func _body(node_name: String, mb: MeshBuilder, shape: Shape3D, grip := 1.0) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = node_name
+	var mi := MeshInstance3D.new()
+	mi.name = "Mesh"
+	mi.mesh = mb.build_mesh(StreetKit.material())
+	body.add_child(mi)
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	body.add_child(cs)
+	body.set_meta("surface_grip", grip)
+	return body
 
 
 ## Long, low cars scrape their bumpers on tight curves (like real ones would).
@@ -258,13 +311,17 @@ func _build_bowl(root: Node3D) -> void:
 		normals.append(Vector2(-sin(phi), cos(phi)))
 	profile.append(Vector2(BOWL_FLOOR + BOWL_CURVE, top))
 	normals.append(Vector2(-1, 0))
+	# Metres along the profile: the steel deck shader's "across" coordinate.
+	var pdist: Array[float] = [0.0]
+	for k in profile.size() - 1:
+		pdist.append(pdist[k] + profile[k].distance_to(profile[k + 1]))
 	for i in segs:
 		var a0 := -PI * 0.5 + gap + (TAU - 2.0 * gap) * i / segs
 		var a1 := -PI * 0.5 + gap + (TAU - 2.0 * gap) * (i + 1) / segs
 		var d0 := Vector3(cos(a0), 0, sin(a0))
 		var d1 := Vector3(cos(a1), 0, sin(a1))
 		# Painted panels in orange and amber (playful, as the stunt park may be).
-		var col := Color(0.88, 0.5, 0.14, StreetKit.DECK) if (i / 3) % 2 == 0 else Color(0.9, 0.72, 0.28, StreetKit.DECK)
+		var col := Color(0.88, 0.5, 0.14, StreetKit.STEEL_DECK) if (i / 3) % 2 == 0 else Color(0.9, 0.72, 0.28, StreetKit.STEEL_DECK)
 		var along0 := TAU * (BOWL_FLOOR + BOWL_CURVE) * i / segs
 		var along1 := TAU * (BOWL_FLOOR + BOWL_CURVE) * (i + 1) / segs
 		for k in profile.size() - 1:
@@ -281,7 +338,7 @@ func _build_bowl(root: Node3D) -> void:
 			var n10 := d1 * nk.x + Vector3.UP * nk.y
 			var n11 := d1 * nk1.x + Vector3.UP * nk1.y
 			mb.add_quad_ex(v00, v10, v11, v01, n00, n10, n11, n01, col, col, col, col,
-				Vector2(0, along0), Vector2(0, along1), Vector2(0, along1), Vector2(0, along0))
+				Vector2(pdist[k], along0), Vector2(pdist[k], along1), Vector2(pdist[k + 1], along1), Vector2(pdist[k + 1], along0))
 			# Outside skin: dark steel.
 			var o := -(d0 * nk.x + Vector3.UP * nk.y) * thick
 			var skin := Color(0.3, 0.32, 0.34, StreetKit.PAINTED)
@@ -290,7 +347,25 @@ func _build_bowl(root: Node3D) -> void:
 		var r := BOWL_FLOOR + BOWL_CURVE
 		_quad(mb, c3 + d0 * r + Vector3.UP * top, c3 + d1 * r + Vector3.UP * top,
 			c3 + d1 * (r + thick) + Vector3.UP * top, c3 + d0 * (r + thick) + Vector3.UP * top, Vector3.UP, Color(0.62, 0.64, 0.66, StreetKit.METAL))
-	var node := mb.build_node("WallRide", StreetKit.material(), true, 1.0)
+	# Looks only (not in the collider): a galvanised coping rail round the top and
+	# stiffening ribs down the steel skin on the outside.
+	var shape := mb.build_collision_shape()
+	var gal := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+	var rib := Color(0.34, 0.355, 0.375, StreetKit.PAINTED)
+	var rail := PackedVector3Array()
+	for i in segs + 1:
+		var a := -PI * 0.5 + gap + (TAU - 2.0 * gap) * i / segs
+		rail.append(c3 + Vector3(cos(a), 0, sin(a)) * (BOWL_FLOOR + BOWL_CURVE + 0.12) + Vector3.UP * (top + 0.07))
+	StreetKit.tube_path(mb, rail, PackedFloat32Array([0.06]), 8, gal, true)
+	for i in range(0, segs + 1, 4):
+		var a := -PI * 0.5 + gap + (TAU - 2.0 * gap) * i / segs
+		var d := Vector3(cos(a), 0, sin(a))
+		for k in range(0, profile.size() - 1, 2):
+			var k2 := mini(k + 2, profile.size() - 1)
+			var pa := c3 + d * profile[k].x + Vector3.UP * profile[k].y - (d * normals[k].x + Vector3.UP * normals[k].y) * (thick + 0.03)
+			var pb := c3 + d * profile[k2].x + Vector3.UP * profile[k2].y - (d * normals[k2].x + Vector3.UP * normals[k2].y) * (thick + 0.03)
+			StreetKit.beam(mb, pa, pb, 0.08, 0.06, rib, 0.01)
+	var node := _body("WallRide", mb, shape)
 	node.set_meta("no_impact", true)  # (normal friction: scraping the wall helps you stick)
 	root.add_child(node)
 	var sign := Label3D.new()

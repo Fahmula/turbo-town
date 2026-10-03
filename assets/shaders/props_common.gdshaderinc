@@ -29,6 +29,7 @@
 //    22     sign face (glossy sheeting)
 //    23     retroreflective sheeting (signs, reflectors)
 //    24     fabric (awnings)          5 fabric
+//    25     decking planks           11 timber    0.152 m boards along UV.x, grooves, tint per board
 //    26     wood                      6 wood
 //    28     always-on glow (screens, beacons)
 //    30     deck panels (ramps)       7 deck     plywood sheets with seams and screws
@@ -36,7 +37,7 @@
 const int PROPS_LAYER[31] = int[31](
 	0, 8, 1, 9, 2, 10, 3, 11, 4, 12,
 	-1, 13, -1, 14, -1, 15, -1, -1, -1, 3,
-	-1, 0, -1, -1, 5, -1, 6, -1, -1, -1,
+	-1, 0, -1, -1, 5, 11, 6, -1, -1, -1,
 	7);
 
 // Tile size in metres per texture layer.
@@ -58,7 +59,7 @@ const float PROPS_NORMAL_K[16] = float[16](
 const float PROPS_ROUGH[31] = float[31](
 	0.5, 0.5, 0.42, 0.46, 0.88, 0.45, 0.55, 0.88, 0.85, 0.65,
 	0.06, 0.55, 0.2, 0.34, 0.2, 0.72, 0.12, 0.2, 0.12, 0.3,
-	0.12, 0.3, 0.3, 0.3, 0.95, 0.3, 0.8, 0.3, 0.3, 0.3,
+	0.12, 0.3, 0.3, 0.3, 0.95, 0.85, 0.8, 0.3, 0.3, 0.3,
 	0.62);
 
 // Decodes a tangent-space normal stored in RG (OpenGL, Y+), rebuilding Z.

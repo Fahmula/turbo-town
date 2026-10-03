@@ -21,7 +21,9 @@ var _views := {
 	"signal_head": [Vector3(33.0, 4.6, 322.0), Vector3(35.4, 4.7, 316.0), 45.0],
 	"signal_base": [Vector3(41.5, 1.8, 321.0), Vector3(39.0, 1.4, 316.0), 55.0],
 	"kickers": [Vector3(4.0, 2.2, 322.0), Vector3(0.0, 1.5, 345.0), 70.0],
-	"mega_ramp": [Vector3(100.0, 5.0, 330.0), Vector3(125.0, 7.0, 362.0), 70.0],
+	"ramp_deck": [Vector3(3.0, 1.2, 331.0), Vector3(0.5, 0.9, 337.5), 60.0],
+	"ramp_side": [Vector3(-6.0, 1.1, 341.0), Vector3(-3.5, 0.8, 337.0), 60.0],
+	"mega_ramp":[Vector3(100.0, 5.0, 330.0), Vector3(125.0, 7.0, 362.0), 70.0],
 	"loop_side": [Vector3(138.0, 4.5, 362.0), Vector3(160.0, 5.0, 372.0), 70.0],
 	"loop_front": [Vector3(158.0, 3.0, 340.0), Vector3(162.0, 4.0, 372.0), 70.0],
 	"bowl": [Vector3(165.0, 3.5, 452.0), Vector3(165.0, 4.5, 487.0), 70.0],
@@ -29,7 +31,9 @@ var _views := {
 	"gate": [Vector3(0.0, 3.0, 328.0), Vector3(0.0, 6.0, 307.0), 75.0],
 	"harbour_a": [Vector3(-398.0, 3.0, -198.0), Vector3(-385.0, 3.0, -228.0), 70.0],
 	"harbour_b": [Vector3(-436.0, 2.5, -238.0), Vector3(-405.0, 8.0, -250.0), 70.0],
-	"harbour_pier": [Vector3(-415.0, 2.2, -240.0), Vector3(-450.0, 0.5, -243.0), 70.0],
+	"boat": [Vector3(-433.0, 2.2, -202.0), Vector3(-442.0, 0.3, -208.5), 55.0],
+	"boat_b": [Vector3(-452.0, 2.0, -218.0), Vector3(-442.0, 0.3, -208.5), 55.0],
+	"harbour_pier":[Vector3(-415.0, 2.2, -240.0), Vector3(-450.0, 0.5, -243.0), 70.0],
 	"airfield_a": [Vector3(330.0, 2.5, 284.0), Vector3(335.0, 7.0, 240.0), 75.0],
 	"airfield_plane": [Vector3(316.0, 2.4, 276.0), Vector3(308.0, 2.2, 260.0), 60.0],
 	"airfield_tower": [Vector3(366.0, 3.0, 262.0), Vector3(379.0, 14.0, 234.0), 70.0],
@@ -100,7 +104,8 @@ func _run() -> void:
 			var pos: Vector3 = v[0]
 			cam.set_process(false)
 			# Park the car out of the shot and let the area stream in.
-			game.vehicle.teleport(Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(pos.x, 0.6, pos.z + 12.0)))
+			var back: Vector3 = pos - Vector3((v[1] as Vector3).x - pos.x, 0.0, (v[1] as Vector3).z - pos.z).normalized() * 14.0
+			game.vehicle.teleport(Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(back.x, 0.6 + maxf(pos.y - 3.0, 0.0), back.z)))
 			cam.global_position = pos
 			cam.fov = v[2]
 			cam.look_at(v[1], Vector3.UP)

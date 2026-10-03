@@ -63,7 +63,7 @@ vec3 deck_sheets(vec2 p, vec2 sz, float stagger, float sp, float inset, float ra
 	float row = floor(p.y / sz.y);
 	float x = p.x + mod(row, 2.0) * sz.x * stagger;
 	float hsh = hash12(vec2(floor(x / sz.x), row));
-	float seam = max(grid_line(p.y, sz.y, 0.012), grid_line(x, sz.x, 0.012));
+	float seam = max(grid_line(p.y, sz.y, 0.028), grid_line(x, sz.x, 0.028));
 	vec2 d = vec2(abs(fract(x / sz.x + 0.5) - 0.5) * sz.x, abs(fract(p.y / sz.y + 0.5) - 0.5) * sz.y);
 	float ysp = (fract(p.y / sp) - 0.5) * sp;
 	float xsp = (fract(x / sp) - 0.5) * sp;
@@ -102,6 +102,12 @@ void fragment() {
 		// Steel deck: 1.5 x 2 m painted plates, bolted along the seams.
 		sheet = deck_sheets(UV, vec2(1.5, 2.0), 0.0, 0.25, 0.035, 0.011, dist);
 		uvm = UV + vec2(sheet.z * 5.3, sheet.z * 2.9);
+	} else if (c == 25) {
+		// Decking: 152 mm boards across UV.x, each with its own grain and tone.
+		float idx = floor(UV.x / 0.152);
+		float h = hash12(vec2(idx, 3.7));
+		sheet = vec3(grid_line(UV.x + 0.076, 0.152, 0.012), 0.0, h);
+		uvm = vec2(UV.x + h * 7.1, UV.y + h * 3.3);
 	}
 
 	if (quality > 0) {
@@ -164,15 +170,25 @@ void fragment() {
 		spec = 0.8;
 	} else if (c == 24) {
 		spec = 0.3;
+	} else if (c == 25) {
+		col *= 1.0 - sheet.x * 0.55;
+		col *= 0.78 + sheet.z * 0.44;
+		rough = max(rough, sheet.x * 0.9);
 	} else if (c == 28) {
 		rough = 0.3;
 		emit = col * (0.8 + 1.2 * night);
 	} else if (c == 30) {
-		col *= 1.0 - sheet.x * 0.4;
-		col *= 1.0 + (sheet.z - 0.5) * 0.08;
+		// Sheets differ a little in tint; rubber has polished two wheel paths.
+		col *= 1.0 - sheet.x * 0.3;
+		col *= 1.0 + (sheet.z - 0.5) * 0.14;
+		float wheel = 1.0 - smoothstep(0.1, 0.32, abs(abs(UV.x) - 0.95));
+		float scuff = quality > 0 ? texture(detail, UV * 0.37).g : 0.5;
+		wheel *= 0.5 + 0.5 * scuff;
+		col *= 1.0 - wheel * 0.16;
 		col = mix(col, vec3(0.2, 0.2, 0.21), sheet.y * 0.75);
 		rough = mix(rough * 0.92, 0.45, sheet.y);
 		rough = max(rough, sheet.x * 0.85);
+		rough = mix(rough, 0.82, wheel * 0.5);
 	} else if (c == 0) {
 		col *= tint.rgb;
 	}

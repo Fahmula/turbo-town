@@ -42,6 +42,7 @@ const STEEL_DECK := 21.0 / 30.0
 const SIGN := 11.0 / 15.0
 const RETRO := 23.0 / 30.0
 const FABRIC := 12.0 / 15.0
+const DECKING := 25.0 / 30.0
 const WOOD := 13.0 / 15.0
 const GLOW := 14.0 / 15.0
 const DECK := 15.0 / 15.0

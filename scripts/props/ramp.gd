@@ -108,10 +108,11 @@ func _rebuild() -> void:
 			zs.append(-length - deck_length * float(k + 1) / steps)
 			ys.append(ys[ys.size() - 1])
 
-	# Deck: painted plywood panels (seams every 1.22 m, street_props.gdshader
-	# class 15) with hazard-striped edges; the sides are a dark steel frame.
+	# Deck: painted plywood sheets (1.22 x 2.44 m with screws, street_props.gdshader
+	# class 15) with hazard-striped edges; the sides are steel plate with
+	# stiffening ribs, a galvanised edge rail and a base angle (see below).
 	var deck := Color(surface_color, StreetKit.DECK)
-	var side_col := Color(0.24, 0.25, 0.26, StreetKit.PAINTED)
+	var side_col := Color(0.27, 0.285, 0.3, StreetKit.PAINTED)
 	var side_low := Color(0.15, 0.155, 0.16, StreetKit.PAINTED)
 	var sw := minf(stripe_width, hw * 0.3)
 	# Normals along the profile: smooth on curves, hard where the slope meets the deck.
@@ -154,6 +155,37 @@ func _rebuild() -> void:
 		var back := Vector3.FORWARD
 		mb.add_quad_ex(Vector3(-hw, 0, last_z), Vector3(-hw, last_y, last_z), Vector3(hw, last_y, last_z), Vector3(hw, 0, last_z),
 			back, back, back, back, side_low, side_col, side_col, side_low)
-
-	_mesh_instance.mesh = mb.build_mesh(StreetKit.material())
+	# The collider is the deck, sides and back only; the steel trim below is looks.
 	_collision.shape = mb.build_collision_shape()
+	_add_steel(mb, hw, zs, ys)
+	_mesh_instance.mesh = mb.build_mesh(StreetKit.material())
+
+
+## Galvanised edge rails along the deck, stiffening ribs on the steel side
+## plates and a base angle (all in the deck's mesh, so no extra draw calls).
+func _add_steel(mb: MeshBuilder, hw: float, zs: Array[float], ys: Array[float]) -> void:
+	var galv := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+	var rib := Color(0.34, 0.355, 0.375, StreetKit.PAINTED)
+	var last := zs.size() - 1
+	var step := maxi(1, ceili(last / 24.0))
+	for s: float in [-1.0, 1.0]:
+		var x := s * (hw + 0.025)
+		var i := 0
+		while i < last:
+			var j := mini(i + step, last)
+			StreetKit.beam(mb, Vector3(x, ys[i] - 0.035, zs[i]), Vector3(x, ys[j] - 0.035, zs[j]), 0.05, 0.07, galv, 0.01)
+			i = j
+		var acc := 0.0
+		for q in last:
+			acc += absf(zs[q + 1] - zs[q])
+			if acc >= 1.6 and ys[q + 1] > 0.3:
+				acc = 0.0
+				mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(s * (hw + 0.012), ys[q + 1] * 0.5 - 0.02, zs[q + 1])),
+					Vector3(0.025, ys[q + 1] - 0.14, 0.07), 0.008, rib, Color(0, 0, 0, -1), false)
+		StreetKit.beam(mb, Vector3(s * (hw + 0.02), 0.045, zs[0]), Vector3(s * (hw + 0.02), 0.045, zs[last]), 0.05, 0.09, galv, 0.01)
+	# Stiffening ribs across the back wall.
+	if ys[last] > 0.5:
+		var nribs := maxi(int(hw * 2.0 / 1.6), 1)
+		for r in nribs + 1:
+			var rx := -hw + hw * 2.0 * float(r) / nribs
+			mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(rx, ys[last] * 0.5, zs[last] - 0.025)), Vector3(0.07, ys[last] - 0.12, 0.05), 0.01, rib, Color(0, 0, 0, -1), false)
