@@ -338,28 +338,28 @@ def main():
     process_albedo(s["Color"], out("road", "road_asphalt_a_albedo.jpg"), keep_sat=0.25, flatten=1.0, flat_sigma=0.08)
     process_nra(s["NormalGL"], s["Roughness"], None, out("road", "road_asphalt_a_nra.png"),
                 disp=s["Displacement"], rough_mean=0.8, rough_gain=0.9, rough_lo=0.58, rough_hi=0.98)
-    credit("road", "Asphalt 015", "ambientCG (Struffel Productions)", "https://ambientcg.com/a/Asphalt015", use="city and highway asphalt aggregate (colour, normal, roughness, cavity AO from displacement)")
+    credit("road", "Asphalt 015", "ambientCG", "https://ambientcg.com/a/Asphalt015", use="city and highway asphalt aggregate (colour, normal, roughness, cavity AO from displacement)")
 
     print("asphalt B (country)")
     s = ambientcg("Asphalt032", "2K")
     process_albedo(s["Color"], out("road", "road_asphalt_b_albedo.jpg"), keep_sat=0.45, flatten=1.0, flat_sigma=0.08)
     process_nra(s["NormalGL"], s["Roughness"], None, out("road", "road_asphalt_b_nra.png"),
                 disp=s["Displacement"], rough_mean=0.82, rough_gain=0.8, rough_lo=0.6, rough_hi=0.98)
-    credit("road", "Asphalt 032", "ambientCG (Struffel Productions)", "https://ambientcg.com/a/Asphalt032", use="country road asphalt")
+    credit("road", "Asphalt 032", "ambientCG", "https://ambientcg.com/a/Asphalt032", use="country road asphalt")
 
     print("concrete S (sidewalk, kerb, plaza)")
     s = polyhaven("granular_concrete", "2k")
     process_albedo(s["diff"], out("road", "road_concrete_s_albedo.jpg"), keep_sat=0.5, flatten=0.4, flat_sigma=0.1)
     process_nra(s["nor_gl"], s["rough"], None, out("road", "road_concrete_s_nra.png"), ao_path=s["ao"],
                 normal_gain=0.9, rough_mean=0.9, rough_gain=0.7, rough_lo=0.7, rough_hi=0.99, ao_strength=0.45)
-    credit("road", "Granular Concrete", "Rob Tuytel / Poly Haven", "https://polyhaven.com/a/granular_concrete", use="sidewalk slabs, kerbs, plaza")
+    credit("road", "Granular Concrete", "Dario Barresi, Michael Jenkins / Poly Haven", "https://polyhaven.com/a/granular_concrete", use="sidewalk slabs, kerbs, plaza")
 
     print("concrete C (cast)")
     s = ambientcg("Concrete020", "2K")
     process_albedo(s["Color"], out("road", "road_concrete_c_albedo.jpg"), keep_sat=0.5, flatten=0.45, flat_sigma=0.12)
     process_nra(s["NormalGL"], s["Roughness"], None, out("road", "road_concrete_c_nra.png"),
                 disp=s["Displacement"], normal_gain=1.1, rough_mean=0.9, rough_gain=0.8, rough_lo=0.7, rough_hi=1.0, ao_strength=0.8)
-    credit("road", "Concrete 020", "ambientCG (Struffel Productions)", "https://ambientcg.com/a/Concrete020", use="cast concrete: barriers, piers, decks, retaining walls")
+    credit("road", "Concrete 020", "ambientCG", "https://ambientcg.com/a/Concrete020", use="cast concrete: barriers, piers, decks, retaining walls")
 
     print("macro (aerial asphalt)")
     s = polyhaven("aerial_asphalt_01", "2k", maps=("Diffuse",))
