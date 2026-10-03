@@ -19,6 +19,10 @@ const PARKED_CAR_RANGE := 200.0
 
 
 func _ready() -> void:
+	# Props get knocked about: they take bounce light (SDFGI on High) but are
+	# never baked into it.
+	for gi in find_children("*", "GeometryInstance3D", true, false):
+		(gi as GeometryInstance3D).gi_mode = GeometryInstance3D.GI_MODE_DYNAMIC
 	# Parked cars share the vehicles' models: optional racing stripes stay off.
 	for stripes in find_children("Stripes", "MeshInstance3D", true, false):
 		(stripes as MeshInstance3D).visible = false
