@@ -59,6 +59,8 @@ void fragment() {
 	bool low = quality == 0;
 	vec2 dUVx = dFdx(UV);
 	vec2 dUVy = dFdy(UV);
+	vec2 dWx = dFdx(wp);
+	vec2 dWy = dFdy(wp);
 
 	if (COLOR.a < 0.5) {
 		// Cast concrete deck side: scanned concrete, drip streaks from the edge.
@@ -157,7 +159,11 @@ void fragment() {
 		float w = 0.0;
 		float yl = 0.0;
 		if (median_half > 0.0) {
-			col = mix(col, concrete_color.rgb * 0.62, (1.0 - smoothstep(median_half - 0.05, median_half + 0.05, ax)) * 0.55);
+			// The median strip is concrete: sampled from the cast concrete scan.
+			float med = 1.0 - smoothstep(median_half - 0.04, median_half + 0.04, ax);
+			vec3 mcol = textureGrad(cast_albedo, wp / cast_tile, dWx / cast_tile, dWy / cast_tile).rgb * (1.0 / ALB_MEAN) * concrete_color.rgb * 0.75;
+			col = mix(col, mcol * (0.9 + 0.2 * s.tone), med);
+			rough = mix(rough, 0.9, med);
 			yl += paint_cover(abs(ax - (median_half + 0.2)) - 0.075, fwx, jit);
 		} else if (center_style == 1) {
 			yl += paint_cover(abs(ax - 0.14) - 0.055, fwx, jit);
@@ -199,6 +205,14 @@ void fragment() {
 		nxy *= 1.0 - paint * 0.5;
 		float paint_h = paint * 0.0025 * near;
 
+		if (!street) {
+			// Rural edge: dust and grit washed onto the shoulder, fraying the edge.
+			float edge = smoothstep(half_width - 0.5, half_width - 0.05, ax);
+			float frayed = edge * smoothstep(0.25, 0.7, s.film + 0.3 * (s.stone - 1.0));
+			col = mix(col, vec3(0.2, 0.17, 0.13) * (0.8 + 0.4 * s.stone * 0.5), frayed * 0.55);
+			col *= 1.0 - edge * 0.1;
+			rough = mix(rough, 0.97, edge * 0.5);
+		}
 		if (street) {
 			// Gutter along the kerb: damp, dirty, a little sandy grit.
 			float gutter = smoothstep(half_width - 0.55, half_width - 0.25, ax);
