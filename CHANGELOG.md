@@ -23,6 +23,19 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 - "Surprise me!" (Y, or X on the keyboard) picks a random vehicle, or a random
   paint or wheel setup.
 
+### Looks
+- The whole island looks far more real: real photographed skies with proper
+  clouds through the day and night, sunlight that bounces off walls and
+  grass, real-looking asphalt with cracks and patches, worn road paint,
+  concrete pavements and kerbs.
+- Grass you can see blowing in the wind, dirt fields churned up with tyre
+  tracks, rocky slopes, sandy beaches and a clearer sea with foam on the
+  shore.
+- Buildings made of brick, stone and plaster, with rooms you can see through
+  the windows, shops with signs, and lit windows at night.
+- Real-looking trees, bushes and hedges, and woods on the hills and the
+  mountain.
+
 ## [0.6.2] - 2026-10-02
 
 ### Sound

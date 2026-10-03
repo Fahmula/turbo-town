@@ -111,8 +111,11 @@ scripts/
              landmark builders, building_kit.gd / street_kit.gd / tree_kit.gd (the
              buildings, street furniture and trees, built in code), mesh_builder.gd
              (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs),
-             art_palette.gd (world colours), day_night.gd (sun, sky, lights after
-             dark), night_light.gd, lighthouse_beam.gd
+             art_palette.gd (world colours), day_night.gd (sun, real skies through
+             the day, lights after dark), sky_catalog.gd (generated: each sky photo's
+             sun and colours), grass_field.gd (3D grass tufts round the camera),
+             tree_scatter.gd / tree_lod.gd / tree_colliders.gd (where trees grow,
+             their LOD quadtree, trunk colliders), night_light.gd, lighthouse_beam.gd
   props/     prop.gd, kit_prop.gd (props whose mesh comes from StreetKit), ramp.gd
              (@tool, editable in the editor)
   ui/        hud.gd, speedometer.gd, world_map.gd (top-down island picture drawn
@@ -143,6 +146,10 @@ tools/blender/make_monster.py  Monster truck
 tools/blender/make_wheels.py   All four wheel types (sports, sedan, steel, off-road)
 tools/blender/body_kit.py      Shared loft body builder and modelling helpers
 tools/textures/make_textures.py  Ground detail, cloud and leaf textures:  python3 tools/textures/make_textures.py
+tools/textures/fetch_*.py      Download CC0 scans (Poly Haven, ambientCG) and make the game textures:
+                               fetch_sky.py (real skies), fetch_road.py, fetch_terrain.py,
+                               fetch_building.py, fetch_foliage.py, fetch_props.py; shared helpers in
+                               fetch_common.py. Run from the project root, then import in Godot
 tools/audio/build_audio.py     Every sound in assets/audio/ (downloads the licensed recordings,
                                makes loops, synthesises the rest, writes the profiles):
                                python3 tools/audio/build_audio.py

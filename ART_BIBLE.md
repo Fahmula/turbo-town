@@ -66,6 +66,43 @@ Contents: 0 Quick rules · 1 Identity · 2 References · 3 Today's baseline ·
 
 ---
 
+## 0b. Realism branch (experiment, 2026-10-03)
+
+On the `realism` branch the owner asked "how good can we get things looking"
+and lifted the usual limits for the experiment. Until the owner approves it,
+it stays off `dev` and `main`. On this branch these rules override the rest
+of the bible:
+
+- **Direction:** as realistic as Godot and the Steam Deck allow. §4's
+  "stylize" column and §29's bans on scanned/photo textures, "chasing
+  photorealism", SSIL, SSR, SDFGI and volumetric fog don't apply. Still in
+  force: real scale, no real brands or logos, kid-safe damage, readable
+  gameplay elements (markings, ramps, gates), no light baked into albedo.
+- **Textures:** CC0 scans from Poly Haven and ambientCG, downloaded and
+  processed by `tools/textures/fetch_<family>.py` (helpers in
+  `fetch_common.py`, cache in `build/texture_sources/`, credits in each
+  folder's `SOURCES.md` and in ASSET_MANIFEST.md). Up to 2048², mostly 1024²;
+  albedo de-lit and normalised so the palette colour still sets the average;
+  normal/roughness/AO packed; never visibly tiling (two scales, per-cell
+  rotation, macro variation).
+- **Lighting (High):** SDFGI (bounce light, sky occlusion), SSIL, SSAO, SSR,
+  light volumetric haze, soft sun shadows (`light_angular_distance` 0.6).
+  Medium and Low keep the old cheap path. Moving things are
+  `GI_MODE_DYNAMIC`; bulk-instanced foliage, grass and rocks are
+  `GI_MODE_DISABLED` (alpha cards voxelised into SDFGI darken themselves).
+- **Sky:** six real photographed skies (Poly Haven "pure sky" HDRIs; see §11).
+- **Families:** roads, paving and cast concrete (`road_common.gdshaderinc`);
+  terrain from material weights with 3D grass tufts (`grass_field.gd`),
+  scanned boulders and a spectral sea; facades with wall scans, recessed
+  windows, interior-mapped rooms, shop signs and weathering
+  (`facade_common.gdshaderinc`); trees with photo leaf clusters and bark,
+  woodland on the hills, shrubs and hedges, a quadtree LOD (`tree_lod.gd`,
+  `tree_scatter.gd`); street props and landmarks with PBR materials.
+- **Steam Deck:** not yet measured. The owner accepts a heavier High for the
+  experiment; Medium and Low stay the safety net. Measure before merging.
+
+---
+
 ## 1. Visual identity
 
 **Pitch:** a sun-drenched coastal island town where believable cars get
@@ -722,15 +759,18 @@ exposure, same tonemapper.
   `fog_sky_affect` at 0.
 - An optional, subtle height-fog layer near sea level for coastal haze.
 - **The sea melts into the haze at the horizon** (Ref 1). No hard horizon line.
-- **Clouds:** soft, round-topped fair-weather cumulus, drawn in `sky.gdshader`
-  from `assets/textures/sky/clouds.png` (coverage 0.42, projected on a plane,
-  fading into the haze below ~12°). They're lit toward the sun with a second
-  sample and coloured by `DayNight` (`cloud_light`: white mixed with the
-  sun's colour, `cloud_shade`: the horizon colour × 0.84), so they glow warm
-  at sunset and go dim grey-blue at night. **No faceted mesh clouds** (removed
-  with the environment upgrade).
-- **Sun:** a visible disk with a soft glow (today `sun_angle_max` 20°). No lens
-  flares or ghosts. Moon and stars at night (as today).
+- **Clouds (realism branch):** real photographed skies. `tools/textures/fetch_sky.py`
+  turns six CC0 Poly Haven "pure sky" HDRIs (dawn, morning, day, sunset,
+  dusk, moonlit night) into 4096×1024 upper-hemisphere textures with the
+  sun's core clamped out, and writes `SkyCatalog` (each photo's sun
+  direction, colour, horizon and zenith colours). `DayNight.SKY_KEYS`
+  crossfades them by hour with a brightness per key, puts the light at each
+  photo's sun height, turns each photo so its sun sits where the light is,
+  and takes the fog colour from the sky's horizon. Before the branch the
+  clouds were drawn from `clouds.png` (still in the repo, unused).
+  **No faceted mesh clouds.**
+- **Sun:** the photo's own (clamped) sun with glow; `sky.gdshader` can draw a
+  disc (`disc`, off). No lens flares or ghosts. Stars at night (as today).
 - **No weather by default.** If rain is ever added, no SSR puddles: darken
   roughness and add a few streaks.
 

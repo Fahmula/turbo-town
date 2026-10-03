@@ -321,6 +321,7 @@ const CREDITS := "[b]TURBO TOWN[/b]\n\n" \
 	+ "[color=#ffd54a]Tyre squeal[/color]  by Iwan \"qubodup\" Gabovitch from a recording by Tom Haigh (audible-edge). CC BY 3.0\n" \
 	+ "[color=#ffd54a]Air Break, Window Shattering[/color]  by Mike Koenig (SoundBible.com). CC BY 3.0\n" \
 	+ "[color=#ffd54a]CC0 sounds[/color]  by Kenney, cognito perceptu, 15HPanska_Ruttner_Jan, HarveyHenkelmann, X5DragonFire, TinyWorlds / Till Behrend, rubberduck, blacklodgegames\n\n" \
+	+ "[color=#ffd54a]Skies, textures, rock models[/color]  from Poly Haven and ambientCG. CC0\n\n" \
 	+ "Sounds changed for Turbo Town (looped, filtered, mixed, levels).\n" \
 	+ "CC BY: creativecommons.org/licenses/by/4.0 and /by/3.0\n" \
 	+ "Everything else is made for this game."

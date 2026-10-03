@@ -29,7 +29,82 @@ idle loop; heavy crashes have a synthesised low thump mixed in.
 > CC BY 3.0. CC0 sounds by Kenney, cognito perceptu, 15HPanska_Ruttner_Jan,
 > HarveyHenkelmann, X5DragonFire, TinyWorlds / Till Behrend, rubberduck and
 > blacklodgegames. Sounds changed for Turbo Town (looped, filtered, mixed,
-> levels).
+> levels). Skies, textures and rock models from Poly Haven and ambientCG (CC0).
+
+## Textures, skies and models (realism branch)
+
+Downloaded by the `tools/textures/fetch_<family>.py` scripts (cached in
+`build/texture_sources/`, gitignored) and processed into `assets/textures/<family>/`
+(resized, de-lit albedo, packed normal/roughness/AO). Every source is CC0 1.0 (no
+attribution required; credited anyway) from Poly Haven (polyhaven.com) or ambientCG
+(ambientcg.com). Each folder's `SOURCES.md` is written by its script; the rows are
+copied here.
+
+### Skies (real photographed skies, `tools/textures/fetch_sky.py`)
+
+| Asset | Author | Source | Licence | Used for |
+|---|---|---|---|---|
+| Qwantani Sunrise (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/qwantani_sunrise_puresky | CC0 1.0 | dawn sky (sky.gdshader) |
+| Kloofendal 38d Partly Cloudy (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/kloofendal_38d_partly_cloudy_puresky | CC0 1.0 | morning sky (sky.gdshader) |
+| Kloofendal 48d Partly Cloudy (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky | CC0 1.0 | day sky (sky.gdshader) |
+| Kloppenheim 06 (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/kloppenheim_06_puresky | CC0 1.0 | sunset sky (sky.gdshader) |
+| Qwantani Dusk 2 (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/qwantani_dusk_2_puresky | CC0 1.0 | dusk sky (sky.gdshader) |
+| Qwantani Moonrise (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/qwantani_moonrise_puresky | CC0 1.0 | night sky (sky.gdshader) |
+
+### Roads, paving and concrete (`tools/textures/fetch_road.py`)
+
+| Asset | Author | Source | Licence | Used for |
+|---|---|---|---|---|
+| Asphalt 015 | ambientCG | https://ambientcg.com/a/Asphalt015 | CC0 1.0 | city and highway asphalt aggregate (colour, normal, roughness, cavity AO from displacement) |
+| Asphalt 032 | ambientCG | https://ambientcg.com/a/Asphalt032 | CC0 1.0 | country road asphalt |
+| Granular Concrete | Dario Barresi, Michael Jenkins / Poly Haven | https://polyhaven.com/a/granular_concrete | CC0 1.0 | sidewalk slabs, kerbs, plaza |
+| Concrete 020 | ambientCG | https://ambientcg.com/a/Concrete020 | CC0 1.0 | cast concrete: barriers, piers, decks, retaining walls |
+| Brown Mud Dry | Rob Tuytel / Poly Haven | https://polyhaven.com/a/brown_mud_dry | CC0 1.0 | packed dirt of the mountain trail |
+| Aerial Asphalt 01 | Rob Tuytel / Poly Haven | https://polyhaven.com/a/aerial_asphalt_01 | CC0 1.0 | scuffs and stains (R of road_macro.png, luminance only) |
+| Generated maps | Turbo Town (tools/textures/fetch_road.py) | - | own work | road_cracks.png, the G/B/A channels of road_macro.png |
+
+### Terrain, rocks and sea (`tools/textures/fetch_terrain.py`, `tools/blender/make_nature_rocks.py`)
+
+| Asset | Author | Source | Licence | Used for |
+|---|---|---|---|---|
+| Grass004 | ambientCG (Lennart Demes) | https://ambientcg.com/a/Grass004 | CC0 1.0 | meadow ground texture |
+| grass_ground | Poly Haven (Rob Tuytel) | https://polyhaven.com/a/grass_ground | CC0 1.0 | dry grass patches |
+| brown_mud_dry | Poly Haven (Rob Tuytel) | https://polyhaven.com/a/brown_mud_dry | CC0 1.0 | dirt fields, soil |
+| rock_face_03 | Poly Haven (Rob Tuytel) | https://polyhaven.com/a/rock_face_03 | CC0 1.0 | rock faces on steep slopes, boulders |
+| sand_01 | Poly Haven (Rob Tuytel) | https://polyhaven.com/a/sand_01 | CC0 1.0 | beach sand |
+| dirt_aerial_02 | Poly Haven (Rob Tuytel) | https://polyhaven.com/a/dirt_aerial_02 | CC0 1.0 | macro tint and wear patches of the dirt fields |
+| aerial_mud_1 | Poly Haven (Rob Tuytel) | https://polyhaven.com/a/aerial_mud_1 | CC0 1.0 | tyre tracks and ruts in the churned dirt fields |
+| aerial_beach_01 | Poly Haven (Rob Tuytel) | https://polyhaven.com/a/aerial_beach_01 | CC0 1.0 | macro ripples and tone of the beach sand |
+| rock_moss_set_01 | Poly Haven | https://polyhaven.com/a/rock_moss_set_01 | CC0 1.0 | boulder models (assets/models/nature/rocks_a.glb) and their textures |
+| rock_moss_set_02 | Poly Haven | https://polyhaven.com/a/rock_moss_set_02 | CC0 1.0 | boulder models (assets/models/nature/rocks_b.glb) and their textures |
+| sea_normal, sea_foam, grass_cards, grass_noise | Turbo Town (generated) | tools/textures/fetch_terrain.py | n/a (own work) | procedural, fixed seeds |
+
+### Buildings (`tools/textures/fetch_building.py` and the interior/sign generators)
+
+| Asset | Author | Source | Licence | Used for |
+|---|---|---|---|---|
+| brick_wall_006 | Jan Burghardt | https://polyhaven.com/a/brick_wall_006 | CC0 1.0 | facade_*.jpg/png layer 0 (brick) |
+| plastered_wall | Amal Kumar | https://polyhaven.com/a/plastered_wall | CC0 1.0 | facade_*.jpg/png layer 1 (stucco) |
+| sandstone_blocks_08 | Rob Tuytel | https://polyhaven.com/a/sandstone_blocks_08 | CC0 1.0 | facade_*.jpg/png layer 2 (limestone) |
+| concrete_wall_009 | Charlotte Baglioni | https://polyhaven.com/a/concrete_wall_009 | CC0 1.0 | facade_*.jpg/png layer 3 (concrete) |
+| facade_weather.png | Turbo Town | tools/textures/fetch_building.py | generated (CC0) | rain streaks, blotches, grain, stains |
+| facade_interiors_*.jpg | Turbo Town | tools/blender/make_building_interiors.py + tools/textures/pack_building_interiors.py | generated (CC0) | room atlases for interior mapping (Cycles renders of procedurally built rooms) |
+| facade_signs.png | Turbo Town | tools/textures/make_building_signs.py | generated (CC0); lettering set in Fira Sans and Noto Serif (SIL OFL 1.1) | shop sign boards (generic trade words) |
+
+### Trees and plants (`tools/textures/fetch_foliage.py`)
+
+| Asset | Author | Source | Licence | Used for |
+|---|---|---|---|---|
+| Leaf Set 024, Leaf Set 014 | ambientCG | https://ambientcg.com/a/LeafSet024 | CC0 1.0 | broadleaf_a: beech / hornbeam-type leaf-cluster atlas |
+| Leaf Set 016 | ambientCG | https://ambientcg.com/a/LeafSet016 | CC0 1.0 | broadleaf_b: oak-type leaf-cluster atlas |
+| Leaf Set 004, Leaf Set 023 | ambientCG | https://ambientcg.com/a/LeafSet004 | CC0 1.0 | broadleaf_c: heart-shaped leaves (lilac / linden type) leaf-cluster atlas |
+| Leaf Set 002 | ambientCG | https://ambientcg.com/a/LeafSet002 | CC0 1.0 | shrub and hedge leaf-cluster atlas (box-type sprigs) |
+| Leaf Set 019 | ambientCG | https://ambientcg.com/a/LeafSet019 | CC0 1.0 | conifer branch-spray atlas |
+| Foliage 008 | ambientCG | https://ambientcg.com/a/Foliage008 | CC0 1.0 | palm frond atlas (blades as leaflets) |
+| Bark Platanus | Dimitrios Savva | https://polyhaven.com/a/bark_platanus | CC0 1.0 | street/park broadleaf trunks (beech / hornbeam / lilac types) |
+| Bark Brown 02 | Rob Tuytel | https://polyhaven.com/a/bark_brown_02 | CC0 1.0 | oak-type broadleaf trunks |
+| Chinese Cedar Bark | Charlotte Baglioni | https://polyhaven.com/a/chinese_cedar_bark | CC0 1.0 | conifer trunks |
+| Palm Tree Bark | Dimitrios Savva, Rico Cilliers | https://polyhaven.com/a/palm_tree_bark | CC0 1.0 | palm trunks |
 
 ## Audio
 
