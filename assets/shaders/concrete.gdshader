@@ -1,18 +1,21 @@
 shader_type spatial;
-// Cast concrete (ART_BIBLE.md §16): Jersey barriers, overpass
-// piers, girders and fascias, retaining walls. Matte, with fine pores, soft
-// blotches and drip streaks running down vertical faces (more near the top
-// edges, where rain runs off). Texture coordinates come from the world
-// position (picked by the face's direction), so nothing needs unwrapping.
+// Cast concrete (ART_BIBLE.md §16, realism experiment): Jersey barriers,
+// overpass piers, girders and fascias, retaining walls. A scan of weathered
+// formed concrete (pores, cloudy mottling) at two scales, rain streaks running
+// down vertical faces (more near the top edges, where water runs off), barrier
+// joints and formwork lines. Texture coordinates come from the world position
+// (picked by the face's direction), so nothing needs unwrapping; layers and
+// textures: road_common.gdshaderinc.
 //
 // COLOR.rgb = base colour (sRGB; stained bases and contact AO baked in).
 // COLOR.a   = 1.0 cast concrete (faint formwork lines every 1.25 m, UV.y =
 //             metres up), 0.5 barrier segments (UV.x = metres along: a joint
 //             every 6 m), 0.0 plain.
 
-#include "res://assets/shaders/world_common.gdshaderinc"
+#include "res://assets/shaders/road_common.gdshaderinc"
 
-uniform sampler2D detail : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+// The palette concrete is brighter than real weathered concrete.
+uniform float cast_albedo_scale = 0.8;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -23,32 +26,54 @@ void vertex() {
 }
 
 void fragment() {
-	float near = detail_fade(length(VERTEX));
+	float dist = length(VERTEX);
+	float near = detail_fade(dist);
 	vec3 n = normalize(world_normal);
 	vec3 an = abs(n);
 	bool vertical = an.y < 0.7;
 	// Planar projection along the dominant axis.
-	vec2 uv = an.y >= 0.7 ? world_pos.xz : (an.x > an.z ? world_pos.zy : world_pos.xy);
+	vec2 uvw = an.y >= 0.7 ? world_pos.xz : (an.x > an.z ? world_pos.zy : world_pos.xy);
 	float across = an.x > an.z ? world_pos.z : world_pos.x;
 	bool low = quality == 0;
-	vec4 d = low ? vec4(0.5) : texture(detail, uv * 0.25 + vec2(0.31, 0.17));
-	vec4 m = texture(detail, uv * 0.05 + vec2(0.53, 0.29));
-	vec3 col = srgb_to_linear(COLOR.rgb);
-	col *= 0.92 + 0.14 * m.a;
-	col *= 1.0 - smoothstep(0.6, 0.9, m.g) * 0.08;
-	col *= 1.0 + (d.r - 0.5) * 0.14 * near;
-	if (vertical && !low) {
-		// Drip streaks: noise stretched down the face.
-		float s = texture(detail, vec2(across * 0.35, world_pos.y * 0.025) + vec2(0.11, 0.47)).g;
-		col *= 1.0 - smoothstep(0.58, 0.88, s) * 0.13;
+	vec2 dx_w = dFdx(uvw);
+	vec2 dy_w = dFdy(uvw);
+	vec4 mc = texture(road_macro, uvw / 30.0 + vec2(0.53, 0.29));
+
+	Surf s = concrete_surface(cast_albedo, cast_nra, uvw, dx_w, dy_w, vec2(2.0, 7.0), cast_tile, srgb_to_linear(COLOR.rgb) * cast_albedo_scale);
+	vec3 col = s.col;
+	if (!low) {
+		// A second, smaller and rotated sample breaks up the tiling.
+		vec3 r2 = texture(cast_albedo, ROT_A * uvw / (cast_tile * 0.57) + vec2(0.21, 0.67)).rgb * (1.0 / ALB_MEAN);
+		col *= mix(vec3(1.0), r2, 0.45);
 	}
+	col *= mix(0.84, 1.14, mc.g);
+	col *= 0.94 + 0.1 * mc.a;
+	if (vertical && !low) {
+		// Rain streaks: noise stretched down the face, darker near the top.
+		float st = texture(road_macro, vec2(across * 0.17, world_pos.y * 0.012) + vec2(0.11, 0.47)).a;
+		float top = 1.0 - smoothstep(0.0, 2.2, 6.0 - world_pos.y);
+		col *= 1.0 - smoothstep(0.5, 0.82, st) * 0.18;
+	}
+	// Dirt from the road: darker near the ground (splash, exhaust), a little more where oily.
+	float splash = 1.0 - smoothstep(0.0, 0.7, world_pos.y);
+	col *= 1.0 - splash * (0.12 + 0.12 * mc.b);
+	float ao = s.ao;
+
 	int kind = int(round(COLOR.a * 2.0));
 	if (kind == 2 && vertical) {
-		col *= 1.0 - grid_line(UV.y, 1.25, 0.02) * 0.12;
+		// Formwork joints: a faint dark line and a slight step.
+		float fl = clamp(grid_line(UV.y, 1.25, 0.012), 0.0, 1.0);
+		col *= 1.0 - fl * 0.28;
+		ao *= 1.0 - fl * 0.3;
 	} else if (kind == 1) {
-		float joint = grid_line(UV.x, 6.0, 0.025);
-		col *= 1.0 - joint * 0.45;
+		float joint = clamp(grid_line(UV.x, 6.0, 0.02), 0.0, 1.0);
+		col *= 1.0 - joint * 0.6;
+		ao *= 1.0 - joint * 0.5;
 	}
 	ALBEDO = col;
-	ROUGHNESS = 0.88 - (d.r - 0.5) * 0.06;
+	ROUGHNESS = clamp(s.rough, 0.65, 1.0);
+	AO = ao;
+	if (!low) {
+		NORMAL = bump_normal(NORMAL, VERTEX, uvw / cast_tile, s.nxy);
+	}
 }

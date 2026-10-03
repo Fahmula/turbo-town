@@ -1,7 +1,8 @@
 shader_type spatial;
-// Road surface (ART_BIBLE.md §16): asphalt with grain, wear,
-// wheel paths, repairs and crack sealing, worn paint markings, and on city
-// streets gutters, manholes, drains and stop lines. Deck sides are concrete.
+// Road surface (ART_BIBLE.md §16, realism experiment): scanned asphalt with
+// cracks and sealant, wear, wheel paths, oil, repairs, thermoplastic paint
+// with chips, and on city streets gutters, drains, manholes and stop lines.
+// Deck sides are cast concrete. Layers and textures: road_common.gdshaderinc.
 //
 // Top faces:  UV.x = metres across (0 = centre, + = right-hand side of
 //             travel along +UV.y, where that traffic drives), UV.y = metres
@@ -12,12 +13,8 @@ shader_type spatial;
 // Deck sides: COLOR.a < 0.5, UV = (metres along, metres down from the edge).
 // Per road type: road_*.tres in assets/materials/env/.
 
-#include "res://assets/shaders/world_common.gdshaderinc"
+#include "res://assets/shaders/road_common.gdshaderinc"
 
-uniform sampler2D detail : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform vec4 asphalt_color : source_color = vec4(0.275, 0.278, 0.290, 1.0);
-uniform vec4 asphalt_dark : source_color = vec4(0.224, 0.227, 0.239, 1.0);
-uniform vec4 asphalt_worn : source_color = vec4(0.353, 0.357, 0.365, 1.0);
 uniform vec4 concrete_color : source_color = vec4(0.706, 0.690, 0.655, 1.0);
 uniform vec4 white_line : source_color = vec4(0.894, 0.886, 0.855, 1.0);
 uniform vec4 yellow_line : source_color = vec4(0.851, 0.643, 0.129, 1.0);
@@ -40,16 +37,19 @@ void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
-float line_mask(float x, float center, float width) {
-	float fw = fwidth(x) * 0.75;
-	return 1.0 - smoothstep(width * 0.5 - fw, width * 0.5 + fw, abs(x - center));
-}
-
 // Soft-edged box: 1 inside |p| < half.
 float box_mask(vec2 p, vec2 half_size) {
-	vec2 fw = fwidth(p) * 0.75;
+	vec2 fw = fwidth(p) * 0.75 + 1e-5;
 	vec2 m = smoothstep(half_size + fw, half_size - fw, abs(p));
 	return m.x * m.y;
+}
+
+// Dashed stripe along y (period = dash_length + gap): coverage with jitter.
+float dash_cover(float y, float length_m, float period, float jit) {
+	float fw = fwidth(y) * 0.75 + 1e-5;
+	float p = mod(y, period);
+	float sd = p < length_m ? max(-p, p - length_m) : min(p - length_m, period - p);
+	return paint_cover(sd, fw, jit);
 }
 
 void fragment() {
@@ -57,138 +57,205 @@ void fragment() {
 	float near = detail_fade(dist);
 	vec2 wp = world_pos.xz;
 	bool low = quality == 0;
-	vec4 d = low ? vec4(0.5) : texture(detail, wp * 0.25);
-	vec4 m = texture(detail, wp * 0.031 + vec2(0.37, 0.61));
+	vec2 dUVx = dFdx(UV);
+	vec2 dUVy = dFdy(UV);
 
 	if (COLOR.a < 0.5) {
-		// Concrete deck side: grain, soft blotches and drip streaks from the edge.
-		vec4 s = low ? vec4(0.5) : texture(detail, vec2(UV.x * 0.21, UV.y * 0.04));
-		vec3 c = concrete_color.rgb * (0.93 + 0.12 * m.a);
-		c *= 1.0 + (d.r - 0.5) * 0.12 * near;
-		float streak = smoothstep(0.55, 0.85, s.g) * (1.0 - smoothstep(0.2, 1.6, UV.y));
-		c *= 1.0 - streak * 0.18;
-		ALBEDO = c;
-		ROUGHNESS = 0.88;
+		// Cast concrete deck side: scanned concrete, drip streaks from the edge.
+		Surf c = concrete_surface(cast_albedo, cast_nra, UV, dUVx, dUVy, vec2(floor(UV.x / 6.0), 5.0), cast_tile, concrete_color.rgb * 0.8);
+		vec4 mc = texture(road_macro, wp / 30.0 + vec2(0.31, 0.57));
+		float streak = smoothstep(0.45, 0.8, texture(road_macro, vec2(UV.x * 0.1, UV.y * 0.012) + vec2(0.11, 0.47)).a) * (1.0 - smoothstep(0.2, 1.6, UV.y));
+		vec3 col = c.col * mix(0.82, 1.1, mc.g) * (1.0 - streak * 0.22);
+		ALBEDO = col;
+		ROUGHNESS = clamp(c.rough, 0.6, 1.0);
+		AO = c.ao;
+		if (!low) {
+			NORMAL = bump_normal(NORMAL, VERTEX, UV / cast_tile, c.nxy);
+		}
 	} else {
 		float x = UV.x;
 		float ax = abs(x);
 		float y = UV.y;
-		float grain = (d.r - 0.5) * near;
-
-		// Base asphalt: sun-worn and darker patches at two scales, fine grain.
-		vec3 col = asphalt_color.rgb;
-		float worn = smoothstep(0.5, 0.9, m.g * 0.65 + d.g * 0.35);
-		col = mix(col, asphalt_worn.rgb, worn * 0.5 * wear);
-		col = mix(col, asphalt_dark.rgb, smoothstep(0.45, 0.15, m.a) * 0.4);
-		col *= 0.95 + 0.1 * mix(0.5, d.g, near);
-		col *= 1.0 + grain * 0.3;
-		float rough = 0.9 - grain * 0.08;
+		float fwx = fwidth(x) * 0.75 + 1e-5;
 
 		// Lane layout.
 		float inner = median_half > 0.0 ? median_half + 0.4 : 0.0;
 		float lanes_edge = inner + float(lanes_per_side) * lane_width;
 		bool in_lanes = ax > inner && ax < lanes_edge;
-		// Wheel paths: slightly darker, smoother bands where tyres run.
-		if (in_lanes) {
-			float lp = mod(ax - inner, lane_width) - lane_width * 0.5;
-			float wheel = 1.0 - smoothstep(0.18, 0.42, abs(abs(lp) - 0.8));
-			col *= 1.0 - wheel * 0.07 * (0.5 + wear * 0.5);
-			rough -= wheel * 0.06;
-		}
-
-		// Repair patches and a utility trench now and then (streets mostly).
 		float side = x > 0.0 ? 1.0 : 0.0;
 		float lane_id = floor(max(ax - inner, 0.0) / lane_width);
+
+		// Repair patches (a trench or a block of fresh asphalt now and then).
+		float patch = 0.0;
+		float patch_edge = 0.0;
+		vec2 pq = vec2(0.0);
 		float cell = floor(y / 9.0);
-		float h = hash12(vec2(cell, lane_id * 2.0 + side + 7.0));
-		if (h < 0.12 * wear && in_lanes) {
+		float hsh = hash12(vec2(cell, lane_id * 2.0 + side + 7.0));
+		if (hsh < 0.12 * wear && in_lanes) {
 			vec2 hh = hash22(vec2(cell, lane_id + side * 5.0));
 			vec2 c0 = vec2((lane_id + 0.5) * lane_width + inner, (cell + 0.5) * 9.0);
 			vec2 half_size = vec2(0.6 + hh.x * 0.6, 0.9 + hh.y * 2.4);
-			float p = box_mask(vec2(ax, y) - c0, half_size);
-			col = mix(col, asphalt_dark.rgb * (1.0 + grain * 0.15), p);
-			rough = mix(rough, 0.84, p);
+			pq = vec2(ax, y) - c0;
+			patch = box_mask(pq, half_size);
+			patch_edge = patch * (1.0 - box_mask(pq, half_size - 0.04));
 		}
 
-		// Crack sealing: thin dark tar lines in older areas.
-		float crack = low ? 0.0 : texture(detail, wp * 0.083 + vec2(0.13, 0.71)).b;
-		crack *= smoothstep(0.35, 0.65, m.g) * wear;
-		col = mix(col, vec3(0.045, 0.045, 0.05), crack * 0.85);
-		rough = mix(rough, 0.55, crack);
+		Surf s = asphalt_surface(wp, asphalt_base, wear, 1.0 - patch);
+		vec3 col = s.col;
+		float rough = s.rough;
+		float ao = s.ao;
+		vec2 nxy = s.nxy;
 
-		// Bridge deck: expansion joints across.
+		// Fresh patch: darker, smoother, edged with sealant.
+		col = mix(col, col * 0.84, patch);
+		col = mix(col, vec3(0.02), patch_edge * 0.8);
+		rough = mix(rough, 0.9, patch * 0.5);
+		rough = mix(rough, 0.45, patch_edge);
+		nxy *= 1.0 - patch * 0.45;
+
+		float wheel = 0.0;
+		if (in_lanes) {
+			float lp = mod(ax - inner, lane_width) - lane_width * 0.5;
+			// Wheel paths: rubber-darkened, polished bands where tyres run; the
+			// ridge between them stays a little paler.
+			wheel = 1.0 - smoothstep(0.16, 0.42, abs(abs(lp) - 0.8));
+			float ridge = 1.0 - smoothstep(0.05, 0.3, abs(lp));
+			col *= 1.0 - wheel * 0.2 * (0.4 + wear * 0.6);
+			col *= 1.0 + ridge * 0.05;
+			rough -= wheel * 0.08;
+			// Oil and drips along the lane centre.
+			float centre = 1.0 - smoothstep(0.12, 0.4, abs(lp));
+			float oil = smoothstep(0.2, 0.65, s.oil) * centre * (0.35 + 0.65 * wear);
+			col *= 1.0 - oil * 0.6;
+			rough = mix(rough, 0.3, oil);
+		}
+
+		// Braking zone before a stop line: rubber darkens the wheel paths.
+		float brake = 0.0;
+		if (UV2.y > 0.0 && x > inner && x < lanes_edge) {
+			brake = 1.0 - smoothstep(0.0, 22.0, UV2.y - y);
+			brake *= step(y, UV2.y);
+		} else if (UV2.x > 0.0 && x < -inner && x > -lanes_edge) {
+			brake = 1.0 - smoothstep(0.0, 22.0, y - UV2.x);
+			brake *= step(UV2.x, y);
+		}
+		col *= 1.0 - brake * wheel * 0.14;
+		rough -= brake * wheel * 0.05;
+
+		// Bridge deck: expansion joints across (a dark gap between two steel strips).
 		if (COLOR.b < 0.5) {
-			float j = grid_line(y, 24.0, 0.06);
-			float edge = clamp(grid_line(y, 24.0, 0.16) - j, 0.0, 1.0);
-			col = mix(col, vec3(0.05), j * 0.8);
-			col = mix(col, vec3(0.24, 0.245, 0.25), edge * 0.6);
-			rough = mix(rough, 0.5, edge);
+			float gap = grid_line(y, 24.0, 0.05);
+			float strip = clamp(grid_line(y, 24.0, 0.2) - gap, 0.0, 1.0);
+			col = mix(col, vec3(0.012), gap * 0.9);
+			col = mix(col, vec3(0.2, 0.205, 0.21) * (0.7 + 0.3 * s.stone), strip * 0.75);
+			rough = mix(rough, 0.5, strip);
+			nxy *= 1.0 - strip;
 		}
 
-		// Markings.
-		float dash = step(fract(y / (dash_length + dash_gap)), dash_length / (dash_length + dash_gap));
+		// Markings: thermoplastic paint, chipped where stones poke through.
+		float jit = (s.stone - 1.0) * 0.02 * near;
 		float w = 0.0;
 		float yl = 0.0;
 		if (median_half > 0.0) {
-			col = mix(col, concrete_color.rgb * 0.8, (1.0 - smoothstep(median_half - 0.05, median_half + 0.05, ax)) * 0.55);
-			yl += line_mask(ax, median_half + 0.2, 0.15);
+			col = mix(col, concrete_color.rgb * 0.62, (1.0 - smoothstep(median_half - 0.05, median_half + 0.05, ax)) * 0.55);
+			yl += paint_cover(abs(ax - (median_half + 0.2)) - 0.075, fwx, jit);
 		} else if (center_style == 1) {
-			yl += line_mask(ax, 0.14, 0.11);
+			yl += paint_cover(abs(ax - 0.14) - 0.055, fwx, jit);
 		} else if (center_style == 2) {
-			yl += line_mask(x, 0.0, 0.14) * dash;
+			yl += paint_cover(abs(x) - 0.07, fwx, jit) * dash_cover(y, dash_length, dash_length + dash_gap, jit);
 		}
 		for (int k = 1; k < lanes_per_side; k++) {
-			w += line_mask(ax, inner + float(k) * lane_width, 0.13) * dash;
+			w += paint_cover(abs(ax - (inner + float(k) * lane_width)) - 0.065, fwx, jit) * dash_cover(y, dash_length, dash_length + dash_gap, jit);
 		}
-		w += line_mask(ax, lanes_edge + 0.1, 0.15);
+		w += paint_cover(abs(ax - (lanes_edge + 0.1)) - 0.075, fwx, jit);
 		// Stop lines before junctions (incoming lanes only).
+		float stop = 0.0;
+		float fwy = fwidth(y) * 0.75 + 1e-5;
 		if (UV2.y > 0.0 && x > inner && x < lanes_edge) {
-			w += band(y, UV2.y - 0.45, UV2.y);
+			stop += paint_cover(abs(y - (UV2.y - 0.225)) - 0.225, fwy, jit);
 		}
 		if (UV2.x > 0.0 && x < -inner && x > -lanes_edge) {
-			w += band(y, UV2.x, UV2.x + 0.45);
+			stop += paint_cover(abs(y - (UV2.x + 0.225)) - 0.225, fwy, jit);
 		}
-		// Worn paint: small chips where the stones poke through, more in
-		// worn areas (5-15%).
-		float chips = smoothstep(0.64, 0.72, d.r + d.g * 0.25 + worn * 0.1 - 0.12) * wear * near;
-		float paint_keep = 1.0 - chips * 0.85;
-		w = clamp(w, 0.0, 1.0) * paint_keep;
-		yl = clamp(yl, 0.0, 1.0) * paint_keep;
-		float dirt = 0.9 + 0.1 * m.a;
-		col = mix(col, white_line.rgb * dirt, w);
-		col = mix(col, yellow_line.rgb * dirt, yl);
-		rough = mix(rough, 0.66, max(w, yl));
+		// Paint wears off the stone tops and where tyres run (stop lines most).
+		float wornp = 0.3 + 0.6 * wear;
+		float chipn = s.film * 0.4 + (s.stone - 0.5) * 0.6 + s.tone * 0.15;
+		float chip = smoothstep(0.55, 0.9, chipn) * mix(0.4, 1.0, near) * wornp;
+		float keep_line = (1.0 - chip * 0.85) * mix(0.8, 1.0, smoothstep(0.2, 0.6, s.film));
+		// Stop lines wear away where tyres brake over them.
+		float keep_stop = (1.0 - clamp(chip * 1.25 + wheel * 0.3 * smoothstep(0.35, 0.8, chipn + 0.35), 0.0, 0.92)) * mix(0.72, 1.0, smoothstep(0.25, 0.7, s.film));
+		w = clamp(w, 0.0, 1.0) * keep_line + clamp(stop, 0.0, 1.0) * keep_stop;
+		yl = clamp(yl, 0.0, 1.0) * keep_line;
+		w = clamp(w, 0.0, 1.0);
+		// Paint: patchy thickness, dirt, and the aggregate showing through.
+		float dirt = (0.74 + 0.26 * s.tone) * (0.86 + 0.14 * smoothstep(0.2, 0.8, s.film));
+		float grain = 0.9 + 0.1 * s.stone;
+		vec3 paint_w = white_line.rgb * 0.8 * dirt * grain;
+		vec3 paint_y = yellow_line.rgb * 0.8 * dirt * grain;
+		col = mix(col, paint_w, w);
+		col = mix(col, paint_y, yl);
+		float paint = max(w, yl);
+		rough = mix(rough, 0.6, paint);
+		nxy *= 1.0 - paint * 0.5;
+		float paint_h = paint * 0.0025 * near;
 
 		if (street) {
-			// Gutter along the kerb: darker, dirtier.
-			float gutter = smoothstep(half_width - 0.5, half_width - 0.3, ax);
-			col *= 1.0 - gutter * (0.12 + 0.1 * d.g);
-			// Drains in the gutter every few cells.
+			// Gutter along the kerb: damp, dirty, a little sandy grit.
+			float gutter = smoothstep(half_width - 0.55, half_width - 0.25, ax);
+			col *= 1.0 - gutter * (0.16 + 0.12 * s.film);
+			float grit = smoothstep(0.45, 0.8, s.film) * gutter;
+			col = mix(col, col * vec3(1.35, 1.28, 1.15), grit * 0.5);
+			rough = mix(rough, 0.97, gutter * 0.5);
+			// Storm drains in the gutter every few cells: frame, bars, deep slots.
 			float dcell = floor(y / 27.0);
 			if (hash12(vec2(dcell, side + 3.0)) < 0.5) {
 				vec2 q = vec2(ax - (half_width - 0.3), y - (dcell + 0.5) * 27.0);
-				float grate = box_mask(q, vec2(0.22, 0.45));
-				float slots = step(0.5, fract(q.y * 8.0)) * box_mask(q, vec2(0.16, 0.39));
-				col = mix(col, vec3(0.16, 0.16, 0.17) * (1.0 - slots * 0.7), grate);
-				rough = mix(rough, 0.6, grate);
+				float frame = box_mask(q, vec2(0.24, 0.47));
+				float inside = box_mask(q, vec2(0.2, 0.43));
+				float bars = clamp(grid_line(q.x, 0.062, 0.034), 0.0, 1.0);
+				float slot = inside * bars;
+				col = mix(col, vec3(0.045, 0.043, 0.04) * (0.8 + 0.4 * s.film), frame);
+				col = mix(col, vec3(0.004), slot * near + slot * (1.0 - near) * 0.5);
+				rough = mix(rough, 0.55, frame);
+				ao = mix(ao, 0.3, slot);
+				nxy *= 1.0 - frame;
 			}
-			// Manholes in the lanes.
+			// Manholes in the lanes: cast-iron lid, dark gap, frame, patched asphalt round it.
 			float mcell = floor(y / 31.0);
 			vec2 mh = hash22(vec2(mcell, side + 11.0));
 			if (mh.x < 0.55 && in_lanes) {
 				float lane_c = inner + (floor(mh.y * float(lanes_per_side)) + 0.5) * lane_width;
 				vec2 q = vec2(ax - lane_c, y - (mcell + 0.5) * 31.0);
 				float r = length(q);
-				float fw = fwidth(r);
-				float disc = 1.0 - smoothstep(0.34 - fw, 0.34 + fw, r);
-				float ring = disc * smoothstep(0.27 - fw, 0.27 + fw, r);
-				float pattern = step(0.5, fract(r * 9.0)) * 0.25;
-				col = mix(col, vec3(0.13, 0.13, 0.14) * (1.0 + pattern - ring * 0.3), disc);
-				rough = mix(rough, 0.6, disc);
+				float fw = fwidth(r) + 1e-5;
+				float round_patch = 1.0 - smoothstep(0.55 - fw, 0.6 + fw, r);
+				float disc = 1.0 - smoothstep(0.405 - fw, 0.405 + fw, r);
+				float lid = 1.0 - smoothstep(0.31 - fw, 0.31 + fw, r);
+				float gap = lid - (1.0 - smoothstep(0.285 - fw, 0.285 + fw, r));
+				gap = clamp(gap, 0.0, 1.0);
+				col = mix(col, col * 0.8, round_patch * (1.0 - disc));
+				vec3 iron = vec3(0.055, 0.052, 0.05) * (0.8 + 0.4 * s.film);
+				// Anti-slip studs on a diagonal grid, a groove ring and a plain hub.
+				vec2 g = vec2(q.x + q.y, q.x - q.y) / 0.05;
+				float stud = 1.0 - smoothstep(0.22, 0.4, length(fract(g) - 0.5));
+				float groove = 1.0 - smoothstep(0.0, 0.012, abs(r - 0.2));
+				float hub = 1.0 - smoothstep(0.075, 0.09, r);
+				float diamond = mix(1.0, (0.62 + 0.7 * stud) * (1.0 - groove * 0.5) * (1.0 + hub * 0.2), near * lid);
+				col = mix(col, iron * 1.25, disc);
+				col = mix(col, iron * diamond, lid * (1.0 - gap));
+				col = mix(col, vec3(0.006), gap);
+				rough = mix(rough, 0.5, disc);
+				ao = mix(ao, 0.45, gap);
+				nxy *= 1.0 - disc;
 			}
 		}
 
 		ALBEDO = col;
-		ROUGHNESS = clamp(rough, 0.3, 1.0);
+		ROUGHNESS = clamp(rough, 0.25, 1.0);
+		AO = ao;
+		if (!low) {
+			NORMAL = bump_normal(NORMAL, VERTEX, wp / asph_tile, nxy);
+			NORMAL = height_bump(NORMAL, VERTEX, paint_h, 1.0);
+		}
 	}
 }

@@ -1,9 +1,23 @@
 [gd_resource type="ShaderMaterial" format=3]
 
 [ext_resource type="Shader" path="res://assets/shaders/paving.gdshader" id="1_shader"]
-[ext_resource type="Texture2D" path="res://assets/textures/ground/ground_detail.png" id="2_detail"]
+[ext_resource type="Texture2D" path="res://assets/textures/road/road_asphalt_a_albedo.jpg" id="2_asph_albedo"]
+[ext_resource type="Texture2D" path="res://assets/textures/road/road_asphalt_a_nra.png" id="3_asph_nra"]
+[ext_resource type="Texture2D" path="res://assets/textures/road/road_cracks.png" id="4_road_cracks"]
+[ext_resource type="Texture2D" path="res://assets/textures/road/road_macro.png" id="5_road_macro"]
+[ext_resource type="Texture2D" path="res://assets/textures/road/road_concrete_s_albedo.jpg" id="6_slab_albedo"]
+[ext_resource type="Texture2D" path="res://assets/textures/road/road_concrete_s_nra.png" id="7_slab_nra"]
 
 [resource]
 render_priority = 0
 shader = ExtResource("1_shader")
-shader_parameter/detail = ExtResource("2_detail")
+shader_parameter/asph_albedo = ExtResource("2_asph_albedo")
+shader_parameter/asph_nra = ExtResource("3_asph_nra")
+shader_parameter/road_cracks = ExtResource("4_road_cracks")
+shader_parameter/road_macro = ExtResource("5_road_macro")
+shader_parameter/slab_albedo = ExtResource("6_slab_albedo")
+shader_parameter/slab_nra = ExtResource("7_slab_nra")
+shader_parameter/asph_tile = 1.5
+shader_parameter/slab_tile = 1.8
+shader_parameter/asphalt_base = Color(0.365, 0.355, 0.34, 1)
+shader_parameter/crack_density = 0.7
