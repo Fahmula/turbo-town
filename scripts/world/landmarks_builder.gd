@@ -684,6 +684,25 @@ func _build_harbor(root: Node3D) -> void:
 	while bz < qa.z - 2.0:
 		_mooring_bollard(mb, Vector3(edge + 0.5, y, bz))
 		bz += 10.0
+	# CC0 Poly Haven models (assets/models/props, see SOURCES.md there): channel
+	# buoys bobbing off the piers and lifebuoy stations on the quay and pier roots.
+	var buoy_scene := load("res://assets/models/props/ocean_buoy.glb") as PackedScene
+	for bp: Vector3 in [Vector3(edge - 72.0, MapLayout.SEA_LEVEL, qa.z - 6.0), Vector3(edge - 80.0, MapLayout.SEA_LEVEL, (qa.z + qb.z) * 0.5),
+			Vector3(edge - 72.0, MapLayout.SEA_LEVEL, qb.z + 6.0)]:
+		var buoy := buoy_scene.instantiate() as Node3D
+		buoy.position = bp
+		buoy.rotation.y = bp.z * 0.37
+		root.add_child(buoy)
+	var ring_scene := load("res://assets/models/props/lifebuoy.glb") as PackedScene
+	var gal_post := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+	for lp: Vector3 in [Vector3(edge + 0.5, y, qb.z + 22.0), Vector3(edge + 0.5, y, qa.z - 22.0), Vector3(edge - 2.0, y, qa.z - 11.8), Vector3(edge - 2.0, y, qb.z + 11.8)]:
+		StreetKit.rod(mb, lp, lp + Vector3.UP * 1.6, 0.045, 0.04, 8, Color(0.85, 0.85, 0.82, StreetKit.WORN))
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, lp + Vector3(0.0, 0.04, 0.0)), Vector3(0.4, 0.08, 0.4), 0.01, gal_post)
+		StreetKit.beam(mb, lp + Vector3(0.0, 1.35, 0.0), lp + Vector3(-0.2, 1.35, 0.0), 0.05, 0.03, gal_post, 0.005)
+		var ring := ring_scene.instantiate() as Node3D
+		ring.position = lp + Vector3(-0.27, 1.25, 0.0)
+		ring.rotation.y = PI * 0.5
+		root.add_child(ring)
 	# Quay ladders down to the water.
 	bz = qb.z + 9.0
 	while bz < qa.z - 5.0:

@@ -18,11 +18,17 @@ The shader multiplies it into the colour that comes from the mesh's vertex
 colours, so one scan serves every paint colour. Roughness is remapped to the
 ART_BIBLE.md section 6 ranges (target mean + scaled contrast).
 
-Run from the project root (needs Pillow + numpy):  python3 tools/textures/fetch_props.py
-Models (hydrant, buoys...) are fetched by tools/blender/fetch_props_models.py.
-Layer order here == LAYER table in street_props.gdshader. Keep them in sync.
+Also fetches the few CC0 Poly Haven *models* the landmarks use (MODELS below),
+runs them through tools/blender/convert_props_models.py (Blender, headless:
+decimate + smaller textures -> assets/models/props/*.glb) and writes
+assets/models/props/SOURCES.md.
+
+Run from the project root (needs Pillow + numpy + Blender):
+    python3 tools/textures/fetch_props.py
+Layer order here == LAYER table in props_common.gdshaderinc. Keep them in sync.
 """
 import os
+import subprocess
 import sys
 
 import numpy as np
@@ -105,6 +111,35 @@ def process(name, src, rough_t, chroma):
     return alb, nor, orm
 
 
+# Poly Haven models: id, output name, max triangles, texture size, object-name prefix to keep, use.
+MODELS = [
+    ("ocean_buoy", "ocean_buoy", 2200, 512, "", "harbour channel markers (LandmarksBuilder)"),
+    ("lifebuoy", "lifebuoy", 1400, 512, "", "lifebuoy stations on the quay and piers (LandmarksBuilder)"),
+]
+
+
+def build_models():
+    """Downloads, decimates (Blender) and credits the MODELS."""
+    from fetch_common import polyhaven_model
+    mdir = os.path.join(ROOT, "assets", "models", "props")
+    os.makedirs(mdir, exist_ok=True)
+    rows = ["# Sources: assets/models/props/", "",
+            "Made by tools/textures/fetch_props.py (+ tools/blender/convert_props_models.py) from these CC0 models.", "",
+            "| Asset | Author | Source | Licence | Used for |", "|---|---|---|---|---|"]
+    script = os.path.join(ROOT, "tools", "blender", "convert_props_models.py")
+    for ident, name, tris, tex, prefix, use in MODELS:
+        gltf = polyhaven_model(ident, "1k")
+        dst = os.path.join(mdir, name + ".glb")
+        cmd = ["blender", "-b", "-P", script, "--", gltf, dst, str(tris), str(tex)] + ([prefix] if prefix else [])
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
+        info = polyhaven_info(ident)
+        rows.append("| %s | %s | https://polyhaven.com/a/%s | CC0 1.0 | %s |" % (
+            info.get("name", ident), ", ".join(info.get("authors", {}).keys()) or "Poly Haven", ident, use))
+        print("model %s -> %s" % (ident, dst))
+    with open(os.path.join(mdir, "SOURCES.md"), "w") as f:
+        f.write("\n".join(rows) + "\n")
+
+
 def main():
     os.makedirs(os.path.join(ROOT, "build"), exist_ok=True)
     open(os.path.join(ROOT, "build", ".gdignore"), "a").close()   # keep Godot out of the download cache
@@ -128,6 +163,7 @@ def main():
     atlas["orm"].save(out("props", "props_orm.png"), optimize=True)
     write_props_imports()
     write_sources("props")
+    build_models()
     print("done")
 
 
