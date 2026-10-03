@@ -1,9 +1,9 @@
 [gd_resource type="ShaderMaterial" format=3]
 
 [ext_resource type="Shader" path="res://assets/shaders/foliage.gdshader" id="1_shader"]
-[ext_resource type="Texture2D" path="res://assets/textures/foliage/foliage_leaves_broadleaf_a.png" id="2_leaves"]
-[ext_resource type="Texture2D" path="res://assets/textures/foliage/foliage_bark_plane_albedo.jpg" id="3_bark"]
-[ext_resource type="Texture2D" path="res://assets/textures/foliage/foliage_bark_plane_normal.png" id="4_barkn"]
+[ext_resource type="Texture2D" path="res://assets/textures/foliage/foliage_leaves_broadleaf_b.png" id="2_leaves"]
+[ext_resource type="Texture2D" path="res://assets/textures/foliage/foliage_bark_oak_albedo.jpg" id="3_bark"]
+[ext_resource type="Texture2D" path="res://assets/textures/foliage/foliage_bark_oak_normal.png" id="4_barkn"]
 
 [resource]
 render_priority = 0
@@ -13,8 +13,8 @@ shader_parameter/bark_albedo = ExtResource("3_bark")
 shader_parameter/bark_normal = ExtResource("4_barkn")
 shader_parameter/leaf_tint = Color(1, 1, 1, 1)
 shader_parameter/bark_tint = Color(1, 1, 1, 1)
-shader_parameter/blob_dark = Color(0.1, 0.17, 0.07, 1)
-shader_parameter/blob_lit = Color(0.27, 0.38, 0.13, 1)
+shader_parameter/blob_dark = Color(0.1, 0.17, 0.06, 1)
+shader_parameter/blob_lit = Color(0.3, 0.4, 0.12, 1)
 shader_parameter/translucency = 0.55
 shader_parameter/sway = 0.05
 shader_parameter/tree_height = 9.0

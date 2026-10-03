@@ -21,113 +21,13 @@ func build(parent: Node3D, city_tree_spots: Array[Vector3]) -> void:
 	root.name = "Nature"
 	parent.add_child(root)
 
-	var round_spots: Array[Transform3D] = []
-	var pine_spots: Array[Transform3D] = []
-	var palm_spots: Array[Transform3D] = []
-	for p in city_tree_spots:
-		round_spots.append(_tree_xform(p, 0.85, 1.15))
-	_scatter_trees(round_spots, pine_spots, palm_spots)
-
-	var body := StaticBody3D.new()
-	body.name = "TreeTrunks"
-	root.add_child(body)
-	_add_trees(root, body, ["broadleaf_a", "broadleaf_b"], round_spots, 0.25)
-	_add_trees(root, body, ["conifer"], pine_spots, 0.25)
-	_add_trees(root, body, ["palm"], palm_spots, 0.22)
+	# Trees, shrubs and hedges: TreeScatter places them, TreeLod draws them,
+	# TreeColliders gives the trunks colliders.
+	var trees := TreeScatter.new(_terrain)
+	trees.build(root, city_tree_spots)
+	print("Trees: ", trees.stats)
 	_add_rocks(root)
 	_add_sea(root)
-
-
-func _tree_xform(p: Vector3, smin: float, smax: float) -> Transform3D:
-	var s := _rng.randf_range(smin, smax)
-	var b := Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3(s, s * _rng.randf_range(0.9, 1.15), s))
-	return Transform3D(b, p)
-
-
-## Trees over the island: pines on the mountain and high ground, palms
-## along the coast (ART_BIBLE.md §18), broadleaf elsewhere.
-func _scatter_trees(round_spots: Array[Transform3D], pine_spots: Array[Transform3D], palm_spots: Array[Transform3D]) -> void:
-	var half := MapLayout.TERRAIN_HALF_SIZE - 20.0
-	var attempts := 9000
-	for k in attempts:
-		var x := _rng.randf_range(-half, half)
-		var z := _rng.randf_range(-half, half)
-		# Keep the city, the stunt park and the dirt fields clear.
-		if absf(x) < 165.0 and absf(z) < 165.0:
-			continue
-		if x > MapLayout.PARK_MIN.x - 15 and x < MapLayout.PARK_MAX.x + 15 and z > MapLayout.PARK_MIN.y - 15 and z < MapLayout.PARK_MAX.y + 15:
-			continue
-		if Vector2(x, z).distance_to(MapLayout.FIELDS_CENTER) < 150.0:
-			continue
-		var h := _terrain.height_at(x, z)
-		if h < 1.5:
-			continue
-		if _terrain.road_weight_at(x, z) > 0.01 or _keep_clear(x, z):
-			continue
-		if _terrain.slope_at(x, z) > 0.55:
-			continue
-		var dens := _density.get_noise_2d(x, z) * 0.5 + 0.5
-		var mountain := smoothstep(-320.0, -400.0, z)
-		var chance := 0.03 + dens * dens * 0.25 + mountain * 0.12
-		if _rng.randf() > chance:
-			continue
-		var p := Vector3(x, h - 0.1, z)
-		if mountain > 0.5 or h > 14.0:
-			pine_spots.append(_tree_xform(p, 0.8, 1.4))
-		elif h < 6.0 and (_terrain.shore_factor(x, z) > 0.002 or x < -300.0):
-			palm_spots.append(_tree_xform(p, 0.85, 1.25))
-		else:
-			round_spots.append(_tree_xform(p, 0.8, 1.3))
-
-
-## Trees (TreeKit): one MultiMesh per variant per 128 m chunk, so culling
-## works and far chunks switch to the solid LOD mesh. Each tree gets a slight
-## colour variation; trunks have cylinder colliders.
-func _add_trees(root: Node3D, body: StaticBody3D, kinds: Array, xforms: Array[Transform3D], trunk_radius: float) -> void:
-	if xforms.is_empty():
-		return
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 404
-	var chunks := {}
-	for i in xforms.size():
-		var xf := xforms[i]
-		var key := Vector3i(floori(xf.origin.x / 128.0), floori(xf.origin.z / 128.0), i % kinds.size())
-		if not chunks.has(key):
-			chunks[key] = []
-		(chunks[key] as Array).append(xf)
-		var cs := CollisionShape3D.new()
-		var shape := CylinderShape3D.new()
-		var s := xf.basis.get_scale().x
-		shape.radius = trunk_radius * s
-		shape.height = 4.0 * s
-		cs.shape = shape
-		cs.position = xf.origin + Vector3.UP * 2.0 * s
-		body.add_child(cs)
-	for key: Vector3i in chunks:
-		var list: Array = chunks[key]
-		var kind: String = kinds[key.z]
-		for lod in 2:
-			var mm := MultiMesh.new()
-			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.use_colors = true
-			mm.mesh = TreeKit.mesh(kind if lod == 0 else kind + "_far")
-			mm.instance_count = list.size()
-			for i in list.size():
-				mm.set_instance_transform(i, list[i])
-				var v := rng.randf_range(0.94, 1.06)
-				var hue := rng.randf_range(-0.03, 0.03)
-				mm.set_instance_color(i, Color(v * (1.0 + hue), v, v * (1.0 - hue), 1.0))
-			var mmi := MultiMeshInstance3D.new()
-			mmi.name = "%s_%d_%d_%s" % [kind, key.x, key.y, "near" if lod == 0 else "far"]
-			mmi.multimesh = mm
-			if lod == 0:
-				mmi.visibility_range_end = 170.0
-				mmi.visibility_range_end_margin = 20.0
-			else:
-				mmi.visibility_range_begin = 170.0
-				mmi.visibility_range_begin_margin = 20.0
-			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-			root.add_child(mmi)
 
 
 ## Boulders scattered round the mountain (sphere colliders).

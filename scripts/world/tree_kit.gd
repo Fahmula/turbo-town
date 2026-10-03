@@ -1,279 +1,716 @@
 @tool
 class_name TreeKit
 extends RefCounted
-## Tree meshes (ART_BIBLE.md §18), built in code once and shared.
-## A canopy is leaf-cluster cards (alpha scissor, leaf atlas from
-## tools/textures/make_textures.py) around a solid core that fills the gaps;
-## every vertex's normal points out from the canopy centre, so the crown
-## shades like one soft mass. Colours carry an AO gradient: dark underneath
-## and inside, lighter and yellower on the sunlit top. See foliage.gdshader.
+## Trees, shrubs and hedges (ART_BIBLE.md §18, realism branch), built in code
+## once and shared. Real leaf scans (ambientCG, composed into branch-cluster
+## atlases by tools/textures/fetch_foliage.py) on cards around a skeleton of
+## tapered, bark-textured limbs; every card vertex carries a soft "canopy"
+## normal and an ambient-occlusion value (dark deep in the crown), so the crown
+## shades like one mass while the leaves stay crisp. See foliage.gdshader.
 ##
-## Kinds: "broadleaf_a", "broadleaf_b" (street and park trees, ~7 m),
-## "conifer" (~9 m), "palm" (~9 m, beach and harbour), and "_far" versions
-## (core and trunk only; a palm stays a palm) for the distant LOD.
+## Species and their variants (each variant is its own mesh and material):
+##   broadleaf  broadleaf_a (beech-like, 9 m), broadleaf_b (oak, broad, 8.6 m),
+##              broadleaf_c (lilac / linden-like, tall, 10.5 m)
+##   conifer    conifer_a (fir, broad cone, 12 m), conifer_b (slender, 15 m)
+##   palm       palm (9.5 m)
+##   shrub      shrub (a 1.3 m bush), hedge (a 2 m clipped hedge segment)
+## Each mesh has three levels of detail:
+##   LOD 0 near (full skeleton and ~330 cards, ~1.5k tris), LOD 1 mid (a few
+##   big cards, ~250 tris, one per species), LOD 2 far (a solid canopy blob,
+##   ~60 tris, one per species). TreeLod picks the level per cell from the
+##   camera distance.
 
 const CARD := 1.0
-const CORE := 0.5
+const BLOB := 0.5
 const BARK := 0.0
+## Flips the binormal of the bark normal map if its relief looks inverted.
+const BARK_TANGENT_W := 1.0
+
+## Per species: variants, LOD switch distances (m) and when to stop drawing.
+const SPECIES := {
+	"broadleaf": {"variants": ["broadleaf_a", "broadleaf_b", "broadleaf_c"], "r0": 70.0, "r1": 250.0, "cull": 3000.0,
+		"trunk_r": 0.27, "trunk_h": 4.0},
+	"conifer": {"variants": ["conifer_a", "conifer_b"], "r0": 55.0, "r1": 260.0, "cull": 3000.0,
+		"trunk_r": 0.25, "trunk_h": 5.0},
+	"palm": {"variants": ["palm"], "r0": 60.0, "r1": 220.0, "cull": 3000.0, "trunk_r": 0.2, "trunk_h": 5.0},
+	"shrub": {"variants": ["shrub"], "r0": 40.0, "r1": 110.0, "cull": 160.0, "trunk_r": 0.0, "trunk_h": 0.0},
+	"hedge": {"variants": ["hedge"], "r0": 45.0, "r1": 120.0, "cull": 170.0, "trunk_r": 0.0, "trunk_h": 0.0},
+}
+
+## Per variant: the build recipe.
+const VARIANTS := {
+	"broadleaf_a": {"seed": 11, "height": 9.2, "trunk_h": 2.8, "radius": 3.9, "trunk_r": 0.28, "limbs": 4,
+		"cards": 340, "size": Vector2(1.15, 1.6), "mat": "foliage_broadleaf", "wind_h": 9.0},
+	"broadleaf_b": {"seed": 23, "height": 8.6, "trunk_h": 2.3, "radius": 4.8, "trunk_r": 0.36, "limbs": 5,
+		"cards": 330, "size": Vector2(1.2, 1.7), "mat": "foliage_broadleaf_b", "wind_h": 9.0},
+	"broadleaf_c": {"seed": 37, "height": 10.5, "trunk_h": 3.4, "radius": 3.0, "trunk_r": 0.25, "limbs": 4,
+		"cards": 300, "size": Vector2(1.1, 1.55), "mat": "foliage_broadleaf_c", "wind_h": 10.0},
+	"conifer_a": {"seed": 7, "height": 12.0, "base_h": 1.6, "radius": 2.7, "step": 0.62, "n_low": 6.0, "n_high": 4.0,
+		"elev_low": -14.0, "elev_high": 24.0, "taper": 0.85, "mat": "foliage_conifer", "wind_h": 13.0},
+	"conifer_b": {"seed": 19, "height": 15.0, "base_h": 2.2, "radius": 1.85, "step": 0.55, "n_low": 5.0, "n_high": 4.0,
+		"elev_low": -4.0, "elev_high": 32.0, "taper": 0.7, "mat": "foliage_conifer", "wind_h": 15.0},
+	"palm": {"seed": 5, "height": 9.5, "lean": 1.4, "fronds": 16, "mat": "foliage_palm", "wind_h": 10.0},
+	"shrub": {"seed": 3, "radius": 0.75, "height": 1.15, "cards": 40, "size": Vector2(0.55, 0.85), "mat": "foliage_shrub", "wind_h": 2.0},
+	"hedge": {"seed": 9, "length": 2.0, "width": 0.85, "height": 1.1, "cards": 64, "size": Vector2(0.5, 0.75), "mat": "foliage_shrub", "wind_h": 2.0},
+}
 
 static var _cache := {}
 
 
-static func material(kind: String) -> Material:
-	if kind.begins_with("conifer"):
-		return load("res://assets/materials/env/foliage_conifer.tres")
-	if kind.begins_with("palm"):
-		return load("res://assets/materials/env/foliage_palm.tres")
-	return load("res://assets/materials/env/foliage_broadleaf.tres")
+## The species a variant belongs to.
+static func species_of(variant: String) -> String:
+	for s: String in SPECIES:
+		if (SPECIES[s]["variants"] as Array).has(variant):
+			return s
+	return ""
 
 
-static func mesh(kind: String) -> ArrayMesh:
-	if _cache.has(kind):
-		return _cache[kind]
-	var mb := MeshBuilder.new()
-	var far := kind.ends_with("_far")
-	var base := kind.trim_suffix("_far")
-	match base:
-		"broadleaf_a":
-			_broadleaf(mb, 11, far)
-		"broadleaf_b":
-			_broadleaf(mb, 23, far)
+static func material(variant: String) -> Material:
+	var v: Dictionary = VARIANTS.get(variant, VARIANTS["broadleaf_a"])
+	return load("res://assets/materials/env/%s.tres" % v["mat"])
+
+
+## Mesh of a variant at a level of detail 0 (near). Levels 1 (mid) and 2 (far)
+## are per species (its first variant): pass the species name or any variant.
+static func mesh(kind: String, lod: int) -> ArrayMesh:
+	var variant := kind
+	if lod >= 1:
+		# Mid and far detail: one mesh per species (its first variant), keyed by the species.
+		var sp := kind if SPECIES.has(kind) else species_of(kind)
+		variant = SPECIES[sp]["variants"][0]
+		kind = sp
+	var key := "%s@%d" % [kind, lod]
+	if _cache.has(key):
+		return _cache[key]
+	var tb := TB.new()
+	var v: Dictionary = VARIANTS[variant]
+	match species_of(variant):
+		"broadleaf":
+			_broadleaf(tb, v, lod)
 		"conifer":
-			_conifer(mb, 7, far)
+			_conifer(tb, v, lod)
 		"palm":
-			_palm(mb, 5)
-	var m := MeshBuilder.with_lods(mb.build_mesh(material(kind)))
-	_cache[kind] = m
+			_palm(tb, v, lod)
+		"shrub":
+			_shrub(tb, v, lod)
+		"hedge":
+			_hedge(tb, v, lod)
+	var m := tb.build(material(variant))
+	_cache[key] = m
 	return m
 
 
-static func _trunk(mb: MeshBuilder, profile: PackedVector2Array, sides: int) -> void:
-	var bark := ArtPalette.BARK
+# --------------------------------------------------------------- builder ---
+
+class TB extends RefCounted:
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var tans := PackedFloat32Array()
 	var cols := PackedColorArray()
-	for p in profile:
-		cols.append(Color(bark.darkened(0.35).lerp(bark, clampf(p.y / 1.5, 0.0, 1.0)), BARK))
-	mb.add_lathe(Transform3D.IDENTITY, profile, sides, cols, 50.0)
+	var uvs := PackedVector2Array()
+	var uv2s := PackedVector2Array()
+	var idx := PackedInt32Array()
+
+	func vert(p: Vector3, n: Vector3, c: Color, uv: Vector2, uv2: Vector2, tan := Vector3.RIGHT) -> int:
+		verts.append(p)
+		norms.append(n)
+		cols.append(c)
+		uvs.append(uv)
+		uv2s.append(uv2)
+		tans.append(tan.x)
+		tans.append(tan.y)
+		tans.append(tan.z)
+		tans.append(TreeKit.BARK_TANGENT_W)
+		return verts.size() - 1
+
+	func quad(a: int, b: int, c: int, d: int) -> void:
+		idx.append(a)
+		idx.append(b)
+		idx.append(c)
+		idx.append(a)
+		idx.append(c)
+		idx.append(d)
+
+	## A quad whose front face (clockwise) looks along `n`.
+	func quad_n(a: int, b: int, c: int, d: int, n: Vector3) -> void:
+		var g := (verts[b] - verts[a]).cross(verts[c] - verts[a])
+		if g.dot(n) > 0.0:
+			quad(a, d, c, b)
+		else:
+			quad(a, b, c, d)
+
+	func tri(a: int, b: int, c: int) -> void:
+		idx.append(a)
+		idx.append(b)
+		idx.append(c)
+
+	func triangle_count() -> int:
+		return idx.size() / 3
+
+	func build(mat: Material) -> ArrayMesh:
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = verts
+		arrays[Mesh.ARRAY_NORMAL] = norms
+		arrays[Mesh.ARRAY_TANGENT] = tans
+		arrays[Mesh.ARRAY_COLOR] = cols
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
+		arrays[Mesh.ARRAY_TEX_UV2] = uv2s
+		arrays[Mesh.ARRAY_INDEX] = idx
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(0, mat)
+		return mesh
+
+	## Tapered tube along `pts` (radii per point). UV u goes `urep` times round
+	## (whole number), v is `vscale` per metre along. AO and wind flex run
+	## linearly along the tube.
+	func tube(pts: PackedVector3Array, radii: PackedFloat32Array, sides: int, urep: int, vscale: float,
+			ao0: float, ao1: float, flex0 := 0.0, flex1 := 0.0) -> void:
+		var n := pts.size()
+		var fr := TreeKit._frames(pts)
+		var base := verts.size()
+		var v := 0.0
+		for i in n:
+			if i > 0:
+				v += pts[i].distance_to(pts[i - 1]) * vscale
+			var f := float(i) / maxf(n - 1, 1)
+			var ao := lerpf(ao0, ao1, f)
+			var fl := lerpf(flex0, flex1, f)
+			var nn: Vector3 = fr[1][i]
+			var bb: Vector3 = (fr[0][i] as Vector3).cross(nn)
+			for s in sides + 1:
+				var a := TAU * s / sides
+				var d := nn * cos(a) + bb * sin(a)
+				var tg := -nn * sin(a) + bb * cos(a)
+				vert(pts[i] + d * radii[i], d, Color(ao, 0.5, 0.5, TreeKit.BARK), Vector2(urep * float(s) / sides, v), Vector2(0.0, fl), tg)
+		var stride := sides + 1
+		for i in n - 1:
+			for s in sides:
+				var a0 := base + i * stride + s
+				quad(a0, a0 + stride, a0 + stride + 1, a0 + 1)
+
+	## A leaf card standing on `base`, `w` wide along `side` and `h` tall along
+	## `up`, showing atlas tile `tile` of a `grid` atlas. Vertex normals blend
+	## the card's own (`n_card`) with the crown's soft normal by `blend`.
+	func card(base: Vector3, up: Vector3, side: Vector3, w: float, h: float, tile: Vector2i, grid: Vector2i,
+			crown: Crown, n_card: Vector3, blend: float, wob: float, phase: float) -> void:
+		var q := [base - side * (w * 0.5), base + side * (w * 0.5), base + side * (w * 0.5) + up * h, base - side * (w * 0.5) + up * h]
+		var inset := 0.0015
+		var u0 := float(tile.x) / grid.x + inset
+		var u1 := float(tile.x + 1) / grid.x - inset
+		var v0 := float(tile.y) / grid.y + inset
+		var v1 := float(tile.y + 1) / grid.y - inset
+		var uv := [Vector2(u0, v1), Vector2(u1, v1), Vector2(u1, v0), Vector2(u0, v0)]
+		var ids: Array[int] = []
+		for i in 4:
+			var p: Vector3 = q[i]
+			var nrm := n_card.lerp(crown.normal(p), blend).normalized()
+			ids.append(vert(p, nrm, Color(crown.ao(p), 0.5 + wob, crown.thin(p), TreeKit.CARD), uv[i],
+				Vector2(phase, clampf(0.25 + crown.depth(p) * 0.75, 0.0, 1.0))))
+		quad(ids[0], ids[1], ids[2], ids[3])
+
+	## A solid lumpy ellipsoid (the canopy blob) with soft normals from its centre.
+	func blob(c: Vector3, r: Vector3, rings: int, segs: int, crown: Crown, rng: RandomNumberGenerator, lump := 0.12) -> void:
+		var base := verts.size()
+		var phase := rng.randf() * TAU
+		for ri in rings + 1:
+			var phi := PI * ri / rings
+			for si in segs + 1:
+				var th := TAU * si / segs
+				var d := Vector3(sin(phi) * cos(th), cos(phi), sin(phi) * sin(th))
+				var k := 1.0 + lump * sin(th * 3.0 + phase + phi * 2.0) * sin(phi * 2.0 + phase)
+				var p := c + d * r * k
+				vert(p, (d + Vector3.UP * 0.12).normalized(), Color(crown.ao(p), 0.5, 0.5, TreeKit.BLOB), Vector2.ZERO, Vector2(0.0, 0.3))
+		for ri in rings:
+			for si in segs:
+				var a0 := base + ri * (segs + 1) + si
+				quad(a0, a0 + segs + 1, a0 + segs + 2, a0 + 1)
 
 
-## Tapered limb from `a` to `b` (a lathe with its axis turned along a -> b).
-static func _limb(mb: MeshBuilder, a: Vector3, b: Vector3, r0: float, r1: float) -> void:
-	var d := b - a
-	var y := d.normalized()
-	var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
-	var z := x.cross(y)
-	var col := Color(ArtPalette.BARK.darkened(0.1), BARK)
-	mb.add_lathe(Transform3D(Basis(x, y, z), a), PackedVector2Array([Vector2(r0, 0.0), Vector2(r1, d.length()), Vector2(0.0, d.length() + r1)]),
-		6, PackedColorArray([col]), 50.0)
+## The crown as an ellipsoid: soft normals, AO and leaf thinness at a point.
+class Crown extends RefCounted:
+	var c: Vector3
+	var r: Vector3
+
+	func _init(center: Vector3, radii: Vector3) -> void:
+		c = center
+		r = radii
+
+	func rel(p: Vector3) -> Vector3:
+		return (p - c) / r
+
+	func depth(p: Vector3) -> float:
+		return clampf(rel(p).length(), 0.0, 1.3)
+
+	func normal(p: Vector3) -> Vector3:
+		var d := rel(p)
+		return (d.normalized() + Vector3.UP * 0.15).normalized() if d.length_squared() > 1e-6 else Vector3.UP
+
+	func ao(p: Vector3) -> float:
+		var d := rel(p)
+		var depth := clampf(d.length(), 0.0, 1.1)
+		var a := lerpf(0.3, 1.0, smoothstep(0.1, 1.0, depth))
+		return a * lerpf(0.7, 1.0, smoothstep(-1.0, 0.5, d.y))
+
+	func thin(p: Vector3) -> float:
+		return smoothstep(0.35, 1.0, depth(p))
 
 
-## Solid ellipsoid core with normals from `center`.
-static func _core(mb: MeshBuilder, center: Vector3, radii: Vector3, dark: Color, mid: Color, kind: float) -> void:
-	var rings := 6
-	var segs := 10
-	var pts: Array = []
-	for r in rings + 1:
-		var phi := PI * r / rings
-		var row: Array[Vector3] = []
-		for s in segs:
-			var th := TAU * s / segs
-			row.append(Vector3(sin(phi) * cos(th), cos(phi), sin(phi) * sin(th)))
-		pts.append(row)
-	for r in rings:
-		for s in segs:
-			var s1 := (s + 1) % segs
-			var dirs: Array[Vector3] = [pts[r][s], pts[r][s1], pts[r + 1][s1], pts[r + 1][s]]
-			var p: Array[Vector3] = []
-			var c: Array[Color] = []
-			for d in dirs:
-				p.append(center + d * radii)
-				c.append(Color(dark.lerp(mid, clampf(d.y * 0.5 + 0.5, 0.0, 1.0)), kind))
-			mb.add_quad_ex(p[0], p[1], p[2], p[3], dirs[0], dirs[1], dirs[2], dirs[3], c[0], c[1], c[2], c[3])
-
-
-## A leaf card: a quad of `size` at `p`, facing `facing`, spun by `spin`;
-## normals from the canopy centre `c` (scaled by `radii`); AO from height
-## and depth in the canopy. `quad` picks the atlas quarter.
-static func _card(mb: MeshBuilder, p: Vector3, facing: Vector3, spin: float, size: float, c: Vector3, radii: Vector3,
-		dark: Color, mid: Color, lit: Color, quad: int) -> void:
-	var n := facing.normalized()
-	var t := n.cross(Vector3.UP if absf(n.y) < 0.95 else Vector3.RIGHT).normalized().rotated(n, spin)
-	var b := n.cross(t)
-	var h := size * 0.5
-	var corners: Array[Vector3] = [p - t * h - b * h, p + t * h - b * h, p + t * h + b * h, p - t * h + b * h]
-	var q0 := Vector2(quad % 2, quad / 2) * 0.5
-	var uv: Array[Vector2] = [q0 + Vector2(0.0, 0.5), q0 + Vector2(0.5, 0.5), q0 + Vector2(0.5, 0.0), q0]
+## Parallel-transport frames along a polyline: [tangents, normals].
+static func _frames(pts: PackedVector3Array) -> Array:
+	var n := pts.size()
+	var ts: Array[Vector3] = []
 	var ns: Array[Vector3] = []
-	var cs: Array[Color] = []
-	for q in corners:
-		var rel := (q - c) / radii
-		ns.append(rel.normalized())
-		var height := clampf(rel.y * 0.5 + 0.5, 0.0, 1.0)
-		var depth := clampf(rel.length(), 0.0, 1.2)
-		var col := dark.lerp(mid, smoothstep(0.0, 0.55, height)).lerp(lit, smoothstep(0.55, 1.0, height) * 0.8)
-		col = col.darkened((1.0 - clampf(depth, 0.0, 1.0)) * 0.35)
-		cs.append(Color(col, CARD))
-	mb.add_quad_ex(corners[0], corners[1], corners[2], corners[3], ns[0], ns[1], ns[2], ns[3], cs[0], cs[1], cs[2], cs[3],
-		uv[0], uv[1], uv[2], uv[3])
+	for i in n:
+		ts.append((pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized())
+	var ref := Vector3.RIGHT if absf(ts[0].x) < 0.9 else Vector3.FORWARD
+	ns.append(ts[0].cross(ref).normalized())
+	for i in range(1, n):
+		var prev := ns[i - 1]
+		var nn := prev - ts[i] * prev.dot(ts[i])
+		ns.append(nn.normalized() if nn.length_squared() > 1e-8 else prev)
+	return [ts, ns]
 
 
-static func _broadleaf(mb: MeshBuilder, seed: int, far: bool) -> void:
+static func _bezier(a: Vector3, b: Vector3, c: Vector3, n: int) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for i in n + 1:
+		var t := float(i) / n
+		out.append(a.lerp(b, t).lerp(b.lerp(c, t), t))
+	return out
+
+
+static func _radii(n: int, r0: float, r1: float, power := 1.0) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	for i in n:
+		out.append(lerpf(r0, r1, pow(float(i) / maxf(n - 1, 1), power)))
+	return out
+
+
+static func _rand_unit(rng: RandomNumberGenerator) -> Vector3:
+	return Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized()
+
+
+## Position on a polyline at height y (the polyline rises monotonically).
+static func _at_height(pts: PackedVector3Array, y: float) -> Vector3:
+	for i in range(1, pts.size()):
+		if pts[i].y >= y:
+			var t := inverse_lerp(pts[i - 1].y, pts[i].y, y)
+			return pts[i - 1].lerp(pts[i], clampf(t, 0.0, 1.0))
+	return pts[pts.size() - 1]
+
+
+# --------------------------------------------------------------- broadleaf ---
+
+static func _broadleaf(tb: TB, v: Dictionary, lod: int) -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = seed
-	var c := Vector3(0.0, 4.9, 0.0)
-	var radii := Vector3(2.7, 2.2, 2.7)
-	var dark := ArtPalette.BROADLEAF.darkened(0.3)
-	var mid := ArtPalette.BROADLEAF
-	var lit := ArtPalette.FOLIAGE_LIT
-	_trunk(mb, PackedVector2Array([Vector2(0.3, 0.0), Vector2(0.22, 0.12), Vector2(0.17, 0.6), Vector2(0.14, 2.6),
-		Vector2(0.1, 4.2), Vector2(0.0, 4.6)]), 8)
-	if far:
-		_core(mb, c, radii * 0.98, dark, mid.lerp(lit, 0.4), CORE)
+	rng.seed = v["seed"] + lod * 101
+	var tr_h: float = v["trunk_h"]
+	var R: float = v["radius"]
+	var crown_h: float = float(v["height"]) - tr_h + 0.8
+	var c := Vector3(0.0, tr_h - 0.4 + crown_h * 0.5, 0.0)
+	var crown := Crown.new(c, Vector3(R, crown_h * 0.5, R))
+	var grid := Vector2i(4, 4)
+	var detail := lod == 0
+	if lod >= 2:
+		_broadleaf_far(tb, v, crown, rng)
 		return
-	# Main limbs into the crown.
-	for k in 4:
-		var ang := TAU * k / 4.0 + rng.randf_range(-0.4, 0.4)
-		var a := Vector3(0.0, rng.randf_range(2.3, 3.0), 0.0)
-		var b := c + Vector3(cos(ang) * radii.x * 0.55, rng.randf_range(-0.6, 0.6), sin(ang) * radii.z * 0.55)
-		_limb(mb, a, b, 0.09, 0.035)
-	_core(mb, c + Vector3(0, -0.1, 0), radii * 0.7, dark.darkened(0.15), mid, CORE)
-	# Leaf clusters around the crown: one on top, a ring at mid height, a lower ring.
-	var clusters: Array[Vector3] = [c + Vector3(0.0, radii.y * 0.55, 0.0)]
-	for k in 6:
-		var ang := TAU * k / 6.0 + rng.randf_range(-0.3, 0.3)
-		clusters.append(c + Vector3(cos(ang) * radii.x * 0.55, rng.randf_range(0.0, 0.6), sin(ang) * radii.z * 0.55))
-	for k in 4:
-		var ang := TAU * k / 4.0 + 0.6 + rng.randf_range(-0.3, 0.3)
-		clusters.append(c + Vector3(cos(ang) * radii.x * 0.45, -radii.y * 0.45, sin(ang) * radii.z * 0.45))
-	for q in clusters:
-		for i in 13:
-			var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized()
-			var p := q + dir * rng.randf_range(0.4, 1.25)
-			# Face mostly outward from the crown, with some randomness.
-			var facing := ((p - c) / radii).normalized() + Vector3(rng.randf_range(-0.6, 0.6), rng.randf_range(-0.6, 0.6), rng.randf_range(-0.6, 0.6))
-			_card(mb, p, facing, rng.randf() * TAU, rng.randf_range(1.4, 1.9), c, radii, dark, mid, lit, rng.randi() % 4)
+	# Trunk: a gentle S, flared at the foot, up into the crown.
+	var y_top := c.y + crown.r.y * 0.45
+	var n_t := 9 if detail else 4
+	var trunk := PackedVector3Array()
+	var ph := rng.randf() * TAU
+	for i in n_t:
+		var t := float(i) / (n_t - 1)
+		var y := y_top * t
+		trunk.append(Vector3(0.18 * sin(y * 0.8 + ph) * t, y, 0.18 * cos(y * 0.7 + ph) * t))
+	var rb: float = v["trunk_r"]
+	var rad := PackedFloat32Array()
+	for i in n_t:
+		var t := float(i) / (n_t - 1)
+		rad.append(lerpf(rb, 0.07, pow(t, 0.8)) + 0.1 * exp(-trunk[i].y * 2.5))
+	tb.tube(trunk, rad, 10 if detail else 5, 2, 0.8, 0.8, 0.6, 0.0, 0.1)
+	# Limbs arching out into the crown; branches off them; anchors for cards.
+	var anchors: Array[Vector3] = []
+	var nl: int = v["limbs"]
+	var a0 := rng.randf() * TAU
+	for k in nl:
+		var az := a0 + TAU * k / nl + rng.randf_range(-0.35, 0.35)
+		var ys := tr_h - 0.3 + rng.randf() * crown_h * 0.3
+		var s := _at_height(trunk, ys)
+		var reach := R * rng.randf_range(0.8, 1.0)
+		var e := c + Vector3(cos(az) * reach, rng.randf_range(-0.3, 0.7) * crown.r.y, sin(az) * reach)
+		var ctrl := Vector3(lerpf(s.x, e.x, 0.3), maxf(s.y, e.y) + 0.7, lerpf(s.z, e.z, 0.3))
+		var seg := 7 if detail else 3
+		var limb := _bezier(s, ctrl, e, seg)
+		var lr0 := rb * rng.randf_range(0.5, 0.62)
+		tb.tube(limb, _radii(limb.size(), lr0, 0.035, 0.9), 6 if detail else 3, 1, 1.0, 0.6, 0.45, 0.1, 0.5)
+		anchors.append(e)
+		anchors.append(limb[seg - 1])
+		if not detail:
+			anchors.append(limb[1])
+			continue
+		anchors.append(limb[seg - 4])
+		var nb := rng.randi_range(3, 4)
+		for b in nb:
+			var tt := 0.3 + 0.6 * float(b + 1) / (nb + 1) + rng.randf_range(-0.05, 0.05)
+			var idx := clampi(int(tt * seg), 1, seg - 1)
+			var b0 := limb[idx]
+			var pd := (limb[mini(idx + 1, seg)] - limb[idx - 1]).normalized()
+			var cd := (pd * 0.45 + _rand_unit(rng) * 0.75 + Vector3.UP * 0.2).normalized()
+			var lb := R * rng.randf_range(0.3, 0.5) * (1.0 - tt * 0.35)
+			var bp := PackedVector3Array()
+			for j in 5:
+				var f := float(j) / 4.0
+				bp.append(b0 + cd * (lb * f) + Vector3.DOWN * (0.3 * lb * f * f) + Vector3.UP * (0.2 * lb * f))
+			tb.tube(bp, _radii(5, lr0 * lerpf(0.6, 0.35, tt), 0.02, 0.9), 4, 1, 1.2, 0.5, 0.4, 0.3, 0.8)
+			anchors.append(bp[4])
+			anchors.append(bp[2])
+			# virtual twigs off the branch end carry a cluster each
+			for j in 3:
+				var td := (cd + _rand_unit(rng) * 0.8).normalized()
+				anchors.append(bp[4] + td * rng.randf_range(0.5, 0.9))
+				anchors.append(bp[3] + td * rng.randf_range(0.3, 0.6))
+	# A dark core so the crown's heart isn't see-through (only where cards are few).
+	if not detail:
+		tb.blob(c + Vector3(0, -0.1, 0), crown.r * 0.6, 3, 6, crown, rng, 0.08)
+	# Cards: clusters at the anchors, plus fill on the crown's shell.
+	var total: int = int(v["cards"]) if detail else int(float(v["cards"]) * 0.2)
+	var size: Vector2 = v["size"] if detail else (v["size"] as Vector2) * 2.1
+	var per := maxi(1, int(ceil(float(total) * 0.7 / anchors.size())))
+	var placed := 0
+	for a in anchors:
+		for j in per:
+			_leaf_card(tb, rng, a + _rand_unit(rng) * 0.35, crown, size, grid, 1.0)
+			placed += 1
+	while placed < total:
+		var d := _rand_unit(rng)
+		var p := crown.c + d * crown.r * rng.randf_range(0.6, 1.0)
+		_leaf_card(tb, rng, p, crown, size, grid, 1.0)
+		placed += 1
 
 
-static func _conifer(mb: MeshBuilder, seed: int, far: bool) -> void:
+## One cluster card at `p`: its tile "up" points outward (and up), its face
+## looks outward-ish.
+static func _leaf_card(tb: TB, rng: RandomNumberGenerator, p: Vector3, crown: Crown, size: Vector2, grid: Vector2i,
+		blend_scale: float) -> void:
+	# Cards lie on the crown's surface like shingles, seen face-on from outside:
+	# the face looks outward, the tile's "up" runs along the surface (mostly
+	# upwards, leaves hang from their twig) and tips out a little.
+	var nc := (crown.normal(p) + _rand_unit(rng) * 0.5).normalized()
+	var tang := Vector3.UP - nc * nc.dot(Vector3.UP)
+	if tang.length() < 0.25:
+		tang = nc.cross(_rand_unit(rng))
+	tang = tang.normalized().rotated(nc, rng.randf_range(-1.1, 1.1))
+	var up := (tang + nc * 0.3).normalized()
+	var side := up.cross(nc).normalized()
+	var w := lerpf(size.x, size.y, rng.randf())
+	var tile := Vector2i(rng.randi() % grid.x, rng.randi() % grid.y)
+	tb.card(p - up * (w * 0.4), up, side, w, w, tile, grid, crown, nc, 0.6 * blend_scale, rng.randf_range(-0.5, 0.5), rng.randf())
+
+
+static func _broadleaf_far(tb: TB, v: Dictionary, crown: Crown, rng: RandomNumberGenerator) -> void:
+	var tr_h: float = v["trunk_h"]
+	var trunk := PackedVector3Array([Vector3(0, 0, 0), Vector3(0, tr_h + 1.0, 0)])
+	tb.tube(trunk, PackedFloat32Array([0.3, 0.12]), 4, 1, 1.0, 0.8, 0.6)
+	tb.blob(crown.c, crown.r, 4, 8, crown, rng, 0.14)
+
+
+# ------------------------------------------------------------------ conifer ---
+
+static func _conifer(tb: TB, v: Dictionary, lod: int) -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = seed
-	var dark := ArtPalette.CONIFER.darkened(0.25)
-	var mid := ArtPalette.CONIFER
-	var lit := ArtPalette.CONIFER_LIT.lerp(ArtPalette.FOLIAGE_LIT, 0.25)
-	var top := 9.2
-	var base := 1.5
-	var r0 := 2.2
-	_trunk(mb, PackedVector2Array([Vector2(0.28, 0.0), Vector2(0.2, 0.12), Vector2(0.15, 0.8), Vector2(0.05, top - 0.6), Vector2(0.0, top - 0.3)]), 7)
-	var core_prof := PackedVector2Array()
-	for k in 7:
-		var t := k / 6.0
-		core_prof.append(Vector2(r0 * 0.78 * pow(1.0 - t, 1.1), lerpf(base + 0.3, top, t)))
-	var core_cols := PackedColorArray()
-	for k in core_prof.size():
-		core_cols.append(Color(dark.darkened(0.15).lerp(mid, float(k) / core_prof.size()), CORE))
-	if far:
-		core_prof[0] = Vector2(r0 * 0.98, base)
-		for k in range(1, core_prof.size()):
-			core_prof[k].x /= 0.78
-		mb.add_lathe(Transform3D.IDENTITY, core_prof, 10, core_cols, 50.0)
+	rng.seed = v["seed"] + lod * 101
+	var H: float = v["height"]
+	var Rm: float = v["radius"]
+	var base_h: float = v["base_h"]
+	if lod >= 2:
+		_conifer_far(tb, v)
 		return
-	core_prof.insert(0, Vector2(0.0, base + 0.2))
-	core_cols.insert(0, core_cols[0])
-	mb.add_lathe(Transform3D.IDENTITY, core_prof, 10, core_cols, 50.0)
-	# Tiers of drooping needle sprays, shorter toward the top.
-	var y := base + 0.1
-	var tier := 0
-	while y < top - 0.4:
-		var t := (y - base) / (top - base)
-		var rt := r0 * pow(1.0 - t, 0.95) + 0.3
-		var count := 7 if t < 0.6 else 5
-		for k in count:
-			var ang := TAU * k / count + tier * 0.7 + rng.randf_range(-0.25, 0.25)
-			var radial := Vector3(cos(ang), 0.0, sin(ang))
-			var tangent := Vector3(-sin(ang), 0.0, cos(ang))
-			var droop := rng.randf_range(0.25, 0.45) * rt
-			var inner := Vector3(0.0, y + 0.25, 0.0) + radial * 0.1
-			var outer := Vector3(0.0, y - droop + 0.25, 0.0) + radial * rt
-			var half := tangent * rt * rng.randf_range(0.42, 0.55)
-			# Tilt the spray a little around its own axis.
-			var lift := Vector3.UP * rng.randf_range(-0.15, 0.15) * rt
-			var corners: Array[Vector3] = [inner - half * 0.3 + lift, inner + half * 0.3 - lift, outer + half - lift, outer - half + lift]
-			var q := rng.randi() % 4
-			var q0 := Vector2(q % 2, q / 2) * 0.5
-			var uv: Array[Vector2] = [q0 + Vector2(0.15, 0.46), q0 + Vector2(0.35, 0.46), q0 + Vector2(0.5, 0.0), q0 + Vector2(0.0, 0.0)]
-			var ns: Array[Vector3] = []
-			var cs: Array[Color] = []
-			for p in corners:
-				var rad := Vector3(p.x, 0.0, p.z)
-				ns.append((rad.normalized() if rad.length() > 0.01 else radial) + Vector3.UP * 0.55)
-				ns[ns.size() - 1] = ns[ns.size() - 1].normalized()
-				var outness := clampf(rad.length() / maxf(rt, 0.01), 0.0, 1.0)
-				var col := dark.lerp(mid, outness).lerp(lit, smoothstep(0.3, 1.0, t) * 0.5 + outness * 0.25)
-				cs.append(Color(col, CARD))
-			mb.add_quad_ex(corners[0], corners[1], corners[2], corners[3], ns[0], ns[1], ns[2], ns[3], cs[0], cs[1], cs[2], cs[3],
-				uv[0], uv[1], uv[2], uv[3])
-		y += 0.55 + t * 0.15
-		tier += 1
+	var detail := lod == 0
+	# Trunk with a slight bend.
+	var n_t := 8 if detail else 3
+	var trunk := PackedVector3Array()
+	var ph := rng.randf() * TAU
+	for i in n_t:
+		var t := float(i) / (n_t - 1)
+		trunk.append(Vector3(0.12 * sin(t * 4.0 + ph) * t, H * 0.985 * t, 0.12 * cos(t * 3.0 + ph) * t))
+	var rad := PackedFloat32Array()
+	for i in n_t:
+		var t := float(i) / (n_t - 1)
+		rad.append(lerpf(0.27, 0.025, pow(t, 0.7)) + 0.09 * exp(-trunk[i].y * 2.0))
+	tb.tube(trunk, rad, 8 if detail else 4, 2, 0.8, 0.8, 0.7, 0.0, 0.05)
+	# A dark cone inside, so the tree reads solid.
+	_cone_core(tb, base_h + 0.4, H - 0.8, Rm * 0.34, 9 if detail else 6, 6 if detail else 3)
+	var grid := Vector2i(2, 4)
+	var y := base_h
+	var whorl := 0
+	while y < H - 0.7:
+		var t := (y - base_h) / (H - base_h)
+		var n := roundi(lerpf(float(v["n_low"]), float(v["n_high"]), t))
+		var az0 := rng.randf() * TAU
+		var skip := not detail and whorl % 3 != 0
+		if not skip:
+			for k in n:
+				var az := az0 + TAU * k / n + rng.randf_range(-0.25, 0.25)
+				var L := Rm * pow(1.0 - t, float(v["taper"])) * rng.randf_range(0.85, 1.12) + 0.45
+				if not detail:
+					L *= 1.1
+				var elev := deg_to_rad(lerpf(float(v["elev_low"]), float(v["elev_high"]), t) + rng.randf_range(-6.0, 6.0))
+				_spray(tb, rng, _trunk_at(trunk, y), az, L, elev, t, tile_of(rng), grid, detail, H, Rm)
+		y += lerpf(float(v["step"]), float(v["step"]) * 0.65, t) * (1.0 if detail else 1.0)
+		whorl += 1
+	# The top: a few upright sprays.
+	for k in 4:
+		var az := TAU * k / 4.0 + rng.randf() * 0.5
+		_spray(tb, rng, _trunk_at(trunk, H - 1.3), az, 0.9, deg_to_rad(68.0), 1.0, tile_of(rng), grid, detail, H, Rm)
 
 
-## A palm: a gently leaning, ringed trunk and a crown of arching fronds (strips
-## along the frond texture: base at u = 0, tip at u = 1, one frond per half).
-static func _palm(mb: MeshBuilder, seed: int) -> void:
+static func tile_of(rng: RandomNumberGenerator) -> Vector2i:
+	return Vector2i(rng.randi() % 2, rng.randi() % 4)
+
+
+static func _trunk_at(trunk: PackedVector3Array, y: float) -> Vector3:
+	return _at_height(trunk, y)
+
+
+## A conifer branch: a strip along the branch (stem down the middle, two
+## wings that droop either side), the tile's stem running base to tip.
+static func _spray(tb: TB, rng: RandomNumberGenerator, root: Vector3, az: float, L: float, elev: float, t: float,
+		tile: Vector2i, grid: Vector2i, detail: bool, H: float, Rm: float) -> void:
+	var dirh := Vector3(cos(az), 0.0, sin(az))
+	var across := Vector3(-dirh.z, 0.0, dirh.x)
+	var segs := 3 if detail else 1
+	var W := L * 0.8
+	var droop := L * (0.18 + 0.1 * (1.0 - t)) if elev < 0.3 else L * 0.05
+	var ids: Array[int] = []
+	var u0 := float(tile.x) / grid.x + 0.002
+	var u1 := float(tile.x + 1) / grid.x - 0.002
+	var vt := float(tile.y) / grid.y + 0.002
+	var vb := float(tile.y + 1) / grid.y - 0.002
+	var vm := (vt + vb) * 0.5
+	var phase := rng.randf()
+	var n_up := Vector3.UP
+	for i in segs + 1:
+		var f := float(i) / segs
+		var p := root + dirh * (L * f * cos(elev)) + Vector3.UP * (L * f * sin(elev) - droop * f * f)
+		var wing := W * 0.5 * lerpf(0.55, 1.0, sin(f * PI * 0.9 + 0.2))
+		var edge_drop := wing * 0.3
+		for col in 3:
+			var q := p
+			var vv := vm
+			if col == 0:
+				q = p - across * wing - Vector3.UP * edge_drop
+				vv = vt
+			elif col == 2:
+				q = p + across * wing - Vector3.UP * edge_drop
+				vv = vb
+			var out := Vector3(q.x, 0.0, q.z)
+			var rn := out.normalized() if out.length() > 0.05 else dirh
+			# lighting normal: up and outward, so the crown's top is lit and its underside shaded
+			var nrm := (Vector3.UP * 0.8 + rn * 0.55).normalized()
+			var radial := clampf(out.length() / maxf(Rm, 0.1), 0.0, 1.0)
+			var ao := lerpf(0.45, 1.0, smoothstep(0.0, 0.9, radial)) * lerpf(0.78, 1.0, clampf(q.y / (H * 0.8), 0.0, 1.0))
+			ids.append(tb.vert(q, nrm, Color(ao, 0.5, clampf(0.2 + f * 0.5, 0.0, 1.0), TreeKit.CARD),
+				Vector2(lerpf(u0, u1, f), vv), Vector2(phase, 0.3 + 0.7 * f)))
+	for i in segs:
+		for col in 2:
+			var a := ids[i * 3 + col]
+			var b := ids[i * 3 + col + 1]
+			var c2 := ids[(i + 1) * 3 + col + 1]
+			var d := ids[(i + 1) * 3 + col]
+			tb.quad_n(a, b, c2, d, n_up)
+
+
+## A dark cone of foliage inside the tree.
+static func _cone_core(tb: TB, y0: float, y1: float, r0: float, sides: int, rings: int) -> void:
+	var base := tb.verts.size()
+	for ri in rings + 1:
+		var t := float(ri) / rings
+		var y := lerpf(y0, y1, t)
+		var r := r0 * pow(1.0 - t, 1.1) + 0.02
+		for si in sides + 1:
+			var a := TAU * si / sides
+			var d := Vector3(cos(a), 0.0, sin(a))
+			tb.vert(Vector3(d.x * r, y, d.z * r), (d + Vector3.UP * 0.5).normalized(), Color(lerpf(0.35, 0.7, t), 0.5, 0.5, TreeKit.BLOB),
+				Vector2.ZERO, Vector2(0.0, 0.2))
+	for ri in rings:
+		for si in sides:
+			var a0 := base + ri * (sides + 1) + si
+			tb.quad(a0, a0 + sides + 1, a0 + sides + 2, a0 + 1)
+
+
+static func _conifer_far(tb: TB, v: Dictionary) -> void:
+	var H: float = v["height"]
+	var Rm: float = v["radius"]
+	var base_h: float = v["base_h"]
+	# Two stacked, overlapping cones, darker below.
+	for k in 2:
+		var y0 := lerpf(base_h * 0.8, H * 0.5, float(k) / 2.0)
+		var y1 := y0 + (H - y0) * (0.62 + 0.25 * k)
+		var r := Rm * lerpf(1.0, 0.6, float(k) / 2.0) * 0.95
+		var rings := 2
+		var sides := 6
+		var base := tb.verts.size()
+		for ri in rings + 1:
+			var t := float(ri) / rings
+			var y := lerpf(y0, y1, t)
+			var rr := r * pow(1.0 - t, 0.9) + 0.01
+			for si in sides + 1:
+				var a := TAU * si / sides + k * 0.5
+				var d := Vector3(cos(a), 0.0, sin(a))
+				tb.vert(Vector3(d.x * rr, y, d.z * rr), (d + Vector3.UP * 0.55).normalized(),
+					Color(lerpf(0.4, 1.0, t * 0.7 + float(k) / 2.0 * 0.4), 0.5, 0.5, TreeKit.BLOB), Vector2.ZERO, Vector2(0.0, 0.2))
+		for ri in rings:
+			for si in sides:
+				var a0 := base + ri * (sides + 1) + si
+				tb.quad(a0, a0 + sides + 1, a0 + sides + 2, a0 + 1)
+
+
+# --------------------------------------------------------------------- palm ---
+
+static func _palm(tb: TB, v: Dictionary, lod: int) -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = seed
-	var height := 9.0
-	var lean := 1.3
-	var segs := 10
-	var bark := Color(0.5, 0.44, 0.36)
-	var spine: Array[Vector3] = []
-	for k in segs + 1:
-		var t := float(k) / segs
-		spine.append(Vector3(lean * t * t, height * t, 0.0))
-	for k in segs:
-		var r0 := lerpf(0.27, 0.17, float(k) / segs)
-		var r1 := lerpf(0.27, 0.17, float(k + 1) / segs)
-		var a := spine[k]
-		var b := spine[k + 1]
-		var y := (b - a).normalized()
-		var x := y.cross(Vector3.FORWARD).normalized()
-		var z := x.cross(y)
-		var c0 := Color(bark.darkened(0.12 if k % 2 == 0 else 0.0), BARK)
-		var c1 := Color(bark.darkened(0.25), BARK)
-		# A ring: flared at the bottom of each segment.
-		mb.add_lathe(Transform3D(Basis(x, y, z), a), PackedVector2Array([Vector2(r0 * 1.08, 0.0), Vector2(r1, a.distance_to(b) * 0.85),
-			Vector2(r1 * 1.04, a.distance_to(b))]), 8, PackedColorArray([c1, c0, c0]), 30.0)
-	var top := spine[segs]
-	var green := Color(0.369, 0.478, 0.204)  # palm
-	_core(mb, top + Vector3(0, 0.15, 0), Vector3(0.55, 0.45, 0.55), green.darkened(0.45), green.darkened(0.2), CORE)
-	var fronds := 12
-	for f in fronds:
-		var ang := TAU * f / fronds + rng.randf_range(-0.2, 0.2)
-		var dir := Vector3(cos(ang), 0.0, sin(ang))
-		var across := Vector3(-dir.z, 0.0, dir.x)
-		var length := rng.randf_range(3.6, 4.6)
-		var rise := rng.randf_range(0.5, 1.4) if f % 2 == 0 else rng.randf_range(-0.2, 0.6)
-		var droop := rng.randf_range(1.8, 2.8)
-		var width := 2.3
-		var bank := rng.randf_range(-0.25, 0.25)
-		var half := 0.5 * float(f % 2)
-		var steps := 5
-		var prev_l := Vector3.ZERO
-		var prev_r := Vector3.ZERO
-		for k in steps + 1:
-			var t := float(k) / steps
-			var p := top + dir * (length * t) + Vector3.UP * (rise * t - droop * t * t)
-			var side := (across + Vector3.UP * bank).normalized() * width * 0.5
-			var l := p - side
-			var r := p + side
-			if k > 0:
-				var t0 := float(k - 1) / steps
-				var cols: Array[Color] = []
-				var ns: Array[Vector3] = []
-				for q: Vector3 in [prev_l, prev_r, r, l]:
-					var rel := q - top
-					ns.append((rel.normalized() + Vector3.UP * 1.2).normalized())
-					var tip := clampf(rel.length() / length, 0.0, 1.0)
-					cols.append(Color(green.darkened(0.25).lerp(ArtPalette.FOLIAGE_LIT.lerp(green, 0.4), tip * 0.8), CARD))
-				mb.add_quad_ex(prev_l, prev_r, r, l, ns[0], ns[1], ns[2], ns[3], cols[0], cols[1], cols[2], cols[3],
-					Vector2(0.02 + 0.96 * t0, half), Vector2(0.02 + 0.96 * t0, half + 0.5), Vector2(0.02 + 0.96 * t, half + 0.5), Vector2(0.02 + 0.96 * t, half))
-			prev_l = l
-			prev_r = r
+	rng.seed = v["seed"] + lod * 101
+	var height: float = v["height"]
+	var lean: float = v["lean"]
+	var n_t := 12 if lod == 0 else (5 if lod == 1 else 3)
+	var spine := PackedVector3Array()
+	for k in n_t:
+		var t := float(k) / (n_t - 1)
+		spine.append(Vector3(lean * t * t, height * t, 0.35 * sin(t * 3.0)))
+	var rad := PackedFloat32Array()
+	for k in n_t:
+		var t := float(k) / (n_t - 1)
+		rad.append(lerpf(0.23, 0.15, t) + 0.1 * exp(-spine[k].y * 1.8))
+	tb.tube(spine, rad, 8 if lod == 0 else (5 if lod == 1 else 4), 2, 0.85, 0.85, 1.0, 0.0, 0.2)
+	var top := spine[n_t - 1]
+	var crown := Crown.new(top + Vector3(0, 0.3, 0), Vector3(2.4, 1.3, 2.4))
+	if lod == 0:
+		tb.blob(top + Vector3(0, 0.15, 0), Vector3(0.42, 0.4, 0.42), 4, 7, crown, rng, 0.1)
+	var count: int = int(v["fronds"]) if lod == 0 else (8 if lod == 1 else 5)
+	var segs := 6 if lod == 0 else (3 if lod == 1 else 2)
+	for f in count:
+		var az := TAU * f / count + rng.randf_range(-0.18, 0.18)
+		var kind := f % 3
+		var rise := 0.0
+		var droop := 0.0
+		var L := rng.randf_range(3.6, 4.6)
+		if kind == 0:
+			rise = rng.randf_range(1.3, 2.2)
+			droop = rng.randf_range(1.0, 1.8)
+		elif kind == 1:
+			rise = rng.randf_range(0.2, 0.9)
+			droop = rng.randf_range(1.8, 2.6)
+			L *= 1.04
+		else:
+			rise = rng.randf_range(-0.4, 0.2)
+			droop = rng.randf_range(2.6, 3.4)
+			L *= 0.95
+		_frond(tb, rng, top + Vector3(0, 0.2, 0), az, L, rise, droop, f % 2, segs, top)
+
+
+static func _frond(tb: TB, rng: RandomNumberGenerator, root: Vector3, az: float, L: float, rise: float, droop: float,
+		tile_row: int, segs: int, crown_top: Vector3) -> void:
+	var dirh := Vector3(cos(az), 0.0, sin(az))
+	var across0 := Vector3(-dirh.z, 0.0, dirh.x)
+	var W := L * 0.5
+	var bank := rng.randf_range(-0.25, 0.25)
+	var phase := rng.randf()
+	var v_top := float(tile_row) * 0.5 + 0.004
+	var v_bot := float(tile_row + 1) * 0.5 - 0.004
+	var v_mid := (v_top + v_bot) * 0.5
+	var ids: Array[int] = []
+	var prev := root
+	for i in segs + 1:
+		var f := float(i) / segs
+		var p := root + dirh * (L * f) + Vector3.UP * (rise * f - droop * f * f)
+		var tan_dir := (root + dirh * (L * minf(f + 0.05, 1.0)) + Vector3.UP * (rise * minf(f + 0.05, 1.0) - droop * pow(minf(f + 0.05, 1.0), 2.0)) - p)
+		var across := (across0 + Vector3.UP * bank).normalized()
+		var rel := (p - crown_top)
+		var ao := lerpf(0.5, 1.0, pow(f, 0.6))
+		for col in 3:
+			var q := p
+			var vv := v_mid
+			if col == 0:
+				q = p - across * (W * 0.5) - Vector3.UP * (W * 0.16)
+				vv = v_top
+			elif col == 2:
+				q = p + across * (W * 0.5) - Vector3.UP * (W * 0.16)
+				vv = v_bot
+			var gn := tan_dir.cross(across)
+			gn = gn.normalized() if gn.length() > 1e-5 else Vector3.UP
+			if gn.y < 0.0:
+				gn = -gn
+			var nrm := (gn * 0.5 + rel.normalized() * 0.25 + Vector3.UP * 0.5).normalized()
+			ids.append(tb.vert(q, nrm, Color(ao, 0.5, 0.45 + 0.4 * f, TreeKit.CARD),
+				Vector2(lerpf(0.004, 0.996, f), vv), Vector2(phase, 0.2 + 0.8 * f)))
+	for i in segs:
+		for col in 2:
+			tb.quad(ids[i * 3 + col], ids[i * 3 + col + 1], ids[(i + 1) * 3 + col + 1], ids[(i + 1) * 3 + col])
+
+
+# ------------------------------------------------------------------- shrubs ---
+
+static func _shrub(tb: TB, v: Dictionary, lod: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = v["seed"] + lod * 101
+	var R: float = v["radius"]
+	var Hh: float = v["height"]
+	var crown := Crown.new(Vector3(0, Hh * 0.5, 0), Vector3(R, Hh * 0.55, R))
+	var grid := Vector2i(4, 4)
+	tb.blob(crown.c, crown.r * (0.55 if lod == 0 else 0.95), 4 if lod == 0 else 3, 7 if lod == 0 else 6, crown, rng, 0.1)
+	if lod >= 2:
+		return
+	var total: int = int(v["cards"]) if lod == 0 else int(float(v["cards"]) * 0.25)
+	var size: Vector2 = v["size"] if lod == 0 else (v["size"] as Vector2) * 1.9
+	for i in total:
+		var d := _rand_unit(rng)
+		d.y = absf(d.y) * 0.9
+		var p := crown.c + d * crown.r * rng.randf_range(0.55, 1.0)
+		p.y = maxf(p.y, 0.12)
+		_leaf_card(tb, rng, p, crown, size, grid, 1.0)
+
+
+static func _hedge(tb: TB, v: Dictionary, lod: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = v["seed"] + lod * 101
+	var Lh: float = v["length"]
+	var Wd: float = v["width"]
+	var Hh: float = v["height"]
+	var crown := Crown.new(Vector3(0, Hh * 0.5, 0), Vector3(Lh * 0.6, Hh * 0.7, Wd * 0.8))
+	var grid := Vector2i(4, 4)
+	# Solid, softly rounded core (a squashed blob stretched along the hedge).
+	tb.blob(crown.c, Vector3(Lh * 0.5, Hh * 0.5, Wd * 0.42) * (1.0 if lod == 0 else 1.05), 5 if lod == 0 else 3, 10 if lod == 0 else 6, crown, rng, 0.04)
+	if lod >= 2:
+		return
+	var total: int = int(v["cards"]) if lod == 0 else int(float(v["cards"]) * 0.25)
+	var size: Vector2 = v["size"] if lod == 0 else (v["size"] as Vector2) * 1.9
+	for i in total:
+		# a point on the clipped box surface: front, back, top, or an end
+		var face := rng.randf()
+		var p := Vector3(rng.randf_range(-Lh * 0.5, Lh * 0.5), rng.randf_range(0.05, Hh), 0.0)
+		var nc := Vector3.ZERO
+		if face < 0.36:
+			p.z = Wd * 0.5
+			nc = Vector3(0, 0.15, 1)
+		elif face < 0.72:
+			p.z = -Wd * 0.5
+			nc = Vector3(0, 0.15, -1)
+		elif face < 0.94:
+			p.y = Hh
+			p.z = rng.randf_range(-Wd * 0.5, Wd * 0.5)
+			nc = Vector3.UP
+		else:
+			p.x = Lh * 0.5 * (1.0 if rng.randf() < 0.5 else -1.0)
+			p.z = rng.randf_range(-Wd * 0.5, Wd * 0.5)
+			nc = Vector3(signf(p.x), 0.1, 0)
+		nc = nc.normalized()
+		var up := (Vector3.UP * 0.6 + nc * 0.3 + _rand_unit(rng) * 0.35).normalized()
+		var side := up.cross(nc).normalized()
+		if side.length() < 0.1:
+			side = Vector3.RIGHT
+		var w := lerpf(size.x, size.y, rng.randf())
+		var tile := Vector2i(rng.randi() % 4, rng.randi() % 4)
+		tb.card(p - up * (w * 0.4), up, side, w, w, tile, grid, crown, nc, 0.35, rng.randf_range(-0.4, 0.4), rng.randf())
