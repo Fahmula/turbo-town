@@ -128,7 +128,7 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 
 ---
 
-## v0.8 — On foot (dev, 2026-10-03)
+## v0.8 — On foot (released as v0.8.0, 2026-10-03)
 
 ### Player character and vehicles (done, `player-character` branch)
 - [x] Possession architecture: `Controllable` component on every pawn (who drives it, which rig),
@@ -304,3 +304,4 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
   buildings and trees, grass, rocks, sea.
 - 2026-10-03 — v0.7.0: garage wheel customization + the realism look, released for the Steam Deck.
 - 2026-10-03 — On foot (dev, branch `player-character`): a walking character who gets in and out of any vehicle.
+- 2026-10-03 — v0.8.0: on foot (walk, get in and out of any vehicle) + High tuned for the Deck, Ultra for PCs; released.

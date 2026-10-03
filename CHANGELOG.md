@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-03
+
 ### On foot
 - You're a person now! The game starts with you standing next to your car.
   Walk, run, sprint (Shift, or click the left stick) and jump around the
