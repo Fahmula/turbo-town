@@ -1,10 +1,10 @@
 """Turns a downloaded CC0 Poly Haven glTF into a light game asset:
 
-    blender -b -P tools/blender/convert_props_models.py -- <in.gltf> <out.glb> <max_tris> <texture_size> [keep_prefix]
+    blender -b -P tools/blender/convert_props_models.py -- <in.gltf> <out.glb> <max_tris> <texture_size> [keep] [drop]
 
 Joins every mesh of the file into one (optionally only the objects whose name
-starts with `keep_prefix`: Poly Haven's hydrant, for one, ships a clean and an
-aged variant side by side), collapses it to about `max_tris` triangles
+contains `keep` and not `drop`: Poly Haven's hydrant, for one, ships a clean and
+an aged variant side by side, plus a chain), collapses it to about `max_tris` triangles
 (Decimate, UVs kept), shrinks the textures to `texture_size` and exports a GLB
 that Godot imports natively. Called by tools/textures/fetch_props.py.
 """
@@ -14,14 +14,15 @@ import bpy
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 src, dst, max_tris, tex_size = argv[0], argv[1], int(argv[2]), int(argv[3])
-prefix = argv[4] if len(argv) > 4 else ""
+keep = argv[4] if len(argv) > 4 else ""
+drop = argv[5] if len(argv) > 5 else ""
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
 meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
-if prefix:
+if keep or drop:
     for o in meshes:
-        if not o.name.startswith(prefix):
+        if (keep and keep not in o.name) or (drop and drop in o.name):
             bpy.data.objects.remove(o, do_unlink=True)
     meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
 bpy.ops.object.select_all(action="DESELECT")
