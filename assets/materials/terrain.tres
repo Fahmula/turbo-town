@@ -1,9 +1,46 @@
 [gd_resource type="ShaderMaterial" format=3]
 
 [ext_resource type="Shader" path="res://assets/shaders/terrain.gdshader" id="1_shader"]
-[ext_resource type="Texture2D" path="res://assets/textures/ground/ground_detail.png" id="2_detail"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/grass_noise.png" id="2_noise"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_grass_albedo.jpg" id="3_ga"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_grass_normal.png" id="4_gn"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_grass_orm.png" id="5_go"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_dry_albedo.jpg" id="6_ya"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_dry_normal.png" id="7_yn"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_dirt_albedo.jpg" id="8_da"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_dirt_normal.png" id="9_dn"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_dirt_orm.png" id="10_do"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_dirt_macro_albedo.jpg" id="11_dm"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_rock_albedo.jpg" id="12_ra"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_rock_normal.png" id="13_rn"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_rock_orm.png" id="14_ro"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_sand_albedo.jpg" id="15_sa"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_sand_normal.png" id="16_sn"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_sand_orm.png" id="17_so"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_sand_macro_albedo.jpg" id="18_sm"]
+
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_churn_albedo.jpg" id="19_ca"]
+[ext_resource type="Texture2D" path="res://assets/textures/terrain/terrain_churn_normal.png" id="20_cn"]
 
 [resource]
 render_priority = 0
 shader = ExtResource("1_shader")
-shader_parameter/detail = ExtResource("2_detail")
+shader_parameter/noise = ExtResource("2_noise")
+shader_parameter/grass_albedo = ExtResource("3_ga")
+shader_parameter/grass_normal = ExtResource("4_gn")
+shader_parameter/grass_orm = ExtResource("5_go")
+shader_parameter/dry_albedo = ExtResource("6_ya")
+shader_parameter/dry_normal = ExtResource("7_yn")
+shader_parameter/dirt_albedo = ExtResource("8_da")
+shader_parameter/dirt_normal = ExtResource("9_dn")
+shader_parameter/dirt_orm = ExtResource("10_do")
+shader_parameter/dirt_macro = ExtResource("11_dm")
+shader_parameter/rock_albedo = ExtResource("12_ra")
+shader_parameter/rock_normal = ExtResource("13_rn")
+shader_parameter/rock_orm = ExtResource("14_ro")
+shader_parameter/sand_albedo = ExtResource("15_sa")
+shader_parameter/sand_normal = ExtResource("16_sn")
+shader_parameter/sand_orm = ExtResource("17_so")
+shader_parameter/sand_macro = ExtResource("18_sm")
+shader_parameter/churn_albedo = ExtResource("19_ca")
+shader_parameter/churn_normal = ExtResource("20_cn")

@@ -28,3 +28,6 @@ Thumbs.db
 *~
 .vscode/
 .idea/
+
+# Claude Code agent worktrees (temporary copies of the project)
+/.claude/worktrees/

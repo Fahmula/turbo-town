@@ -72,6 +72,10 @@ func _build() -> void:
 	city.build(self, roads.intersections)
 	var nature := NatureBuilder.new(terrain)
 	nature.build(self, city.tree_spots)
+	if not Engine.is_editor_hint():
+		var grass := GrassField.new()
+		add_child(grass)
+		grass.setup(terrain)
 	var park := StuntParkBuilder.new()
 	park.build(self)
 	LandmarksBuilder.new(roads).build(self)
