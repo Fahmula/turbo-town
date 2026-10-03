@@ -16,6 +16,7 @@ Outputs (all tileable, committed):
   road_asphalt_b_albedo.jpg / _nra.png   country road asphalt, sandier chip seal (ambientCG Asphalt032)
   road_concrete_s_albedo.jpg / _nra.png  sidewalk, kerb and plaza concrete (Poly Haven granular_concrete)
   road_concrete_c_albedo.jpg / _nra.png  cast concrete: barriers, piers, decks (ambientCG Concrete020)
+  road_dirt_albedo.jpg / _nra.png        packed dirt of the trail (Poly Haven brown_mud_dry)
   road_cracks.png     RGBA, 12 m tile (generated): R open cracks, G crack sealant,
                       B pits / ravelling, A mid-scale mottling
   road_macro.png      RGBA, 30 m tile: R scuffs and stains (Poly Haven Aerial Asphalt 01,
@@ -360,6 +361,13 @@ def main():
     process_nra(s["NormalGL"], s["Roughness"], None, out("road", "road_concrete_c_nra.png"),
                 disp=s["Displacement"], normal_gain=1.1, rough_mean=0.9, rough_gain=0.8, rough_lo=0.7, rough_hi=1.0, ao_strength=0.8)
     credit("road", "Concrete 020", "ambientCG", "https://ambientcg.com/a/Concrete020", use="cast concrete: barriers, piers, decks, retaining walls")
+
+    print("dirt (trail)")
+    s = polyhaven("brown_mud_dry", "2k")
+    process_albedo(s["diff"], out("road", "road_dirt_albedo.jpg"), keep_sat=0.3, flatten=0.8, flat_sigma=0.1)
+    process_nra(s["nor_gl"], s["rough"], None, out("road", "road_dirt_nra.png"), ao_path=s["ao"],
+                normal_gain=1.0, rough_mean=0.93, rough_gain=0.5, rough_lo=0.8, rough_hi=1.0, ao_strength=0.7)
+    credit("road", "Brown Mud Dry", "Rob Tuytel / Poly Haven", "https://polyhaven.com/a/brown_mud_dry", use="packed dirt of the mountain trail")
 
     print("macro (aerial asphalt)")
     s = polyhaven("aerial_asphalt_01", "2k", maps=("Diffuse",))

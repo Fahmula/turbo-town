@@ -7,6 +7,8 @@
 [ext_resource type="Texture2D" path="res://assets/textures/road/road_macro.png" id="5_road_macro"]
 [ext_resource type="Texture2D" path="res://assets/textures/road/road_concrete_s_albedo.jpg" id="6_slab_albedo"]
 [ext_resource type="Texture2D" path="res://assets/textures/road/road_concrete_s_nra.png" id="7_slab_nra"]
+[ext_resource type="Texture2D" path="res://assets/textures/road/road_dirt_albedo.jpg" id="8_dirt_albedo"]
+[ext_resource type="Texture2D" path="res://assets/textures/road/road_dirt_nra.png" id="9_dirt_nra"]
 
 [resource]
 render_priority = 0
@@ -17,6 +19,8 @@ shader_parameter/road_cracks = ExtResource("4_road_cracks")
 shader_parameter/road_macro = ExtResource("5_road_macro")
 shader_parameter/slab_albedo = ExtResource("6_slab_albedo")
 shader_parameter/slab_nra = ExtResource("7_slab_nra")
+shader_parameter/dirt_albedo = ExtResource("8_dirt_albedo")
+shader_parameter/dirt_nra = ExtResource("9_dirt_nra")
 shader_parameter/asph_tile = 1.5
 shader_parameter/slab_tile = 1.8
 shader_parameter/asphalt_base = Color(0.365, 0.355, 0.34, 1)

@@ -12,13 +12,19 @@ shader_type spatial;
 //   0.5   plaza tiles, 1.5 m, two tones
 //   0.25  asphalt (car parks)
 //   0.0   plain: lawn, soil, gravel (grain and blotches only); near-white
-//         plain pieces are road paint (car park stall lines)
+//         plain pieces are road paint (car park stall lines); brown ones
+//         (r - b of 0.17-0.32, like ArtPalette.DIRT) are the trail's packed dirt
 
 #include "res://assets/shaders/road_common.gdshaderinc"
 
 // Concrete is lit as the scan says; the palette colours are brighter than
 // real concrete, so scale them down a little.
 uniform float concrete_albedo_scale = 0.82;
+
+// Packed dirt of the mountain trail (plain pieces coloured like the dirt palette).
+uniform sampler2D dirt_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D dirt_nra : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float dirt_tile = 1.3;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -58,6 +64,8 @@ void fragment() {
 	vec2 nxy = vec2(0.0);
 	vec3 col = base;
 	float fade = 1.0 - smoothstep(3.0, 14.0, dist);
+	float rb = COLOR.r - COLOR.b;
+	bool is_dirt = kind == 0 && rb > 0.17 && rb < 0.32 && COLOR.g > COLOR.b + 0.1 && COLOR.g < COLOR.r;
 
 	if (kind == 4 || kind == 2) {
 		// Concrete slabs (sidewalk 0.9 m; plaza tiles 1.5 m, two tones).
@@ -118,6 +126,20 @@ void fragment() {
 		ao = s.ao;
 		nxy = s.nxy;
 		uvw = wp;
+	} else if (is_dirt) {
+		// Packed dirt: a pebbly scan at two scales; the ruts are in the vertex colours.
+		vec2 uvd = wp / dirt_tile;
+		vec3 ratio = texture(dirt_albedo, uvd).rgb * (1.0 / ALB_MEAN);
+		vec4 nra = low ? vec4(0.5, 0.5, 0.93, 1.0) : texture(dirt_nra, uvd);
+		if (!low) {
+			vec3 r2 = texture(dirt_albedo, ROT_A * wp / (dirt_tile * 0.53) + vec2(0.3, 0.8)).rgb * (1.0 / ALB_MEAN);
+			ratio *= mix(vec3(1.0), r2, 0.5);
+		}
+		col = base * ratio * mix(0.85, 1.15, mc.g);
+		rough = nra.b;
+		ao = nra.a;
+		spec = 0.35;
+		nxy = low ? vec2(0.0) : (nra.rg * 2.0 - 1.0) * bump_strength;
 	} else {
 		float chroma = max(base.r, max(base.g, base.b)) - min(base.r, min(base.g, base.b));
 		if (lum(base) > 0.5 && chroma < 0.12) {
@@ -143,7 +165,7 @@ void fragment() {
 	ROUGHNESS = clamp(rough, 0.3, 1.0);
 	SPECULAR = spec;
 	AO = ao;
-	if (!low && kind != 0) {
-		NORMAL = bump_normal(NORMAL, VERTEX, kind == 1 ? wp / asph_tile : uvw / slab_tile, nxy);
+	if (!low && (kind != 0 || is_dirt)) {
+		NORMAL = bump_normal(NORMAL, VERTEX, is_dirt ? wp / dirt_tile : (kind == 1 ? wp / asph_tile : uvw / slab_tile), nxy);
 	}
 }
