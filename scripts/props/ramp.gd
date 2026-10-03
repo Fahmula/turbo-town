@@ -112,8 +112,8 @@ func _rebuild() -> void:
 	# class 15) with hazard-striped edges; the sides are steel plate with
 	# stiffening ribs, a galvanised edge rail and a base angle (see below).
 	var deck := Color(surface_color, StreetKit.DECK)
-	var side_col := Color(0.27, 0.285, 0.3, StreetKit.PAINTED)
-	var side_low := Color(0.15, 0.155, 0.16, StreetKit.PAINTED)
+	var side_col := Color(0.27, 0.285, 0.3, StreetKit.STEEL_DECK)
+	var side_low := Color(0.15, 0.155, 0.16, StreetKit.STEEL_DECK)
 	var sw := minf(stripe_width, hw * 0.3)
 	# Normals along the profile: smooth on curves, hard where the slope meets the deck.
 	var seg_n: Array[Vector3] = []
@@ -145,16 +145,19 @@ func _rebuild() -> void:
 				Vector2(xs[k], d0), Vector2(xs[k + 1], d0), Vector2(xs[k + 1], dist), Vector2(xs[k], dist))
 		# Sides down to the ground.
 		mb.add_quad_ex(Vector3(hw, 0, p0.z), Vector3(hw, 0, p1.z), Vector3(hw, p1.y, p1.z), Vector3(hw, p0.y, p0.z),
-			Vector3.RIGHT, Vector3.RIGHT, Vector3.RIGHT, Vector3.RIGHT, side_low, side_low, side_col, side_col)
+			Vector3.RIGHT, Vector3.RIGHT, Vector3.RIGHT, Vector3.RIGHT, side_low, side_low, side_col, side_col,
+			Vector2(d0, 0.0), Vector2(dist, 0.0), Vector2(dist, p1.y), Vector2(d0, p0.y))
 		mb.add_quad_ex(Vector3(-hw, 0, p1.z), Vector3(-hw, 0, p0.z), Vector3(-hw, p0.y, p0.z), Vector3(-hw, p1.y, p1.z),
-			Vector3.LEFT, Vector3.LEFT, Vector3.LEFT, Vector3.LEFT, side_low, side_low, side_col, side_col)
+			Vector3.LEFT, Vector3.LEFT, Vector3.LEFT, Vector3.LEFT, side_low, side_low, side_col, side_col,
+			Vector2(dist, 0.0), Vector2(d0, 0.0), Vector2(d0, p0.y), Vector2(dist, p1.y))
 	# Back wall.
 	var last_z: float = zs[zs.size() - 1]
 	var last_y: float = ys[ys.size() - 1]
 	if last_y > 0.01:
 		var back := Vector3.FORWARD
 		mb.add_quad_ex(Vector3(-hw, 0, last_z), Vector3(-hw, last_y, last_z), Vector3(hw, last_y, last_z), Vector3(hw, 0, last_z),
-			back, back, back, back, side_low, side_col, side_col, side_low)
+			back, back, back, back, side_low, side_col, side_col, side_low,
+			Vector2(-hw, 0.0), Vector2(-hw, last_y), Vector2(hw, last_y), Vector2(hw, 0.0))
 	# The collider is the deck, sides and back only; the steel trim below is looks.
 	_collision.shape = mb.build_collision_shape()
 	_add_steel(mb, hw, zs, ys)

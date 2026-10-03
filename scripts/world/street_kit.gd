@@ -322,9 +322,9 @@ static func _signal(mb: MeshBuilder) -> void:
 		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(hx, y, 0.0)), Vector3(0.36, 0.335, 0.27), 0.035, k(black, PLASTIC), Color(0, 0, 0, -1), false)
 	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(hx, hy, -0.165)), Vector3(0.66, 1.36, 0.024), 0.006, k(Color(0.1, 0.1, 0.11), PLASTIC), Color(0, 0, 0, -1), false)
 	for sx: float in [-1.0, 1.0]:
-		beam(mb, Vector3(hx + sx * 0.31, hy - 0.66, -0.178), Vector3(hx + sx * 0.31, hy + 0.66, -0.178), 0.036, 0.008, k(HAZARD_YELLOW, RETRO), 0.002)
+		beam(mb, Vector3(hx + sx * 0.31, hy - 0.66, -0.149), Vector3(hx + sx * 0.31, hy + 0.66, -0.149), 0.036, 0.008, k(HAZARD_YELLOW, RETRO), 0.002)
 	for sy: float in [-1.0, 1.0]:
-		beam(mb, Vector3(hx - 0.31, hy + sy * 0.66, -0.178), Vector3(hx + 0.31, hy + sy * 0.66, -0.178), 0.036, 0.008, k(HAZARD_YELLOW, RETRO), 0.002)
+		beam(mb, Vector3(hx - 0.31, hy + sy * 0.66, -0.149), Vector3(hx + 0.31, hy + sy * 0.66, -0.149), 0.036, 0.008, k(HAZARD_YELLOW, RETRO), 0.002)
 	var face := Basis(Vector3.RIGHT, PI * 0.5)  # lathe axis (Y) to +Z
 	var lens_kinds := [RED, AMBER, GREEN]
 	for kk in 3:
