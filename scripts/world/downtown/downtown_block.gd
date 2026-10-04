@@ -168,23 +168,38 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 		plans.append({"rect": rect, "front": front, "back": back, "style": style, "floors": floors, "top": top})
 	for plan: Dictionary in plans:
 		plan["signs"] = _ghost_signs(plan, plans)
+		var pals: Array = DowntownBuilding.STYLES[plan["style"]]["palettes"]
+		plan["palette"] = pals[rng.randi() % pals.size()]
+		plan["seed"] = rng.randi()
 
-	for plan: Dictionary in plans:
-		var rect: Rect2 = plan["rect"]
-		var front: Array[bool] = plan["front"]
-		var back: Array[bool] = plan["back"]
-		var style: String = plan["style"]
-		var floors: int = plan["floors"]
-		var batch := MegaKit.Batch.new(rng.randi(), true)
-		var ta := Time.get_ticks_usec()
-		var b := DowntownBuilding.new(batch, rng)
-		b.build(rect, base_y, floors, front, style, back)
+	# Assemble the buildings on worker threads (pure array work, each with
+	# its own random sequence, so the result doesn't depend on the order);
+	# the meshes and nodes are made on this thread afterwards.
+	var ta := Time.get_ticks_usec()
+	MegaKit.warm_cache()
+	var built: Array = []
+	built.resize(plans.size())
+	var assemble := func(i: int) -> void:
+		var plan: Dictionary = plans[i]
+		var brng := RandomNumberGenerator.new()
+		brng.seed = plan["seed"]
+		var batch := MegaKit.Batch.new(brng.randi(), true)
+		var b := DowntownBuilding.new(batch, brng)
+		b.build(plan["rect"], base_y, plan["floors"], plan["front"], plan["style"], plan["back"])
 		for g: Array in plan["signs"]:
-			b.ghost_sign(rect, base_y, g[0], g[1], g[2], g[3], g[4], g[5], g[6])
-		var pals: Array = DowntownBuilding.STYLES[style]["palettes"]
-		var palette: int = pals[rng.randi() % pals.size()]
+			b.ghost_sign(plan["rect"], base_y, g[0], g[1], g[2], g[3], g[4], g[5], g[6])
+		built[i] = [b, batch]
+	var task := WorkerThreadPool.add_group_task(assemble, plans.size(), -1, true, "Downtown buildings")
+	WorkerThreadPool.wait_for_group_task_completion(task)
+	timing["assemble"] += Time.get_ticks_usec() - ta
+
+	for i in plans.size():
+		var plan: Dictionary = plans[i]
+		var rect: Rect2 = plan["rect"]
+		var palette: int = plan["palette"]
+		var b: DowntownBuilding = built[i][0]
+		var batch: MegaKit.Batch = built[i][1]
 		var tm := Time.get_ticks_usec()
-		timing["assemble"] += tm - ta
 		var mesh := batch.build()
 		if mesh == null:
 			continue

@@ -171,11 +171,14 @@ puts every city block in kit buildings.
   StreetKit lamps and signals. Fire escapes are thin boxes in the kit's
   painted-metal slice.
 - **Performance:** per building a full mesh (near), a far proxy beyond 90 m
-  (window modules become a backing quad + their window quads, heavy pieces
-  boxes: ~1/20 of the triangles), a box occluder (occlusion culling is on),
-  and on Medium / Low a shadows-only far proxy instead of full-detail shadows.
-  Module arrays are decoded once and merged with C++ array ops; the downtown
-  builds in ~0.35 s. Numbers: PROGRESS.md log and the experiment report.
+  on High (110 m Ultra, 50 m Medium, 40 m Low; window modules become a
+  backing quad + their window quads, heavy pieces boxes: ~1/15 of the
+  triangles), a box occluder (occlusion culling is on), and on Medium / Low a
+  shadows-only far proxy instead of full-detail shadows. Fake bevels are High
+  and up. Street trees every 24-30 m (trees are the dearest family on the
+  Deck). Module arrays are decoded once and merged with C++ array ops on
+  worker threads; the downtown builds in ~0.3 s on the dev PC. Numbers: the
+  experiment report.
 
 ---
 

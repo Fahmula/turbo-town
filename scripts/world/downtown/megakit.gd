@@ -93,6 +93,18 @@ static func arrays(module: String) -> Array:
 	return _arrays[module]
 
 
+## Decodes every module's arrays up front, so batches can then be filled
+## from worker threads without touching the (unsynchronised) caches.
+static func warm_cache() -> void:
+	var lib := library()
+	for m: String in lib.meshes:
+		arrays(m)
+		far_arrays(m)
+	for m: String in lib.decals:
+		decal_arrays(m)
+		arrays(m)
+
+
 ## Far-LOD arrays of a module: its proxy, [] to drop it, or its own arrays
 ## when it is cheap (MegaKitLibrary.far).
 static func far_arrays(module: String) -> Array:
