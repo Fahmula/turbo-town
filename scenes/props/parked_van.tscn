@@ -10,6 +10,9 @@ size = Vector3(1.96, 0.84, 4.96)
 [sub_resource type="BoxShape3D" id="shape_1"]
 size = Vector3(1.9, 0.94, 3.72)
 
+[sub_resource type="BoxShape3D" id="shape_wheels"]
+size = Vector3(1.96, 0.3, 3.6)
+
 [node name="ParkedVan" type="RigidBody3D"]
 collision_layer = 4
 collision_mask = 7
@@ -28,6 +31,10 @@ shape = SubResource("shape_0")
 [node name="Shape1" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.51, 0.66)
 shape = SubResource("shape_1")
+
+[node name="WheelShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+shape = SubResource("shape_wheels")
 
 [node name="Model" parent="." instance=ExtResource("2_body")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36, 0)

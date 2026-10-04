@@ -2954,6 +2954,18 @@ func _profile_families(game: Game, view: String) -> void:
 		"trees": func(n: Node) -> bool: return n is MultiMeshInstance3D and (String(n.name).begins_with("broadleaf") or String(n.name).begins_with("conifer")),
 		"kit_props": func(n: Node) -> bool: return n is MeshInstance3D and (n.get_parent() is KitProp or (n.get_parent() is TrafficLightProp and (n.get_parent() as TrafficLightProp).model == n)),
 		"terrain": func(n: Node) -> bool: return n is MeshInstance3D and String(n.name).begins_with("Chunk_"),
+		"kit_buildings": func(n: Node) -> bool: return String(n.name).begins_with("Building_"),
+		"kit_dressing": func(n: Node) -> bool: return String(n.name) in ["ShopSigns", "Clutter", "ShopLight", "Yard"] or String(n.name).begins_with("Props_") or String(n.name).begins_with("Markings_"),
+		"parked_cars": func(n: Node) -> bool:
+			var a := n.get_parent()
+			for i in 5:
+				if a == null:
+					return false
+				if a is RigidBody3D and String(a.name).begins_with("Parked"):
+					return n is GeometryInstance3D
+				a = a.get_parent()
+			return false,
+		"traffic_signals_lamps": func(n: Node) -> bool: return n is MeshInstance3D and (n.get_parent() is TrafficLightProp or String(n.get_parent().name).begins_with("StreetLamp")),
 		"sky_off": func(n: Node) -> bool: return false,
 	}
 	var base: Array = await _render_stats(40)
