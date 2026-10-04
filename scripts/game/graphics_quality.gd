@@ -65,10 +65,17 @@ static func apply(level: int, viewport: Viewport, world: Node) -> void:
 	# copy, DowntownBlock) instead of every window frame and cornice; High
 	# and Ultra cast from the full mesh.
 	var tree := world.get_tree() if world and world.is_inside_tree() else null
+	# They also switch to their far proxies sooner on the lower presets.
 	if tree:
 		var full := level >= HIGH
+		var far_d: float = MegaKit.FAR_DISTANCE_BY_LEVEL[level]
 		for n in tree.get_nodes_in_group(&"megakit_near"):
-			(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if full \
-				else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var gi := n as GeometryInstance3D
+			gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if full else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			gi.visibility_range_end = far_d
+		for n in tree.get_nodes_in_group(&"megakit_far"):
+			(n as GeometryInstance3D).visibility_range_begin = far_d
 		for n in tree.get_nodes_in_group(&"megakit_shadow_proxy"):
-			(n as GeometryInstance3D).visible = not full
+			var gi := n as GeometryInstance3D
+			gi.visible = not full
+			gi.visibility_range_end = far_d

@@ -33,8 +33,10 @@
 // about half the rooms are lit (warm, some cool offices), like facade.gdshader.
 // Blinds / curtains from megakit_covers hang in some windows.
 //
-// Quality: Low drops the bevel and drip samples, the parallax rooms (flat
-// dark glass with a faint room) and the covers.
+// Quality: the fake bevels are High and up (quality global >= 2). Low drops
+// the drip samples too, the parallax rooms (flat dark glass with a faint
+// room) and the covers. Buildings also switch to their far proxies sooner on
+// Medium and Low (GraphicsQuality.apply, MegaKit.FAR_DISTANCE_BY_LEVEL).
 
 shader_type spatial;
 render_mode cull_back, diffuse_burley, specular_schlick_ggx;
@@ -303,10 +305,10 @@ void fragment() {
 		vec3 n = tbn * nt;
 		float grime = 1.0 - COLOR.g;
 		float dist = length(VERTEX);
-		if (!low && v_kind != 2) {
-			// Fake bevels: only where UV2 really spans the face (constant UV2
-			// interpolates with float noise, and a frame built from that noise
-			// points anywhere: TV-static speckle), and only up close.
+		if (quality >= 2 && v_kind != 2) {
+			// Fake bevels (High and up): only where UV2 really spans the face
+			// (constant UV2 interpolates with float noise, and a frame built
+			// from that noise points anywhere: TV-static speckle), up close.
 			vec2 g2 = vec2(length(d2uv1), length(d2uv2));
 			float g1 = max(length(duv1), length(duv2));
 			float bevel_k = smoothstep(0.02, 0.1, max(g2.x, g2.y) / max(g1, 1e-6)) * (1.0 - smoothstep(25.0, 45.0, dist));
@@ -317,6 +319,8 @@ void fragment() {
 				bt.y = -bt.y;
 				n = normalize(n + tbn2 * vec3(bt.xy, 0.0) * bevel_k);
 			}
+		}
+		if (!low) {
 			// Drip streaks in world space (2.5 m tiles, running down walls).
 			vec2 wuv = vec2(v_world.x + v_world.z, v_world.y * 0.7) * 0.4;
 			float drip = texture(detail_tex, wuv).b;

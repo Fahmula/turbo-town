@@ -12,6 +12,10 @@ extends RefCounted
 ## round toward -Z.
 
 const LIBRARY_PATH := "res://assets/models/megakit/megakit_modules.res"
+## Distance (m) at which buildings switch to their far proxy, per graphics
+## preset (Low, Medium, High, Ultra): on Medium / Low the full facades cost
+## ~2-3 ms of a Deck-class GPU's frame within 90 m.
+const FAR_DISTANCE_BY_LEVEL: Array[float] = [40.0, 50.0, 90.0, 110.0]
 
 ## Tint slots (CUSTOM0.g), recoloured per building by a palette.
 enum { SLOT_BRICK, SLOT_BRICK_ALT, SLOT_TRIM, SLOT_TRIM_DARK, SLOT_ACCENT, SLOT_METAL, SLOT_ROOF, SLOT_FIXED, SLOT_FLAT_ROOF }

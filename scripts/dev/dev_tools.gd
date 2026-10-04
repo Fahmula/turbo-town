@@ -2829,6 +2829,14 @@ func _perfsweep(game: Game) -> void:
 	var sun := world.get_node("Sun") as DirectionalLight3D
 	var grass: Array[Node] = world.find_children("*", "GrassField", true, false)
 	var trees := world.find_child("Trees", true, false) as Node3D
+	# MegaKit downtown families: the buildings (near, far, shadow proxy) and
+	# the street dressing (kit props, markings, signs, clutter, glow, yards).
+	var kit: Array[Node] = world.find_children("Building_*", "GeometryInstance3D", true, false)
+	var dressing: Array[Node] = []
+	for n in world.find_children("*", "GeometryInstance3D", true, false):
+		var nm := String(n.name)
+		if nm.begins_with("Props_") or nm.begins_with("Markings_") or nm in ["ShopSigns", "Clutter", "ShopLight", "Yard"]:
+			dressing.append(n)
 	var hide := func(nodes: Array, on: bool) -> void:
 		for n in nodes:
 			if n is Node3D:
@@ -2845,6 +2853,17 @@ func _perfsweep(game: Game) -> void:
 		["-msaa", func() -> void: vp.msaa_3d = Viewport.MSAA_DISABLED],
 		["-grass", func() -> void: hide.call(grass, true)],
 		["-trees", func() -> void: hide.call([trees], true)],
+		["-kit", func() -> void: hide.call(kit, true)],
+		["-dressing", func() -> void: hide.call(dressing, true)],
+		["med-kit", func() -> void:
+			Settings.set_value("graphics", GraphicsQuality.MEDIUM)
+			hide.call(kit, true)],
+		["med-trees", func() -> void:
+			Settings.set_value("graphics", GraphicsQuality.MEDIUM)
+			hide.call([trees], true)],
+		["med-dress", func() -> void:
+			Settings.set_value("graphics", GraphicsQuality.MEDIUM)
+			hide.call(dressing, true)],
 		["fsr80", func() -> void:
 			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 			vp.scaling_3d_scale = 0.8],
@@ -2878,10 +2897,13 @@ func _perfsweep(game: Game) -> void:
 		if arg.begins_with("--configs="):
 			only_configs = arg.split("=")[1].split(",")
 	var reset := func() -> void:
-		Settings.set_value("graphics", GraphicsQuality.HIGH)
-		GraphicsQuality.apply(GraphicsQuality.HIGH, vp, world)
 		hide.call(grass, false)
 		hide.call([trees], false)
+		hide.call(kit, false)
+		hide.call(dressing, false)
+		# After un-hiding: the preset decides which kit shadow proxies show.
+		Settings.set_value("graphics", GraphicsQuality.HIGH)
+		GraphicsQuality.apply(GraphicsQuality.HIGH, vp, world)
 		var probe := game.vehicle.get_node_or_null("Reflection") as Node3D
 		if probe:
 			probe.visible = true

@@ -62,8 +62,27 @@ const MAT := {
 	"MI_FakeInterior_4": [0, S_FIXED, K_WINDOW, 4],
 }
 const DECAL_MAT := "MI_StreetDecals"
-## Never used: interior floors and ceilings.
-const SKIP_PREFIX := ["Floor_"]
+## The modules the game uses (DowntownBuilding, DowntownStreets); only these
+## are converted, so the runtime library carries nothing unused. Add a name
+## here before using a new module.
+const USED := [
+	# Walls, windows, corners and pilasters.
+	"Brick_Plain_1", "Brick_Corner_Plain", "Brick_TopTrim_Corner", "Brick_Window_Square_Single",
+	"Brick_Window_Trim", "Brick_Window_Trim_Single", "Brick_Window_CurvedDouble", "Brick_Inset_Window_Curved",
+	"Brick_RedWhite_DoubleWindow", "Brick_Column_TrimBricks", "Brick_HalfColumn_Bottom", "Brick_HalfColumn_Center",
+	"Brick_HalfColumn_Top", "Brick_CornerColumn_Bottom", "Brick_CornerColumn_Center", "Brick_CornerColumn_Center_Half",
+	"Brick_CornerColumn_Top", "Brick_CornerColumn_Cap", "Metal_Window", "Metal_Window_Half",
+	# Shopfronts and entrances.
+	"Metal_FirstFloor_Window", "Metal_FirstFloor_Wall_1", "Trim_FirstFloor_Window_001", "Trim_FirstFloor_Window_Columns",
+	"DoorFrame_Metal_Single", "DoorFrame_Trim", "DoorFrame_Wooden", "Door_1", "Door_2",
+	# Cornices and the slate mansard.
+	"Cornice_Trim_L", "Cornice_Trim_R", "Cornice_Trim_Center", "Cornice_Metal_L", "Cornice_Metal_R", "Cornice_Metal_Center",
+	"Cornice_Brick_L", "Cornice_Brick_R", "Cornice_Brick_Center", "Roof_SlateCornice_Corner", "Roof_SlateCornice_Center",
+	"Roof_SlateCornice_Window_1",
+	# Street pieces and markings.
+	"Prop_ACUnit", "Prop_Bollard", "Prop_Planter_Single", "Sidewalk_Planter", "Decal_ArrowStraight", "Decal_ArrowTurnLeft",
+	"Decal_ArrowTurnRight", "Decal_ArrowForwardLeft", "Decal_ArrowForwardRight", "Decal_Only",
+]
 ## Far LOD: modules this cheap are used as they are.
 const FAR_KEEP_TRIS := 64
 ## Far LOD: dropped (small, behind frames, or not worth a proxy).
@@ -88,7 +107,7 @@ func _initialize() -> void:
 	var dropped := {}
 	var total_tris := 0
 	for n in names:
-		if SKIP_PREFIX.any(func(p: String) -> bool: return n.begins_with(p)):
+		if not USED.has(n):
 			continue
 		var doc := GLTFDocument.new()
 		var st := GLTFState.new()
@@ -132,8 +151,6 @@ func _initialize() -> void:
 	for n: String in lib.meshes:
 		var m: ArrayMesh = lib.meshes[n]
 		var tris := (m.surface_get_arrays(0)[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
-		if n.begins_with("Building_"):
-			continue
 		if n in FAR_DROP:
 			lib.far[n] = null
 		elif FAR_SUBSTITUTE.has(n):

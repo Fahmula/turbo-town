@@ -57,8 +57,9 @@ func build(parent: Node3D, intersections: Array[Vector3]) -> void:
 	if downtown.building_count > 0:
 		root.add_child(downtown_node)
 		DowntownStreets.new(self, downtown).build(root, building_body, intersections)
-		print("Downtown (MegaKit): %d buildings, %d triangles (far LOD %d), built in %d ms" % [
-			downtown.building_count, downtown.triangles, downtown.far_triangles, downtown.build_usec / 1000])
+		print("Downtown (MegaKit): %d buildings, %d triangles (far LOD %d), built in %d ms (assemble %d, meshes %d, dressing %d)" % [
+			downtown.building_count, downtown.triangles, downtown.far_triangles, downtown.build_usec / 1000,
+			downtown.timing["assemble"] / 1000, downtown.timing["meshes"] / 1000, downtown.timing["dressing"] / 1000])
 	else:
 		downtown_node.free()
 

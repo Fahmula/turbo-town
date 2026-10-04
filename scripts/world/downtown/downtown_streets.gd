@@ -48,6 +48,9 @@ const TREE_CORNER_CLEAR := 8.0    ## no tree within this of a block corner (sigh
 const TREE_POLE_CLEAR := 3.0      ## nor this close to a lamp or signal
 const TREE_DOOR_CLEAR := 2.2      ## nor in front of the middle of a frontage (the door)
 const TREE_ALLEY_CLEAR := 2.5     ## nor this close to an alley mouth
+## Gap between street trees (m): trees are the dearest family on a Deck-class
+## GPU (every 12-15 m cost ~3 ms more on Medium on the iGPU than this).
+const TREE_SPACING := Vector2(24.0, 30.0)
 const PIT_SOIL := 0.08            ## soil level in a Sidewalk_Planter above its foot
 const PIT_HEIGHT := 0.5
 # Bollards.
@@ -373,7 +376,7 @@ func _street_trees(side: BlockSide) -> void:
 			_tree_pit(side, p)
 			s = at
 			break
-		s += _rng.randf_range(12.0, 15.0)
+		s += _rng.randf_range(TREE_SPACING.x, TREE_SPACING.y)
 
 
 func _clear_of_poles(p: Vector3, distance: float) -> bool:

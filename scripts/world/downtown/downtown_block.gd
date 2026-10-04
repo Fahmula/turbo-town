@@ -17,7 +17,8 @@ extends RefCounted
 const SHOWCASE := [Vector2i(0, 1), Vector2i(1, 2), Vector2i(2, 1), Vector2i(2, 2), Vector2i(0, 2)]
 ## Buildings switch to their far-LOD proxy (MegaKitLibrary.far) this far
 ## from the camera (measured to the building's centre), with a hysteresis
-## margin so they don't flicker at the boundary.
+## margin so they don't flicker at the boundary. GraphicsQuality.apply sets
+## it per preset (MegaKit.FAR_DISTANCE_BY_LEVEL); this is the High value.
 const FAR_DISTANCE := 90.0
 const FAR_MARGIN := 8.0
 
@@ -39,6 +40,9 @@ var building_count := 0
 var triangles := 0
 var far_triangles := 0
 var build_usec := 0
+## Where the build time goes (usec): assembling modules, making meshes,
+## shop / roof dressing.
+var timing := {"assemble": 0, "meshes": 0, "dressing": 0}
 
 
 ## Dev / A-B switch: `--legacy-downtown` builds the old BuildingKit blocks.
@@ -172,12 +176,15 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 		var style: String = plan["style"]
 		var floors: int = plan["floors"]
 		var batch := MegaKit.Batch.new(rng.randi(), true)
+		var ta := Time.get_ticks_usec()
 		var b := DowntownBuilding.new(batch, rng)
 		b.build(rect, base_y, floors, front, style, back)
 		for g: Array in plan["signs"]:
 			b.ghost_sign(rect, base_y, g[0], g[1], g[2], g[3], g[4], g[5], g[6])
 		var pals: Array = DowntownBuilding.STYLES[style]["palettes"]
 		var palette: int = pals[rng.randi() % pals.size()]
+		var tm := Time.get_ticks_usec()
+		timing["assemble"] += tm - ta
 		var mesh := batch.build()
 		if mesh == null:
 			continue
@@ -190,6 +197,7 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 		var fmi := MegaKit.instance(far_mesh, palette, "Building_%d_Far" % building_count)
 		fmi.visibility_range_begin = FAR_DISTANCE
 		fmi.visibility_range_begin_margin = FAR_MARGIN
+		fmi.add_to_group(&"megakit_far")
 		node.add_child(fmi)
 		# Shadow stand-in while the full mesh is shown (Medium / Low; see
 		# GraphicsQuality.apply).
@@ -208,6 +216,7 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 		occ.position = Vector3(rect.get_center().x, base_y + (b.top_height - 1.2) * 0.5, rect.get_center().y)
 		node.add_child(occ)
 		far_triangles += batch.far.tris
+		timing["meshes"] += Time.get_ticks_usec() - tm
 		var dm := batch.build_decals()
 		if dm:
 			var dmi := MeshInstance3D.new()
@@ -223,9 +232,13 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 			body.add_child(cs3)
 		sign_spots.append_array(b.sign_spots)
 		for spot: Array in b.sign_spots:
+			var td := Time.get_ticks_usec()
 			_shopfronts(signs, dressing.clutter, spot[0], spot[1], palette)
+			timing["dressing"] += Time.get_ticks_usec() - td
 			_light_spill(spill, spot[0], spot[1], base_y)
+		var tr := Time.get_ticks_usec()
 		dressing._roof_clutter(b.roof_rect.grow(0.6), b.roof_y, b.water_tank, false)
+		timing["dressing"] += Time.get_ticks_usec() - tr
 		building_count += 1
 		triangles += batch.tris
 	# The block's inside (yards behind the buildings, seen down the alleys):
@@ -242,7 +255,7 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 	ymi.visibility_range_end = 250.0
 	node.add_child(ymi)
 	if not spill.is_empty():
-		var lmi := MeshInstance3D.new()
+		var lmi := ShopGlow.new()
 		lmi.name = "ShopLight"
 		var lmat := ShaderMaterial.new()
 		lmat.shader = load("res://assets/shaders/shop_light_spill.gdshader")
@@ -260,7 +273,9 @@ func build(block_name: String, x0: float, z0: float, x1: float, z1: float, base_
 	if not dressing.clutter.is_empty():
 		var cmi := MeshInstance3D.new()
 		cmi.name = "Clutter"
+		var tc := Time.get_ticks_usec()
 		cmi.mesh = MeshBuilder.with_lods(dressing.clutter.build_mesh(StreetKit.material()))
+		timing["dressing"] += Time.get_ticks_usec() - tc
 		cmi.visibility_range_end = 400.0
 		cmi.visibility_range_end_margin = 40.0
 		cmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
