@@ -2737,7 +2737,14 @@ func _megakit(game: Game) -> void:
 			var r := space.intersect_ray(q)
 			if not r.is_empty() and absf(absf(r["position"].z) - 10.5) < 0.6:
 				hits += 1
-				if side > 0.0 and absf(x - 20.0) < absf(hit_x - 20.0):
+				# The crash lane needs nothing on the sidewalk in front of the
+				# facade (tree pits, bollards): a ray at bumper height and a
+				# car-wide strip either side must reach the building too.
+				var clear := side > 0.0
+				for dx: float in [-1.1, 0.0, 1.1]:
+					var low := space.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(x + dx, 0.45, 2.0), Vector3(x + dx, 0.45, 14.0)))
+					clear = clear and not low.is_empty() and absf(low["position"].z - 10.5) < 0.6
+				if clear and absf(x - 20.0) < absf(hit_x - 20.0):
 					hit_x = x
 			x += 5.0
 	_check(tries > 0 and hits >= tries * 0.7, "facade colliders on the avenue: %d / %d rays hit the facade band (alleys and gaps excepted)" % [hits, tries])

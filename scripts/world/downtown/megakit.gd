@@ -97,12 +97,16 @@ static func arrays(module: String) -> Array:
 ## from worker threads without touching the (unsynchronised) caches.
 static func warm_cache() -> void:
 	var lib := library()
-	for m: String in lib.meshes:
+	# Every module in all three caches (an empty entry is an answer too:
+	# filling it later from a worker thread races on the dictionary).
+	var names := lib.meshes.keys()
+	for m: String in lib.decals:
+		if not names.has(m):
+			names.append(m)
+	for m: String in names:
 		arrays(m)
 		far_arrays(m)
-	for m: String in lib.decals:
 		decal_arrays(m)
-		arrays(m)
 
 
 ## Far-LOD arrays of a module: its proxy, [] to drop it, or its own arrays

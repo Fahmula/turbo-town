@@ -1823,6 +1823,17 @@ window):
   draw calls on the city drive). The same view on the iGPU is 35–44 ms at
   Medium with or without it: the city centre itself is the Deck's problem.
 
+- **Downtown City MegaKit experiment** (2026-10-03, branch
+  `experiment/quaternius-downtown-city`, §0c; not adopted): iGPU
+  (`--gpu-index 0`), standing views, three alternating rounds against the same
+  build with `--legacy-downtown`. Medium: City Center spawn 22.4 → 24.7 ms
+  (+10%), downtown avenue 22.8 → 25.9 (+13%), north-south avenue 24.8 → 24.9,
+  aerial 23.9 → 25.4 (+6%); High +9 to +19%; Low +2 to +10%; the drive up the
+  north avenue unchanged. City drive (`--bench`): 1,140 draw calls on average
+  against 1,542 (one surface per building + occlusion culling), peak 1,969
+  against 2,019. Primitives in downtown views roughly double on High
+  (avenue 1.62 M → 2.65 M). World build ~1.5 → ~1.8 s. Not measured on a Deck.
+
 **Budgets** (busiest view, High)
 
 | Metric | Budget |
