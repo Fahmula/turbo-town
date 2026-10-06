@@ -161,11 +161,11 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 
 ---
 
-## v0.9 — Flying (branch `flight`, not released)
+## v0.9 — Flying (released as v0.9.0, 2026-10-06)
 
 The owner's son wants to fly planes (owner, 2026-10-05).
 
-### Planes (done on `flight`, waiting for the owner's review)
+### Planes (done, `flight` branch)
 - [x] Sport plane model: `tools/blender/make_plane.py` (two-seat low-wing aerobatic plane, bubble
       canopy with a cockpit, spinning propeller + blur disc, ailerons / flaps / elevator / rudder that
       move, wheel fairings, nav lights, strobes, beacon, landing light, livery stripes); fuselage and
@@ -192,7 +192,8 @@ The owner's son wants to fly planes (owner, 2026-10-05).
       teleports, island edge, landing, getting out and in, replay, parked planes, taxiing, crash,
       garage), `--flightbench` (GPU cost flying over the city)
 - [x] Settings page in two columns (it was taller than the Deck's 800-pixel screen)
-- [ ] Owner review, then the son on the Deck (controls, feel, landing on the short runway)
+- [x] Owner review: merged and released as v0.9.0 (2026-10-06)
+- [ ] The son on the Deck: controls, feel, landing on the short runway
 
 ### Ideas for later (not started)
 - [ ] Rings to fly through / an air race; a trick score for loops and rolls
@@ -348,3 +349,4 @@ The owner's son wants to fly planes (owner, 2026-10-05).
 - 2026-10-03 — On foot (dev, branch `player-character`): a walking character who gets in and out of any vehicle.
 - 2026-10-03 — v0.8.0: on foot (walk, get in and out of any vehicle) + High tuned for the Deck, Ultra for PCs; released.
 - 2026-10-05 — Flying (branch `flight`): a sport plane you can fly, parked planes at the airfield, kid assists.
+- 2026-10-06 — v0.9.0: planes; released.

@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-06
+
 ### Planes
 - Fly a plane! Three planes are parked at the Airfield (teleport 7): walk up
   to one and press F (B on a gamepad) to get in. Or pick the Plane in the
