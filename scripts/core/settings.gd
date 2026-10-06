@@ -24,6 +24,7 @@ const DEFAULTS := {
 	"crash_cam": true,  # slow-motion replay of big crashes
 	"time_of_day": 0,  # 0 day, 1 sunset, 2 night, 3 cycle
 	"assists": true,
+	"flight_invert": false,  # planes: false = pull back to climb, true = push up to climb
 	"vehicle": "sports_car",
 	# Garage setups (Loadout): vehicle id -> {slot: value} for the values
 	# that differ from stock.

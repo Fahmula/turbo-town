@@ -522,7 +522,7 @@ func _update_view(dt: float) -> void:
 	else:
 		_turntable.rotation.y += dt * 0.5
 		var half_len := maxf(_car.body_front, _car.body_rear)
-		var radius := sqrt(half_len * half_len + _car.body_half_width * _car.body_half_width)
+		var radius := sqrt(half_len * half_len + _car.footprint_half_width * _car.footprint_half_width)
 		var dist := radius * 3.1 + 2.0
 		look = Vector3(0.0, (_car.ride_height() + _car.body_top) * 0.4, 0.0)
 		pos = look + Vector3(0.0, dist * 0.3, dist)
@@ -555,12 +555,14 @@ func _refresh_rows() -> void:
 	var rows: Array = _rows[tab]
 	for r: SlotRow in rows:
 		var why := ""
+		if _car is Aircraft and r.slot in Loadout.WHEEL_SLOTS:
+			why = "Planes keep their own wheels"
 		match r.slot:
 			"stripes":
 				if body == null or not body.has_stripes():
 					why = "Not on this vehicle"
 			"calipers":
-				if not PartsCatalog.option("rims", l.get_value("rims")).get("open", false):
+				if why == "" and not PartsCatalog.option("rims", l.get_value("rims")).get("open", false):
 					why = "Hidden by these rims"
 		r.show_value(l, why)
 	# Keep the focus on a row that can be changed.

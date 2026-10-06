@@ -11,6 +11,11 @@ extends RigidBody3D
 ## Parked cars: paint from the weighted traffic mix (PaintPalette) instead of
 ## `random_colors`.
 @export var traffic_paint := false
+## Parked vehicles of other kinds (planes): a colour from `random_colors`,
+## through the vehicle shaders like a parked car.
+@export var vehicle_look := false
+## Keep the model's livery (Stripes mesh) showing: planes wear theirs.
+@export var show_stripes := false
 ## Parked cars: the drivable vehicle scene the player gets into when they use
 ## it (ParkedCarEntry swaps the prop for it). "" = can't be driven.
 @export_file("*.tscn") var drive_scene := ""
@@ -31,10 +36,10 @@ func _ready() -> void:
 		(gi as GeometryInstance3D).gi_mode = GeometryInstance3D.GI_MODE_DYNAMIC
 	# Parked cars share the vehicles' models: optional racing stripes stay off.
 	for stripes in find_children("Stripes", "MeshInstance3D", true, false):
-		(stripes as MeshInstance3D).visible = false
+		(stripes as MeshInstance3D).visible = show_stripes
 	if drive_scene != "":
 		add_child(ParkedCarEntry.new())
-	if traffic_paint:
+	if traffic_paint or vehicle_look:
 		for gi in find_children("*", "GeometryInstance3D", true, false):
 			(gi as GeometryInstance3D).visibility_range_end = PARKED_CAR_RANGE
 			(gi as GeometryInstance3D).visibility_range_end_margin = 20.0
@@ -56,7 +61,7 @@ func _ready() -> void:
 ## material. Parked cars get the vehicles' paint, glass, lamp, trim and tyre
 ## shaders instead (lamps dark). (KitProp tints its one mesh instead.)
 func _apply_color(col: Color) -> void:
-	if traffic_paint:
+	if traffic_paint or vehicle_look:
 		VehicleBodyVisual.apply_vehicle_materials([self], col, true)
 		return
 	if color_mesh:

@@ -44,8 +44,8 @@ var vehicle: Vehicle
 var interactable: Interactable
 var blend: CameraBlend
 ## Kind -> {"controller": Node with control(pawn), "camera": Camera3D with
-## set_target(pawn)}. Game fills it in setup(); a new kind of pawn (a boat, a
-## plane) adds its own rig here.
+## set_target(pawn)}. Game fills it in setup() and add_rig() (planes); a new
+## kind of pawn (a boat...) adds its own rig the same way.
 var rigs := {}
 
 var _scan := 0.0
@@ -61,6 +61,19 @@ func setup(g: Game, c: PlayerCharacter, character_rig: Dictionary, vehicle_rig: 
 	rigs[Controllable.VEHICLE] = vehicle_rig
 	blend = camera_blend
 	character.vehicle_requested.connect(func(v: Vehicle) -> void: enter(v))
+
+
+## The controller and camera for another kind of pawn (Controllable.PLANE).
+func add_rig(kind: StringName, rig: Dictionary) -> void:
+	rigs[kind] = rig
+
+
+## The kind of rig that drives `p` (its Controllable's kind).
+func kind_of(p: Node) -> StringName:
+	var c := Controllable.of(p)
+	if c == null or not rigs.has(c.kind):
+		return Controllable.VEHICLE
+	return c.kind
 
 
 ## The pawn the player controls (the character or the vehicle).
@@ -83,7 +96,7 @@ func camera_of(kind: StringName) -> Camera3D:
 
 ## The camera that should be showing for the current pawn.
 func active_camera() -> Camera3D:
-	return camera_of(Controllable.CHARACTER if pawn() == character else Controllable.VEHICLE)
+	return camera_of(Controllable.CHARACTER if pawn() == character else kind_of(vehicle))
 
 
 ## Shows the right camera (after a menu or replay): the blend if one is
@@ -129,7 +142,7 @@ func start_in_vehicle(v: Vehicle) -> void:
 	mode = Mode.IN_VEHICLE
 	vehicle = v
 	character.set_hidden(true)
-	_give(Controllable.VEHICLE, v)
+	_give(kind_of(v), v)
 	blend.cancel()
 	_set_prompt("")
 	_show_if_playing()
@@ -157,7 +170,7 @@ func settle() -> void:
 			mode = Mode.IN_VEHICLE
 			vehicle.handbrake_input = false
 			vehicle.brake_input = 0.0
-			_give(Controllable.VEHICLE, vehicle)
+			_give(kind_of(vehicle), vehicle)
 
 
 # --- Getting in --------------------------------------------------------------
@@ -180,9 +193,11 @@ func enter(v: Vehicle) -> bool:
 	var from_cam := get_viewport().get_camera_3d()
 	if game:
 		game.adopt_vehicle(v)
-	var chase := camera_of(Controllable.VEHICLE)
-	if chase is ChaseCamera:
-		(chase as ChaseCamera).snap_view(from_cam)
+	var chase := camera_of(kind_of(v))
+	if chase.get("target") != v:
+		chase.set_target(v)
+	if chase.has_method("snap_view"):
+		chase.call("snap_view", from_cam)
 	blend.start(from_cam, chase, BLEND_IN)
 	var door := entry.door_spot(character.global_position)
 	var face := v.global_position - door
@@ -204,7 +219,7 @@ func _finish_enter(v: Vehicle) -> void:
 	character.set_hidden(true)
 	mode = Mode.IN_VEHICLE
 	_cooldown = COOLDOWN
-	_give(Controllable.VEHICLE, v)
+	_give(kind_of(v), v)
 	changed.emit(v)
 
 
@@ -228,9 +243,15 @@ func _claim(v: Vehicle) -> bool:
 func exit() -> bool:
 	if mode != Mode.IN_VEHICLE or vehicle == null:
 		return false
+	var plane := vehicle as Aircraft
+	if plane and (not plane.on_ground or plane.airspeed > 12.0):
+		# No getting out of a flying plane: land it first.
+		if game:
+			game.hud.show_toast("Land the plane first!" if not plane.on_ground else "Slow down first!", 2.0)
+		return true
 	mode = Mode.EXITING
 	_exit_time = 0.0
-	(rigs[Controllable.VEHICLE]["controller"]).control(null)
+	(rigs[kind_of(vehicle)]["controller"]).control(null)
 	return true
 
 
@@ -291,7 +312,7 @@ func _cancel_exit(why: String) -> void:
 	mode = Mode.IN_VEHICLE
 	vehicle.handbrake_input = false
 	vehicle.brake_input = 0.0
-	_give(Controllable.VEHICLE, vehicle)
+	_give(kind_of(vehicle), vehicle)
 	if game:
 		game.hud.show_toast(why, 2.0)
 
@@ -300,7 +321,7 @@ func _cancel_exit(why: String) -> void:
 func _release(v: Vehicle) -> void:
 	if not is_instance_valid(v):
 		return
-	(rigs[Controllable.VEHICLE]["controller"]).control(null)
+	(rigs[kind_of(v)]["controller"]).control(null)
 	v.throttle_input = 0.0
 	v.brake_input = 0.0
 	v.steer_input = 0.0

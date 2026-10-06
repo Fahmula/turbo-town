@@ -116,6 +116,9 @@ var wheelbase := 2.7
 var body_front := 2.2
 var body_rear := 2.2
 var body_half_width := 0.95
+## Half width of everything solid (a plane's wings): where you can walk up
+## to it. Same as body_half_width for road vehicles.
+var footprint_half_width := 0.95
 var body_top := 1.0
 
 var _shift_timer := 0.0
@@ -203,6 +206,7 @@ func _measure_body() -> void:
 		body_front = -min_z
 		body_rear = max_z
 		body_half_width = max_x
+		footprint_half_width = max_x
 		body_top = max_y
 
 

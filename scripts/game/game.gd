@@ -42,6 +42,10 @@ var character: PlayerCharacter
 var possession: Possession
 var foot_camera: OnFootCamera
 var foot_controller: PlayerCharacterController
+## The flying rig: a plane's controls and camera (the Possession hands them
+## the plane when the player sits in one).
+var flight_controller: PlayerAircraftController
+var flight_camera: FlightCamera
 var camera_blend: CameraBlend
 ## Vehicles the player got out of earlier (not `vehicle`), oldest first.
 var left_vehicles: Array[Vehicle] = []
@@ -188,6 +192,15 @@ func _make_character() -> void:
 	camera_blend.name = "CameraBlend"
 	camera_blend.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(camera_blend)
+	flight_camera = FlightCamera.new()
+	flight_camera.name = "FlightCamera"
+	flight_camera.far = camera.far
+	flight_camera.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(flight_camera)
+	flight_controller = PlayerAircraftController.new()
+	flight_controller.name = "FlightController"
+	flight_controller.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(flight_controller)
 	possession = Possession.new()
 	possession.name = "Possession"
 	possession.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -195,6 +208,7 @@ func _make_character() -> void:
 	possession.setup(self, character,
 		{"controller": foot_controller, "camera": foot_camera},
 		{"controller": controller, "camera": camera}, camera_blend)
+	possession.add_rig(Controllable.PLANE, {"controller": flight_controller, "camera": flight_camera})
 	possession.changed.connect(_on_pawn_changed)
 	if traffic:
 		traffic.pedestrians = [character]
@@ -220,14 +234,31 @@ func _step_out_beside(v: Vehicle) -> void:
 ## follows the player follows it.
 func _on_pawn_changed(pawn: Node3D) -> void:
 	var foot := pawn == character
+	var plane := pawn as Aircraft
 	if traffic:
 		traffic.focus = pawn
+	hud.set_flying(plane != null)
 	hud.set_on_foot(foot, character, foot_camera)
-	stunts.enabled = not foot and state == State.DRIVING
+	stunts.enabled = _stunts_wanted()
 	_fit_headlights()
 	_fit_reflection()
 	if not foot:
 		hud.show_prompt_for("Get out", 4.0)
+	if plane and plane.on_ground and state == State.DRIVING:
+		_take_off_tip()
+
+
+## How to take off, for the controller in use.
+func _take_off_tip() -> void:
+	if hud.using_pad:
+		hud.show_toast("Hold RT for power, pull the stick back at 80 km/h!", 5.0)
+	else:
+		hud.show_toast("Hold Shift for power, press S at 80 km/h!", 5.0)
+
+
+## Stunt scoring is for driving: not on foot, not in a plane.
+func _stunts_wanted() -> bool:
+	return state == State.DRIVING and driving() and not (vehicle is Aircraft)
 
 
 ## Is the player driving (not on foot, not getting in or out)?
@@ -242,7 +273,7 @@ func ensure_driving() -> void:
 	if not possession.driving():
 		adopt_vehicle(vehicle)
 		possession.start_in_vehicle(vehicle)
-		camera.snap()
+		snap_camera()
 
 
 func _on_character_knocked(strength: float) -> void:
@@ -258,21 +289,71 @@ func teleport_to(index: int) -> void:
 	var sp: Dictionary = world.spawn_points[spawn_index]
 	if possession:
 		possession.settle()
-	vehicle.teleport(sp["xform"])
-	camera.snap()
-	# On foot your vehicle comes along and you stand next to it.
-	if possession and possession.on_foot():
-		_step_out_beside(vehicle)
+	if vehicle is Aircraft:
+		_teleport_plane(vehicle as Aircraft, sp)
+	else:
+		vehicle.teleport(sp["xform"])
+		snap_camera()
+		# On foot your vehicle comes along and you stand next to it.
+		if possession and possession.on_foot():
+			_step_out_beside(vehicle)
 	if state == State.DRIVING:
 		hud.show_toast(sp["name"])
+
+
+## Teleporting with a plane. Flying, it flies on over the place (the
+## Airfield puts it on the runway, ready to take off); on foot the plane
+## stays parked where it is and you walk off at the place.
+func _teleport_plane(plane: Aircraft, sp: Dictionary) -> void:
+	if possession and possession.on_foot():
+		character.place(sp["xform"])
+		foot_camera.snap()
+		return
+	if sp["name"] == "Airfield":
+		plane.teleport(runway_start(plane))
+	else:
+		var xf: Transform3D = sp["xform"]
+		var heading := -xf.basis.z
+		heading.y = 0.0
+		plane.place_in_flight(xf.origin + Vector3.UP * 90.0, heading.normalized() if heading.length() > 0.1 else Vector3.FORWARD)
+	snap_camera()
+
+
+## Where a plane starts on the ground: the runway's west end, facing down it.
+func runway_start(plane: Vehicle) -> Transform3D:
+	var p := MapLayout.RUNWAY_A + Vector3(18.0, 0.0, 0.0)
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 5.0, p + Vector3.DOWN * 10.0, 1)
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	var y: float = (hit["position"] as Vector3).y if not hit.is_empty() else p.y
+	return Transform3D(Basis.looking_at(Vector3.RIGHT, Vector3.UP), Vector3(p.x, y + plane.ride_height() + 0.05, p.z))
+
+
+## Puts the player's plane on the runway, ready for take-off.
+func _put_on_runway(plane: Aircraft) -> void:
+	plane.teleport(runway_start(plane))
+	for i in world.spawn_points.size():
+		if world.spawn_points[i]["name"] == "Airfield":
+			spawn_index = i
+	snap_camera()
+
+
+## Snaps the vehicle cameras behind the player's vehicle (after teleports).
+func snap_camera() -> void:
+	camera.snap()
+	if flight_camera:
+		flight_camera.snap()
 
 
 func _physics_process(dt: float) -> void:
 	if get_tree().paused:
 		return
-	# Fell into the sea or off the island: respawn after a moment.
-	var p := possession.pawn().global_position
-	var lost := p.y < MapLayout.SEA_LEVEL - 0.8 or p.y < -60.0 or absf(p.x) > 1500.0 or absf(p.z) > 1500.0
+	# Fell into the sea or off the island: respawn after a moment. Planes
+	# may fly further out (they're turned back toward the island).
+	var pawn := possession.pawn()
+	var p := pawn.global_position
+	var edge := 2600.0 if pawn is Aircraft else 1500.0
+	var lost := p.y < MapLayout.SEA_LEVEL - 0.8 or p.y < -60.0 or absf(p.x) > edge or absf(p.z) > edge
+	hud.turning_back = flight_controller.turning_back
 	if lost:
 		if _lost_timer == 0.0:
 			hud.show_popup("SPLASH!" if p.y > -60.0 else "WHOOPS!")
@@ -358,7 +439,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func respawn() -> void:
 	if race and race.is_active() and driving():
 		vehicle.teleport(race.respawn_point())
-		camera.snap()
+		snap_camera()
 	else:
 		teleport_to(spawn_index)
 
@@ -420,6 +501,7 @@ func _enter_title() -> void:
 	get_tree().paused = false
 	controller.enabled = false
 	foot_controller.enabled = false
+	flight_controller.enabled = false
 	stunts.enabled = false
 	hud.visible = false
 	title_camera.target = vehicle
@@ -435,13 +517,14 @@ func _enter_driving() -> void:
 	get_tree().paused = false
 	controller.enabled = true
 	foot_controller.enabled = true
-	stunts.enabled = driving()
+	flight_controller.enabled = true
+	stunts.enabled = _stunts_wanted()
 	hud.visible = true
 	possession.show_camera()
 	menu.close()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if from_title:
-		camera.snap()
+		snap_camera()
 		foot_camera.snap()
 		hud.show_help_for(14.0)
 
@@ -558,8 +641,11 @@ func change_vehicle(index: int, setup: Loadout = null, place_here := true) -> vo
 	loadout = setup.copy() if setup else Loadout.saved(VehicleCatalog.ENTRIES[index]["id"])
 	loadout.apply(car)
 	var on_foot := possession != null and not possession.driving()
+	var plane := car as Aircraft
 	var spot := {}
-	if place_here:
+	if place_here and plane == null and not (old is Aircraft and not (old as Aircraft).on_ground):
+		# (Planes go to the runway; a car never appears in the sky under a
+		# flying plane: it goes to the spawn point.)
 		if on_foot:
 			spot = _room_beside_character(car, old)
 		else:
@@ -587,22 +673,29 @@ func change_vehicle(index: int, setup: Loadout = null, place_here := true) -> vo
 		possession.replace_vehicle(old, car)
 	if not place_here:
 		return
-	if spot.is_empty():
+	if plane:
+		_put_on_runway(plane)
+	elif spot.is_empty():
 		teleport_to(spawn_index)
 	else:
 		car.teleport(spot["xform"])
-		camera.snap()
+		snap_camera()
 
 
 ## Brings the player's vehicle next to the character and puts them in it
 ## (the garage, picking the vehicle you already have while on foot).
 func _drive_up(v: Vehicle) -> void:
+	if v is Aircraft:
+		_put_on_runway(v as Aircraft)
+		adopt_vehicle(v)
+		possession.start_in_vehicle(v)
+		return
 	var spot := _room_beside_character(v, v)
 	if not spot.is_empty():
 		v.teleport(spot["xform"])
 	adopt_vehicle(v)
 	possession.start_in_vehicle(v)
-	camera.snap()
+	snap_camera()
 
 
 ## Room for `car` where the character stands or just beside it, facing the
@@ -812,6 +905,8 @@ func _fit_headlights() -> void:
 	if vehicle == null or day_night == null:
 		return
 	var lights := vehicle.get_node_or_null("Headlights") as Node3D
+	if lights == null and vehicle is Aircraft:
+		lights = (vehicle as Aircraft).make_landing_light()
 	if lights == null:
 		lights = Node3D.new()
 		lights.name = "Headlights"
@@ -843,7 +938,8 @@ func _fit_reflection() -> void:
 	if vehicle == null:
 		return
 	var probe := vehicle.get_node_or_null("Reflection") as VehicleReflection
-	var want: bool = Settings.get_value("graphics") >= GraphicsQuality.HIGH and driving()
+	# (Not on planes: they'd re-capture it several times a second.)
+	var want: bool = Settings.get_value("graphics") >= GraphicsQuality.HIGH and driving() and not (vehicle is Aircraft)
 	if want and probe == null:
 		probe = VehicleReflection.new()
 		probe.vehicle = vehicle
@@ -854,6 +950,9 @@ func _fit_reflection() -> void:
 
 ## Remembers which vehicle you drive (each one's setup is saved by the garage).
 func _save_choice(index: int) -> void:
+	# Sessions start on the road: a plane isn't remembered as your vehicle.
+	if VehicleCatalog.ENTRIES[index].get("air", false):
+		return
 	Settings.set_value("vehicle", VehicleCatalog.ENTRIES[index]["id"])
 
 
@@ -861,6 +960,8 @@ func _save_choice(index: int) -> void:
 func _load_choice() -> void:
 	var index := VehicleCatalog.index_of_id(Settings.get_value("vehicle"))
 	var here := VehicleCatalog.index_of_vehicle(vehicle)
+	if index >= 0 and VehicleCatalog.ENTRIES[index].get("air", false):
+		index = -1
 	if index < 0 or index == here:
 		loadout = Loadout.saved(VehicleCatalog.ENTRIES[maxi(here, 0)]["id"])
 		loadout.apply(vehicle)

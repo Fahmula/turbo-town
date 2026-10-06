@@ -25,6 +25,8 @@ const TRIM_SHADER := preload("res://assets/shaders/vehicle/vehicle_trim.gdshader
 const TYRE_SHADER := preload("res://assets/shaders/vehicle/vehicle_tyre.gdshader")
 const SHADOW_SHADER := preload("res://assets/shaders/vehicle/contact_shadow.gdshader")
 const INTERIOR_SHADER := preload("res://assets/shaders/vehicle/vehicle_interior.gdshader")
+const NAV_SHADER := preload("res://assets/shaders/vehicle/nav_light.gdshader")
+const PROP_SHADER := preload("res://assets/shaders/vehicle/prop_blur.gdshader")
 
 ## Indicator states.
 enum Blinker { OFF, LEFT, RIGHT, HAZARD }
@@ -166,6 +168,26 @@ static func _swap_for(mat: Material, paint: Color, parked: bool, dirt_top: float
 				tm.shader = TYRE_SHADER
 				made["tyre"] = tm
 			return made["tyre"]
+		"NavLight":
+			# A plane's position lights, strobes and beacon (dark when parked).
+			if parked:
+				if not _shared.has("parked_nav"):
+					var nm := ShaderMaterial.new()
+					nm.shader = NAV_SHADER
+					nm.set_shader_parameter("lights", 0.0)
+					_shared["parked_nav"] = nm
+				return _shared["parked_nav"]
+			if not made.has("nav"):
+				var nm := ShaderMaterial.new()
+				nm.shader = NAV_SHADER
+				made["nav"] = nm
+			return made["nav"]
+		"PropBlur":
+			if not made.has("prop"):
+				var pm := ShaderMaterial.new()
+				pm.shader = PROP_SHADER
+				made["prop"] = pm
+			return made["prop"]
 	return null
 
 
@@ -237,6 +259,12 @@ func set_stripes(on: bool) -> void:
 
 
 ## The car's own paint material (dents swap meshes, not materials).
+## This vehicle's own material for `role` ("paint", "nav", "prop", "head"...),
+## or null if its model has none.
+func material(role: String) -> ShaderMaterial:
+	return _mats.get(role) as ShaderMaterial
+
+
 func paint() -> ShaderMaterial:
 	return _mats.get("paint")
 

@@ -3,7 +3,9 @@ extends CanvasLayer
 ## In-game overlay: speedometer, controls help, location toasts, stunt popups,
 ## the "flip your car" hint and the interaction prompt ("F  Get in the van").
 ## Built in code so it has no layout files. On foot the speedometer and damage
-## readout hide and the maps follow the character (set_on_foot).
+## readout hide and the maps follow the character (set_on_foot); in a plane
+## the speedometer shows the height and engine power, the help shows the
+## flying controls and warnings come up (too slow, pull up, turning back).
 
 @export var vehicle: Vehicle
 
@@ -39,6 +41,24 @@ const HELP_TEXT := """[b]CONTROLS[/b]
 [color=#ffd54a]E[/color]   horn     [color=#ffd54a]U[/color]   km/h / mph
 [color=#ffd54a]H / F1[/color]   hide this help     [color=#ffd54a]Esc[/color]   menu"""
 
+const FLIGHT_HELP_TEXT := """[b]FLYING[/b]
+[color=#ffd54a]Shift[/color]   full power (hold)
+      let go and it cruises by itself
+[color=#ffd54a]Ctrl[/color]   slow down (brakes on the ground)
+[color=#ffd54a]A / D[/color]   bank left / right, steer
+[color=#ffd54a]S / W[/color]   nose up / nose down
+      take off: full power, S at 80 km/h
+      land: slow down low over the runway
+[color=#ffd54a]hold S[/color]   loop!   [color=#ffd54a]Space + A / D[/color]   roll!
+[color=#ffd54a]R[/color]   help! level the plane
+[color=#ffd54a]F[/color]   get out (land and stop first)
+[color=#ffd54a]V[/color]   garage     [color=#ffd54a]P[/color]   replay
+[color=#ffd54a]1 - 9 / Tab[/color]   fly to a place (7 = runway)
+[color=#ffd54a]C[/color]   camera     [color=#ffd54a]Q[/color]   look back
+[color=#ffd54a]T[/color]   flying assists on/off
+[color=#ffd54a]M[/color]   map     [color=#ffd54a]U[/color]   km/h / mph
+[color=#ffd54a]H / F1[/color]   hide this help     [color=#ffd54a]Esc[/color]   menu"""
+
 var speedometer: Speedometer
 var minimap: Minimap
 var big_map: BigMap
@@ -51,6 +71,7 @@ var _hint: Label
 var _help_timer := 14.0
 var _damage_label: Label
 var _damage: VehicleDamage
+var _height_label: Label
 var _score_label: Label
 var _combo_box: VBoxContainer
 var _combo_lines: Array[Label] = []
@@ -67,6 +88,10 @@ var _temp_prompt_time := 0.0
 ## Last input came from a gamepad (prompts show its buttons).
 var using_pad := false
 var on_foot := false
+## Flying a plane (set_flying): flight readouts, help and warnings.
+var flying := false
+## Set by Game: true while the plane is being turned back to the island.
+var turning_back := false
 ## Set by Game: shows its status line while a race is on.
 var race: RaceManager
 
@@ -150,6 +175,14 @@ func _ready() -> void:
 	root.add_child(_damage_label)
 	if vehicle:
 		_damage = vehicle.get_node_or_null("Damage") as VehicleDamage
+	# Flying: the height above the ground, just above the speedometer.
+	_height_label = _make_label(26, Color(0.55, 0.9, 1.0))
+	_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_height_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_height_label.position = Vector2(-280, -318)
+	_height_label.size = Vector2(250, 36)
+	_height_label.visible = false
+	root.add_child(_height_label)
 
 	var race_panel := _make_panel()
 	race_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -233,6 +266,26 @@ func _make_label(font_size: int, col: Color) -> Label:
 	return l
 
 
+## Flying: height and power on the speedometer, and the warning line.
+func _flight_readouts(plane: Aircraft) -> void:
+	var mph := speedometer.use_mph
+	_height_label.text = "HEIGHT  %d %s" % [roundi(plane.altitude * (3.28084 if mph else 1.0)), "ft" if mph else "m"]
+	speedometer.rpm_fraction = plane.throttle
+	speedometer.assists_on = true
+	var r := "Y" if using_pad else "R"
+	var warn := ""
+	if plane.upside_down_time > 1.5:
+		warn = "Upside down? Press %s to flip it over!" % r
+	elif plane.stall_warning > 0.6:
+		warn = "TOO SLOW! Push the nose down"
+	elif not plane.on_ground and plane.vertical_speed < -6.0 and plane.altitude < -plane.vertical_speed * 3.0:
+		warn = "PULL UP!"
+	elif turning_back:
+		warn = "Turning back to the island"
+	_hint.text = warn
+	_hint.visible = warn != ""
+
+
 ## Gives the minimap and big map their picture and what to show on it.
 func setup_map(map: WorldMap, traffic: TrafficManager, spots: Array) -> void:
 	minimap.set_map(map)
@@ -264,15 +317,27 @@ func set_on_foot(foot: bool, character: Node3D = null, camera: Camera3D = null) 
 	on_foot = foot
 	speedometer.visible = not foot
 	_damage_label.visible = not foot
+	_height_label.visible = flying and not foot
 	_hint.visible = false
 	minimap.target = character if foot else vehicle
 	minimap.heading = camera if foot else null
 	big_map.target = character if foot else vehicle
 	minimap.car = vehicle if foot else null
 	big_map.car = vehicle if foot else null
-	_help_text.text = FOOT_HELP_TEXT if foot else HELP_TEXT
+	_help_text.text = FOOT_HELP_TEXT if foot else (FLIGHT_HELP_TEXT if flying else HELP_TEXT)
 	_temp_prompt = ""
 	_refresh_prompt()
+
+
+## In a plane (or not): the speedometer shows the height and the power, the
+## help shows the flying controls.
+func set_flying(on: bool) -> void:
+	flying = on
+	speedometer.flying = on
+	_height_label.visible = on and not on_foot
+	_damage_label.position.y = -350.0 if on else -312.0
+	if not on_foot:
+		_help_text.text = FLIGHT_HELP_TEXT if on else HELP_TEXT
 
 
 ## The interaction prompt ("Get in the van"); "" hides it.
@@ -402,7 +467,12 @@ func _process(dt: float) -> void:
 	speedometer.rpm_fraction = vehicle.engine_rpm / vehicle.redline_rpm
 	speedometer.gear_text = "R" if vehicle.gear < 0 else str(vehicle.gear)
 	speedometer.assists_on = vehicle.traction_control
-	_hint.visible = vehicle.upside_down_time > 1.5
+	var plane := vehicle as Aircraft
+	if flying and plane:
+		_flight_readouts(plane)
+	else:
+		_hint.text = "Upside down? Press R to flip your car!"
+		_hint.visible = vehicle.upside_down_time > 1.5
 	if _damage:
 		var d := int(_damage.total_damage)
 		_damage_label.text = "" if d <= 0 else "DAMAGE %d%%" % d

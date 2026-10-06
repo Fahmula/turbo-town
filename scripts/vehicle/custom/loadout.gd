@@ -126,7 +126,7 @@ static func _stock_values(id: String) -> Dictionary:
 	var caliper_colors: Array = PartsCatalog.CALIPER_COLORS.map(func(o: Dictionary) -> Color: return o["color"])
 	return {
 		"paint": PaintPalette.GARAGE[PartsCatalog.closest_color(PaintPalette.GARAGE, paint)],
-		"stripes": false,
+		"stripes": e.get("stripes", false),
 		"rims": e.get("rims", "sport5"),
 		"rim_color": "stock",
 		"tyres": e.get("tyres", "sport"),

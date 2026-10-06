@@ -43,7 +43,7 @@ func reach_distance(point: Vector3) -> float:
 	var local := vehicle.global_transform.affine_inverse() * point
 	if local.y < -2.0 or local.y > vehicle.body_top + 1.5:
 		return INF
-	var dx := maxf(absf(local.x) - vehicle.body_half_width, 0.0)
+	var dx := maxf(absf(local.x) - vehicle.footprint_half_width, 0.0)
 	var dz := maxf(maxf(local.z - vehicle.body_rear, -vehicle.body_front - local.z), 0.0)
 	var d := Vector2(dx, dz).length()
 	return d if d <= reach else INF

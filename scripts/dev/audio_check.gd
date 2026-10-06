@@ -11,7 +11,7 @@ var _fails := 0
 
 
 func _init() -> void:
-	for id in ["sports_car", "sedan", "van", "box_truck", "bus", "pickup", "buggy", "monster_truck"]:
+	for id in ["sports_car", "sedan", "van", "box_truck", "bus", "pickup", "buggy", "monster_truck", "plane"]:
 		var car := (load("res://scenes/vehicles/%s.tscn" % id) as PackedScene).instantiate() as Vehicle
 		var audio := car.get_node_or_null("Audio") as VehicleAudio
 		_check(audio != null and audio.profile != null, "%s: Audio node with a profile" % id)
@@ -46,17 +46,30 @@ func _check_profile(id: String, car: Vehicle, p: VehicleSoundProfile) -> void:
 		if rpms.size() >= 2:
 			var idle := car.idle_rpm * p.rpm_scale
 			var red := car.redline_rpm * p.rpm_scale
-			var lo_pitch := idle / rpms[0]
-			var hi_pitch := red / rpms[rpms.size() - 1]
+			# Against the loops nearest idle and the redline (a plane's engine
+			# only uses the low end of a car's recording set).
+			var lo_pitch := idle / _nearest(rpms, idle)
+			var hi_pitch := red / _nearest(rpms, red)
 			print("  %-14s %s-load: idle pitch %.2f, redline pitch %.2f (%d loops %.0f-%.0f rpm)" % [
 				id, pair[2], lo_pitch, hi_pitch, rpms.size(), rpms[0], rpms[rpms.size() - 1]])
 			_check(lo_pitch > 0.5 and lo_pitch < 1.6 and hi_pitch > 0.6 and hi_pitch < 1.6,
 				"%s: %s-load loops cover idle..redline without extreme pitch" % [id, pair[2]])
-	_check(p.horn != null and _loops(p.horn), "%s: horn loop" % id)
+	if car is Aircraft:
+		_check(p.propeller != null and _loops(p.propeller), "%s: propeller loop" % id)
+	else:
+		_check(p.horn != null and _loops(p.horn), "%s: horn loop" % id)
 	for st in [p.startup, p.whine, p.blowoff, p.shift, p.air_brake]:
 		_check(st == null or st.get_length() > 0.0, "%s: optional sounds load" % id)
 	if p.whine:
 		_check(_loops(p.whine), "%s: whine loops" % id)
+
+
+func _nearest(rpms: PackedFloat32Array, rpm: float) -> float:
+	var best := rpms[0]
+	for r in rpms:
+		if absf(r - rpm) < absf(best - rpm):
+			best = r
+	return best
 
 
 func _loops(st: AudioStream) -> bool:

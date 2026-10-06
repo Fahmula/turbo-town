@@ -56,6 +56,14 @@ const ENTRIES := [
 		"speed": 3, "accel": 3, "handling": 2, "smash": 5,
 		"rims": "beadlock", "tyres": "offroad",
 	},
+	{
+		# "air": a plane (Aircraft). Picking it puts you on the Airfield's
+		# runway; it isn't remembered as the vehicle you start with.
+		"id": "plane", "scene": "res://scenes/vehicles/plane.tscn",
+		"name": "Plane", "blurb": "Fly! Take off from the Airfield runway and loop the loop.",
+		"speed": 5, "accel": 3, "handling": 4, "smash": 1,
+		"air": true, "stripes": true,
+	},
 ]
 
 ## Stat keys and the labels shown for them.

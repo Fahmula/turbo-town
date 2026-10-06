@@ -27,6 +27,16 @@ func _enter_tree() -> void:
 	_bind("sprint_toggle", [], [JOY_BUTTON_LEFT_STICK], [])  # click: sprint until you stop
 	_bind("walk", [KEY_CTRL], [], [])
 	_bind("jump", [KEY_SPACE], [JOY_BUTTON_A], [])
+	# Flying (planes): the stick is the nose and the bank, the triggers power.
+	# Pull back (S, stick down) = nose up; Settings > Flying controls swaps it.
+	_bind("fly_nose_up", [KEY_S, KEY_DOWN], [], [[JOY_AXIS_LEFT_Y, 1.0]])
+	_bind("fly_nose_down", [KEY_W, KEY_UP], [], [[JOY_AXIS_LEFT_Y, -1.0]])
+	_bind("fly_bank_left", [KEY_A, KEY_LEFT], [], [[JOY_AXIS_LEFT_X, -1.0]])
+	_bind("fly_bank_right", [KEY_D, KEY_RIGHT], [], [[JOY_AXIS_LEFT_X, 1.0]])
+	_bind("fly_power", [KEY_SHIFT], [], [[JOY_AXIS_TRIGGER_RIGHT, 1.0]])
+	_bind("fly_slow", [KEY_CTRL], [], [[JOY_AXIS_TRIGGER_LEFT, 1.0]])
+	_bind("fly_trick", [KEY_SPACE], [JOY_BUTTON_A], [])  # + stick: roll all the way round
+
 	# Get in / out of a vehicle, use things.
 	_bind("interact", [KEY_F], [JOY_BUTTON_B], [])
 

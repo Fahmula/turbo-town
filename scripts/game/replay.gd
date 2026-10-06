@@ -145,7 +145,7 @@ func stop() -> void:
 	_set_wheels(_wheel_restore)
 	_restore.clear()
 	_overlay.visible = false
-	game.camera.current = true
+	game.possession.show_camera()
 	finished.emit()
 
 

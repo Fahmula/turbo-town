@@ -242,6 +242,7 @@ func _build_settings() -> Control:
 	_cycle_row(grid, "Time of day", "time_of_day", Settings.TIME_LABELS)
 	_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"])
 	_cycle_row(grid, "Driving assists", "assists", ["Off (drift mode)", "On"])
+	_cycle_row(grid, "Flying controls", "flight_invert", ["Pull back to climb", "Push up to climb"])
 	_cycle_row(grid, "Vibration", "vibration", ["Off", "On"])
 	_cycle_row(grid, "Minimap", "minimap", ["Off", "On"])
 	_cycle_row(grid, "Crash cam", "crash_cam", ["Off", "On"])

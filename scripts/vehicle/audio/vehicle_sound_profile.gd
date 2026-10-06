@@ -32,6 +32,11 @@ extends Resource
 @export var startup_catch := 0.7
 
 @export_group("Character")
+## A plane's propeller (a loop at `propeller_rpm`): pitched with the engine,
+## louder with revs and power.
+@export var propeller: AudioStream
+@export var propeller_rpm := 2400.0
+@export var propeller_volume_db := -4.0
 ## Turbo or supercharger whine (a loop at `whine_rpm`), rising with revs and
 ## load.
 @export var whine: AudioStream

@@ -26,6 +26,11 @@ extends Node
 ##   --night=<dir>    sunset / night / cycle: lights switch, screenshots
 ##   --damage=<dir>   crash tests: parts falling off, broken lights/glass, pull, repair
 ##   --replay=<dir>   pausing freezes everything, instant replay, slow-motion crash cam
+##   --flight=<dir>   the plane: take-off, cruise, turns, loop, roll, stall, help button,
+##                    teleports, the island's edge, landing, getting out and in, crash,
+##                    garage swaps (checks and shots; scripts/dev/flight_tests.gd)
+##   --flightbench=<dir> GPU time / draw calls flying over the city at 60, 150 and 300 m,
+##                    Medium / Low / High (use --gpu-index 0, the iGPU, as a Deck stand-in)
 ##   --scenery=<dir>  fixed views of the city and the north bridge at day /
 ##                    sunset / night and Low / High, plus draw calls, primitives
 ##                    and GPU time per view (--views=a,b limits the views,
@@ -137,6 +142,12 @@ func _ready() -> void:
 		elif arg.begins_with("--lookdev="):
 			_mode = "lookdev"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--flight="):
+			_mode = "flight"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--flightbench="):
+			_mode = "flightbench"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--audio="):
 			_mode = "audio"
 			_dir = arg.split("=")[1]
@@ -244,6 +255,10 @@ func _run() -> void:
 		await _audio(game)
 	elif _mode == "mixpanel":
 		await _mixpanel(game)
+	elif _mode == "flight":
+		await preload("res://scripts/dev/flight_tests.gd").new(self, game, _dir).run()
+	elif _mode == "flightbench":
+		await preload("res://scripts/dev/flight_tests.gd").new(self, game, _dir).bench()
 	else:
 		await _drive(game)
 	VehicleAudio.quit_quietly(get_tree())
@@ -885,8 +900,13 @@ func _check_wiring(game: Game, label: String) -> void:
 		if child is Vehicle and not game.left_vehicles.has(child):
 			players += 1
 	_check(players == 1, "%s: one player vehicle in the scene (%d)" % [label, players])
-	_check(game.controller.vehicle == v and game.camera.target == v and game.hud.vehicle == v,
-		"%s: controller, camera and HUD follow the new vehicle" % label)
+	if v is Aircraft:
+		# Planes have their own rig: flight controls and the flight camera.
+		_check(game.flight_controller.vehicle == v and game.flight_camera.target == v and game.hud.vehicle == v
+			and game.controller.vehicle == null, "%s: flight controls, camera and HUD follow the new plane" % label)
+	else:
+		_check(game.controller.vehicle == v and game.camera.target == v and game.hud.vehicle == v,
+			"%s: controller, camera and HUD follow the new vehicle" % label)
 	_check(game.traffic.player == v and game.traffic.vehicles.count(v) == 1,
 		"%s: traffic knows the new player vehicle" % label)
 
@@ -3895,7 +3915,8 @@ func _onfoot(game: Game) -> void:
 	for n in game.get_children():
 		if n is PlayerVehicleController or n is PlayerCharacterController:
 			controllers += 1
-	_check(controllers == 2, "one vehicle controller and one character controller (%d)" % controllers)
+	# (PlayerAircraftController is a PlayerVehicleController: the plane rig's.)
+	_check(controllers == 3, "one controller each for vehicles, planes and the character (%d)" % controllers)
 	var chars := game.find_children("*", "PlayerCharacter", true, false).size()
 	_check(chars == 1, "one character (%d)" % chars)
 

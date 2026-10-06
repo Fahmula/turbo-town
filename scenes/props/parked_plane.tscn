@@ -1,0 +1,87 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/prop.gd" id="1_prop"]
+[ext_resource type="PackedScene" path="res://assets/models/plane_body.glb" id="2_body"]
+[ext_resource type="PackedScene" path="res://assets/models/plane_wheel.glb" id="3_wheel"]
+
+[sub_resource type="BoxShape3D" id="Box_fuselage"]
+size = Vector3(1.12, 0.92, 3.69)
+
+[sub_resource type="BoxShape3D" id="Box_canopy"]
+size = Vector3(0.9, 0.45, 2.2)
+
+[sub_resource type="BoxShape3D" id="Box_tail"]
+size = Vector3(0.6, 0.55, 2.3)
+
+[sub_resource type="BoxShape3D" id="Box_wing_in"]
+size = Vector3(1.8, 0.24, 1.45)
+
+[sub_resource type="BoxShape3D" id="Box_wing_out"]
+size = Vector3(1.82, 0.22, 1.25)
+
+[sub_resource type="BoxShape3D" id="Box_stab"]
+size = Vector3(3.04, 0.12, 0.75)
+
+[sub_resource type="BoxShape3D" id="Box_fin"]
+size = Vector3(0.12, 1.04, 0.85)
+
+[node name="ParkedPlane" type="RigidBody3D"]
+collision_layer = 4
+collision_mask = 7
+mass = 800.0
+sleeping = true
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 0.8, 0)
+script = ExtResource("1_prop")
+random_colors = Array[Color]([Color(0.92, 0.92, 0.9, 1), Color(0.86, 0.66, 0.12, 1), Color(0.72, 0.13, 0.1, 1), Color(0.13, 0.3, 0.62, 1), Color(0.16, 0.45, 0.3, 1)])
+vehicle_look = true
+show_stripes = true
+drive_scene = "res://scenes/vehicles/plane.tscn"
+
+[node name="FuselageShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.04, -0.6)
+shape = SubResource("Box_fuselage")
+
+[node name="CanopyShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.54, 0.1)
+shape = SubResource("Box_canopy")
+
+[node name="TailShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.13, 2.4)
+shape = SubResource("Box_tail")
+
+[node name="WingInLShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.35, 0.77, 0.12)
+shape = SubResource("Box_wing_in")
+
+[node name="WingOutLShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.15, 0.89, 0.08)
+shape = SubResource("Box_wing_out")
+
+[node name="WingInRShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.35, 0.77, 0.12)
+shape = SubResource("Box_wing_in")
+
+[node name="WingOutRShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.15, 0.89, 0.08)
+shape = SubResource("Box_wing_out")
+
+[node name="StabShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.235, 3.165)
+shape = SubResource("Box_stab")
+
+[node name="FinShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.72, 3.2)
+shape = SubResource("Box_fin")
+
+[node name="Model" parent="." instance=ExtResource("2_body")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+
+[node name="WheelNose" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(0.4595, 0, 0, 0, 0.4595, 0, 0, 0, 0.4595, 0, 0.17, -1.78)
+
+[node name="WheelML" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(-0.5405, 0, 0, 0, 0.5405, 0, 0, 0, -0.5405, -1.02, 0.2, 0.32)
+
+[node name="WheelMR" parent="." instance=ExtResource("3_wheel")]
+transform = Transform3D(0.5405, 0, 0, 0, 0.5405, 0, 0, 0, 0.5405, 1.02, 0.2, 0.32)

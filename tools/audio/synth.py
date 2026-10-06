@@ -135,6 +135,24 @@ def whine(freq, seconds=1.0, harmonics=((2, 0.25), (3, 0.08)), noise_db=-26.0, s
     return dsp.normalize_rms(x, -18.0)
 
 
+def propeller(rpm=2400.0, blades=2, seconds=1.6, seed=65):
+    """A light plane's propeller, steady at `rpm`: the blade-pass tone (rpm /
+    60 x blades, 80 Hz for two blades at 2400 rpm) and its harmonics, which
+    the Steam Deck's speakers keep from the 4th up, plus air noise pulsing
+    once per blade ("whop-whop"). Whole cycles over the loop: seamless."""
+    n = int(seconds * R)
+    bpf = rpm / 60.0 * blades
+    rng = np.random.default_rng(seed)
+    tone = np.zeros(n)
+    for k in range(1, 25):
+        tone += _loop_sine(bpf * k, seconds, rng.uniform(0, 2 * np.pi)) / k ** 0.75
+    pulse = (0.5 + 0.5 * _loop_sine(bpf, seconds, 0.3)) ** 3
+    air = dsp.bandpass(dsp.noise(n, seed + 1, "pink"), 400, 3200, 2) * (0.35 + 0.65 * pulse)
+    thrum = dsp.lowpass(dsp.noise(n, seed + 2, "brown"), 180, 2)
+    x = dsp.normalize_rms(tone, -22) + dsp.normalize_rms(air, -21) + dsp.normalize_rms(thrum, -30)
+    return dsp.normalize_rms(x, -18.0)
+
+
 def horn(freqs, seconds=1.0, formants=((1600, 2.0, 1.0), (3100, 3.0, 0.6)), brass=0.0, seed=71):
     """Horn loop: buzzy (sawtooth-like, band-limited) tones through the
     diaphragm/trumpet formants. Electric car horns are two tones a third or

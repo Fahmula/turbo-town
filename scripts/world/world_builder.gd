@@ -22,6 +22,7 @@ const PROP_SCENES := {
 	"parked_car": preload("res://scenes/props/parked_car.tscn"),
 	"parked_sedan": preload("res://scenes/props/parked_sedan.tscn"),
 	"parked_van": preload("res://scenes/props/parked_van.tscn"),
+	"parked_plane": preload("res://scenes/props/parked_plane.tscn"),
 	"ramp": preload("res://scenes/props/ramp.tscn"),
 	"hydrant": preload("res://scenes/props/hydrant.tscn"),
 	"bin": preload("res://scenes/props/street_bin.tscn"),
@@ -125,6 +126,11 @@ func _spawn_props(parent: Node3D, list: Array[Dictionary]) -> void:
 ## Props that belong to no particular builder.
 func _extra_props() -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
+	# Planes parked on the airfield's apron, noses toward the runway: walk up
+	# to one and fly it.
+	var ac := MapLayout.APRON_CENTER
+	for spot: Array in [[Vector3(-30.0, 0.0, 1.0), PI], [Vector3(8.0, 0.0, 2.0), PI * 0.88], [Vector3(34.0, 0.0, 0.0), PI * 1.1]]:
+		list.append({"scene": "parked_plane", "xform": Transform3D(Basis(Vector3.UP, spot[1]), ac + spot[0] + Vector3(0, 0.03, 0))})
 	# Big jump off the mountain top, facing north.
 	var c := MapLayout.MOUNTAIN_CENTER
 	var y := roads.summit_height - 0.15

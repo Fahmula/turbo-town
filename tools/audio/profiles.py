@@ -64,6 +64,10 @@ PROFILES = {
                           pops=["engine/pop_%d.wav" % k for k in (1, 2, 3, 4)], pops_volume_db=-8.0,
                           shift="engine/shift.wav", shift_volume_db=-14.0,
                           horn="horn/air_big.wav", horn_volume_db=-8.0, horn_pitch=1.15, size=2.6),
+    # Light sport plane: an air-cooled flat four (aero engines are the same
+    # family), a little quieter, with the propeller's buzz on top. No horn.
+    "plane": dict(engine="flat4", rpm_scale=1.0, engine_volume_db=-2.0, rpm_gain_db=4.0, load_gain_db=2.5,
+                  propeller="engine/propeller.wav", propeller_rpm=2400.0, propeller_volume_db=-4.0, size=1.3),
 }
 
 SCRIPT = "res://scripts/vehicle/audio/vehicle_sound_profile.gd"
@@ -93,13 +97,14 @@ def write_profiles(out_dir: Path, engine_sets: dict):
         lines.append("engine_off = Array[AudioStream]([%s])" % ", ".join(off))
         lines.append("engine_off_rpm = PackedFloat32Array(%s)" % ", ".join("%g" % r for r, _ in es["off"]))
         for key in ("rpm_scale", "engine_volume_db", "rpm_gain_db", "load_gain_db", "startup_catch", "whine_rpm",
-                    "whine_volume_db", "pops_volume_db", "shift_volume_db", "horn_volume_db", "horn_pitch", "size"):
+                    "whine_volume_db", "pops_volume_db", "shift_volume_db", "horn_volume_db", "horn_pitch", "size",
+                    "propeller_rpm", "propeller_volume_db"):
             if key in p:
                 lines.append("%s = %s" % (key, float(p[key])))
         lines.append("startup = %s" % ref("engine/%s/startup.wav" % p["engine"]))
         import recorded
         lines.append("startup_catch = %s" % recorded.handover(p["engine"]))
-        for key in ("whine", "blowoff", "shift", "air_brake", "horn"):
+        for key in ("whine", "blowoff", "shift", "air_brake", "horn", "propeller"):
             if key in p:
                 lines.append("%s = %s" % (key, ref(p[key])))
         if "pops" in p:

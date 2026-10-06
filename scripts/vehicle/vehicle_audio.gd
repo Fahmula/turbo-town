@@ -229,6 +229,7 @@ func _build() -> void:
 		_add_loop("wind", VehicleSoundBank.loop(VehicleSoundBank.WIND), ENVIRONMENT)
 		_add_loop("scrape", VehicleSoundBank.loop(VehicleSoundBank.SCRAPE), IMPACTS)
 		_add_loop("whine", profile.whine, ENGINE)
+		_add_loop("prop", profile.propeller, ENGINE)
 	else:
 		_add_loop("roll", VehicleSoundBank.loop(VehicleSoundBank.ROLL_ASPHALT), TYRES)
 	_add_loop("squeal", VehicleSoundBank.loop(VehicleSoundBank.SQUEAL), SKID)
@@ -372,6 +373,10 @@ func _update_engine(dt: float, live: bool) -> void:
 	if _loops.has("whine"):
 		var w := db_to_linear(p.whine_volume_db + volume_db) * _load * _load * clampf(rpm / p.whine_rpm, 0.0, 1.3) * _engine_fade
 		_set_loop("whine", w, clampf(rpm / p.whine_rpm, 0.3, 2.0) * pitch_mul)
+	if _loops.has("prop"):
+		# The propeller turns with the engine (no gearbox): its buzz follows rpm.
+		var pg := db_to_linear(p.propeller_volume_db + volume_db) * (0.35 + 0.65 * rpm_t) * (0.75 + 0.25 * _load) * _engine_fade
+		_set_loop("prop", pg if live else 0.0, clampf(vehicle.engine_rpm / p.propeller_rpm, 0.3, 1.6) * pitch_mul)
 
 
 ## Plays the two loops of a set either side of `rpm`, crossfaded with equal

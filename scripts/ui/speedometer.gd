@@ -1,7 +1,8 @@
 class_name Speedometer
 extends Control
 ## Round speedometer drawn with _draw(): speed arc + needle, digital readout,
-## gear and a small RPM arc.
+## gear and a small RPM arc. Flying, there's no gear and the RPM arc shows
+## the engine power (the HUD shows the height above it).
 
 @export var max_speed := 240.0
 @export var use_mph := false
@@ -10,6 +11,8 @@ var speed_kmh := 0.0
 var rpm_fraction := 0.0
 var gear_text := "1"
 var assists_on := true
+## Flying a plane: no gear.
+var flying := false
 
 var _font: Font
 var _shown_speed := 0.0
@@ -71,10 +74,11 @@ func _draw() -> void:
 	var unit := "km/h" if not use_mph else "mph"
 	var us := _font.get_string_size(unit, HORIZONTAL_ALIGNMENT_CENTER, -1, 14)
 	draw_string(_font, c + Vector2(-us.x * 0.5, 98.0), unit, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color(1, 1, 1, 0.7))
-	# Gear.
-	var gs := _font.get_string_size(gear_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 30)
-	draw_circle(c + Vector2(0, -44), 21.0, Color(1, 1, 1, 0.12))
-	draw_string(_font, c + Vector2(-gs.x * 0.5, -33.0), gear_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 30, Color(1.0, 0.85, 0.3))
+	if not flying:
+		# Gear.
+		var gs := _font.get_string_size(gear_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 30)
+		draw_circle(c + Vector2(0, -44), 21.0, Color(1, 1, 1, 0.12))
+		draw_string(_font, c + Vector2(-gs.x * 0.5, -33.0), gear_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 30, Color(1.0, 0.85, 0.3))
 	if not assists_on:
 		var t := "DRIFT"
 		var dts := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_CENTER, -1, 14)

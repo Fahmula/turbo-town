@@ -6,15 +6,16 @@ extends Node
 ## nobody), so two controllers never drive the same pawn, and `kind` tells the
 ## Possession which input controller and camera to use for it.
 ##
-## Today's kinds are "character" and "vehicle" (cars, trucks, buses...). A
-## future boat or plane is a new kind with its own controller and camera
-## (registered in Possession.RIGS); the rest of the hand-over stays the same.
+## The kinds are "character", "vehicle" (cars, trucks, buses...) and "plane"
+## (Aircraft). A new kind (a boat...) gets its own controller and camera
+## (Possession.add_rig); the rest of the hand-over stays the same.
 
 signal taken(by: Object)
 signal dropped(by: Object)
 
 const CHARACTER := &"character"
 const VEHICLE := &"vehicle"
+const PLANE := &"plane"
 
 @export var kind := VEHICLE
 
