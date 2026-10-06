@@ -1035,7 +1035,10 @@ func _garage(game: Game) -> void:
 		_release()
 
 	# 3) No room (a wall right in front): falls back to the spawn point.
+	# (Back to the City Center first: picking the plane made the Airfield
+	# the spawn point, and the traffic check below spawns in the city.)
 	game.change_vehicle(0, _painted(0, Color.RED))
+	game.teleport_to(0)
 	await _wait(5)
 	var spot := Transform3D(Basis.IDENTITY, Vector3(-20, 0.8, -20))
 	game.vehicle.teleport(spot)
@@ -2893,9 +2896,14 @@ func _lookdev(game: Game) -> void:
 				n.queue_free()
 		game.change_vehicle(vi, _painted(vi, VehicleCatalog.COLORS[paints.get(id, 0)]), false)
 		var v := game.vehicle
-		v.teleport(spot.translated(Vector3.UP * v.ride_height()))
+		var here := spot
+		if v is Aircraft:
+			# Planes on the airfield apron (the avenue is too narrow for the wings).
+			here = Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), MapLayout.APRON_CENTER + Vector3(-12.0, 0.03, 13.0))
+		v.teleport(here.translated(Vector3.UP * v.ride_height()))
 		await _wait_s(1.5)
 		game.controller.set_physics_process(false)
+		game.flight_controller.set_physics_process(false)
 		for pass_i in (2 if damaged else 1):
 			if pass_i == 1:
 				_smash_for_photo(v)
@@ -2906,6 +2914,8 @@ func _lookdev(game: Game) -> void:
 				for view: String in views:
 					await _lookdev_view(game, v, view, "%s_%s%s_%s" % [id, view, "_smashed" if pass_i == 1 else "", t])
 		game.controller.set_physics_process(true)
+		game.flight_controller.set_physics_process(true)
+		game.possession.active_camera().set_process(true)
 		v.brake_input = 0.0
 	cam.set_process(true)
 	game.hud.visible = true
@@ -2913,10 +2923,10 @@ func _lookdev(game: Game) -> void:
 
 
 func _lookdev_view(game: Game, v: Vehicle, view: String, shot: String) -> void:
-	var cam := game.camera
+	var cam := game.possession.active_camera()
 	cam.set_process(false)
 	var l := v.body_length()
-	var w := v.body_half_width
+	var w := v.footprint_half_width
 	var h := v.body_top
 	var c := v.global_position + v.global_basis.y * h * 0.45
 	var at := c
@@ -2932,7 +2942,9 @@ func _lookdev_view(game: Game, v: Vehicle, view: String, shot: String) -> void:
 		"side":
 			local = Vector3(w + l * 0.85, h * 0.55 + 0.3, 0.0)
 		"wheel":
-			var wheel := v.get_node("WheelFL") as VehicleWheel
+			var wheel := v.get_node_or_null("WheelFL") as VehicleWheel
+			if wheel == null:
+				wheel = v.wheels[0]
 			at = (wheel.get_node("Visual") as Node3D).global_position
 			local = v.global_basis.inverse() * (at - v.global_position) + Vector3(-0.75 - wheel.radius * 2.2, 0.15, -0.55)
 		"chase":

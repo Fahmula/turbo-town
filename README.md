@@ -2,7 +2,8 @@
 
 A stylized driving sandbox made in Godot 4.7. Walk around a small city, a ring
 highway with overpasses, a mountain road, dirt fields, a beach and a stunt park
-full of ramps, and get into any car, truck or bus you find.
+full of ramps, get into any car, truck or bus you find, or fly a plane from
+the airfield.
 
 Open the folder in Godot and press **Play (F5)**. The game opens on the title
 screen (PLAY! / GARAGE / SETTINGS / CONTROLS / QUIT); PLAY! puts you on foot
@@ -53,6 +54,24 @@ Driving:
 | Help | H / F1 | |
 | Pause menu | Esc | Start / Menu |
 
+Flying (planes):
+
+| Action | Keyboard | Gamepad |
+|---|---|---|
+| Power (hold; let go in the air and it cruises) | Shift | Right trigger |
+| Slow down, flaps (brakes on the ground) | Ctrl | Left trigger |
+| Bank left / right (steer on the ground) | A / D | Left stick |
+| Nose up / down | S / W | Left stick back / forward |
+| Loop | hold S | hold the stick back |
+| Barrel roll | Space + A / D | A + left stick |
+| Help! Level the plane (on the ground: flip upright) | R | Y (Triangle) |
+| Get out (landed and stopped) | F | B (Circle) |
+| Camera (chase / far / cockpit) | C | RB |
+| Flying assists on/off | T | |
+
+"Flying controls" in Settings swaps the nose: push up to climb instead of
+pulling back.
+
 Teleports: 1 City Center, 2 Highway, 3 Stunt Park, 4 Mountain Top, 5 Dirt Fields, 6 Beach,
 7 Airfield, 8 Harbour, 9 Lighthouse. Garage, teleports, respawn, traffic, map,
 help and pause work on foot too.
@@ -67,8 +86,21 @@ the one you pick to where you stand. An overturned vehicle offers "Flip it back
 over". Traffic stops for you (and honks if you stay in the road); a car that
 bumps into you just knocks you aside.
 
+**Planes**: three planes are parked on the airfield's apron (teleport 7):
+walk up to one and get in like a car, or pick the Plane in the garage and
+you're put on the runway (it isn't remembered as the vehicle you start
+with). Take off with full power, pulling back at about 80 km/h. With the
+assists on (the Assists setting, T) a let-go stick holds the climb or dive
+and eases it level, turns don't lose height, the wings come level, full
+stick banks to 65 degrees (A / Space + stick rolls all the way round), the
+plane won't stall when you let go, and low over the runway with the power
+off it settles onto its wheels. R / Y in the air levels the plane where it is.
+You can't get out in the air; land, stop, then F / B. Teleports while
+flying take you there in the air (the Airfield puts you on the runway), and
+far out over the sea the plane turns back by itself. Races are for cars.
+
 **Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck,
-bus, pickup, buggy or monster truck and set it up. Tabs (Q / E or LB / RB):
+bus, pickup, buggy, monster truck or plane and set it up. Tabs (Q / E or LB / RB):
 CAR (left/right = vehicle), PAINT (colour, racing stripes) and WHEELS (rims,
 rim colour, tyres, tyre stripe, brake caliper colour; the camera zooms in on a
 wheel). On PAINT and WHEELS, up/down picks a row and left/right changes it.
@@ -115,6 +147,8 @@ scenes/
   vehicles/sedan.tscn, van.tscn, box_truck.tscn, bus.tscn, pickup.tscn   Used by
                             traffic and drivable from the garage (every vehicle scene is both)
   vehicles/buggy.tscn, monster_truck.tscn   Garage-only (AWD, long-travel suspension)
+  vehicles/plane.tscn       The sport plane (Aircraft), in the garage and parked at the airfield
+  props/parked_plane.tscn   A parked plane (a cheap prop; swapped for plane.tscn when you get in)
   world/world.tscn          Environment, sun, and the WorldBuilder that generates the map
   props/                    Cone, barrel, crate, bowling pin, lamp, traffic light,
                             parked cars (drivable: `drive_scene`), and the parametric Ramp
@@ -127,7 +161,9 @@ scripts/
              interactable.gd (things you use with F / B), vehicle_entry.gd (a
              vehicle's doors and safe exit spots), parked_car_entry.gd (parked
              car props you can drive)
-  vehicle/   vehicle.gd (engine, gearbox, steering, assists), vehicle_wheel.gd
+  vehicle/   aircraft.gd (a plane: lift, drag, thrust, fly-by-wire controls and kid assists,
+             propeller, control surfaces), player_aircraft_controller.gd (flying input),
+             vehicle.gd (engine, gearbox, steering, assists), vehicle_wheel.gd
              (raycast suspension + tire model), player_vehicle_controller.gd (input),
              vehicle_body_visual.gd (materials, lamps, indicators, grime, contact shadow),
              vehicle_reflection.gd (the player car's reflection probe), vehicle_audio.gd,
@@ -143,7 +179,7 @@ scripts/
   traffic/   traffic_network.gd (lane graph built from the roads, turn curves,
              junctions, U-turns), traffic_manager.gd (spawning, signal timing),
              traffic_driver.gd (AI driver, turn signals), traffic_light_prop.gd
-  camera/    chase_camera.gd (driving), on_foot_camera.gd (walking), camera_blend.gd
+  camera/    chase_camera.gd (driving), flight_camera.gd (flying), on_foot_camera.gd (walking), camera_blend.gd
              (glides between them), menu_camera.gd (title screen)
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
              landmark builders, building_kit.gd / street_kit.gd / tree_kit.gd (the
@@ -183,6 +219,7 @@ tools/blender/make_bus.py      City bus
 tools/blender/make_buggy.py    Buggy
 tools/blender/make_monster.py  Monster truck
 tools/blender/make_wheels.py   All four wheel types (sports, sedan, steel, off-road)
+tools/blender/make_plane.py    The sport plane and its wheel (plane_body.glb, plane_wheel.glb)
 tools/blender/body_kit.py      Shared loft body builder and modelling helpers
 tools/blender/make_character.py  The player character from Quaternius' CC0 Universal Animation
                                Library (downloads it, rebuilds the mesh, keeps the animations)
@@ -273,10 +310,11 @@ ASSET_MANIFEST.md              Every third-party asset: source, creator, licence
   who drives it right now (the player's `Possession`, a `TrafficDriver`, or
   nobody) and its `kind`, which picks a *rig*: the input controller and camera
   for that kind (`PlayerCharacterController` + `OnFootCamera`,
-  `PlayerVehicleController` + `ChaseCamera`). Only one rig has a pawn at a
+  `PlayerVehicleController` + `ChaseCamera`, `PlayerAircraftController` +
+  `FlightCamera` for planes). Only one rig has a pawn at a
   time, so the character and a vehicle can never both take input, and a
   traffic car is first taken off its driver (`TrafficManager.claim`). A boat
-  or a plane later is a new kind with its own controller and camera.
+  later is a new kind with its own controller and camera (`Possession.add_rig`).
   Getting in: the `Interactable` nearest the character (a vehicle's
   `VehicleEntry`, a parked car's `ParkedCarEntry`) shows its prompt; F / B
   walks the character to the door for a moment while the `CameraBlend` glides
@@ -293,6 +331,19 @@ ASSET_MANIFEST.md              Every third-party asset: source, creator, licence
   with them (a car would hit a person like a wall); instead the character is
   shoved aside by anything that drives into it, and traffic drivers stop for
   it (`TrafficManager.pedestrians`).
+* **Flying** (`aircraft.gd`): a plane is a `Vehicle` (so damage, sound,
+  getting in and out, the HUD, maps and replays work as for a car) whose
+  engine turns a propeller. Each tick it computes lift from the wing's angle
+  of attack (falling off past a 15 degree stall), drag, a side force and
+  propeller thrust (fading with airspeed and above 530 m), and three raycast
+  wheels carry it on the ground. The controls are fly-by-wire: the stick
+  asks for g (the wing's angle of attack is chosen to give it, never past
+  the stall) and for a roll rate or (assists on) a bank angle; the nose
+  follows the airflow, so banking turns the plane; authority grows with
+  airspeed. The model's moving parts (propeller, blur disc, ailerons, flaps,
+  elevator, rudder) are found by name. The `FlightCamera` lags behind the
+  plane, leans with part of the bank and follows fully when steep or upside
+  down.
 * **Saving**: two files in `user://` (on Linux and the Deck
   `~/.local/share/godot/app_userdata/Turbo Town/`). `settings.cfg` (the
   `Settings` autoload) holds the options *and* the player's garage: which
@@ -386,6 +437,11 @@ godot --path . -- --scenery=/tmp/shots  fixed city/bridge views, day/sunset/nigh
 godot --path . -- --damage=/tmp/shots   crash into walls: parts off, lights/glass, pull, power, repair
     add --vehicle=<id> (sedan, van, box_truck, bus, pickup, buggy, monster_truck) to run a main-game test in another vehicle
 godot --path . -- --replay=/tmp/shots   pausing freezes the car, instant replay, crash cam (pass/fail)
+godot --path . --fixed-fps 60 -- --flight=/tmp/shots  the plane: take-off, cruise, turns, loop, roll, stall, help
+                                        button, teleports, the island edge, landing, getting out and in, replay,
+                                        parked planes, taxiing, crash, garage (pass/fail)
+godot --path . --gpu-index 0 -- --flightbench=/tmp/perf   GPU cost flying over the city at 60 / 150 / 300 m,
+                                        Medium / Low / High
 godot --path . --headless --fixed-fps 120 -- --spawncheck   60 traffic spawns, none may crash
 godot --path . -- --junction=/tmp/shots highway/avenue junction: turns used, crashes, jams (150 s)
 godot --path . --headless --fixed-fps 120 -- --corner=/tmp   each vehicle lapping the highway with lane changes (roll check)

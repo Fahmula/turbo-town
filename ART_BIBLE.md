@@ -825,6 +825,7 @@ docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
 | City bus (`make_bus.py`) | Modern low-floor bus: huge windscreen, continuous dark window band, glass doors, roof air-con, opaque tinted glass. |
 | Buggy (`make_buggy.py`) | Classic desert sand-rail: small open tub with a cockpit dip, full tube roll cage and light bar, exposed engine, rear wing. |
 | Monster truck (`make_monster.py`) | Retro 80s/90s show truck: boxy regular-cab pickup high on a tube chassis, chrome coil-overs, roll bar, exhaust stacks. |
+| Sport plane (`make_plane.py`) | Generic two-seat aerobatic light plane: low tapered wing with dihedral, side-by-side cockpit under a big bubble canopy, cowled flat four with a two-blade propeller (yellow tips) and spinner, tricycle gear in wheel fairings, swept fin with a dorsal strake. A cheat-line livery (the `Stripes` mesh, on by default for planes). |
 
 **Must-have details (as geometry)**
 
@@ -901,6 +902,7 @@ are the authority for wheel positions and radii.
 | City bus | 11–12.5 | 2.5–2.55 | 3.0–3.3 | 8.89 × 3.25 h (shortened for the town's streets); r 0.50, x ±1.00, axles ±2.20 |
 | Buggy | fictional | | | 3.85 × 1.82 h (cage); r 0.42, x ±0.92, axles ±1.25 |
 | Monster truck | fictional | | | 4.72 × 3.30 h; r 0.95, x ±1.32, axles ±1.65 |
+| Sport plane | 6.0–7.0 | span 7.5–8.5 | 2.2–2.5 | 6.35 long, 8.12 span, 2.3 h; mains r 0.20 at x ±1.02 (0.32 behind the CG), nose r 0.17 at 1.78 ahead |
 
 Lengths and heights are measured from the models (height from the ground);
 widths are left out because the mirrors dominate them.
@@ -945,6 +947,20 @@ light), 6 `GRILLE_MESH` (honeycomb), 7 `GRILLE_SLATS`.
 the legacy pipeline renamed it on export, `body_kit` does not).
 
 New names are fine for fixed materials. Add them to this table.
+
+**Planes** add three materials and a node-name contract (`Aircraft` finds the
+moving parts by name under `Body`):
+
+| Name | Used by code | Look |
+|---|---|---|
+| `NavLight` | `VehicleBodyVisual` swaps it for `nav_light.gdshader` (per plane; dark when parked or the engine is off) | UV kind 1 red position light (left tip), 2 green (right tip), 3 white strobe (tips, tail; double flash ~1 s), 4 red beacon (fin); steady lights brighter at night; all timed in the shader |
+| `PropTip` | fixed | the yellow blade tips |
+| `PropBlur` | swapped for `prop_blur.gdshader` (per plane) | the propeller's blur disc: a faint veil, two slow "ghost" blades and a yellow tip ring, faded in with rpm (`amount`, `spin`) |
+
+Nodes: `Propeller` (spins about its local Z), `PropDisc`, `AileronL/R`,
+`FlapL/R`, `Elevator` (local X = hinge line, + = trailing edge down),
+`Rudder` (local Y = hinge line, + = trailing edge right), `WingL/R` and
+`PlaneBody` (deformable). The landing light uses `Headlight` (beam at night).
 
 **Car paint** (`car_paint.gdshader`)
 
@@ -1084,6 +1100,12 @@ explosions unless the owner asks.
   One crash runs several passes, and the Deck's CPU is slower. Going over the
   cap needs a code change first. Plan that change; don't silently exceed the
   cap.
+- **Planes** are bigger, so the cap applies per dent pass rather than per
+  vehicle: `_dent` skips meshes and surfaces whose bounds are out of reach,
+  so the plane is split into `PlaneBody` (fuselage, tail, gear, cockpit:
+  4.5k exported vertices), `WingL`/`WingR` (0.6–0.7k each), four control
+  surfaces, the propeller and the stripes. Total 7.4k; a hit anywhere
+  processes at most ~5.5k (a fuselage hit near a wing root).
 - **Topology:** deformable panels need evenly spaced vertices, about 8–15 cm
   apart on large panels (doors, bonnet, roof, sides), quads where possible.
   **No big n-gons or triangle fans.** (The legacy `extrude_profile` closed
@@ -1546,7 +1568,10 @@ Output goes to `assets/models/`.
   Y-up).
 - **Vehicles:** the front points to Blender +Y (Godot −Z). The origin is at
   wheel-centre height, midway between the axles. Wheel positions and radius
-  match the vehicle scene.
+  match the vehicle scene. **Planes:** the origin is at the centre of
+  gravity on the centre line (y = 0, about the wing's quarter chord), z = 0
+  at the main wheels' centre height; moving parts are objects of their own
+  whose local axes are their hinges (see §13).
 - **Lamps and grilles are tagged** with `kind=` on `patch()`/`box()`/`tube()`
   (§13, UV kind tags); every `Part` has a UV layer for it.
 - **Material names follow the contract** (§13). Detachable parts are their own
@@ -1755,6 +1780,15 @@ window):
   (`--bench` A/B against the commit before: same physics tick, same 1,542
   draw calls on the city drive). The same view on the iGPU is 35–44 ms at
   Medium with or without it: the city centre itself is the Deck's problem.
+
+- **Flying** (2026-10-05, branch `flight`, `--flightbench` on the iGPU,
+  traffic off, a fixed line across the city at 60 m/s): Medium 21.7 / 20.9 /
+  17.9 ms average GPU at 60 / 150 / 300 m (p95 24 ms), Low 9.4–10.8 ms, High
+  24.6–30.8 ms; 133–564 draw calls (fewer the higher you fly: small props and
+  parked cars cull, LODs drop). So flying over the city is cheaper than
+  driving through it (35–44 ms there at Medium); about 13 ms at Medium on a
+  Deck by the 1.6× rule. The plane's reflection probe is off (it would
+  re-capture several times a second).
 
 **Budgets** (busiest view, High)
 
@@ -2039,6 +2073,13 @@ readable, kid-friendly (crashes are big and fun, never scary).
   build).
 - **Kid safety:** no screams, sirens of panic or injury sounds. Horns are
   friendly, crashes are metal and glass.
+- **Planes:** the engine is the flat-four set (aero engines are air-cooled
+  flat fours and sixes) at 950–2750 rpm, 2 dB under the cars, plus a
+  synthesised propeller loop (`synth.propeller`: the blade-pass tone at
+  80 Hz and its harmonics, which the Deck's speakers keep from the 4th up,
+  and air noise pulsing per blade), pitched with rpm and louder with revs
+  and power (profile fields `propeller`, `propeller_rpm`,
+  `propeller_volume_db`). Wind is the shared speed-driven loop. No horn.
 
 ## 34. Characters
 
@@ -2136,3 +2177,7 @@ everything else: **stylized realism**, believable first.
   Characters added; §27 baseline (on-foot cost). §0 rule 6 and §27 target:
   60 fps on the Deck is the Medium preset's job, High/Ultra may be heavier,
   no relying on frame generation (owner, 2026-10-03).
+- 2026-10-05: planes (branch `flight`): §12 sport plane class and
+  dimensions, §13 plane materials and node names, §14 the per-pass vertex
+  cap for multi-mesh vehicles, §24 aircraft origin, §27 flying baseline,
+  §33 plane sound.

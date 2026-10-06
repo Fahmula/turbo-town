@@ -25,6 +25,12 @@ size = Vector3(3.04, 0.12, 0.75)
 [sub_resource type="BoxShape3D" id="Box_fin"]
 size = Vector3(0.12, 1.04, 0.85)
 
+[sub_resource type="BoxShape3D" id="Box_wheel_nose"]
+size = Vector3(0.14, 0.34, 0.34)
+
+[sub_resource type="BoxShape3D" id="Box_wheel_main"]
+size = Vector3(0.16, 0.4, 0.4)
+
 [node name="ParkedPlane" type="RigidBody3D"]
 collision_layer = 4
 collision_mask = 7
@@ -73,6 +79,18 @@ shape = SubResource("Box_stab")
 [node name="FinShape" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.72, 3.2)
 shape = SubResource("Box_fin")
+
+[node name="WheelNoseShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.17, -1.78)
+shape = SubResource("Box_wheel_nose")
+
+[node name="WheelMLShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.02, 0.2, 0.32)
+shape = SubResource("Box_wheel_main")
+
+[node name="WheelMRShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.02, 0.2, 0.32)
+shape = SubResource("Box_wheel_main")
 
 [node name="Model" parent="." instance=ExtResource("2_body")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)

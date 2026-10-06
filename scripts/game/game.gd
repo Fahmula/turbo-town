@@ -328,9 +328,17 @@ func runway_start(plane: Vehicle) -> Transform3D:
 	return Transform3D(Basis.looking_at(Vector3.RIGHT, Vector3.UP), Vector3(p.x, y + plane.ride_height() + 0.05, p.z))
 
 
-## Puts the player's plane on the runway, ready for take-off.
+## Puts the player's plane on the runway, ready for take-off (a vehicle the
+## player left standing there is cleared away first).
 func _put_on_runway(plane: Aircraft) -> void:
-	plane.teleport(runway_start(plane))
+	var start := runway_start(plane)
+	for v: Vehicle in left_vehicles.duplicate():
+		if is_instance_valid(v) and v != plane and v.global_position.distance_to(start.origin) < 12.0:
+			left_vehicles.erase(v)
+			if traffic:
+				traffic.untrack(v)
+			v.queue_free()
+	plane.teleport(start)
 	for i in world.spawn_points.size():
 		if world.spawn_points[i]["name"] == "Airfield":
 			spawn_index = i
@@ -427,7 +435,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		Settings.set_value("units_mph", not Settings.get_value("units_mph"))
 	elif event.is_action_pressed("toggle_traction_control"):
 		Settings.set_value("assists", not Settings.get_value("assists"))
-		hud.show_toast("Assists ON" if vehicle.traction_control else "Assists OFF - drift mode!")
+		if vehicle is Aircraft and driving():
+			hud.show_toast("Flying assists ON" if vehicle.traction_control else "Flying assists OFF - fly it all yourself!")
+		else:
+			hud.show_toast("Assists ON" if vehicle.traction_control else "Assists OFF - drift mode!")
 	else:
 		for i in mini(9, world.spawn_points.size()):
 			if event.is_action_pressed("teleport_%d" % (i + 1)):

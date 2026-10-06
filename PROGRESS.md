@@ -161,6 +161,48 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 
 ---
 
+## v0.9 — Flying (branch `flight`, not released)
+
+The owner's son wants to fly planes (owner, 2026-10-05).
+
+### Planes (done on `flight`, waiting for the owner's review)
+- [x] Sport plane model: `tools/blender/make_plane.py` (two-seat low-wing aerobatic plane, bubble
+      canopy with a cockpit, spinning propeller + blur disc, ailerons / flaps / elevator / rudder that
+      move, wheel fairings, nav lights, strobes, beacon, landing light, livery stripes); fuselage and
+      wings are separate deformable meshes so dents stay cheap
+- [x] `Aircraft` (a `Vehicle`): lift / drag / side force / propeller thrust, three raycast wheels
+      (nose wheel steering, brakes), fly-by-wire controls (the stick asks for g and roll; the nose
+      follows the airflow), stalls that mush instead of spinning, a soft ceiling
+- [x] Kid assists (on with the Assists setting / T): holds the climb or dive and eases it level,
+      level turns, wings level when the stick is let go, bank limited to 65 degrees (trick button
+      + stick rolls freely), speed protection (letting go never stalls), a landing settle low over
+      the ground with the power off
+- [x] A "plane" rig in the Possession: `PlayerAircraftController` (RT power, LT slow / brakes / flaps,
+      stick, A + stick barrel roll, Y "help!" levels the plane in the air) and `FlightCamera` (lag,
+      partial bank, follows fully when looping; chase / far / cockpit)
+- [x] Three parked planes on the airfield apron you can walk up to and fly (`parked_plane.tscn`
+      props; the old static planes are gone); the Plane in the garage (puts you on the runway); not
+      remembered as the vehicle you start with
+- [x] No getting out in the air; teleports while flying go to the place in the air (Airfield =
+      runway); turned back toward the island beyond 950 m; races are for cars
+- [x] HUD: speed, HEIGHT, power arc, warnings (too slow, pull up, turning back), flying help on H, a
+      FLYING controls page; "Flying controls" setting (pull back / push up to climb)
+- [x] Sound: the flat-four engine loops plus a synthesised propeller layer (`plane` profile)
+- [x] Tests: `--flight` (59 checks: take-off, cruise, turns, loop, roll, stall, help button,
+      teleports, island edge, landing, getting out and in, replay, parked planes, taxiing, crash,
+      garage), `--flightbench` (GPU cost flying over the city)
+- [x] Settings page in two columns (it was taller than the Deck's 800-pixel screen)
+- [ ] Owner review, then the son on the Deck (controls, feel, landing on the short runway)
+
+### Ideas for later (not started)
+- [ ] Rings to fly through / an air race; a trick score for loops and rolls
+- [ ] Smoke trails for airshow tricks; a parachute jump out of the plane
+- [ ] More aircraft: a helicopter, a seaplane landing on the sea, a small jet
+- [ ] Parts that fall off in crashes (propeller, wheel fairings)
+- [ ] A longer runway (it's 240 m: fine for this plane, short for a beginner's landing)
+
+---
+
 ## Backlog
 
 ### Realism (owner approved 2026-10-03, released in v0.7.0)
@@ -305,3 +347,4 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - 2026-10-03 — v0.7.0: garage wheel customization + the realism look, released for the Steam Deck.
 - 2026-10-03 — On foot (dev, branch `player-character`): a walking character who gets in and out of any vehicle.
 - 2026-10-03 — v0.8.0: on foot (walk, get in and out of any vehicle) + High tuned for the Deck, Ultra for PCs; released.
+- 2026-10-05 — Flying (branch `flight`): a sport plane you can fly, parked planes at the airfield, kid assists.

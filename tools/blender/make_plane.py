@@ -324,14 +324,18 @@ def cockpit(part, m, ys):
     bk.loft(tmp, inner, inner_sec, lambda _i, j, _y0, _y1: im if 5 <= j <= 9 else None)
     bmesh.ops.reverse_faces(tmp.bm, faces=tmp.bm.faces[:])
     bk.merge(part, tmp)
-    bk.box(part, im, (0, -0.10, 0.47), (1.06, 2.25, 0.02))                        # floor
+    bk.box(part, im, (0, 0.20, 0.47), (1.06, 2.85, 0.02))                         # floor, into the footwell
+    bk.box(part, im, (0, 1.30, 0.80), (0.98, 0.03, 0.70))                         # firewall
+    for sx in (-1, 1):
+        bk.box(part, im, (sx * 0.50, 1.10, 0.62), (0.03, 0.42, 0.32))             # footwell sides
     bk.box(part, im, (0, CANOPY_BACK + 0.04, 0.80), (0.98, 0.03, 0.66))          # baggage bulkhead
     bk.box(part, im, (0, -1.02, 0.62), (0.96, 0.36, 0.02))                        # baggage floor
     bk.box(part, m["Trim"], (0, 0.93, 0.94), (0.96, 0.05, 0.32))                  # panel
     bk.box(part, im, (0, 1.0, 1.125), (0.84, 0.22, 0.03))                         # glare shield
     for k in range(4):
         x = -0.33 + k * 0.22
-        bk.tube(part, m["Chrome"], (x, 0.906, 0.97), (x, 0.902, 0.97), 0.045, 8)  # instrument bezels
+        bk.tube(part, m["Chrome"], (x, 0.906, 0.97), (x, 0.902, 0.97), 0.045, 10)  # instrument bezels
+        bk.tube(part, m["Interior"], (x, 0.902, 0.97), (x, 0.899, 0.97), 0.037, 10)  # dial faces
     for sx in (-1, 1):
         x = sx * 0.265
         bk.box(part, im, (x, -0.30, 0.56), (0.44, 0.50, 0.12))                     # cushion
@@ -664,8 +668,8 @@ def details(surf, part, wings, m):
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bk._append(part, bm, m["Trim"])
     # A white light on the tail and a red beacon on top of the fin.
-    bk.box(part, m["NavLight"], (0, TAIL_Y - 0.03, ZB(TAIL_Y) + 0.03), (0.04, 0.05, 0.04), kind=NAV_STROBE)
-    bk.box(part, m["NavLight"], (0, fin_le(FIN_TOP_Z) - 0.12, FIN_TOP_Z + 0.02), (0.04, 0.10, 0.04), kind=NAV_BEACON)
+    bk.box(part, m["NavLight"], (0, TAIL_Y - 0.04, ZB(TAIL_Y) + 0.03), (0.06, 0.08, 0.06), kind=NAV_STROBE)
+    bk.box(part, m["NavLight"], (0, fin_le(FIN_TOP_Z) - 0.12, FIN_TOP_Z + 0.03), (0.06, 0.14, 0.06), kind=NAV_BEACON)
     # Wings: fuel caps, the pitot tube and landing light on the left, the
     # navigation lights in the tips with strobes behind them.
     for sx, kind in ((-1, NAV_RED), (1, NAV_GREEN)):
@@ -673,10 +677,10 @@ def details(surf, part, wings, m):
         bk.patch(surf, w, m["Chrome"], bk.ellipse(0.07, 0.07), (sx * 1.6, wing_le(1.6) - 0.35, 2.0), (0, 0, -1),
                  (0, 1, 0), lift=0.003, grid=3)
         tip = V(wing_point(sx * 4.0, 0.08, 0.0, 0.6))
-        bk.box(w, m["NavLight"], (tip.x + sx * 0.012, tip.y - 0.02, tip.z), (0.05, 0.10, 0.05), bevel=0.012, segments=1,
+        bk.box(w, m["NavLight"], (tip.x + sx * 0.02, tip.y - 0.02, tip.z), (0.08, 0.16, 0.07), bevel=0.015, segments=1,
                kind=kind)
         st = V(wing_point(sx * 4.0, 0.80, 0.0, 0.6))
-        bk.box(w, m["NavLight"], (st.x + sx * 0.01, st.y, st.z), (0.04, 0.06, 0.03), kind=NAV_STROBE)
+        bk.box(w, m["NavLight"], (st.x + sx * 0.02, st.y, st.z), (0.06, 0.09, 0.05), kind=NAV_STROBE)
     w = wings[-1]
     bk.tube(w, m["Chrome"], (-2.6, wing_le(2.6) - 0.3, wing_z(2.6) - 0.06), (-2.6, wing_le(2.6) + 0.2, wing_z(2.6) - 0.09),
             0.009, 6)

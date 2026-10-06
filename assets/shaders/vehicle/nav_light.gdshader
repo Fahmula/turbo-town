@@ -26,11 +26,11 @@ void fragment() {
 	if (kind < 1.5) {
 		lens = vec3(0.42, 0.03, 0.025);
 		glow = vec3(1.0, 0.05, 0.03);
-		energy = mix(2.0, 5.0, night);
+		energy = mix(3.0, 9.0, night);
 	} else if (kind < 2.5) {
 		lens = vec3(0.03, 0.36, 0.1);
 		glow = vec3(0.08, 1.0, 0.3);
-		energy = mix(2.0, 5.0, night);
+		energy = mix(3.0, 9.0, night);
 	} else if (kind < 3.5) {
 		lens = vec3(0.78, 0.78, 0.8);
 		glow = vec3(1.0, 0.98, 0.95);

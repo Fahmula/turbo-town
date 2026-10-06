@@ -9,6 +9,34 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Planes
+- Fly a plane! Three planes are parked at the Airfield (teleport 7): walk up
+  to one and press F (B on a gamepad) to get in. Or pick the Plane in the
+  garage and you start on the runway, ready to go.
+- Take off: hold RT (Shift) for full power and pull the stick back (S) at
+  about 80 km/h. Let go in the air and the plane flies itself: it keeps its
+  height and levels its wings.
+- Bank to turn, hold the stick back for a loop, and hold A (Space) with the
+  stick for a barrel roll.
+- Land: slow down with LT (Ctrl) low over the runway and let go; the plane
+  settles onto its wheels. Brake to a stop, then press F (B) to get out.
+- Too slow? The screen warns you, and a stall only sinks the plane gently.
+  R (Y on a gamepad) is the "help!" button: it levels the plane where it is.
+- Fly too far out to sea and the plane turns back to the island by itself.
+- Teleporting while flying takes you there in the air; the Airfield puts you
+  back on the runway.
+- Crashes dent the plane and crack the canopy; R (Y) fixes it.
+- Speed, height and engine power on the screen, the flying controls on H,
+  camera views including the cockpit (C / RB), a spinning propeller, moving
+  flaps and rudder, wing tip lights and a landing light at night, and its own
+  engine and propeller sound.
+- New setting "Flying controls": pull back to climb (like a real plane) or
+  push up to climb. The CONTROLS page has a FLYING button with all of them.
+
+### Changed
+- The Settings page has two columns, so it fits the Steam Deck's screen.
+- "Driving assists" is now "Assists": in a plane they're the flying assists.
+
 ## [0.8.0] - 2026-10-03
 
 ### On foot

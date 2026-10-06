@@ -127,9 +127,16 @@ func run() -> void:
 	await _boundary(a)
 	await _landing(a)
 	await _out_and_in(a)
+	await _replay(a)
+	await _parked_plane()
+	a = plane()
 	await _crash(a)
 	await _garage_swap()
 	release()
+	game.menu.show_page("controls_flying")
+	await tools._wait(5)
+	await shot("14_controls_flying")
+	game.menu.close()
 	print("FLIGHT: %d checks, %d failed" % [checks, fails])
 
 
@@ -278,9 +285,10 @@ func _stall(a: Aircraft) -> void:
 	check(warned > 0.6, "stall warning (%.2f)" % warned)
 	check(max_yaw < 1.0 and a.global_basis.y.y > 0.5, "no spin: upright, yaw rate at most %.2f rad/s" % max_yaw)
 	await shot("07_stall")
-	await fly(8.0, 1.0, 0.0, -0.2, 0.0)
-	await fly(4.0, 0.0, 0.0, 0.0, 0.0)
-	check(a.airspeed > 33.0, "recovered: %.0f km/h" % a.speed_kmh)
+	# Let go with full power: the speed protection lowers the nose.
+	await fly(10.0, 1.0, 0.0, 0.0, 0.0)
+	check(a.airspeed > 27.0 and a.stall_warning < 0.3 and a.altitude > 30.0,
+		"recovered on its own: %.0f km/h, %.0f m up" % [a.speed_kmh, a.altitude])
 
 
 func _help_button(a: Aircraft) -> void:
@@ -394,17 +402,77 @@ func _out_and_in(a: Aircraft) -> void:
 	check(entry.prompt(c) == "Get in the plane", "prompt: '%s'" % entry.prompt(c))
 	check(pos.enter(a), "gets back in")
 	t = 0.0
-	while t < 3.0 and not pos.driving():
+	while t < 4.0 and (not pos.driving() or game.camera_blend.blending):
 		await tick()
 		t += dt()
-	await tools._wait(70)
-	check(pos.driving() and game.flight_controller.aircraft == a and game.flight_camera.current, "flying rig again")
+	await tools._wait(5)
+	check(pos.driving() and game.flight_controller.aircraft == a and game.flight_camera.current,
+		"flying rig again (driving %s, controls %s, camera %s)" % [pos.driving(), game.flight_controller.aircraft == a, game.flight_camera.current])
 	# No getting out in the air.
 	a.place_in_flight(a.global_position + Vector3.UP * 60.0, Vector3.RIGHT)
 	await tick()
 	pos.exit()
 	await tick()
 	check(pos.driving(), "can't get out while flying")
+
+
+func _replay(a: Aircraft) -> void:
+	print("-- instant replay while flying")
+	await reposition(a)
+	await fly(4.0, 0.6, 0.0, 0.0, 0.5)
+	check(game.start_replay(), "P plays the replay")
+	check(game.state == Game.State.REPLAY, "replaying")
+	await tools._wait(90)
+	await shot("15_replay")
+	game.replay.stop()
+	await tools._wait(5)
+	check(game.state == Game.State.DRIVING and game.flight_camera.current, "back to flying with the flight camera")
+
+
+func _parked_plane() -> void:
+	print("-- a parked plane on the apron")
+	var pos := game.possession
+	var old := plane()
+	old.teleport(game.runway_start(old))
+	await tools._wait(10)
+	pos.exit()
+	var t := 0.0
+	while t < 5.0 and not pos.on_foot():
+		await tick()
+		t += dt()
+	# The nearest parked plane prop.
+	var prop: Prop = null
+	for n in tools.get_tree().get_nodes_in_group(Interactable.GROUP):
+		var e := n as ParkedCarEntry
+		if e and e.prop and e.prop.drive_scene.ends_with("plane.tscn"):
+			if prop == null or e.prop.global_position.distance_to(old.global_position) < prop.global_position.distance_to(old.global_position):
+				prop = e.prop
+	check(prop != null, "there are parked planes on the apron")
+	if prop == null:
+		return
+	var at := prop.global_transform * Vector3(-1.4, 0.0, 1.6)
+	game.character.place(Transform3D(Basis.IDENTITY, at + Vector3.UP * 0.1))
+	await tools._wait(20)
+	var it := Interactable.best_for(game.character, game.character.global_position)
+	check(it != null and it.prompt(game.character) == "Get in the plane", "walking up to it: '%s'" % (it.prompt(game.character) if it else "nothing"))
+	check(it != null and it.interact(game.character), "getting in")
+	t = 0.0
+	while t < 3.0 and not pos.driving():
+		await tick()
+		t += dt()
+	await tools._wait(60)
+	var a := plane()
+	check(a != null and a != old and pos.driving(), "flying the parked plane now (the other one is parked)")
+	check(game.left_vehicles.has(old), "the first plane stays parked where it was left")
+	await shot("16_parked_plane")
+	# Taxi: a little power and a turn.
+	var start := a.global_position
+	await fly(4.0, 0.35, 0.0, 0.0, 0.0)
+	await fly(3.0, 0.3, 0.0, 0.0, 1.0)
+	check(a.on_ground and a.global_position.distance_to(start) > 5.0, "taxis (%.0f m)" % a.global_position.distance_to(start))
+	check(a.global_basis.y.y > 0.95, "stays upright taxiing round a corner")
+	await fly(3.0, 0.0, 1.0, 0.0, 0.0)
+	check(a.airspeed < 1.0, "brakes to a stop (%.1f m/s)" % a.airspeed)
 
 
 func _crash(a: Aircraft) -> void:

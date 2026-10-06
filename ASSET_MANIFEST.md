@@ -143,7 +143,7 @@ copied here.
 | Engine loops, four-cylinder SUV "tsu" (`tsu-1..7.wav`) | Stunt Rally 3 | CryHam | CC BY 4.0 | as above | same folder | `engine/suv4/` → van |
 | Engine loops, truck diesel "ds8" (`ds8-0..5.wav`, 300–2350 rpm) | Stunt Rally 3 | CryHam | CC BY 4.0 | as above | same folder | `engine/diesel/` → delivery truck, bus |
 | Engine loops, truck V8 "gv8" (`gv8-1..6.wav`) | Stunt Rally 3 | CryHam | CC BY 4.0 | as above | same folder | `engine/v8_truck/` → pickup |
-| Engine loops, boxer four overdrive "su-sz" (`su-sz-1,2,3,5,6,7,8.wav`) | Stunt Rally 3 | CryHam | CC BY 4.0 | as above | same folder | `engine/flat4/` → buggy |
+| Engine loops, boxer four overdrive "su-sz" (`su-sz-1,2,3,5,6,7,8.wav`) | Stunt Rally 3 | CryHam | CC BY 4.0 | as above | same folder | `engine/flat4/` → buggy, plane |
 | Engine loops, 6.6 L hot-rod V8 "exh" (`exh-1..6.wav`) | Stunt Rally 3 | CryHam | CC BY 4.0 | as above | same folder | `engine/v8_big/` → monster truck |
 | Crash hits `crash/01..12.wav` | Stunt Rally 3 (`data/sounds/crash/`, credits in `_crash.txt`), made by CryHam from Halleck's "metal medium hit", "metal hits medium 1", "metal hits light 1", "metal thump", "big metal side impact 1/2", "metal crash 1" ([freesound 121668](https://freesound.org/people/Halleck/sounds/121668/), [121665](https://freesound.org/people/Halleck/sounds/121665/), [121664](https://freesound.org/people/Halleck/sounds/121664/), [121685](https://freesound.org/people/Halleck/sounds/121685/), [121621](https://freesound.org/people/Halleck/sounds/121621/), [121622](https://freesound.org/people/Halleck/sounds/121622/), [121655](https://freesound.org/people/Halleck/sounds/121655/)) | Halleck; edit CryHam | CC BY 4.0 | Credit Halleck and CryHam, licence link, note changes | `https://raw.githubusercontent.com/stuntrally/stuntrally3/0fc4ac9ada5009be68df379940842ce80e31d493/data/sounds/crash/` | `assets/audio/impact/thud_*`, `crunch_*`, `crash_*` (every vehicle's crashes) |
 | "metal screech and scraping" `crash/screech.wav` | [freesound 121677](https://freesound.org/people/Halleck/sounds/121677/) via Stunt Rally 3 | Halleck | CC BY 4.0 | as above | same folder | `assets/audio/body/scrape.wav` (bodywork sliding) |
@@ -171,7 +171,7 @@ Only files listed there as CC BY 4.0 or CC0 are used. Its older VDrift sounds
 Synthesised by `tools/audio/synth.py` (no third-party material): reverse
 beeper, wind, road roar on asphalt, turbo and supercharger whine, blow-off,
 exhaust pops, gear-shift clunk, suspension knocks and landings,
-splashes. (Fallbacks kept in the script but not used: tyre squeal, gravel,
+splashes, the plane's propeller. (Fallbacks kept in the script but not used: tyre squeal, gravel,
 horns, air brakes.) The engine start-ups mix the recorded starter crank with
 each engine's own idle loop; the glass shatters `glass_7-8` and `tinkle_4-5`
 are cascades built from Kenney's glass hits.

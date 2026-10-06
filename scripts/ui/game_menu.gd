@@ -32,6 +32,18 @@ const CONTROLS_FOOT := [
 	["Get in a vehicle", "F", "B"],
 	["Camera distance", "C", "RB"],
 ]
+const CONTROLS_FLYING := [
+	["Power (hold)", "Shift", "RT"],
+	["Slow down / brakes", "Ctrl", "LT"],
+	["Bank left / right, steer", "A / D", "Left stick"],
+	["Nose up / down", "S / W", "Left stick back / forward"],
+	["Loop the loop", "Hold S", "Hold the stick back"],
+	["Barrel roll", "Space + A / D", "A + left stick"],
+	["Help! Level the plane", "R", "Y"],
+	["Get out (after landing)", "F", "B"],
+	["Camera view / cockpit", "C", "RB"],
+	["Flying assists on/off", "T", ""],
+]
 const CONTROLS_ANYWHERE := [
 	["Look around", "Mouse", "Right stick"],
 	["Garage: vehicle, paint, wheels", "V", "D-pad down"],
@@ -76,6 +88,7 @@ func _ready() -> void:
 	_add_page(root, "pause", _build_pause())
 	_add_page(root, "settings", _build_settings())
 	_add_page(root, "controls", _build_controls())
+	_add_page(root, "controls_flying", _build_controls_flying())
 	_add_page(root, "records", _build_records())
 	_add_page(root, "races", _build_races())
 	_add_page(root, "credits", _build_credits())
@@ -231,25 +244,32 @@ func _build_settings() -> Control:
 	col.add_theme_constant_override("separation", 14)
 	p.add_child(col)
 	col.add_child(UiKit.label("SETTINGS", 40, UiKit.ACCENT))
+	# Two columns of settings (label, value, label, value), so the page fits
+	# the Steam Deck's 800-pixel-high screen. Rows fill left then right; up /
+	# down run down the left column and on into the right one (left / right
+	# change a value).
 	var grid := GridContainer.new()
-	grid.columns = 2
+	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 30)
 	grid.add_theme_constant_override("v_separation", 10)
 	col.add_child(grid)
 
-	var first := _cycle_row(grid, "Traffic", "traffic_density", Settings.TRAFFIC_LABELS)
-	_cycle_row(grid, "Graphics", "graphics", Settings.GRAPHICS_LABELS)
-	_cycle_row(grid, "Time of day", "time_of_day", Settings.TIME_LABELS)
-	_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"])
-	_cycle_row(grid, "Driving assists", "assists", ["Off (drift mode)", "On"])
-	_cycle_row(grid, "Flying controls", "flight_invert", ["Pull back to climb", "Push up to climb"])
-	_cycle_row(grid, "Vibration", "vibration", ["Off", "On"])
-	_cycle_row(grid, "Minimap", "minimap", ["Off", "On"])
-	_cycle_row(grid, "Crash cam", "crash_cam", ["Off", "On"])
-	_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"])
-
+	var left: Array[Control] = []
+	var right: Array[Control] = []
+	left.append(_cycle_row(grid, "Traffic", "traffic_density", Settings.TRAFFIC_LABELS))
+	# (Cars: traction and stability control; planes: the flying assists.)
+	right.append(_cycle_row(grid, "Assists", "assists", ["Off (drift mode)", "On"]))
+	left.append(_cycle_row(grid, "Graphics", "graphics", Settings.GRAPHICS_LABELS))
+	right.append(_cycle_row(grid, "Flying controls", "flight_invert", ["Pull back to climb", "Push up to climb"]))
+	left.append(_cycle_row(grid, "Time of day", "time_of_day", Settings.TIME_LABELS))
+	right.append(_cycle_row(grid, "Vibration", "vibration", ["Off", "On"]))
+	left.append(_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"]))
+	right.append(_cycle_row(grid, "Crash cam", "crash_cam", ["Off", "On"]))
+	left.append(_cycle_row(grid, "Minimap", "minimap", ["Off", "On"]))
 	# Auto: on for the Steam Deck's own speakers (engines carry on them).
-	_cycle_row(grid, "Speaker boost", "speakers", Settings.SPEAKER_LABELS)
+	right.append(_cycle_row(grid, "Speaker boost", "speakers", Settings.SPEAKER_LABELS))
+	left.append(_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"]))
+	var first := left[0]
 	grid.add_child(UiKit.label("Volume", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
 	var vol_row := HBoxContainer.new()
 	vol_row.add_theme_constant_override("separation", 12)
@@ -268,10 +288,22 @@ func _build_settings() -> Control:
 	vol_row.add_child(_volume_label)
 	grid.add_child(vol_row)
 	_setting_widgets["master_volume"] = slider
+	right.append(slider)
 
 	var back := _button(col, "BACK", _back)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.custom_minimum_size = Vector2(200, 0)
+	# One chain: down the left column, on to the top of the right one, BACK.
+	var chain: Array[Control] = left + right
+	chain.append(back)
+	for i in chain.size():
+		var c := chain[i]
+		if i > 0:
+			c.focus_neighbor_top = c.get_path_to(chain[i - 1])
+			c.focus_previous = c.focus_neighbor_top
+		if i < chain.size() - 1:
+			c.focus_neighbor_bottom = c.get_path_to(chain[i + 1])
+			c.focus_next = c.focus_neighbor_bottom
 	_first_focus["settings"] = first
 	return center
 
@@ -319,10 +351,35 @@ func _build_controls() -> Control:
 	columns.add_child(right)
 	_controls_grid(right, "ON FOOT", CONTROLS_FOOT)
 	_controls_grid(right, "ANYWHERE", CONTROLS_ANYWHERE)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 24)
+	col.add_child(buttons)
+	var back := _button(buttons, "BACK", _back)
+	back.custom_minimum_size = Vector2(200, 0)
+	var fly := _button(buttons, "FLYING", func() -> void: show_page("controls_flying", true))
+	fly.custom_minimum_size = Vector2(200, 0)
+	_first_focus["controls"] = back
+	return center
+
+
+## The plane's controls (their own page: the CONTROLS page is full).
+func _build_controls_flying() -> Control:
+	var center := _centered()
+	var p := UiKit.panel(30)
+	center.add_child(p)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	p.add_child(col)
+	col.add_child(UiKit.label("FLYING", 40, UiKit.ACCENT))
+	_controls_grid(col, "PLANES (at the Airfield, 7, or in the garage)", CONTROLS_FLYING)
+	var tip := UiKit.label("Take off: full power, then pull back at 80 km/h.\nLand: slow down low over the runway and let go.", 20,
+		Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
+	col.add_child(tip)
 	var back := _button(col, "BACK", _back)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.custom_minimum_size = Vector2(200, 0)
-	_first_focus["controls"] = back
+	_first_focus["controls_flying"] = back
 	return center
 
 
