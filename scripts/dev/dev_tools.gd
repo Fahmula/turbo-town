@@ -1337,6 +1337,22 @@ func _menus(game: Game) -> void:
 	await _wait(5)
 	_check(game.menu.page == "controls", "controls page")
 	await _shot("menu_controls")
+	# FLYING (right of BACK), then the BACK buttons all the way out: two
+	# pages deep must still lead back to the pause menu.
+	await _tap("ui_right")
+	await _tap("ui_accept")
+	await _wait(5)
+	_check(game.menu.page == "controls_flying", "FLYING opens the flying controls")
+	await _tap("ui_accept")
+	await _wait(5)
+	_check(game.menu.page == "controls", "BACK returns to the controls page")
+	await _tap("ui_accept")
+	await _wait(5)
+	_check(game.menu.page == "pause", "BACK on the controls page returns to the pause menu")
+	for i in 4:
+		await _tap("ui_down")
+	await _tap("ui_accept")
+	await _wait(5)
 	await _tap("ui_cancel")
 	await _tap("ui_cancel")
 	await _wait(5)

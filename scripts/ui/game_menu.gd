@@ -145,10 +145,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		_back()
 
 
+## One page back. The rest of the trail is kept, so pages two deep (CONTROLS
+## > FLYING) still lead back to the menu they were opened from.
 func _back() -> void:
 	if not _back_stack.is_empty():
-		show_page(_back_stack.pop_back())
-		_back_stack.clear()
+		var previous: String = _back_stack.pop_back()
+		var trail := _back_stack.duplicate()
+		show_page(previous)
+		_back_stack = trail
 	elif page == "pause":
 		action.emit("resume")
 
