@@ -16,8 +16,9 @@ extends Node
 ## out: the vehicle brakes to a stop first if it's moving, VehicleEntry finds
 ## a safe spot by a door (or anywhere nearby), the character appears there
 ## and the camera glides back, keeping the direction you were looking.
-## Game does the vehicle-side wiring (HUD, traffic, sound, lights) through
-## adopt_vehicle / leave_vehicle.
+## The player's LocalPlayer does the vehicle-side wiring (HUD, traffic, sound,
+## lights) through adopt_vehicle / leave_vehicle. Each split-screen player
+## has their own Possession.
 
 ## The player now controls `pawn` (the character or a vehicle).
 signal changed(pawn: Node3D)
@@ -36,6 +37,8 @@ const SCAN_EVERY := 0.1
 const COOLDOWN := 0.6
 
 var game: Game
+## The player this is for (their HUD, input, vehicle wiring).
+var player: LocalPlayer
 var character: PlayerCharacter
 var mode := Mode.ON_FOOT
 ## The vehicle the player is in, getting into or out of (null on foot).
@@ -190,9 +193,9 @@ func enter(v: Vehicle) -> bool:
 	vehicle = v
 	_set_prompt("")
 	(rigs[Controllable.CHARACTER]["controller"]).control(null)
-	var from_cam := get_viewport().get_camera_3d()
-	if game:
-		game.adopt_vehicle(v)
+	var from_cam := _view_camera()
+	if player:
+		player.adopt_vehicle(v)
 	var chase := camera_of(kind_of(v))
 	if chase.get("target") != v:
 		chase.set_target(v)
@@ -214,7 +217,7 @@ func _finish_enter(v: Vehicle) -> void:
 		mode = Mode.ON_FOOT
 		vehicle = null
 		_give(Controllable.CHARACTER, character)
-		blend.start(get_viewport().get_camera_3d(), camera_of(Controllable.CHARACTER), BLEND_OUT)
+		blend.start(_view_camera(), camera_of(Controllable.CHARACTER), BLEND_OUT)
 		return
 	character.set_hidden(true)
 	mode = Mode.IN_VEHICLE
@@ -246,8 +249,8 @@ func exit() -> bool:
 	var plane := vehicle as Aircraft
 	if plane and (not plane.on_ground or plane.airspeed > 12.0):
 		# No getting out of a flying plane: land it first.
-		if game:
-			game.hud.show_toast("Land the plane first!" if not plane.on_ground else "Slow down first!", 2.0)
+		if player:
+			player.hud.show_toast("Land the plane first!" if not plane.on_ground else "Slow down first!", 2.0)
 		return true
 	mode = Mode.EXITING
 	_exit_time = 0.0
@@ -291,7 +294,7 @@ func _exiting(dt: float) -> void:
 	if spot == null:
 		_cancel_exit("No room to get out here!")
 		return
-	var from_cam := get_viewport().get_camera_3d()
+	var from_cam := _view_camera()
 	_release(v)
 	mode = Mode.ON_FOOT
 	vehicle = null
@@ -313,8 +316,8 @@ func _cancel_exit(why: String) -> void:
 	vehicle.handbrake_input = false
 	vehicle.brake_input = 0.0
 	_give(kind_of(vehicle), vehicle)
-	if game:
-		game.hud.show_toast(why, 2.0)
+	if player:
+		player.hud.show_toast(why, 2.0)
 
 
 ## Lets go of `v`: it's parked (handbrake on), the Game turns it off.
@@ -330,8 +333,8 @@ func _release(v: Vehicle) -> void:
 	var c := Controllable.of(v)
 	if c:
 		c.drop(self)
-	if game:
-		game.leave_vehicle(v)
+	if player:
+		player.leave_vehicle(v)
 
 
 ## Hands input to the rig for `kind` (it gets `pawn`); every other rig lets go.
@@ -355,7 +358,7 @@ func _give(kind: StringName, p: Node3D) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if game == null or game.state != Game.State.DRIVING:
 		return
-	if not event.is_action_pressed("interact"):
+	if not (player.input.event_pressed(event, "interact") if player else event.is_action_pressed("interact")):
 		return
 	if _cooldown > 0.0:
 		get_viewport().set_input_as_handled()
@@ -381,5 +384,11 @@ func _set_prompt(text: String) -> void:
 	if text == _prompt:
 		return
 	_prompt = text
-	if game:
-		game.hud.show_prompt(text)
+	if player:
+		player.hud.show_prompt(text)
+
+
+## The camera this player sees through now (the blend's view, in split-screen
+## their own view's camera).
+func _view_camera() -> Camera3D:
+	return blend.get_viewport().get_camera_3d() if blend and blend.is_inside_tree() else get_viewport().get_camera_3d()

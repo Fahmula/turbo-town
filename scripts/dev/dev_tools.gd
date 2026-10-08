@@ -31,6 +31,12 @@ extends Node
 ##                    garage swaps (checks and shots; scripts/dev/flight_tests.gd)
 ##   --flightbench=<dir> GPU time / draw calls flying over the city at 60, 150 and 300 m,
 ##                    Medium / Low / High (use --gpu-index 0, the iGPU, as a Deck stand-in)
+##   --split=<dir>    two players in split-screen: joining with a second gamepad, each
+##                    player's own controls, views, cars, teleports, the garage, planes,
+##                    traffic around both, leaving and joining again (checks and shots;
+##                    scripts/dev/split_tests.gd)
+##   --splitbench=<dir> one view vs split-screen: GPU and frame time, draw calls, Low /
+##                    Medium / High (use --gpu-index 0 --resolution 1280x800)
 ##   --scenery=<dir>  fixed views of the city and the north bridge at day /
 ##                    sunset / night and Low / High, plus draw calls, primitives
 ##                    and GPU time per view (--views=a,b limits the views,
@@ -148,6 +154,12 @@ func _ready() -> void:
 		elif arg.begins_with("--flightbench="):
 			_mode = "flightbench"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--split="):
+			_mode = "split"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--splitbench="):
+			_mode = "splitbench"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--audio="):
 			_mode = "audio"
 			_dir = arg.split("=")[1]
@@ -259,6 +271,10 @@ func _run() -> void:
 		await preload("res://scripts/dev/flight_tests.gd").new(self, game, _dir).run()
 	elif _mode == "flightbench":
 		await preload("res://scripts/dev/flight_tests.gd").new(self, game, _dir).bench()
+	elif _mode == "split":
+		await preload("res://scripts/dev/split_tests.gd").new(self, game, _dir).run()
+	elif _mode == "splitbench":
+		await preload("res://scripts/dev/split_tests.gd").new(self, game, _dir).bench()
 	else:
 		await _drive(game)
 	VehicleAudio.quit_quietly(get_tree())
@@ -1388,8 +1404,9 @@ func _menus(game: Game) -> void:
 	_check(game.menu.page == "credits", "credits page")
 	await _tap("ui_cancel")
 	await _wait(5)
-	# Back on the pause menu, focus is on RESUME again.
-	for i in 7:
+	# Back on the pause menu, focus is on RESUME again (MAIN MENU is below
+	# ADD PLAYER 2).
+	for i in 8:
 		await _tap("ui_down")
 	await _tap("ui_accept")
 	await _wait(10)

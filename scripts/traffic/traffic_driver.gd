@@ -201,7 +201,7 @@ func honk() -> void:
 func _update_audio(dt: float) -> void:
 	# Impatient honking at a player who blocks the road (in a vehicle or on foot).
 	_honk_cooldown -= dt
-	var by_player := blocker == "pedestrian" or (blocker_vehicle != null and blocker_vehicle == manager.player)
+	var by_player := blocker == "pedestrian" or (blocker_vehicle != null and manager.is_player_vehicle(blocker_vehicle))
 	if by_player and vehicle.linear_velocity.length() < 1.0:
 		_blocked_by_player += dt
 	else:
@@ -294,7 +294,7 @@ func _path_point(ahead: float) -> Vector3:
 func _physics_process(dt: float) -> void:
 	if vehicle == null or _plan.is_empty():
 		return
-	if vehicle.global_position.distance_squared_to(manager.focus_position()) > LOD_DISTANCE * LOD_DISTANCE:
+	if manager.nearest_focus_sq(vehicle.global_position) > LOD_DISTANCE * LOD_DISTANCE:
 		_lod_skip = not _lod_skip
 		if _lod_skip:
 			_lod_carry += dt

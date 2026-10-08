@@ -34,6 +34,9 @@ extends Camera3D
 @export_flags_3d_physics var collision_mask := 1
 @export var collision_radius := 0.22
 
+## Whose stick and buttons move it (split-screen: one player's devices).
+var input := PlayerInput.shared()
+
 var yaw := 0.0
 var pitch := 0.22
 ## The wider view (C / RB).
@@ -42,12 +45,14 @@ var _idle := 99.0
 var _pivot := Vector3.ZERO
 var _dist := 3.6
 var _initialized := false
+var _fov := 70.0
 var _probe := SphereShape3D.new()
 var _query := PhysicsShapeQueryParameters3D.new()
 
 
 func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_fov = base_fov
 	fov = base_fov
 	_probe.radius = collision_radius
 	_query.shape = _probe
@@ -78,14 +83,19 @@ func match_view(cam: Camera3D) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	handle_input(event)
+
+
+## Mouse look and the camera button (see ChaseCamera.handle_input).
+func handle_input(event: InputEvent) -> void:
 	if not current:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and input.keyboard and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var rel: Vector2 = event.relative
 		yaw -= rel.x * mouse_sensitivity
 		pitch = clampf(pitch + rel.y * mouse_sensitivity, min_pitch, max_pitch)
 		_idle = 0.0
-	elif event.is_action_pressed("camera_cycle"):
+	elif input.event_pressed(event, "camera_cycle"):
 		wide = not wide
 
 
@@ -105,7 +115,7 @@ func _wanted_distance() -> float:
 func _process(dt: float) -> void:
 	if target == null or not is_instance_valid(target) or not target.is_inside_tree():
 		return
-	var stick := Vector2(Input.get_axis("camera_left", "camera_right"), Input.get_axis("camera_down", "camera_up"))
+	var stick := Vector2(input.axis("camera_left", "camera_right"), input.axis("camera_down", "camera_up"))
 	if current and stick.length() > 0.1:
 		yaw -= stick.x * stick_yaw_speed * dt
 		pitch = clampf(pitch - stick.y * stick_pitch_speed * dt, min_pitch, max_pitch)
@@ -152,4 +162,5 @@ func _process(dt: float) -> void:
 	global_position = _pivot + dir * _dist
 	look_at(_pivot + Vector3.UP * 0.05, Vector3.UP)
 	var want_fov := sprint_fov if speed > target.run_speed + 0.5 else base_fov
-	fov = lerpf(fov, want_fov, 1.0 - exp(-3.0 * dt))
+	_fov = lerpf(_fov, want_fov, 1.0 - exp(-3.0 * dt))
+	fov = Views.fit_fov(self, _fov)

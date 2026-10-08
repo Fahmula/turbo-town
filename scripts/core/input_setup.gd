@@ -4,8 +4,17 @@ extends Node
 ## Actions that already exist in Project Settings > Input Map are left alone,
 ## so any binding can be overridden there without touching this file.
 ## To add a new control, add one line to _enter_tree().
+##
+## Split-screen: make_player_actions() copies the gameplay actions (driving,
+## on foot, flying, camera, the in-game keys; not the menus) for one player,
+## bound to just their devices (PlayerInput reads them).
 
 const DEADZONE := 0.15
+
+## The actions each split-screen player gets a copy of (filled in as they
+## are bound below, up to the menu actions).
+var gameplay_actions: Array[StringName] = []
+var _menus := false
 
 
 func _enter_tree() -> void:
@@ -63,8 +72,12 @@ func _enter_tree() -> void:
 	_bind("change_vehicle", [KEY_V], [JOY_BUTTON_DPAD_DOWN], [])
 	_bind("toggle_map", [KEY_M], [JOY_BUTTON_DPAD_LEFT], [])
 	_bind("instant_replay", [KEY_P], [JOY_BUTTON_X], [])
+	# Split-screen: go to the other player (X does it too: no replays there).
+	_bind("regroup", [KEY_0], [JOY_BUTTON_RIGHT_STICK], [])
 
-	# Menus (the garage). Sticks need a firm push so they don't drift.
+	# Menus (the garage). Sticks need a firm push so they don't drift. Any
+	# gamepad works in menus (player 2 picks their car in the garage too).
+	_menus = true
 	_bind("menu_left", [KEY_A, KEY_LEFT], [JOY_BUTTON_DPAD_LEFT], [[JOY_AXIS_LEFT_X, -1.0]], 0.5)
 	_bind("menu_right", [KEY_D, KEY_RIGHT], [JOY_BUTTON_DPAD_RIGHT], [[JOY_AXIS_LEFT_X, 1.0]], 0.5)
 	_bind("menu_up", [KEY_W, KEY_UP], [JOY_BUTTON_DPAD_UP], [[JOY_AXIS_LEFT_Y, -1.0]], 0.5)
@@ -95,6 +108,8 @@ func _add_button(action: StringName, button: JoyButton) -> void:
 
 
 func _bind(action: StringName, keys: Array, buttons: Array, axes: Array, deadzone := DEADZONE) -> void:
+	if not _menus and not gameplay_actions.has(action):
+		gameplay_actions.append(action)
 	if InputMap.has_action(action):
 		return
 	InputMap.add_action(action, deadzone)
@@ -105,9 +120,42 @@ func _bind(action: StringName, keys: Array, buttons: Array, axes: Array, deadzon
 	for button: JoyButton in buttons:
 		var ev := InputEventJoypadButton.new()
 		ev.button_index = button
+		if _menus:
+			ev.device = -1  # all devices
 		InputMap.action_add_event(action, ev)
 	for axis_def: Array in axes:
 		var ev := InputEventJoypadMotion.new()
 		ev.axis = axis_def[0]
 		ev.axis_value = axis_def[1]
+		if _menus:
+			ev.device = -1
 		InputMap.action_add_event(action, ev)
+
+
+## Gives a split-screen player their own copy of every gameplay action,
+## named `prefix` + action ("p2_accelerate"): the same keys if they have the
+## keyboard, the same gamepad buttons and sticks on each of `pads` only.
+## Replaces any earlier copy with that prefix.
+func make_player_actions(prefix: String, keyboard: bool, pads: Array[int]) -> void:
+	for action in gameplay_actions:
+		var name := StringName(prefix + action)
+		if InputMap.has_action(name):
+			InputMap.erase_action(name)
+		InputMap.add_action(name, InputMap.action_get_deadzone(action))
+		for ev: InputEvent in InputMap.action_get_events(action):
+			if ev is InputEventKey or ev is InputEventMouseButton:
+				if keyboard:
+					InputMap.action_add_event(name, ev.duplicate())
+			elif ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
+				for pad in pads:
+					var copy := ev.duplicate() as InputEvent
+					copy.device = pad
+					InputMap.action_add_event(name, copy)
+
+
+## Removes a split-screen player's actions.
+func remove_player_actions(prefix: String) -> void:
+	for action in gameplay_actions:
+		var name := StringName(prefix + action)
+		if InputMap.has_action(name):
+			InputMap.erase_action(name)

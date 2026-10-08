@@ -4,7 +4,9 @@ extends CanvasLayer
 ## keyboard, gamepad (D-pad/stick + A/B) and mouse. Emits `action` with what
 ## the player chose; Game decides what that means.
 
-## "drive", "garage", "resume", "title", "quit", "race:<index>" or "end_race".
+## "drive", "garage", "resume", "title", "quit", "race:<index>", "end_race",
+## "join:<player 1's device>:<player 2's device>" (a second player pressed A
+## on the 2 PLAYERS page; -1 = the keyboard) or "remove_player".
 signal action(name: String)
 
 ## Controls page, two columns: driving, then on foot and anywhere.
@@ -53,6 +55,7 @@ const CONTROLS_ANYWHERE := [
 	["Map", "M", "D-pad left"],
 	["Help", "H / F1", ""],
 	["Pause", "Esc", "Menu"],
+	["2 players: go to the other one", "0", "X"],
 ]
 
 ## Page currently shown ("" when the menu is closed).
@@ -67,9 +70,25 @@ var _volume_label: Label
 var _records_text: RichTextLabel
 var _races_list: VBoxContainer
 var _end_race_button: Button
-## Set by Game: the races (RaceCatalog dictionaries) and whether one is running.
+var _races_button: Button
+var _player2_button: Button
+var _note: Label
+var _join_p1_label: Label
+var _join_p2_label: Label
+var _join_note: Label
+## The title screen's column and its spacers (tightened on short screens).
+var _title_col: VBoxContainer
+var _title_label: Label
+var _title_gap: Control
+var _title_buttons: VBoxContainer
+## The device that pressed a button last (a gamepad id, -1 = keyboard/mouse).
+var _last_device := -1
+## 2 PLAYERS page: player 1's device (the one that opened the page).
+var _join_p1 := -1## Set by Game: the races (RaceCatalog dictionaries) and whether one is running.
 var races: Array = []
 var racing := false
+## Set by Game: two players are playing (split-screen).
+var two_players := false
 
 
 func _ready() -> void:
@@ -92,6 +111,7 @@ func _ready() -> void:
 	_add_page(root, "records", _build_records())
 	_add_page(root, "races", _build_races())
 	_add_page(root, "credits", _build_credits())
+	_add_page(root, "join", _build_join())
 
 
 func _add_page(root: Control, page_name: String, node: Control) -> void:
@@ -117,8 +137,14 @@ func show_page(page_name: String, remember_current := false) -> void:
 		_refresh_records()
 	elif page_name == "races":
 		_refresh_races()
+	elif page_name == "title":
+		_fit_title()
 	elif page_name == "pause":
 		_end_race_button.visible = racing
+		_races_button.visible = not two_players
+		# (No adding a player mid-race; and the page must fit 800 px.)
+		_player2_button.visible = two_players or not racing
+		_player2_button.text = "PLAYER 2: LEAVE" if two_players else "ADD PLAYER 2"
 	var first: Control = _first_focus.get(page_name)
 	if first:
 		first.grab_focus.call_deferred()
@@ -135,6 +161,16 @@ func close() -> void:
 
 func set_ride_name(ride: String) -> void:
 	_ride_label.text = "Your ride: %s" % ride
+
+
+func _input(event: InputEvent) -> void:
+	if event.is_pressed() and not event.is_echo():
+		if event is InputEventJoypadButton:
+			_last_device = event.device
+		elif event is InputEventKey or event is InputEventMouseButton:
+			_last_device = -1
+	if page == "join":
+		_join_input(event)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -180,20 +216,25 @@ func _build_title() -> Control:
 	col.position = Vector2(80, 60)
 	col.add_theme_constant_override("separation", 14)
 	page_root.add_child(col)
+	_title_col = col
 	var title := UiKit.label("TURBO TOWN", 92, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
 	title.add_theme_constant_override("outline_size", 22)
 	col.add_child(title)
+	_title_label = title
 	col.add_child(UiKit.label("A driving sandbox. Crash, jump and explore!", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 24)
 	col.add_child(gap)
+	_title_gap = gap
 	var buttons := VBoxContainer.new()
+	_title_buttons = buttons
 	buttons.add_theme_constant_override("separation", 10)
 	buttons.custom_minimum_size = Vector2(340, 0)
 	buttons.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	col.add_child(buttons)
 	var drive := _button(buttons, "PLAY!", func() -> void: action.emit("drive"))
 	drive.add_theme_font_size_override("font_size", 32)
+	_button(buttons, "2 PLAYERS", _open_join)
 	_button(buttons, "RACES", func() -> void: show_page("races", true))
 	_button(buttons, "GARAGE", func() -> void: action.emit("garage"))
 	_button(buttons, "SETTINGS", func() -> void: show_page("settings", true))
@@ -217,6 +258,17 @@ func _build_title() -> Control:
 	return page_root
 
 
+## Short screens (the Steam Deck's 800 px): the title column moves up and
+## closes its gaps so all nine buttons and "Your ride" fit.
+func _fit_title() -> void:
+	var short := get_viewport().get_visible_rect().size.y < 880.0
+	_title_col.position.y = 28.0 if short else 60.0
+	_title_col.add_theme_constant_override("separation", 8 if short else 14)
+	_title_label.add_theme_font_size_override("font_size", 76 if short else 92)
+	_title_gap.custom_minimum_size.y = 6.0 if short else 24.0
+	_title_buttons.add_theme_constant_override("separation", 6 if short else 10)
+
+
 func _build_pause() -> Control:
 	var center := _centered()
 	var p := UiKit.panel(30)
@@ -228,16 +280,117 @@ func _build_pause() -> Control:
 	col.add_child(UiKit.label("PAUSED", 40, UiKit.ACCENT))
 	var resume := _button(col, "RESUME", func() -> void: action.emit("resume"))
 	_end_race_button = _button(col, "END RACE", func() -> void: action.emit("end_race"))
-	_button(col, "RACES", func() -> void: show_page("races", true))
+	_races_button = _button(col, "RACES", func() -> void: show_page("races", true))
 	_button(col, "GARAGE", func() -> void: action.emit("garage"))
 	_button(col, "SETTINGS", func() -> void: show_page("settings", true))
 	_button(col, "CONTROLS", func() -> void: show_page("controls", true))
 	_button(col, "RECORDS", func() -> void: show_page("records", true))
 	_button(col, "CREDITS", func() -> void: show_page("credits", true))
+	_player2_button = _button(col, "ADD PLAYER 2", func() -> void:
+		if two_players:
+			action.emit("remove_player")
+		else:
+			_open_join())
 	_button(col, "MAIN MENU", func() -> void: action.emit("title"))
 	_button(col, "QUIT GAME", func() -> void: action.emit("quit"))
+	_note = UiKit.label("", 20, UiKit.ACCENT)
+	_note.visible = false
+	col.add_child(_note)
 	_first_focus["pause"] = resume
 	return center
+
+
+## A line under the pause menu's buttons ("" hides it).
+func set_note(text: String) -> void:
+	_note.text = text
+	_note.visible = text != ""
+
+
+# --- 2 PLAYERS ---------------------------------------------------------------
+
+## Split-screen: whoever opened the page is player 1 (with the device they
+## pressed the button with); player 2 joins by pressing A on another gamepad
+## (or Enter on the keyboard). B / Esc goes back.
+func _build_join() -> Control:
+	var center := _centered()
+	var p := UiKit.panel(30)
+	center.add_child(p)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 16)
+	col.custom_minimum_size = Vector2(620, 0)
+	p.add_child(col)
+	col.add_child(UiKit.label("2 PLAYERS", 40, UiKit.ACCENT))
+	col.add_child(UiKit.label("Two players, one screen: player 1 on top, player 2 below.", 20, Color(1, 1, 1, 0.85)))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 30)
+	col.add_child(row)
+	_join_p1_label = _join_slot(row, "PLAYER 1", LocalPlayer.COLORS[0])
+	_join_p2_label = _join_slot(row, "PLAYER 2", LocalPlayer.COLORS[1])
+	_join_note = UiKit.label("", 20, UiKit.ACCENT)
+	col.add_child(_join_note)
+	var back := _button(col, "BACK", _back)
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.custom_minimum_size = Vector2(200, 0)
+	back.focus_mode = Control.FOCUS_NONE  # A on this page means "join"
+	return center
+
+
+func _join_slot(parent: Control, title: String, col: Color) -> Label:
+	var slot := PanelContainer.new()
+	slot.add_theme_stylebox_override("panel", UiKit.box(Color(0.1, 0.14, 0.24, 0.9), 14, 18))
+	slot.custom_minimum_size = Vector2(280, 130)
+	parent.add_child(slot)
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 8)
+	slot.add_child(v)
+	var t := UiKit.label(title, 28, col)
+	t.add_theme_constant_override("outline_size", 0)
+	v.add_child(t)
+	var l := UiKit.label("", 22, Color.WHITE)
+	l.add_theme_constant_override("outline_size", 0)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(240, 0)
+	v.add_child(l)
+	return l
+
+
+func _open_join() -> void:
+	_join_p1 = _last_device
+	_join_p1_label.text = _device_name(_join_p1)
+	_join_p2_label.text = "Press A on your controller\n(or Enter on the keyboard)" if _join_p1 >= 0 else "Press A on your controller"
+	# Only one gamepad and it's player 1's: say what player 2 needs.
+	var pads := Input.get_connected_joypads()
+	_join_note.text = "Connect a second controller!" if _join_p1 >= 0 and pads.size() < 2 else ""
+	show_page("join", true)
+
+
+## A short name for a device (-1 = keyboard and mouse).
+static func _device_name(device: int) -> String:
+	if device < 0:
+		return "Keyboard and mouse"
+	var n := Input.get_joy_name(device)
+	return n if n != "" and n.length() <= 26 else "Controller %d" % (device + 1)
+
+
+## On the 2 PLAYERS page: A (Enter / Space on the keyboard) from a device
+## that isn't player 1's makes it player 2's, and play starts.
+func _join_input(event: InputEvent) -> void:
+	if not event.is_pressed() or event.is_echo():
+		return
+	var device := -2
+	if event is InputEventJoypadButton and (event as InputEventJoypadButton).button_index == JOY_BUTTON_A:
+		device = event.device
+	elif event is InputEventKey and (event as InputEventKey).physical_keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+		device = -1
+	if device == -2:
+		return
+	get_viewport().set_input_as_handled()
+	if device == _join_p1:
+		_join_note.text = "That's player 1's. Player 2: use another controller!"
+		return
+	action.emit("join:%d:%d" % [_join_p1, device])
 
 
 func _build_settings() -> Control:

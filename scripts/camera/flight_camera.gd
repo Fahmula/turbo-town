@@ -40,7 +40,11 @@ enum Mode { CHASE, FAR, COCKPIT }
 @export_flags_3d_physics var collision_mask := 1
 @export var collision_margin := 0.5
 
+## Whose stick and buttons move it (split-screen: one player's devices).
+var input := PlayerInput.shared()
+
 var _rot := Quaternion.IDENTITY
+var _fov := 70.0
 var _orbit_yaw := 0.0
 var _orbit_pitch := 0.0
 var _orbit_idle := 99.0
@@ -52,6 +56,7 @@ var _initialized := false
 
 func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_fov = fov
 	if target:
 		set_target(target)
 
@@ -95,14 +100,19 @@ func _on_impact(strength: float, _pos: Vector3, _normal: Vector3) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	handle_input(event)
+
+
+## Mouse look and the camera button (see ChaseCamera.handle_input).
+func handle_input(event: InputEvent) -> void:
 	if not current:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and input.keyboard and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var rel: Vector2 = event.relative
 		_orbit_yaw -= rel.x * mouse_sensitivity
 		_orbit_pitch = clampf(_orbit_pitch - rel.y * mouse_sensitivity, -1.0, 1.2)
 		_orbit_idle = 0.0
-	elif event.is_action_pressed("camera_cycle"):
+	elif input.event_pressed(event, "camera_cycle"):
 		mode = ((mode + 1) % Mode.size()) as Mode
 		_initialized = false
 
@@ -135,7 +145,7 @@ func _process(dt: float) -> void:
 		_rot = _rot.slerp(want, 1.0 - exp(-follow * dt))
 	var cb := Basis(_rot)
 
-	var stick := Vector2(Input.get_axis("camera_left", "camera_right"), Input.get_axis("camera_down", "camera_up"))
+	var stick := Vector2(input.axis("camera_left", "camera_right"), input.axis("camera_down", "camera_up"))
 	if stick.length() > 0.1 and current:
 		_orbit_yaw -= stick.x * stick_speed * dt
 		_orbit_pitch = clampf(_orbit_pitch + stick.y * stick_speed * 0.6 * dt, -1.0, 1.2)
@@ -147,8 +157,9 @@ func _process(dt: float) -> void:
 		_orbit_pitch = lerpf(_orbit_pitch, 0.0, k)
 
 	var speed := target.linear_velocity.length()
-	fov = lerpf(fov, lerpf(base_fov, max_fov, clampf(speed / fov_full_speed, 0.0, 1.0)), 1.0 - exp(-3.0 * dt))
-	var look_back := Input.is_action_pressed("look_back")
+	_fov = lerpf(_fov, lerpf(base_fov, max_fov, clampf(speed / fov_full_speed, 0.0, 1.0)), 1.0 - exp(-3.0 * dt))
+	fov = Views.fit_fov(self, _fov)
+	var look_back := input.pressed("look_back")
 	if mode == Mode.COCKPIT:
 		_cockpit(t, b, look_back)
 	else:

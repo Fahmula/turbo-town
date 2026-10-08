@@ -19,6 +19,11 @@ var car: Vehicle
 var traffic: TrafficManager
 ## World positions to mark: [{"pos": Vector3, "color": Color, "big": bool}].
 var markers: Array[Dictionary] = []
+## Split-screen: the other players, [{"node": Node3D, "color": Color}]: an
+## arrow in their colour, pinned to the edge when they're off the map.
+var friends: Array[Dictionary] = []
+## The player's own arrow.
+var arrow_color := Color(1.0, 0.3, 0.25)
 
 var _rect: ColorRect
 var _overlay: Control
@@ -114,9 +119,30 @@ func _draw_overlay() -> void:
 			pos = half + (pos - half).normalized() * half.x * 0.86
 		_overlay.draw_rect(Rect2(pos - Vector2(8, 8), Vector2(16, 16)), Color(0.05, 0.08, 0.15))
 		_overlay.draw_rect(Rect2(pos - Vector2(6, 6), Vector2(12, 12)), UiKit.ACCENT)
+	for f in friends:
+		var node: Node3D = f.get("node")
+		if node == null or not is_instance_valid(node) or not node.is_inside_tree():
+			continue
+		var s: Array = _to_screen(node.global_position, origin)
+		var pos: Vector2 = s[0]
+		if not s[1]:
+			pos = half + (pos - half).normalized() * half.x * 0.86
+		# Their heading on this map (it turns with the player's view).
+		var fwd := -node.global_basis.z
+		if node is PlayerCharacter:
+			var a := (node as PlayerCharacter).facing
+			fwd = Vector3(-sin(a), 0.0, -cos(a))
+		var tip: Array = _to_screen(node.global_position + Vector3(fwd.x, 0.0, fwd.z).normalized() * _range * 0.1, origin)
+		var d := ((tip[0] as Vector2) - (s[0] as Vector2)).normalized()
+		if d.length() < 0.5:
+			d = Vector2.UP
+		var r := Vector2(-d.y, d.x)
+		var tri := PackedVector2Array([pos + d * 9.0, pos - d * 7.0 + r * 7.0, pos - d * 3.0, pos - d * 7.0 - r * 7.0])
+		_overlay.draw_colored_polygon(tri, f.get("color", Color.WHITE))
+		_overlay.draw_polyline(tri + PackedVector2Array([tri[0]]), Color(1, 1, 1), 1.5, true)
 	# Player arrow, always pointing up.
 	var pts := PackedVector2Array([half + Vector2(0, -10), half + Vector2(7, 8), half + Vector2(0, 4), half + Vector2(-7, 8)])
-	_overlay.draw_colored_polygon(pts, Color(1.0, 0.3, 0.25))
+	_overlay.draw_colored_polygon(pts, arrow_color)
 	_overlay.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(1, 1, 1), 1.5, true)
 	# North marker on the ring.
 	var north := half + Vector2(-sin(_angle), -cos(_angle)) * half.x * 0.915

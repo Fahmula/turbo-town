@@ -29,6 +29,8 @@ extends Node
 @export var air_max_accel := 24.0
 ## Off while menus are open: the car just sits there (auto-hold keeps it still).
 var enabled := true
+## Whose controls drive it (split-screen: one player's devices).
+var input := PlayerInput.shared()
 
 var _steer := 0.0
 ## Set after a trick in this jump: keep turning the car back to level.
@@ -61,11 +63,11 @@ func _physics_process(dt: float) -> void:
 		vehicle.air_assist_scale = 1.0
 		_steer = 0.0
 		return
-	vehicle.throttle_input = Input.get_action_strength("accelerate")
-	vehicle.brake_input = Input.get_action_strength("brake")
-	vehicle.handbrake_input = Input.is_action_pressed("handbrake")
-	vehicle.horn_input = Input.is_action_pressed("horn")
-	var raw := Input.get_axis("steer_left", "steer_right")
+	vehicle.throttle_input = input.strength("accelerate")
+	vehicle.brake_input = input.strength("brake")
+	vehicle.handbrake_input = input.pressed("handbrake")
+	vehicle.horn_input = input.pressed("horn")
+	var raw := input.axis("steer_left", "steer_right")
 	if absf(raw) > 0.0 and absf(raw) < 0.99:
 		_steer = raw  # analog stick: use directly
 	else:
@@ -79,8 +81,8 @@ func _air_control(dt: float) -> void:
 	if vehicle.airtime < 0.15:
 		_righting = false
 		return
-	var tricks := Input.is_action_pressed("handbrake")
-	var pitch := (Input.get_action_strength("accelerate") - Input.get_action_strength("brake")) if tricks else 0.0
+	var tricks := input.pressed("handbrake")
+	var pitch := (input.strength("accelerate") - input.strength("brake")) if tricks else 0.0
 	var amount := maxf(absf(pitch), absf(_steer))
 	var b := vehicle.global_basis
 	# Angular velocity in the car's frame: x = pitch (+ = nose up), y = yaw
@@ -120,7 +122,7 @@ func _air_control(dt: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if vehicle == null or not enabled:
 		return
-	if event.is_action_pressed("reset_vehicle"):
+	if input.event_pressed(event, "reset_vehicle"):
 		vehicle.reset_upright()
 
 
@@ -139,9 +141,9 @@ func _on_landed(airtime: float) -> void:
 		rumble(s * 0.5, s * 0.9, 0.12 + s * 0.2)
 
 
-## Vibrates every connected gamepad (if vibration is on in the settings).
+## Vibrates the player's gamepad (if vibration is on in the settings; with
+## one player every connected gamepad).
 func rumble(weak: float, strong: float, duration: float) -> void:
 	if not enabled or not Settings.get_value("vibration"):
 		return
-	for pad in Input.get_connected_joypads():
-		Input.start_joy_vibration(pad, clampf(weak, 0.0, 1.0), clampf(strong, 0.0, 1.0), duration)
+	input.rumble(weak, strong, duration)

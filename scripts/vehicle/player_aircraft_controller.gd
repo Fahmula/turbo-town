@@ -63,21 +63,21 @@ func _physics_process(dt: float) -> void:
 		_pitch = 0.0
 		_roll = 0.0
 		return
-	var pitch := _smooth(Input.get_axis("fly_nose_down", "fly_nose_up"), _pitch, dt)
+	var pitch := _smooth(input.axis("fly_nose_down", "fly_nose_up"), _pitch, dt)
 	_pitch = pitch
-	var roll := _smooth(Input.get_axis("fly_bank_left", "fly_bank_right"), _roll, dt)
+	var roll := _smooth(input.axis("fly_bank_left", "fly_bank_right"), _roll, dt)
 	_roll = roll
 	if Settings.get_value("flight_invert"):
 		pitch = -pitch
-	var power := Input.get_action_strength("fly_power")
-	var slow := Input.get_action_strength("fly_slow")
+	var power := input.strength("fly_power")
+	var slow := input.strength("fly_slow")
 	var throttle := lerpf(0.0 if a.on_ground else a.cruise_throttle, 1.0, power)
 	a.throttle_input = lerpf(throttle, 0.0, slow)
 	a.brake_input = slow
 	a.handbrake_input = false
 	a.horn_input = false
 	a.yaw_input = 0.0
-	a.trick_input = Input.is_action_pressed("fly_trick")
+	a.trick_input = input.pressed("fly_trick")
 	a.pitch_input = pitch
 	a.roll_input = roll
 	_turn_back(a)
@@ -119,5 +119,5 @@ func _turn_back(a: Aircraft) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if aircraft == null or not enabled:
 		return
-	if event.is_action_pressed("reset_vehicle"):
+	if input.event_pressed(event, "reset_vehicle"):
 		aircraft.reset_upright()

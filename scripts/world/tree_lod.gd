@@ -40,7 +40,10 @@ const MAX_VARIANTS := 8
 var _groups: Array[Group] = []
 var _visible := {}
 var _last_cam := Vector3(1e9, 0.0, 0.0)
+var _last_cam2 := Vector3(1e9, 0.0, 0.0)
 var _since := 0.0
+## Every camera the detail is chosen for (split-screen: one per player).
+var _cams := PackedVector3Array()
 ## Scales the LOD distances: 0.7 on Low (the viewport renders at 0.75 scale
 ## then, see GraphicsQuality), 1 otherwise.
 var _k := 1.0
@@ -185,19 +188,32 @@ static func _morton(ix: int, iz: int) -> int:
 
 func _process(delta: float) -> void:
 	_since += delta
-	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
-	var pos := cam.global_position if cam else Vector3(0.0, 80.0, 0.0)
-	if pos.distance_to(_last_cam) < 4.0 and _since < 0.5:
+	var cams := Views.cameras(self) if is_inside_tree() else ([] as Array[Camera3D])
+	var pos := cams[0].global_position if not cams.is_empty() else Vector3(0.0, 80.0, 0.0)
+	# Split-screen: near detail around the second player's camera too.
+	var extra := PackedVector3Array()
+	for i in range(1, cams.size()):
+		extra.append(cams[i].global_position)
+	var moved := pos.distance_to(_last_cam)
+	if not extra.is_empty():
+		moved = maxf(moved, extra[0].distance_to(_last_cam2))
+	if moved < 4.0 and _since < 0.5:
 		return
 	if _since < 0.06 and _last_cam.x < 1e8:
 		return
 	_since = 0.0
 	_last_cam = pos
-	update(pos)
+	if not extra.is_empty():
+		_last_cam2 = extra[0]
+	update(pos, extra)
 
 
-## Re-chooses what is drawn for a camera at `cam`.
-func update(cam: Vector3) -> void:
+## Re-chooses what is drawn for a camera at `cam` (and in split-screen the
+## other player's camera at `extra`: each tree gets the detail its nearest
+## camera needs).
+func update(cam: Vector3, extra := PackedVector3Array()) -> void:
+	_cams = PackedVector3Array([cam])
+	_cams.append_array(extra)
 	var t0 := Time.get_ticks_usec()
 	# Low renders at 0.75 scale with FSR (GraphicsQuality.apply): shorter LOD distances there.
 	var vp := get_viewport()
@@ -236,7 +252,7 @@ func debug_summary() -> String:
 
 
 func _visit(g: Group, key: Vector3i, cell: Cell, cam: Vector3, want: Dictionary) -> void:
-	var dmin := _dist_min(cell, cam)
+	var dmin := _dist_min_all(cell)
 	if dmin > g.cull * _k:
 		return
 	var r0 := g.r0 * _k
@@ -248,12 +264,14 @@ func _visit(g: Group, key: Vector3i, cell: Cell, cam: Vector3, want: Dictionary)
 		return
 	if lvl == 0:
 		var c := Vector3((key.y + 0.5) * LEAF + ORIGIN, (cell.mn.y + cell.mx.y) * 0.5, (key.z + 0.5) * LEAF + ORIGIN)
-		var dc := Vector2(c.x - cam.x, c.z - cam.z).length()
+		var dc := INF
+		for p in _cams:
+			dc = minf(dc, Vector2(c.x - p.x, c.z - p.z).length())
 		var tier := 0 if dc < r0 * (1.15 if cell.last_tier == 0 else 1.0) else 1
 		cell.last_tier = tier
 		_show(g, cell, key, tier, want, dmin)
 		return
-	if lvl <= MID_LEVEL and dmin >= r0 * 1.15 and _dist_max(cell, cam) <= r1 * 1.6:
+	if lvl <= MID_LEVEL and dmin >= r0 * 1.15 and _dist_max_all(cell) <= r1 * 1.6:
 		cell.last_tier = 1
 		_show(g, cell, key, 1, want, dmin)
 		return
@@ -263,6 +281,22 @@ func _visit(g: Group, key: Vector3i, cell: Cell, cam: Vector3, want: Dictionary)
 			var child: Cell = g.cells.get(ck)
 			if child:
 				_visit(g, ck, child, cam, want)
+
+
+## Distance from the cell to the nearest camera.
+func _dist_min_all(cell: Cell) -> float:
+	var d := INF
+	for p in _cams:
+		d = minf(d, _dist_min(cell, p))
+	return d
+
+
+## The cell's far corner from the nearest camera (by that measure).
+func _dist_max_all(cell: Cell) -> float:
+	var d := INF
+	for p in _cams:
+		d = minf(d, _dist_max(cell, p))
+	return d
 
 
 func _dist_min(cell: Cell, p: Vector3) -> float:

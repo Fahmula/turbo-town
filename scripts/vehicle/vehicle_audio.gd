@@ -40,6 +40,8 @@ static var on_shot := Callable()
 ## Dev tests: called with (sound path, "start" / "resume" / "pause") when a
 ## loop starts or stops.
 static var on_voice := Callable()
+## Split-screen (set_split_listeners): players' vehicles fade with distance.
+static var split_listeners := false
 var vehicle: Vehicle
 
 const SPEED_OF_SOUND := 343.0
@@ -273,7 +275,35 @@ func _player(stream: AudioStream, looping: bool, cat: StringName) -> AudioStream
 	p.stream = _own(stream)
 	p.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED
 	p.bus = _bus(cat)
-	if detail == Detail.FULL:
+	_fit_attenuation(p)
+	p.volume_db = -80.0
+	p.set_meta("looping", looping)
+	add_child(p)
+	return p
+
+
+## Split-screen: each player's own vehicle fades with distance too. Two
+## cameras listen there; with no fade both players would hear both players'
+## engines at full level wherever they are. At the chase camera's distance
+## (unit_size) it plays at the level set, as with one player.
+static func set_split_listeners(on: bool, tree: SceneTree) -> void:
+	split_listeners = on
+	for a in tree.root.find_children("*", "VehicleAudio", true, false):
+		var va := a as VehicleAudio
+		for c in va.get_children():
+			if c is AudioStreamPlayer3D and c.has_meta("looping"):
+				va._fit_attenuation(c as AudioStreamPlayer3D)
+
+
+func _fit_attenuation(p: AudioStreamPlayer3D) -> void:
+	if detail == Detail.FULL and split_listeners:
+		p.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+		p.unit_size = 7.0
+		p.max_db = 6.0
+		p.max_distance = 220.0
+		p.panning_strength = 0.6
+		p.attenuation_filter_cutoff_hz = 20500.0
+	elif detail == Detail.FULL:
 		# The camera always trails the player's vehicle at about the same
 		# distance: no distance attenuation, so every level set here is the
 		# level heard. (It used to be inverse-distance with unit_size 14 and
@@ -291,10 +321,6 @@ func _player(stream: AudioStream, looping: bool, cat: StringName) -> AudioStream
 		p.panning_strength = 0.9
 		p.attenuation_filter_cutoff_hz = 7000.0
 		p.attenuation_filter_db = -18.0
-	p.volume_db = -80.0
-	p.set_meta("looping", looping)
-	add_child(p)
-	return p
 
 
 # ------------------------------------------------------------------ frame --
@@ -334,7 +360,7 @@ func _update_doppler(dt: float) -> void:
 	_doppler = 1.0
 	if detail == Detail.FULL or AudioDirector.instance == null:
 		return
-	var cam := get_viewport().get_camera_3d()
+	var cam := Views.nearest(self, vehicle.global_position)
 	if cam == null:
 		return
 	var to_cam := cam.global_position - vehicle.global_position
@@ -657,7 +683,7 @@ func _size_pitch() -> float:
 
 
 func _listener_distance() -> float:
-	var cam := get_viewport().get_camera_3d()
+	var cam := Views.nearest(self, vehicle.global_position)
 	return cam.global_position.distance_to(vehicle.global_position) if cam else 0.0
 
 

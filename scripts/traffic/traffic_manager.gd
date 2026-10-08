@@ -1,10 +1,12 @@
 class_name TrafficManager
 extends Node3D
-## Ambient AI traffic around the player.
+## Ambient AI traffic around the player (in split-screen around both players,
+## sharing the same number of cars).
 ##
 ## Builds the lane graph from the world's roads, runs the city traffic
 ## signals, and keeps up to `max_cars` AI cars alive: spawning them out of
-## sight near the player and removing ones that are far away or wrecked.
+## sight near the players and removing ones that are far from all of them or
+## wrecked.
 ## Traffic cars are ordinary Vehicles with a TrafficDriver instead of a player
 ## controller, so they crash, dent and flip just like the player's car.
 ## Removed cars wait in a small pool per type and are reused (repaired and
@@ -19,8 +21,11 @@ signal traffic_toggled(on: bool)
 ## What traffic lives around: the player's character on foot, or their
 ## vehicle (null = `player`).
 var focus: Node3D
-## People on foot that drivers stop for (the player's character).
+## People on foot that drivers stop for (the players' characters).
 var pedestrians: Array[Node3D] = []
+## The other players (split-screen player 2): traffic lives around them too,
+## avoids their vehicles and reacts to their horns. Set by Game.
+var others: Array[LocalPlayer] = []
 ## Vehicle types that appear in traffic, and how often (relative weights).
 @export var car_scenes: Array[PackedScene] = [
 	preload("res://scenes/vehicles/sports_car.tscn"),
@@ -58,8 +63,13 @@ const AMBER := 2.5
 const ALL_RED := 1.2
 
 var _rng := RandomNumberGenerator.new()
-var _horn_was_on := false
-var _horn_repeat := 0.0
+## Per honking vehicle (instance id): was the horn on, seconds to the next reaction.
+var _horn_was_on := {}
+var _horn_repeat := {}
+## The other players' vehicles (in `vehicles` while they have them).
+var _other_vehicles: Array[Vehicle] = []
+## Where every player is, refreshed each physics tick (focus_positions()).
+var _foci := PackedVector3Array()
 var _manage_timer := 0.0
 var _light_timer := 0.0
 var _initial_fill := true
@@ -96,12 +106,12 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 	if key != "traffic_density":
 		return
 	max_cars = Settings.TRAFFIC_CARS[value]
-	# Fewer cars: drop the ones furthest from the player.
+	# Fewer cars: drop the ones furthest from the players.
 	if drivers.size() > max_cars and _focus_node():
-		var ppos := focus_position()
+		_foci = focus_positions()
 		var by_dist := drivers.duplicate()
 		by_dist.sort_custom(func(a: TrafficDriver, b: TrafficDriver) -> bool:
-			return a.vehicle.global_position.distance_squared_to(ppos) > b.vehicle.global_position.distance_squared_to(ppos))
+			return nearest_focus_sq(a.vehicle.global_position) > nearest_focus_sq(b.vehicle.global_position))
 		for i in drivers.size() - max_cars:
 			_despawn(by_dist[i])
 
@@ -138,6 +148,51 @@ func focus_position() -> Vector3:
 	return f.global_position if f else Vector3.ZERO
 
 
+## Where every player is (player 1 first).
+func focus_positions() -> PackedVector3Array:
+	var out := PackedVector3Array()
+	var f := _focus_node()
+	if f:
+		out.append(f.global_position)
+	for p in others:
+		if is_instance_valid(p):
+			var n := p.focus_node()
+			if n and is_instance_valid(n) and n.is_inside_tree():
+				out.append(n.global_position)
+	return out
+
+
+## Squared distance from `pos` to the nearest player (as of this tick).
+func nearest_focus_sq(pos: Vector3) -> float:
+	if _foci.is_empty():
+		return pos.distance_squared_to(focus_position())
+	var best := INF
+	for f in _foci:
+		best = minf(best, pos.distance_squared_to(f))
+	return best
+
+
+## The other players changed vehicle (or came or went): drivers avoid
+## whatever they drive now.
+func refresh_players() -> void:
+	for v in _other_vehicles:
+		if v != player and not _tracked.has(v):
+			vehicles.erase(v)
+	_other_vehicles.clear()
+	for p in others:
+		if is_instance_valid(p) and p.vehicle and is_instance_valid(p.vehicle):
+			_other_vehicles.append(p.vehicle)
+			if not vehicles.has(p.vehicle):
+				vehicles.append(p.vehicle)
+			if not p.vehicle.vehicle_reset.is_connected(_on_player_reset):
+				p.vehicle.vehicle_reset.connect(_on_player_reset)
+
+
+## Is `v` driven by a player (any of them)?
+func is_player_vehicle(v: Object) -> bool:
+	return v != null and (v == player or _other_vehicles.has(v))
+
+
 ## A vehicle the player left parked: drivers treat it as an obstacle (they
 ## wait or drive round it) until untrack().
 func track(v: Vehicle) -> void:
@@ -149,7 +204,7 @@ func track(v: Vehicle) -> void:
 
 func untrack(v: Vehicle) -> void:
 	_tracked.erase(v)
-	if v != player:
+	if v != player and not _other_vehicles.has(v):
 		vehicles.erase(v)
 
 
@@ -239,6 +294,7 @@ func _physics_process(dt: float) -> void:
 	if network == null:
 		return
 	time += dt
+	_foci = focus_positions()
 	_update_signals(dt)
 	_check_player_horn(dt)
 	_light_timer -= dt
@@ -267,36 +323,89 @@ func _physics_process(dt: float) -> void:
 
 ## Drivers near a honking player react (pull over, move right, hurry up).
 func _check_player_horn(dt: float) -> void:
-	var on := player != null and player.horn_input
-	_horn_repeat -= dt
-	if on and (not _horn_was_on or _horn_repeat <= 0.0):
-		_horn_repeat = 1.5
-		var ppos := player.global_position
+	_check_horn(player, dt)
+	for v in _other_vehicles:
+		_check_horn(v, dt)
+
+
+func _check_horn(v: Vehicle, dt: float) -> void:
+	if v == null or not is_instance_valid(v):
+		return
+	var id := v.get_instance_id()
+	var on := v.horn_input
+	var repeat: float = _horn_repeat.get(id, 0.0) - dt
+	if on and (not _horn_was_on.get(id, false) or repeat <= 0.0):
+		repeat = 1.5
+		var ppos := v.global_position
 		for d in drivers:
 			if is_instance_valid(d.vehicle) and d.vehicle.global_position.distance_squared_to(ppos) < 40.0 * 40.0:
-				d.on_player_horn(player)
-	_horn_was_on = on
+				d.on_player_horn(v)
+	_horn_repeat[id] = repeat
+	_horn_was_on[id] = on
 
 
 func _is_visible(p: Vector3) -> bool:
+	if Views.is_split():
+		return Views.sees(self, p, 260.0)
 	if camera == null:
 		return false
 	return camera.global_position.distance_to(p) < 260.0 and camera.is_position_in_frustum(p)
 
 
 func _despawn_pass() -> void:
-	var ppos := focus_position()
 	for d: TrafficDriver in drivers.duplicate():
 		if not is_instance_valid(d.vehicle):
 			drivers.erase(d)
 			continue
 		var p := d.vehicle.global_position
-		var dist := p.distance_to(ppos)
+		var dist := sqrt(nearest_focus_sq(p))
 		var remove := dist > despawn_distance or p.y < MapLayout.SEA_LEVEL - 2.0
 		if d.state == TrafficDriver.State.LOST:
 			remove = remove or not _is_visible(p) or d.state_time > 45.0
 		if remove:
 			_despawn(d)
+	if _foci.size() > 1 and drivers.size() >= max_cars:
+		_rebalance()
+
+
+## Split-screen: when one player has (nearly) all the cars and the other few,
+## one unseen car far from the busy player goes, so the next spawn can go to
+## the other one. One per pass (every 0.25 s).
+func _rebalance() -> void:
+	var groups: Array[Array] = []
+	for i in _foci.size():
+		groups.append([])
+	for d in drivers:
+		if not is_instance_valid(d.vehicle):
+			continue
+		var best := 0
+		var best_d := INF
+		for i in _foci.size():
+			var dd := d.vehicle.global_position.distance_squared_to(_foci[i])
+			if dd < best_d:
+				best_d = dd
+				best = i
+		groups[best].append(d)
+	var quota := max_cars / _foci.size()
+	var rich := -1
+	var poor := -1
+	for i in groups.size():
+		if groups[i].size() > quota + 1 and (rich < 0 or groups[i].size() > groups[rich].size()):
+			rich = i
+		if groups[i].size() < quota - 1:
+			poor = i
+	if rich < 0 or poor < 0:
+		return
+	var far: TrafficDriver = null
+	var far_d := -1.0
+	for d: TrafficDriver in groups[rich]:
+		var p := d.vehicle.global_position
+		var dd := p.distance_squared_to(_foci[rich])
+		if dd > far_d and not _is_visible(p):
+			far_d = dd
+			far = d
+	if far:
+		_despawn(far)
 
 
 func _despawn(d: TrafficDriver) -> void:
@@ -362,17 +471,51 @@ func _try_spawn(allow_visible: bool) -> bool:
 	var lane: TrafficNetwork.Lane = pick["lane"]
 	var s: float = pick["s"]
 	var p := lane.point_at(s)
-	var ppos := focus_position()
-	var dist := p.distance_to(ppos)
 	var min_d := 40.0 if allow_visible else spawn_min_distance
-	if dist < min_d or dist > spawn_max_distance:
-		return false
+	if _foci.size() > 1:
+		# Two players: fill up around whoever has fewer cars near them, and
+		# never spawn close to either.
+		if not _good_spot_for_two(p, min_d):
+			return false
+	else:
+		var dist := p.distance_to(focus_position())
+		if dist < min_d or dist > spawn_max_distance:
+			return false
 	if not allow_visible and _is_visible(p):
 		return false
 	for v in vehicles:
 		if is_instance_valid(v) and v.global_position.distance_to(p) < 22.0:
 			return false
 	_spawn(lane, s)
+	return true
+
+
+## Split-screen spawning: `p` is far enough from both players and within
+## reach of the one with fewer traffic cars around them.
+func _good_spot_for_two(p: Vector3, min_d: float) -> bool:
+	var counts: Array[int] = []
+	counts.resize(_foci.size())
+	for d in drivers:
+		if not is_instance_valid(d.vehicle):
+			continue
+		var best := 0
+		var best_d := INF
+		for i in _foci.size():
+			var dd := d.vehicle.global_position.distance_squared_to(_foci[i])
+			if dd < best_d:
+				best_d = dd
+				best = i
+		counts[best] += 1
+	var want := 0
+	for i in _foci.size():
+		if counts[i] < counts[want]:
+			want = i
+	for i in _foci.size():
+		var dist := p.distance_to(_foci[i])
+		if dist < min_d:
+			return false
+		if i == want and dist > spawn_max_distance:
+			return false
 	return true
 
 

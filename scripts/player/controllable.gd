@@ -16,6 +16,9 @@ signal dropped(by: Object)
 const CHARACTER := &"character"
 const VEHICLE := &"vehicle"
 const PLANE := &"plane"
+## Meta on a split-screen player's own vehicle and their character: which
+## player (0, 1) it belongs to (LocalPlayer sets it, VehicleEntry reads it).
+const OWNER_META := &"player"
 
 @export var kind := VEHICLE
 

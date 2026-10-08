@@ -69,6 +69,8 @@ func prompt(actor: Node3D) -> String:
 		return "Flip the %s back over" % vehicle.display_name.to_lower()
 	if actor is PlayerCharacter and not (actor as PlayerCharacter).can_act():
 		return ""
+	if _belongs_to_other(actor):
+		return ""  # split-screen: the other player's car
 	return "Get in the %s" % vehicle.display_name.to_lower()
 
 
@@ -219,3 +221,11 @@ func _top_spot() -> Vector3:
 		top = vehicle.global_position.y + vehicle.body_top
 	var p := vehicle.global_position
 	return Vector3(p.x, top + 0.05, p.z)
+
+
+## Is this the other split-screen player's own vehicle? (They can flip it
+## back over, but not take it.)
+func _belongs_to_other(actor: Node3D) -> bool:
+	var mine: int = actor.get_meta(Controllable.OWNER_META, -1) if actor else -1
+	var theirs: int = vehicle.get_meta(Controllable.OWNER_META, -1)
+	return mine >= 0 and theirs >= 0 and mine != theirs

@@ -27,6 +27,13 @@ const RINGS := [
 ## The camera must be lower than this above the ground for tufts to show.
 const MAX_CAMERA_HEIGHT := 55.0
 
+## Split-screen: the player whose camera this grass follows (0, 1), drawn in
+## their view only (Views.VIEW_LAYERS); -1 = the main camera, every view.
+var view := -1:
+	set(v):
+		view = v
+		_set_layers(Views.VIEW_LAYERS[v] if v >= 0 else 1)
+
 var _terrain: TerrainBuilder
 var _rings: Array[Node3D] = []
 var _quality_poll := 0.0
@@ -147,7 +154,7 @@ func _add_sectors(holder: Node3D, mesh: ArrayMesh, spacing: float, half: float) 
 func _process(delta: float) -> void:
 	if _terrain == null or Engine.is_editor_hint():
 		return
-	var cam := get_viewport().get_camera_3d()
+	var cam := get_viewport().get_camera_3d() if view < 0 else Views.camera(self, view)
 	if cam == null:
 		return
 	_quality_poll -= delta
@@ -162,3 +169,8 @@ func _process(delta: float) -> void:
 	for i in RINGS.size():
 		var s: float = RINGS[i]["spacing"]
 		_rings[i].global_position = Vector3(roundf(p.x / s) * s, 0.0, roundf(p.z / s) * s)
+
+
+func _set_layers(layers: int) -> void:
+	for mmi in find_children("*", "MultiMeshInstance3D", true, false):
+		(mmi as MultiMeshInstance3D).layers = layers

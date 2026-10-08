@@ -13,6 +13,8 @@ var enabled := true
 var character: PlayerCharacter
 ## Movement is relative to this camera's heading.
 var camera: Camera3D
+## Whose controls move it (split-screen: one player's devices).
+var input := PlayerInput.shared()
 
 var _sprint_latched := false
 
@@ -44,7 +46,7 @@ func _physics_process(_dt: float) -> void:
 		_clear(character)
 		_sprint_latched = false
 		return
-	var stick := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var stick := input.vector("move_left", "move_right", "move_forward", "move_back")
 	var yaw := 0.0
 	if camera:
 		var f := -camera.global_basis.z
@@ -53,14 +55,14 @@ func _physics_process(_dt: float) -> void:
 	character.move_input = dir.limit_length(1.0)
 	if stick.length() < 0.2:
 		_sprint_latched = false
-	character.sprint_input = Input.is_action_pressed("sprint") or _sprint_latched
-	character.walk_input = Input.is_action_pressed("walk")
+	character.sprint_input = input.pressed("sprint") or _sprint_latched
+	character.walk_input = input.pressed("walk")
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if character == null or not enabled:
 		return
-	if event.is_action_pressed("jump"):
+	if input.event_pressed(event, "jump"):
 		character.jump_input = true
-	elif event.is_action_pressed("sprint_toggle"):
+	elif input.event_pressed(event, "sprint_toggle"):
 		_sprint_latched = not _sprint_latched

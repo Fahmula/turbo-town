@@ -15,6 +15,9 @@ const START_RADIUS := 6.0
 const COUNTDOWN := 3.0
 
 var game: Game
+## Off in split-screen: the start circles don't start races (they're player
+## 1's, and the replay/camera flow is built for one player).
+var start_circles_on := true
 var races: Array[Dictionary] = []
 var phase := Phase.IDLE
 var race: Dictionary = {}
@@ -133,7 +136,8 @@ func _physics_process(dt: float) -> void:
 	var v := game.vehicle
 	match phase:
 		Phase.IDLE:
-			_check_start_circles(v)
+			if start_circles_on:
+				_check_start_circles(v)
 		Phase.COUNTDOWN:
 			_countdown -= dt
 			var c := ceili(_countdown)

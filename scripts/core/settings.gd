@@ -26,6 +26,7 @@ const DEFAULTS := {
 	"assists": true,
 	"flight_invert": false,  # planes: false = pull back to climb, true = push up to climb
 	"vehicle": "sports_car",
+	"vehicle_p2": "sedan",  # split-screen player 2's vehicle
 	# Garage setups (Loadout): vehicle id -> {slot: value} for the values
 	# that differ from stock.
 	"loadouts": {},

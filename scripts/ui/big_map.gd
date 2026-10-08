@@ -13,6 +13,10 @@ var traffic: TrafficManager
 ## [{"name": String, "pos": Vector3}] — numbered in order (teleport keys).
 var spots: Array = []
 var markers: Array[Dictionary] = []
+## Split-screen: the other players, [{"node": Node3D, "color": Color, "label": String}].
+var friends: Array[Dictionary] = []
+## The player's own arrow.
+var arrow_color := Color(1.0, 0.3, 0.25)
 
 var _tex: TextureRect
 var _overlay: Control
@@ -58,6 +62,21 @@ func _process(_dt: float) -> void:
 		_overlay.queue_redraw()
 
 
+## An arrow at `node`, pointing the way it faces.
+func _draw_arrow(node: Node3D, col: Color) -> void:
+	var t := node.global_transform
+	var c := _to_px(t.origin)
+	var fwd := -t.basis.z
+	if node is PlayerCharacter:
+		var a := (node as PlayerCharacter).facing
+		fwd = Vector3(-sin(a), 0.0, -cos(a))
+	var f := Vector2(fwd.x, fwd.z).normalized()
+	var r := Vector2(-f.y, f.x)
+	var pts := PackedVector2Array([c + f * 13.0, c - f * 9.0 + r * 9.0, c - f * 4.0, c - f * 9.0 - r * 9.0])
+	_overlay.draw_colored_polygon(pts, col)
+	_overlay.draw_polyline(pts + PackedVector2Array([pts[0]]), Color.WHITE, 2.0, true)
+
+
 func _to_px(p: Vector3) -> Vector2:
 	return WorldMap.to_uv(p) * _overlay.size
 
@@ -85,18 +104,16 @@ func _draw_overlay() -> void:
 		var q := _to_px(car.global_position)
 		_overlay.draw_rect(Rect2(q - Vector2(9, 9), Vector2(18, 18)), Color(0.05, 0.08, 0.15))
 		_overlay.draw_rect(Rect2(q - Vector2(7, 7), Vector2(14, 14)), UiKit.ACCENT)
+	for fr in friends:
+		var node: Node3D = fr.get("node")
+		if node and is_instance_valid(node) and node.is_inside_tree():
+			_draw_arrow(node, fr.get("color", Color.WHITE))
+			var q := _to_px(node.global_position)
+			var label: String = fr.get("label", "")
+			_overlay.draw_string_outline(font, q + Vector2(15, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, 6, UiKit.OUTLINE)
+			_overlay.draw_string(font, q + Vector2(15, -10), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, fr.get("color", Color.WHITE))
 	if target and is_instance_valid(target):
-		var t := target.global_transform
-		var c := _to_px(t.origin)
-		var fwd := -t.basis.z
-		if target is PlayerCharacter:
-			var a := (target as PlayerCharacter).facing
-			fwd = Vector3(-sin(a), 0.0, -cos(a))
-		var f := Vector2(fwd.x, fwd.z).normalized()
-		var r := Vector2(-f.y, f.x)
-		var pts := PackedVector2Array([c + f * 13.0, c - f * 9.0 + r * 9.0, c - f * 4.0, c - f * 9.0 - r * 9.0])
-		_overlay.draw_colored_polygon(pts, Color(1.0, 0.3, 0.25))
-		_overlay.draw_polyline(pts + PackedVector2Array([pts[0]]), Color.WHITE, 2.0, true)
+		_draw_arrow(target, arrow_color)
 	var hint := "1-9 teleport     M close"
 	_overlay.draw_string_outline(font, Vector2(12, _overlay.size.y - 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 6, UiKit.OUTLINE)
 	_overlay.draw_string(font, Vector2(12, _overlay.size.y - 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)

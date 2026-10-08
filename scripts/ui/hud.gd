@@ -6,6 +6,9 @@ extends CanvasLayer
 ## readout hide and the maps follow the character (set_on_foot); in a plane
 ## the speedometer shows the height and engine power, the help shows the
 ## flying controls and warnings come up (too slow, pull up, turning back).
+## In split-screen each player has their own HUD in their half of the screen,
+## in a compact layout (set_compact) with a "P1" / "P2" chip and the other
+## player marked on the maps.
 
 @export var vehicle: Vehicle
 
@@ -78,6 +81,9 @@ var _combo_lines: Array[Label] = []
 var _combo_total: Label
 var _combo_fade := 0.0
 var _race_label: Label
+var _tip: Label
+var _chip: PanelContainer
+var _chip_label: Label
 var _help_text: RichTextLabel
 var _prompt_box: PanelContainer
 var _prompt_key: Label
@@ -87,6 +93,10 @@ var _temp_prompt := ""
 var _temp_prompt_time := 0.0
 ## Last input came from a gamepad (prompts show its buttons).
 var using_pad := false
+## The player's input (which device they use); null = watch every event.
+var input: PlayerInput
+## Split-screen layout: smaller gauges, smaller (still >= 18 px) text.
+var compact := false
 var on_foot := false
 ## Flying a plane (set_flying): flight readouts, help and warnings.
 var flying := false
@@ -232,6 +242,18 @@ func _ready() -> void:
 	tip.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	tip.position = Vector2(262, -34)
 	root.add_child(tip)
+	_tip = tip
+
+	# Split-screen: which player this half belongs to.
+	_chip = PanelContainer.new()
+	_chip.add_theme_stylebox_override("panel", UiKit.box(Color(UiKit.PANEL_BG, 0.8), 10, 6))
+	_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chip.position = Vector2(12, 10)
+	_chip_label = UiKit.label("P1", 24, Color.WHITE)
+	_chip_label.add_theme_constant_override("outline_size", 0)
+	_chip.add_child(_chip_label)
+	_chip.visible = false
+	root.add_child(_chip)
 
 	big_map = BigMap.new()
 	big_map.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -335,7 +357,7 @@ func set_flying(on: bool) -> void:
 	flying = on
 	speedometer.flying = on
 	_height_label.visible = on and not on_foot
-	_damage_label.position.y = -350.0 if on else -312.0
+	_place_readouts()
 	if not on_foot:
 		_help_text.text = FLIGHT_HELP_TEXT if on else HELP_TEXT
 
@@ -370,6 +392,8 @@ func _refresh_prompt() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if input:
+		return  # the LocalPlayer keeps track (_process)
 	var pad := using_pad
 	if event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf((event as InputEventJoypadMotion).axis_value) > 0.5):
 		pad = true
@@ -381,6 +405,10 @@ func _input(event: InputEvent) -> void:
 
 
 func toggle_help() -> void:
+	if compact:
+		# No room for it in half a screen: the menu has the controls.
+		show_toast("Controls: pause menu > CONTROLS", 3.0)
+		return
 	_help.visible = not _help.visible
 	_help_timer = -1.0
 
@@ -419,6 +447,8 @@ func show_combo(tricks: Array, multiplier: int, total: int) -> void:
 
 ## Shows the controls help, hiding it again after `seconds`.
 func show_help_for(seconds: float) -> void:
+	if compact:
+		return
 	_help.visible = true
 	_help_timer = seconds
 
@@ -439,6 +469,9 @@ func show_popup(text: String, duration := 1.8, color := Color(1.0, 0.85, 0.25)) 
 
 
 func _process(dt: float) -> void:
+	if input and input.using_pad != using_pad:
+		using_pad = input.using_pad
+		_refresh_prompt()
 	if _help_timer > 0.0:
 		_help_timer -= dt
 		if _help_timer <= 0.0:
@@ -476,3 +509,76 @@ func _process(dt: float) -> void:
 	if _damage:
 		var d := int(_damage.total_damage)
 		_damage_label.text = "" if d <= 0 else "DAMAGE %d%%" % d
+
+
+# --- Split-screen ---------------------------------------------------------------
+
+## The other players to mark on the maps: [{"node": Node3D, "color": Color,
+## "label": String}].
+func set_friends(friends: Array[Dictionary]) -> void:
+	minimap.friends = friends
+	big_map.friends = friends
+
+
+## Split-screen layout (`on`) for player `player_index`, or the normal one:
+## the gauges shrink into the corners, text gets smaller (never under 18 px),
+## the controls help stays in the menu and a chip says whose half this is.
+func set_compact(on: bool, player_index := 0) -> void:
+	compact = on
+	var col: Color = LocalPlayer.COLORS[mini(player_index, LocalPlayer.COLORS.size() - 1)]
+	_chip.visible = on
+	_chip_label.text = "P%d" % (player_index + 1)
+	_chip_label.add_theme_color_override("font_color", col)
+	minimap.arrow_color = col
+	big_map.arrow_color = col
+	_tip.visible = not on
+	if on:
+		_help.visible = false
+		_help_timer = -1.0
+	# Gauges: scaled about their outer corner.
+	var k := 0.62 if on else 1.0
+	var margin := 12.0 if on else 20.0
+	_put(speedometer, Vector2(-260.0 - margin, -260.0 - margin), Vector2(260, 260))
+	speedometer.pivot_offset = Vector2(260, 260)
+	speedometer.scale = Vector2(k, k)
+	_put(minimap, Vector2(margin, -230.0 - margin), Vector2(230, 230))
+	minimap.pivot_offset = Vector2(0, 230)
+	minimap.scale = Vector2(k, k)
+	_font(_toast, 28 if on else 40)
+	_put(_toast, Vector2(-300, 8 if on else 40), Vector2(600, 44 if on else 60))
+	_font(_popup, 40 if on else 54)
+	_put(_popup, Vector2(-400, -110 if on else -200), Vector2(800, 60 if on else 80))
+	_font(_hint, 22 if on else 30)
+	_put(_hint, Vector2(-400, -86 if on else -140), Vector2(800, 36 if on else 50))
+	_font(_prompt_label, 22 if on else 26)
+	_prompt_box.offset_top = -132.0 if on else -216.0
+	_prompt_box.offset_bottom = _prompt_box.offset_top
+	_font(_score_label, 20 if on else 24)
+	_put(_score_label, Vector2(-270 if on else -320, 8 if on else 16), Vector2(250 if on else 300, 30 if on else 36))
+	for l in _combo_lines:
+		_font(l, 18 if on else 22)
+	_font(_combo_total, 26 if on else 34)
+	_put(_combo_box, Vector2(16 if on else 28, -60 if on else 20), Vector2(380 if on else 460, 150 if on else 190))
+	_place_readouts()
+
+
+## The damage and flying height lines, just above the speedometer.
+func _place_readouts() -> void:
+	var top := 260.0 * speedometer.scale.y + (12.0 if compact else 20.0)
+	_font(_damage_label, 18)
+	_font(_height_label, 20 if compact else 26)
+	_put(_height_label, Vector2(-280, -top - 38.0), Vector2(250, 36))
+	_put(_damage_label, Vector2(-280, -top - (70.0 if flying else 32.0)), Vector2(250, 30))
+
+
+## Places `c` at `pos` (from its anchor point), `size` big.
+func _put(c: Control, pos: Vector2, size: Vector2) -> void:
+	c.offset_left = pos.x
+	c.offset_top = pos.y
+	c.offset_right = pos.x + size.x
+	c.offset_bottom = pos.y + size.y
+
+
+func _font(l: Label, font_size: int) -> void:
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_constant_override("outline_size", maxi(font_size / 6, 4))

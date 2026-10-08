@@ -44,9 +44,10 @@ func voiced_count() -> int:
 
 
 func _process(dt: float) -> void:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
+	var cams := Views.cameras(self)
+	if cams.is_empty():
 		return
+	var cam := cams[0]
 	var pos := cam.global_position
 	if _prev_cam != Vector3.INF and dt > 0.0:
 		var v := (pos - _prev_cam) / dt
@@ -65,7 +66,11 @@ func _process(dt: float) -> void:
 		if not a.engine_running:
 			a.audible = false  # parked with the engine off: no voice needed
 			continue
-		by_dist.append([a.vehicle.global_position.distance_squared_to(pos), a])
+		# (Split-screen: by the nearest player's camera.)
+		var d := INF
+		for c in cams:
+			d = minf(d, a.vehicle.global_position.distance_squared_to(c.global_position))
+		by_dist.append([d, a])
 	by_dist.sort_custom(func(x: Array, y: Array) -> bool: return x[0] < y[0])
 	for i in by_dist.size():
 		var a: VehicleAudio = by_dist[i][1]

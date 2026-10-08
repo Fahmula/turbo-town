@@ -11,6 +11,10 @@ const MEDIUM := 1
 const HIGH := 2
 const ULTRA := 3
 
+## Split-screen draws the world twice: Medium keeps two shadow splits over a
+## shorter distance there (ART_BIBLE.md §27). Off only for --splitbench A/B.
+static var split_trims := true
+
 
 static func apply(level: int, viewport: Viewport, world: Node) -> void:
 	var env_node := world.get_node_or_null("WorldEnvironment") as WorldEnvironment
@@ -40,6 +44,9 @@ static func apply(level: int, viewport: Viewport, world: Node) -> void:
 		# The sun's real size (PCSS): shadows sharp at the contact, softer
 		# further out. Up to 10 ms on a Deck-class GPU, so Ultra only.
 		sun.light_angular_distance = 0.6 if level >= ULTRA else 0.0
+		if Views.is_split() and split_trims and level == MEDIUM:
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+			sun.directional_shadow_max_distance = 160.0
 	# World shaders drop their detail texture samples on Low
 	# (world_common.gdshaderinc); Ultra uses the same materials as High.
 	RenderingServer.global_shader_parameter_set("quality", mini(level, HIGH))
@@ -52,6 +59,12 @@ static func apply(level: int, viewport: Viewport, world: Node) -> void:
 		[RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW,
 		RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM][level])
 
+	apply_view(level, viewport)
+
+
+## The settings that belong to a viewport (anti-aliasing, render scale): the
+## main one, and each split-screen view (SplitScreen.apply_graphics).
+static func apply_view(level: int, viewport: Viewport) -> void:
 	viewport.msaa_3d = Viewport.MSAA_DISABLED if level == LOW else Viewport.MSAA_2X
 	if level == LOW:
 		viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR

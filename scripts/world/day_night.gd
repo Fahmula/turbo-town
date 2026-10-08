@@ -87,7 +87,7 @@ func _process(dt: float) -> void:
 		hour = fposmod(hour + dt * 24.0 / (DAY_MINUTES * 60.0), 24.0)
 		_apply()
 	if _stars and _stars.visible:
-		var cam := get_viewport().get_camera_3d()
+		var cam := Views.camera(self, 0)
 		if cam:
 			_stars.global_position = cam.global_position
 
