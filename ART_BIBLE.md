@@ -452,6 +452,8 @@ Keep the existing `UiKit` values. They already fit.
 | Go / success | `(0.3, 1.0, 0.45)` | race start circle, "GO!" |
 | Drift mode | `(1.0, 0.5, 0.9)` | speedometer "DRIFT" |
 | Medal gold / silver / bronze | `#FFC93C` / `#C9D1D9` / `#CD7F4A` | proposed |
+| Player 1 (red-orange) | `(1.0, 0.3, 0.25)` | map arrow, "P1" chip and marker (`LocalPlayer.COLORS`) |
+| Player 2 (blue) | `(0.35, 0.62, 1.0)` | split-screen: map arrow, "P2" chip and marker |
 
 ---
 
@@ -1421,6 +1423,15 @@ layout. Refine toward a clean automotive instrument rather than a cartoon.
   button prompts that match the device in use. The mouse works too.
 - **For a young player:** short words, big text, icon plus text for actions,
   text contrast ≥ 4.5:1 against its panel.
+- **Split-screen** (two players, `SplitScreen`): each player's HUD lives in
+  their half (1280×398 on the Deck) in a compact layout (`Hud.set_compact`):
+  speedometer and minimap at 0.62 scale in their corners, the same elements
+  otherwise, text still ≥ 18 px (toasts 28, popups 40, prompts 22), the
+  controls help moves to the menu, and a "P1" / "P2" chip in the player's
+  colour (§5) sits top-left. The marker over the other player is a
+  `Label3D` "P1" / "P2" in their colour (fixed size, always on top), seen only
+  in the other player's view. Menus and the garage still cover the whole
+  screen.
 - **Steam Deck:** the project has no stretch mode, so UI sizes are raw pixels.
   The Deck shows 1280×800 (or a 1600×900 window scaled to about 0.8×). Check
   every screen at 1280×800 (`godot --path . --resolution 1280x800`).
@@ -1479,7 +1490,9 @@ sizes 14–64, with outlines.
   circles (monochrome, like the Deck's own buttons). LB/RB/LT/RT as rounded
   shapes. The D-pad as a cross with the active direction highlighted. Keyboard
   keys as light rounded rectangles with dark text.
-- **Map icons:** the player is a red-orange arrow, traffic is small white dots,
+- **Map icons:** the player is a red-orange arrow (in split-screen each
+  player's arrow is in their colour, §5, and the other player is an arrow in
+  theirs, pinned to the minimap's edge when far away), traffic is small white dots,
   teleport spots and races are coloured numbered roundels, plus a north marker
   (all as today).
 - **Consistency:** the same stroke weight and corner radius across the set.
@@ -1790,6 +1803,39 @@ window):
   Deck by the 1.6× rule. The plane's reflection probe is off (it would
   re-capture several times a second).
 
+- **Split-screen** (2026-10-07, branch `split-screen`, `--splitbench` on the
+  iGPU at 1280×800, traffic on, two views of 1280×398; GPU = both views plus
+  the main viewport). **Target: a steady 30 fps on the Deck with two
+  players** (owner, 2026-10-07: 30 is fine there, Lossless Scaling can smooth
+  it); one player keeps the 60 fps Medium rule. Each view has half the
+  pixels, so split-screen costs 1.15–1.5× one view's GPU time, not 2×:
+
+  | iGPU GPU ms (one view → split) | Low | Medium | High |
+  |---|---|---|---|
+  | City centre | 9.8 → 14.4 | 18.6 → 25.5 | 26.7 → 35.8 |
+  | Downtown + avenue | 10.2 → 14.7 | 19.0 → 25.9 | 27.4 → 36.3 |
+  | Downtown + highway | 10.4 → 13.3 | 18.9 → 23.6 | 27.3 → 33.5 |
+  | Country (hills + beach) | 8.0 → 9.5 | 17.6 → 20.7 | 25.0 → 28.7 |
+  | Flying over the city + downtown | 11.0 → 16.4 | 19.8 → 28.2 | 30.1 → 40.8 |
+  | Driving (avenue + highway) | 8.6 → 12.4 | 17.4 → 23.9 | 25.1 → 32.8 |
+
+  By the 1.6× rule that's ~13–18 ms on a Deck at Medium (~55–75 fps GPU),
+  ~6–10 ms on Low and ~18–26 ms on High. Whole frames on the iGPU (vsync off)
+  ran 19–27 / 27–38 / 35–49 ms split (Low / Medium / High), so a cautious
+  Deck guess is ~60 / 40–60 / 35–45 fps: above the 30 fps target on every
+  preset, with room. Draw calls: 1,200–2,060 at Medium in the city (one view:
+  930–1,610), render CPU here 2.5–3.0 ms (one view 1.8–2.0): over the
+  single-view 1,200 budget, which split-screen is exempt from (keep it under
+  ~2,400). Scripts and physics don't double: traffic keeps the same number
+  of cars.
+  - **Split-screen trims:** Medium uses 2 shadow splits over 160 m while the
+    screen is split (`GraphicsQuality.split_trims`: −2.5 to −11% GPU, −8 to
+    −26% draw calls); no reflection probes; grass rings per view (each
+    view's own, render layers 19 / 20); tree detail and traffic voices follow
+    the nearest camera.
+  - **Check on the Deck:** frame rate with two players in the city at
+    Medium and High (the Deck's frame limit at 30 or 40 keeps it even).
+
 **Budgets** (busiest view, High)
 
 | Metric | Budget |
@@ -2020,7 +2066,12 @@ readable, kid-friendly (crashes are big and fun, never scary).
   −6), start-up −7, tyre squeal up to −4.4, horns −6 to −9, air brake −11,
   reverse beeper −9. (Until 2026-10-02 it was 3D with `max_db` 0, which
   capped every loud sound at one level: the start-up and squeal came out as
-  loud as the engine at full throttle.)
+  loud as the engine at full throttle.) **Split-screen** has two listeners
+  (one per view), so each player's vehicle fades with distance there
+  (inverse distance, `unit_size` 7 m = the chase camera's distance, so the
+  levels above still hold from your own camera); without it both players
+  would hear both engines at full level everywhere
+  (`VehicleAudio.set_split_listeners`).
 - **Small speakers** (owner, 2026-10-02: quiet engines on the Steam Deck):
   the Deck's speakers play almost nothing below ~300 Hz, where most of an
   engine recording is (the inline six loses ~13 dB, the diesel ~10, the
@@ -2105,7 +2156,9 @@ everything else: **stylized realism**, believable first.
   lips, mouth and eyes are cells on it), `Char_Hair` 0.6 (dark brown 0.21,
   0.14, 0.10, also the brows), `Char_Shirt` 0.85 (red-orange 0.77, 0.30,
   0.20: the world is greens, greys, sand and sea blue, and it stays clear of
-  the UI yellow and marker colours), `Char_Trousers` 0.8 (denim 0.21, 0.30,
+  the UI yellow and marker colours; split-screen player 2 wears blue 0.20,
+  0.42, 0.80, an override on the same surface, so the two players look
+  different at a glance), `Char_Trousers` 0.8 (denim 0.21, 0.30,
   0.46), `Char_Shoes` 0.6 (off-white upper 0.88, 0.87, 0.84, dark sole 0.31,
   0.30, 0.29). **Single-sided**: the surface is closed; double-sided
   materials (Blender's default, exported as glTF `doubleSided`) cost +1.3 ms
@@ -2181,3 +2234,8 @@ everything else: **stylized realism**, believable first.
   dimensions, §13 plane materials and node names, §14 the per-pass vertex
   cap for multi-mesh vehicles, §24 aircraft origin, §27 flying baseline,
   §33 plane sound.
+- 2026-10-07: split-screen (branch `split-screen`): §5 player colours, §20
+  the compact split-screen HUD and player markers, §22 map arrows per
+  player, §27 split-screen target (30 fps on the Deck), measurements and
+  trims, §33 players' car sounds fade with distance in split-screen, §34
+  player 2's blue T-shirt.

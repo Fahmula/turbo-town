@@ -99,6 +99,24 @@ You can't get out in the air; land, stop, then F / B. Teleports while
 flying take you there in the air (the Airfield puts you on the runway), and
 far out over the sea the plane turns back by itself. Races are for cars.
 
+**Two players (split-screen)**: pick 2 PLAYERS on the title screen (or ADD
+PLAYER 2 in the pause menu). Whoever pressed the button is player 1, with that
+controller (plus the keyboard and mouse); player 2 presses A on another
+controller, or Enter on the keyboard (then the keyboard is theirs). The screen
+splits: player 1 on top, player 2 below, each with their own camera, HUD, car
+and buttons. Player 2 starts on foot next to player 1 with their own car (a
+sedan until they pick one in the garage; their choice is remembered
+separately) and wears a blue T-shirt. A "P1" / "P2" marker floats over the
+other player and both maps show them. X (0 on the keyboard, or R3) takes you
+to the other player; D-pad right / Tab teleports only you. You can't take the
+other player's car (you can flip it back over), traffic lives around both of
+you (the same number of cars as for one player), and two planes go side by
+side on the runway. Either player's Start pauses the game for both; an
+unplugged controller pauses it too. PLAYER 2: LEAVE (pause menu) or MAIN MENU
+ends split-screen. Races, instant replays and the crash cam are one-player
+only for now. Each half is a wide strip: the camera keeps the full screen's
+sideways view and crops the top and bottom, and the HUD is a compact version.
+
 **Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck,
 bus, pickup, buggy, monster truck or plane and set it up. Tabs (Q / E or LB / RB):
 CAR (left/right = vehicle), PAINT (colour, racing stripes) and WHEELS (rims,
@@ -140,8 +158,8 @@ What is and isn't saved: see **Saving** below.
 
 ```
 scenes/
-  main.tscn                 Game root: world + player car + camera + HUD (Game adds the
-                            character, its camera and the Possession at startup)
+  main.tscn                 Game root: world + player car + camera + HUD (Game makes player 1's
+                            LocalPlayer at startup: the character, its cameras, the Possession)
   player/player_character.tscn  The walking character (model from assets/models/character/)
   vehicles/sports_car.tscn  The default player car (physics, wheels, visuals, audio, FX, damage)
   vehicles/sedan.tscn, van.tscn, box_truck.tscn, bus.tscn, pickup.tscn   Used by
@@ -154,7 +172,10 @@ scenes/
                             parked cars (drivable: `drive_scene`), and the parametric Ramp
   dev/physics_test.tscn     Flat test track for tuning the car
 scripts/
-  player/    possession.gd (what the player controls; getting in and out),
+  player/    local_player.gd (one player on this machine: character, vehicle, rigs,
+             HUD, input; two in split-screen), player_input.gd (one player's
+             devices and actions), possession.gd (what the player controls;
+             getting in and out),
              controllable.gd (component: who drives a pawn, which rig controls it),
              player_character.gd (walk/run/sprint/jump, kerbs, animation,
              footsteps, being bumped), player_character_controller.gd (input),
@@ -180,7 +201,8 @@ scripts/
              junctions, U-turns), traffic_manager.gd (spawning, signal timing),
              traffic_driver.gd (AI driver, turn signals), traffic_light_prop.gd
   camera/    chase_camera.gd (driving), flight_camera.gd (flying), on_foot_camera.gd (walking), camera_blend.gd
-             (glides between them), menu_camera.gd (title screen)
+             (glides between them), menu_camera.gd (title screen), views.gd (the cameras the
+             players see through: one, or one per split-screen view)
   world/     map_layout.gd (ALL map numbers), terrain/road/city/nature/stunt park/
              landmark builders, building_kit.gd / street_kit.gd / tree_kit.gd (the
              buildings, street furniture and trees, built in code), mesh_builder.gd
@@ -250,6 +272,24 @@ ASSET_MANIFEST.md              Every third-party asset: source, creator, licence
   To change the map, edit `map_layout.gd` or a builder in `scripts/world/`,
   then press **Rebuild map preview** in the World node's Inspector (untick
   *Preview In Editor* if the editor ever feels slow).
+* **Players and split-screen**: each player on this machine is a `LocalPlayer`
+  (`scripts/player/local_player.gd`): their character, vehicle, Possession,
+  the three rigs (on foot, driving, flying: a controller and a camera each),
+  HUD, stunt scoring and a `PlayerInput` (which devices are theirs). Game keeps
+  one, and its old single-player fields (`game.vehicle`, `game.camera`,
+  `game.teleport_to()`...) lead to player 1. Split-screen
+  (`Game.add_player` / `remove_player`) adds player 2: InputSetup gives each
+  player a copy of the gameplay actions bound to just their devices
+  (`p1_accelerate`, `p2_accelerate`...), and `SplitScreen` makes two
+  SubViewports sharing the one world; each player's cameras and HUD move into
+  their own (the main viewport stops drawing the world). The views take no
+  input: each LocalPlayer passes its own mouse look and camera button on.
+  Everything in the world that follows "the camera" (grass, tree detail, the
+  stars, traffic voices and Doppler, what's in sight) asks `Views`, which knows
+  every player's camera. Grass and the "P1" / "P2" markers use render layers
+  19 / 20 so they only show in one view. Players' car sounds fade with distance
+  in split-screen (two cameras listen). Traffic spawns around whichever player
+  has fewer cars and despawns when it's far from both, with the same total.
 * **AI traffic**: ~22 cars live around the player. They are ordinary
   `Vehicle`s driven by a `TrafficDriver` instead of the player controller, so
   they crash, dent and flip like your car. Each driver follows a random route
@@ -419,6 +459,11 @@ godot --path . -- --onfoot=/tmp/shots   the character: walk/run/sprint/jump, in 
                                         leak check (pass/fail)
 godot --path . -- --onfootbench         character cost: draw calls / CPU / GPU shown vs hidden, physics time
 godot --path . -- --charsheet=/tmp/shots  the character from fixed cameras at day/sunset/night + animation strips
+godot --path . -- --split=/tmp/shots    two players: joining with a second gamepad, each player's own controls
+                                        (simulated pads 0 and 1), views, cars, teleports, X to the other player,
+                                        garage, planes, traffic around both, pause, leaving and rejoining (pass/fail)
+godot --path . --gpu-index 0 --resolution 1280x800 -- --splitbench=/tmp/perf   one view vs split-screen: GPU and
+                                        frame time, draw calls at Low / Medium / High (--levels=0,1 --views=city_city)
     add --graphics=0..3 to any dev run to use Low / Medium / High / Ultra
 godot --path . --gpu-index 0 -- --perfsweep=/tmp/perf   GPU cost of each graphics effect, Medium/Low, trees and grass,
                                         standing and driving (--gpu-index 0 = a weak integrated GPU, close to the Deck)

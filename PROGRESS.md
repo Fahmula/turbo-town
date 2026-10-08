@@ -204,6 +204,49 @@ The owner's son wants to fly planes (owner, 2026-10-05).
 
 ---
 
+## v0.10 — Two players: split-screen (built 2026-10-07, `split-screen` branch)
+
+The owner's son wants multiplayer (owner, 2026-10-06): split-screen first (one machine, two
+controllers), cruising around together; NPCs next. 30 fps on the Deck in split-screen is fine
+(owner: Lossless Scaling can smooth it).
+
+### Split-screen (done, `split-screen` branch)
+- [x] `LocalPlayer`: everything one player has (character, vehicle, left vehicles, Possession, the
+      foot / driving / flying rigs, HUD, stunts, input); Game holds a list and its old fields lead to
+      player 1, so single-player and every dev test work as before
+- [x] Per-player input: `PlayerInput` + `InputSetup.make_player_actions` (each player's own copy of
+      the gameplay actions, bound to their gamepad; the keyboard and mouse go to one of them);
+      menus and the garage take any gamepad
+- [x] `SplitScreen`: two SubViewports (top / bottom) sharing the world; cameras and HUDs move into
+      them; the main viewport stops drawing the world; views take no input (LocalPlayer passes mouse
+      look and the camera button on); the field of view keeps the full screen's sideways view
+- [x] `Views`: the cameras the players see through (grass, tree LOD, stars, traffic voices,
+      Doppler, left-vehicle tidying, traffic's "in sight"); grass rings and player markers per view
+      (render layers 19 / 20)
+- [x] Joining: 2 PLAYERS on the title screen, ADD PLAYER 2 / PLAYER 2: LEAVE in the pause menu; the
+      player who pressed the button keeps their controller, player 2 presses A on another (or Enter);
+      MAIN MENU ends split-screen; an unplugged controller pauses
+- [x] Player 2: on foot next to player 1 with their own car (`vehicle_p2` setting, sedan by
+      default), blue T-shirt, "P1" / "P2" chips, markers over the other player, both on the maps;
+      X / R3 / 0 goes to the other player; teleports move only you; the garage works for player 2
+- [x] Compact HUD for half a screen (gauges shrunk, text >= 18 px, help on the CONTROLS page)
+- [x] You can't take the other player's car; two planes side by side on the runway; headlights for
+      both; players' car sounds fade with distance (two listeners); no reflection probes in split
+- [x] Traffic around both players with the same total (spawns near whoever has fewer cars,
+      despawns when far from both), horn reactions and "blocked by a player" for both
+- [x] Off with two players for now: races (start circles and the menu), instant replay, crash cam
+- [x] Tests: `--split` (77 checks), `--splitbench` (one view vs split, Low / Medium / High; numbers in
+      ART_BIBLE.md §27: on a Deck about 60 / 40-60 / 35-45 fps at Low / Medium / High with two players)
+- [ ] The son and the owner on the Deck: controls, joining, frame rate (Deck QAM frame limit 30)
+
+### Ideas for later (not started)
+- [ ] Races for two (head to head), tag / chase games, a shared score
+- [ ] Passenger seats so one can ride with the other
+- [ ] Online / LAN play (builds on LocalPlayer; needs traffic and props synced)
+- [ ] Vertical split option on a big TV; a third and fourth player
+
+---
+
 ## Backlog
 
 ### Realism (owner approved 2026-10-03, released in v0.7.0)
@@ -350,3 +393,4 @@ The owner's son wants to fly planes (owner, 2026-10-05).
 - 2026-10-03 — v0.8.0: on foot (walk, get in and out of any vehicle) + High tuned for the Deck, Ultra for PCs; released.
 - 2026-10-05 — Flying (branch `flight`): a sport plane you can fly, parked planes at the airfield, kid assists.
 - 2026-10-06 — v0.9.0: planes; released.
+- 2026-10-07 — v0.10 (`split-screen` branch): two players on one screen.

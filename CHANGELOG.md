@@ -9,6 +9,26 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Two players
+- Play together on one screen! Pick 2 PLAYERS on the title screen (or ADD
+  PLAYER 2 in the pause menu), then the second player presses A on their own
+  controller (or Enter on the keyboard). Player 1 is on the top half of the
+  screen, player 2 on the bottom.
+- Each player walks, drives and flies with their own controller, camera and
+  car. Player 2 wears a blue T-shirt, and their garage choice is remembered
+  too.
+- A "P1" / "P2" marker floats over the other player, and both maps show where
+  they are. Press X (0 on the keyboard) to jump to the other player.
+- Traffic drives around both players. Two planes line up side by side on the
+  runway.
+- You can't jump into the other player's car (but you can flip it back over).
+- Either player's Start pauses the game. PLAYER 2: LEAVE in the pause menu (or
+  MAIN MENU) goes back to one player. If a controller is unplugged, the game
+  pauses.
+- Races, instant replays and the crash cam are one-player only for now.
+- Steam Deck tip: two players run smoothest on Medium or Low graphics.
+- Any controller now works in the menus and the garage.
+
 ## [0.9.0] - 2026-10-06
 
 ### Planes
