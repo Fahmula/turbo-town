@@ -204,7 +204,7 @@ The owner's son wants to fly planes (owner, 2026-10-05).
 
 ---
 
-## v0.10 — Two players: split-screen (built 2026-10-07, `split-screen` branch)
+## v0.10 — Two players: split-screen (released as v0.10.0, 2026-10-08)
 
 The owner's son wants multiplayer (owner, 2026-10-06): split-screen first (one machine, two
 controllers), cruising around together; NPCs next. 30 fps on the Deck in split-screen is fine
@@ -237,6 +237,7 @@ controllers), cruising around together; NPCs next. 30 fps on the Deck in split-s
 - [x] Off with two players for now: races (start circles and the menu), instant replay, crash cam
 - [x] Tests: `--split` (77 checks), `--splitbench` (one view vs split, Low / Medium / High; numbers in
       ART_BIBLE.md §27: on a Deck about 60 / 40-60 / 35-45 fps at Low / Medium / High with two players)
+- [x] Owner go-ahead without a Deck test (owner away): merged and released as v0.10.0 (2026-10-08)
 - [ ] The son and the owner on the Deck: controls, joining, frame rate (Deck QAM frame limit 30)
 
 ### Ideas for later (not started)
@@ -394,3 +395,4 @@ controllers), cruising around together; NPCs next. 30 fps on the Deck in split-s
 - 2026-10-05 — Flying (branch `flight`): a sport plane you can fly, parked planes at the airfield, kid assists.
 - 2026-10-06 — v0.9.0: planes; released.
 - 2026-10-07 — v0.10 (`split-screen` branch): two players on one screen.
+- 2026-10-08 — v0.10.0: two-player split-screen; released.

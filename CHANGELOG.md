@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-08
+
 ### Two players
 - Play together on one screen! Pick 2 PLAYERS on the title screen (or ADD
   PLAYER 2 in the pause menu), then the second player presses A on their own
