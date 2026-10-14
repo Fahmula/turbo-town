@@ -42,6 +42,9 @@ enum Mode { CHASE, FAR, COCKPIT }
 
 ## Whose stick and buttons move it (split-screen: one player's devices).
 var input := PlayerInput.shared()
+## Riding along in the other player's vehicle: the close-up view is from
+## the passenger seat.
+var passenger := false
 
 var _rot := Quaternion.IDENTITY
 var _fov := 70.0
@@ -62,8 +65,11 @@ func _ready() -> void:
 
 
 func set_target(v: Vehicle) -> void:
-	if target and is_instance_valid(target) and target.impact.is_connected(_on_impact):
-		target.impact.disconnect(_on_impact)
+	if target and is_instance_valid(target):
+		if target.impact.is_connected(_on_impact):
+			target.impact.disconnect(_on_impact)
+		if target != v and target.vehicle_reset.is_connected(snap):
+			target.vehicle_reset.disconnect(snap)
 	target = v
 	if target:
 		target.impact.connect(_on_impact)
@@ -196,7 +202,7 @@ func _chase(origin: Vector3, cb: Basis, speed: float, look_back: bool, dt: float
 
 
 func _cockpit(t: Transform3D, b: Basis, look_back: bool) -> void:
-	global_position = t * target.driver_eye
+	global_position = t * (target.passenger_eye() if passenger else target.driver_eye)
 	var yaw := _orbit_yaw + (PI if look_back else 0.0)
 	var dir := b * (Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, _orbit_pitch * 0.8) * Vector3.FORWARD)
 	look_at(global_position + dir * 10.0, b.y)

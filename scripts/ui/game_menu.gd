@@ -31,7 +31,7 @@ const CONTROLS_FOOT := [
 	["Sprint", "Shift (hold)", "L3 (click)"],
 	["Walk slowly", "Ctrl (hold)", "Push the stick gently"],
 	["Jump", "Space", "A"],
-	["Get in a vehicle", "F", "B"],
+	["Get in a vehicle / ride along", "F", "B"],
 	["Camera distance", "C", "RB"],
 ]
 const CONTROLS_FLYING := [

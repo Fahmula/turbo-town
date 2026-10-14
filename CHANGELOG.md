@@ -9,6 +9,18 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Two players
+- Ride along! Walk up to the other player's car (or plane, truck, bus...) and
+  press B to hop in the passenger seat, parked or with them at the wheel. Look
+  around with the right stick, and RB switches to the view from the passenger
+  seat. You feel the bumps too.
+- Press B again to get out once the car has stopped (no jumping out of a
+  flying plane!). If the driver teleports or changes car in the garage, the
+  passenger comes along.
+- When there's no room right next to you, the garage now parks your new
+  vehicle a little further away instead of sending it to the last teleport
+  spot.
+
 ## [0.10.0] - 2026-10-08
 
 ### Two players

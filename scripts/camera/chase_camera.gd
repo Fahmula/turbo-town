@@ -37,6 +37,9 @@ enum Mode { CHASE, FAR, HOOD }
 
 ## Whose stick and buttons move it (split-screen: one player's devices).
 var input := PlayerInput.shared()
+## Riding along in the other player's vehicle: the close-up view is from
+## the passenger seat.
+var passenger := false
 
 var _yaw := 0.0
 var _fov := 68.0
@@ -62,8 +65,11 @@ func _ready() -> void:
 
 
 func set_target(v: Vehicle) -> void:
-	if target and target.impact.is_connected(_on_impact):
-		target.impact.disconnect(_on_impact)
+	if target and is_instance_valid(target):
+		if target.impact.is_connected(_on_impact):
+			target.impact.disconnect(_on_impact)
+		if target != v and target.vehicle_reset.is_connected(snap):
+			target.vehicle_reset.disconnect(snap)
 	target = v
 	if target:
 		target.impact.connect(_on_impact)
@@ -213,7 +219,7 @@ func _process_chase(car_pos: Vector3, speed: float, look_back: bool, dt: float) 
 
 func _process_hood(t: Transform3D, look_back: bool) -> void:
 	var b := t.basis.orthonormalized()
-	global_position = t * target.driver_eye
+	global_position = t * (target.passenger_eye() if passenger else target.driver_eye)
 	var look_dir := (-b.z if not look_back else b.z)
 	look_at(global_position + look_dir * 10.0 + Vector3.UP * 0.2, b.y)
 

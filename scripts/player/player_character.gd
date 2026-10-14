@@ -11,10 +11,12 @@ extends CharacterBody3D
 ## with the sound of what's underfoot (concrete, grass, wood).
 ##
 ## Getting in and out of vehicles is the Possession's job: VehicleEntry
-## emits `vehicle_requested`, the Possession walks the character to the door
-## (walk_to), hides it (set_hidden) and later puts it back (place).
+## emits `vehicle_requested` (drive it) or `ride_requested` (sit beside the
+## other player), the Possession walks the character to the door (walk_to),
+## hides it (set_hidden) and later puts it back (place).
 
 signal vehicle_requested(vehicle: Vehicle)
+signal ride_requested(vehicle: Vehicle)
 ## A vehicle bumped into us (strength = how fast it hit, m/s).
 signal knocked(strength: float)
 

@@ -1,17 +1,23 @@
 class_name VehicleEntry
 extends Interactable
-## A vehicle's doors: where the player gets in, and where it's safe to get
-## out. Every Vehicle adds one (named "Entry") in _ready, so any vehicle,
-## the player's or a traffic car, can be entered; nothing per vehicle needs
-## editing. The doors come from the vehicle's measured body (half width,
-## length) and its `driver_eye`; a Marker3D child of the vehicle named
-## "DriverDoor" overrides the door position if a model ever needs it.
+## A vehicle's doors and seats: where the player gets in, who rides along,
+## and where it's safe to get out. Every Vehicle adds one (named "Entry") in
+## _ready, so any vehicle, the player's or a traffic car, can be entered;
+## nothing per vehicle needs editing. The doors come from the vehicle's
+## measured body (half width, length) and its `driver_eye`; a Marker3D child
+## of the vehicle named "DriverDoor" overrides the door position if a model
+## ever needs it.
 ##
-## V1 has one seat, the driver's (left-hand drive: the driver's door is on
-## the left, -X). Getting out tries the driver's door first, then the
-## passenger side, behind, in front, a ring of spots further out, and finally
-## the roof; each spot needs walkable ground at about the vehicle's level,
-## room for the character's capsule and no wall between the seat and it.
+## Seats: the driver's (left-hand drive: the driver's door is on the left,
+## -X) and a passenger seat beside it. In split-screen a player can ride
+## along in the other player's vehicle (`riders`; the other player drives).
+## Getting out tries the player's own door first, then the other side,
+## behind, in front, a ring of spots further out, and finally the roof; each
+## spot needs walkable ground at about the vehicle's level, room for the
+## character's capsule and no wall between the seat and it.
+
+## What the interact button does for someone standing by the vehicle.
+enum Use { NONE, FLIP, DRIVE, RIDE }
 
 ## Too fast to get in (m/s).
 const MAX_ENTER_SPEED := 2.5
@@ -23,6 +29,11 @@ const MAX_STEP := 1.2
 const BLOCKERS := 0b111
 
 var vehicle: Vehicle
+## Passenger seats besides the driver's. One: there are at most two players.
+var passenger_seats := 1
+## The players riding along as passengers (their Possessions; untyped so
+## vehicles don't load the player code).
+var riders: Array[Node] = []
 
 
 func _init() -> void:
@@ -32,6 +43,13 @@ func _init() -> void:
 
 func _ready() -> void:
 	vehicle = get_parent() as Vehicle
+
+
+## The Entry of `v`, or null.
+static func of(v: Node) -> VehicleEntry:
+	if v == null or not is_instance_valid(v):
+		return null
+	return v.get_node_or_null("Entry") as VehicleEntry
 
 
 ## Distance from `point` to the vehicle's footprint (its collision boxes as
@@ -57,34 +75,98 @@ func in_water() -> bool:
 	return vehicle.global_position.y < MapLayout.SEA_LEVEL - 0.3
 
 
-func prompt(actor: Node3D) -> String:
+## What the interact button would do for `actor` now.
+func use_for(actor: Node3D) -> Use:
 	if vehicle == null or not vehicle.is_inside_tree() or vehicle.is_queued_for_deletion() or in_water():
-		return ""
+		return Use.NONE
 	if vehicle.linear_velocity.length() > MAX_ENTER_SPEED:
-		return ""
+		return Use.NONE
 	var c := Controllable.of(vehicle)
-	if c and not c.is_free() and not c.yields:
-		return ""  # someone (the player) is already in it
-	if is_overturned():
-		return "Flip the %s back over" % vehicle.display_name.to_lower()
+	var taken := c != null and not c.is_free() and not c.yields
+	if not taken and is_overturned():
+		return Use.FLIP
 	if actor is PlayerCharacter and not (actor as PlayerCharacter).can_act():
-		return ""
-	if _belongs_to_other(actor):
-		return ""  # split-screen: the other player's car
-	return "Get in the %s" % vehicle.display_name.to_lower()
+		return Use.NONE
+	if taken or _belongs_to_other(actor):
+		# Someone (the other player) drives it, or it's theirs: ride along.
+		return Use.RIDE if _can_ride(actor) else Use.NONE
+	return Use.DRIVE
+
+
+func prompt(actor: Node3D) -> String:
+	match use_for(actor):
+		Use.FLIP:
+			return "Flip the %s back over" % vehicle.display_name.to_lower()
+		Use.DRIVE:
+			return "Get in the %s" % vehicle.display_name.to_lower()
+		Use.RIDE:
+			var who := "Player %d" % (owner_index() + 1)
+			if Controllable.of(vehicle).is_free():
+				return "Sit in %s's %s" % [who, vehicle.display_name.to_lower()]
+			return ("Fly with %s" if vehicle is Aircraft else "Ride with %s") % who
+	return ""
 
 
 func interact(actor: Node3D) -> bool:
-	if prompt(actor) == "":
-		return false
-	if is_overturned():
+	var use := use_for(actor)
+	if use == Use.FLIP:
 		vehicle.reset_upright()
 		return true
 	var pc := actor as PlayerCharacter
 	if pc == null:
 		return false
-	pc.vehicle_requested.emit(vehicle)
+	if use == Use.DRIVE:
+		pc.vehicle_requested.emit(vehicle)
+		return true
+	if use == Use.RIDE:
+		pc.ride_requested.emit(vehicle)
+		return true
+	return false
+
+
+# --- Passengers --------------------------------------------------------------
+
+## Can `actor` (a player on foot) ride along in the other player's vehicle?
+func _can_ride(actor: Node3D) -> bool:
+	if not (actor is PlayerCharacter) or is_overturned() or not has_free_seat():
+		return false
+	var mine: int = actor.get_meta(Controllable.OWNER_META, -1)
+	return owner_index() >= 0 and owner_index() != mine
+
+
+## Which player (0, 1) the vehicle belongs to (-1 = nobody's).
+func owner_index() -> int:
+	return vehicle.get_meta(Controllable.OWNER_META, -1) if vehicle else -1
+
+
+func has_free_seat() -> bool:
+	_prune_riders()
+	return riders.size() < passenger_seats
+
+
+func has_riders() -> bool:
+	_prune_riders()
+	return not riders.is_empty()
+
+
+## `who` sits in a passenger seat. False if they're all taken.
+func add_rider(who: Node) -> bool:
+	if riders.has(who):
+		return true
+	if not has_free_seat():
+		return false
+	riders.append(who)
 	return true
+
+
+func remove_rider(who: Node) -> void:
+	riders.erase(who)
+
+
+func _prune_riders() -> void:
+	for i in range(riders.size() - 1, -1, -1):
+		if not is_instance_valid(riders[i]):
+			riders.remove_at(i)
 
 
 # --- Doors and seat --------------------------------------------------------
@@ -114,21 +196,22 @@ func door_spot(point: Vector3) -> Vector3:
 
 ## A safe place for `character` to stand after getting out, as a transform
 ## (feet, facing the way the vehicle points), or null if there's no room
-## anywhere nearby.
-func find_exit(character: PlayerCharacter) -> Variant:
+## anywhere nearby. A `passenger` gets out on the passenger side first.
+func find_exit(character: PlayerCharacter, passenger := false) -> Variant:
 	var space := vehicle.get_world_3d().direct_space_state
 	var frame := _ground_frame(space)
 	var base: Vector3 = frame.origin
 	var basis: Basis = frame.basis
-	var hw := vehicle.body_half_width + DOOR_GAP
+	var side := 1.0 if passenger else -1.0
+	var hw := (vehicle.body_half_width + DOOR_GAP) * side
 	var door := driver_door_local()
 	var dz := door.z
 	var spots: Array[Vector3] = [
-		Vector3(-hw, 0, dz), Vector3(-hw, 0, dz + 1.0), Vector3(-hw, 0, dz - 1.0),
 		Vector3(hw, 0, dz), Vector3(hw, 0, dz + 1.0), Vector3(hw, 0, dz - 1.0),
+		Vector3(-hw, 0, dz), Vector3(-hw, 0, dz + 1.0), Vector3(-hw, 0, dz - 1.0),
 		Vector3(0, 0, vehicle.body_rear + DOOR_GAP + 0.2), Vector3(0, 0, -vehicle.body_front - DOOR_GAP - 0.2),
 	]
-	# Further out: rings around the vehicle, nearest to the driver's door first.
+	# Further out: rings around the vehicle, nearest to the player's door first.
 	var ring: Array[Vector3] = []
 	for r: float in [1.6, 2.8, 4.2]:
 		for k in 16:
@@ -136,10 +219,10 @@ func find_exit(character: PlayerCharacter) -> Variant:
 			var rx := (vehicle.body_half_width + r) * cos(a)
 			var rz := ((vehicle.body_front + vehicle.body_rear) * 0.5 + r) * sin(a) + (vehicle.body_rear - vehicle.body_front) * 0.5
 			ring.append(Vector3(rx, 0, rz))
-	var door_l := Vector3(-hw, 0, dz)
-	ring.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.distance_squared_to(door_l) < b.distance_squared_to(door_l))
+	var my_door := Vector3(hw, 0, dz)
+	ring.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.distance_squared_to(my_door) < b.distance_squared_to(my_door))
 	spots.append_array(ring)
-	var seat := vehicle.global_transform * Vector3(door.x * 0.5, minf(vehicle.driver_eye.y, vehicle.body_top) - 0.25, dz)
+	var seat := vehicle.global_transform * Vector3(absf(door.x) * 0.5 * side, minf(vehicle.driver_eye.y, vehicle.body_top) - 0.25, dz)
 	var facing := Basis.looking_at(-basis.z, Vector3.UP)
 	for s in spots:
 		var feet: Variant = _check_spot(space, character, base + basis * s, base.y, seat)

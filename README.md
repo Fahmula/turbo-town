@@ -109,7 +109,14 @@ sedan until they pick one in the garage; their choice is remembered
 separately) and wears a blue T-shirt. A "P1" / "P2" marker floats over the
 other player and both maps show them. X (0 on the keyboard, or R3) takes you
 to the other player; D-pad right / Tab teleports only you. You can't take the
-other player's car (you can flip it back over), traffic lives around both of
+other player's car (you can flip it back over), but you can **ride along**:
+walk up to it and press B (F) to sit in the passenger seat, parked or with the
+other player at the wheel, in any vehicle, the plane too. The passenger watches
+through their own camera (right stick looks around, RB / C cycles the views;
+the close-up is from the passenger seat), sees the speed on their gauges and
+feels the bumps; B gets them out once it has stopped (not in the air). The
+driver's teleports take the passenger along; the passenger's own teleport, X
+or garage gets them out first. Traffic lives around both of
 you (the same number of cars as for one player), and two planes go side by
 side on the runway. Either player's Start pauses the game for both; an
 unplugged controller pauses it too. PLAYER 2: LEAVE (pause menu) or MAIN MENU
@@ -290,6 +297,12 @@ ASSET_MANIFEST.md              Every third-party asset: source, creator, licence
   19 / 20 so they only show in one view. Players' car sounds fade with distance
   in split-screen (two cameras listen). Traffic spawns around whichever player
   has fewer cars and despawns when it's far from both, with the same total.
+  Riding along: a vehicle's `VehicleEntry` keeps its passenger seats
+  (`riders`), and the Possession has a RIDING mode (`ride_with`, `leave_ride`):
+  no controller gets the vehicle, the player's own camera for that kind of
+  vehicle is aimed at it (`passenger` = the close-up view from the passenger
+  seat, `Vehicle.passenger_eye()`), and `focus_node()` is the vehicle, so
+  traffic, maps and the sea check follow it.
 * **AI traffic**: ~22 cars live around the player. They are ordinary
   `Vehicle`s driven by a `TrafficDriver` instead of the player controller, so
   they crash, dent and flip like your car. Each driver follows a random route
@@ -462,6 +475,8 @@ godot --path . -- --charsheet=/tmp/shots  the character from fixed cameras at da
 godot --path . -- --split=/tmp/shots    two players: joining with a second gamepad, each player's own controls
                                         (simulated pads 0 and 1), views, cars, teleports, X to the other player,
                                         garage, planes, traffic around both, pause, leaving and rejoining (pass/fail)
+godot --path . -- --ride=/tmp/shots     two players, one riding along with the other: getting in and out, cameras,
+                                        no controls, teleports, the sea, garage swaps, the plane, leaving (pass/fail)
 godot --path . --gpu-index 0 --resolution 1280x800 -- --splitbench=/tmp/perf   one view vs split-screen: GPU and
                                         frame time, draw calls at Low / Medium / High (--levels=0,1 --views=city_city)
     add --graphics=0..3 to any dev run to use Low / Medium / High / Ultra

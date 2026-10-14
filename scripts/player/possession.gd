@@ -19,17 +19,27 @@ extends Node
 ## The player's LocalPlayer does the vehicle-side wiring (HUD, traffic, sound,
 ## lights) through adopt_vehicle / leave_vehicle. Each split-screen player
 ## has their own Possession.
+##
+## Riding along (split-screen): a player can sit in the passenger seat of the
+## other player's vehicle (`ride`; VehicleEntry keeps the seats). They walk
+## to the door the same way, then watch through their own camera for that
+## kind of vehicle, aimed at the ride, with no controls of their own; the
+## interact button gets them out once it has (nearly) stopped, on the
+## passenger side. The vehicle stays the driver's: if the driver gets out the
+## passenger stays in until they get out themselves.
 
 ## The player now controls `pawn` (the character or a vehicle).
 signal changed(pawn: Node3D)
 
-enum Mode { ON_FOOT, ENTERING, IN_VEHICLE, EXITING }
+enum Mode { ON_FOOT, ENTERING, IN_VEHICLE, EXITING, BOARDING, RIDING }
 
 const BLEND_IN := 0.85
 const BLEND_OUT := 0.65
 ## Getting out of a moving vehicle brakes it first, for at most this long.
 const EXIT_BRAKE_TIME := 3.0
 const EXIT_SPEED := 1.6
+## A passenger can't brake: they get out once the vehicle is this slow (m/s).
+const RIDER_EXIT_SPEED := 2.5
 ## How often the character looks for something to interact with (s).
 const SCAN_EVERY := 0.1
 ## The interact button is ignored this long after getting in or out, so a
@@ -43,6 +53,9 @@ var character: PlayerCharacter
 var mode := Mode.ON_FOOT
 ## The vehicle the player is in, getting into or out of (null on foot).
 var vehicle: Vehicle
+## The vehicle the player rides in as a passenger, or is getting into as one
+## (null otherwise; `vehicle` is null then).
+var ride: Vehicle
 ## What the interact button would use now (on foot), or null.
 var interactable: Interactable
 var blend: CameraBlend
@@ -64,6 +77,7 @@ func setup(g: Game, c: PlayerCharacter, character_rig: Dictionary, vehicle_rig: 
 	rigs[Controllable.VEHICLE] = vehicle_rig
 	blend = camera_blend
 	character.vehicle_requested.connect(func(v: Vehicle) -> void: enter(v))
+	character.ride_requested.connect(func(v: Vehicle) -> void: ride_with(v))
 
 
 ## The controller and camera for another kind of pawn (Controllable.PLANE).
@@ -79,9 +93,15 @@ func kind_of(p: Node) -> StringName:
 	return c.kind
 
 
-## The pawn the player controls (the character or the vehicle).
+## The pawn the player controls (the character or the vehicle), or the
+## vehicle they ride in as a passenger.
 func pawn() -> Node3D:
-	return character if mode == Mode.ON_FOOT or mode == Mode.ENTERING else vehicle
+	match mode:
+		Mode.ON_FOOT, Mode.ENTERING, Mode.BOARDING:
+			return character
+		Mode.RIDING:
+			return ride
+	return vehicle
 
 
 func on_foot() -> bool:
@@ -93,13 +113,19 @@ func driving() -> bool:
 	return mode == Mode.IN_VEHICLE
 
 
+## Sitting in a passenger seat (not while getting in).
+func riding() -> bool:
+	return mode == Mode.RIDING
+
+
 func camera_of(kind: StringName) -> Camera3D:
 	return rigs[kind]["camera"]
 
 
 ## The camera that should be showing for the current pawn.
 func active_camera() -> Camera3D:
-	return camera_of(Controllable.CHARACTER if pawn() == character else kind_of(vehicle))
+	var p := pawn()
+	return camera_of(Controllable.CHARACTER if p == character else kind_of(p))
 
 
 ## Shows the right camera (after a menu or replay): the blend if one is
@@ -122,6 +148,7 @@ func _show_if_playing() -> void:
 
 ## The player stands at `xform` on foot.
 func start_on_foot(xform: Transform3D) -> void:
+	_end_ride()
 	if vehicle:
 		_release(vehicle)
 	mode = Mode.ON_FOOT
@@ -142,6 +169,7 @@ func start_in_vehicle(v: Vehicle) -> void:
 		_release(vehicle)
 	if not _claim(v):
 		return
+	_end_ride()
 	mode = Mode.IN_VEHICLE
 	vehicle = v
 	character.set_hidden(true)
@@ -169,6 +197,9 @@ func settle() -> void:
 		Mode.ENTERING:
 			_finish_enter(vehicle)
 			blend.cancel()
+		Mode.BOARDING:
+			_finish_boarding(ride)
+			blend.cancel()
 		Mode.EXITING:
 			mode = Mode.IN_VEHICLE
 			vehicle.handbrake_input = false
@@ -184,8 +215,8 @@ func enter(v: Vehicle) -> bool:
 		return false
 	if game and game.state != Game.State.DRIVING:
 		return false
-	var entry := v.get_node_or_null("Entry") as VehicleEntry
-	if entry == null or entry.prompt(character) == "" or entry.is_overturned():
+	var entry := VehicleEntry.of(v)
+	if entry == null or entry.use_for(character) != VehicleEntry.Use.DRIVE:
 		return false
 	if not _claim(v):
 		return false
@@ -239,6 +270,171 @@ func _claim(v: Vehicle) -> bool:
 	return c.take(self)
 
 
+# --- Riding along -------------------------------------------------------------
+
+## Gets into a passenger seat of `v` (from on foot): the other player drives
+## it. False if that isn't possible now.
+func ride_with(v: Vehicle) -> bool:
+	if mode != Mode.ON_FOOT or v == null or not is_instance_valid(v) or not character.can_act():
+		return false
+	if game and game.state != Game.State.DRIVING:
+		return false
+	var entry := VehicleEntry.of(v)
+	if entry == null or entry.use_for(character) != VehicleEntry.Use.RIDE or not entry.add_rider(self):
+		return false
+	mode = Mode.BOARDING
+	ride = v
+	_set_prompt("")
+	(rigs[Controllable.CHARACTER]["controller"]).control(null)
+	var from_cam := _view_camera()
+	var cam := camera_of(kind_of(v))
+	if cam.get("target") != v:
+		cam.set_target(v)
+	cam.set("passenger", true)
+	if cam.has_method("snap_view"):
+		cam.call("snap_view", from_cam)
+	blend.start(from_cam, cam, BLEND_IN)
+	var door := entry.door_spot(character.global_position)
+	var face := v.global_position - door
+	var walk := clampf(door.distance_to(character.global_position) / 2.6, 0.15, 0.55)
+	character.walk_to(door, face, walk, _finish_boarding.bind(v))
+	return true
+
+
+func _finish_boarding(v: Vehicle) -> void:
+	if mode != Mode.BOARDING or ride != v:
+		return
+	if not is_instance_valid(v) or not v.is_inside_tree():
+		# The vehicle went away while we walked to it: stay on foot.
+		_end_ride()
+		mode = Mode.ON_FOOT
+		_give(Controllable.CHARACTER, character)
+		blend.start(_view_camera(), camera_of(Controllable.CHARACTER), BLEND_OUT)
+		return
+	character.set_hidden(true)
+	mode = Mode.RIDING
+	_cooldown = COOLDOWN
+	_give(kind_of(v), v, true)
+	changed.emit(v)
+
+
+## The player sits in a passenger seat of `v` straight away (the driver
+## swapped vehicles in the garage). False if there's no free seat.
+func start_riding(v: Vehicle) -> bool:
+	if vehicle:
+		_release(vehicle)
+		vehicle = null
+	_end_ride()
+	var entry := VehicleEntry.of(v)
+	if entry == null or not entry.add_rider(self):
+		return false
+	mode = Mode.RIDING
+	ride = v
+	character.set_hidden(true)
+	_give(kind_of(v), v, true)
+	blend.cancel()
+	_set_prompt("")
+	_show_if_playing()
+	changed.emit(v)
+	return true
+
+
+## Gets out of the passenger seat (once the vehicle has stopped or nearly).
+## False if the player isn't riding.
+func leave_ride() -> bool:
+	if mode != Mode.RIDING:
+		return false
+	var v := ride
+	var driver := _driver_name(v)
+	var plane := v as Aircraft
+	if plane and (not plane.on_ground or plane.airspeed > 12.0):
+		_toast(("Wait until %s lands!" % driver) if driver != "" else "Wait until it lands!")
+		return true
+	if v.linear_velocity.length() > RIDER_EXIT_SPEED:
+		_toast(("Wait until %s stops!" % driver) if driver != "" else "Too fast to get out!")
+		return true
+	var entry := VehicleEntry.of(v)
+	var spot: Variant = entry.find_exit(character, true) if entry else null
+	if spot == null:
+		_toast("No room to get out here!")
+		return true
+	_step_off(spot, true)
+	return true
+
+
+## Out of the passenger seat at once, wherever there's room (teleports, the
+## garage, player 2 leaving). Does nothing if the player isn't riding.
+func leave_ride_now() -> void:
+	if mode != Mode.RIDING and mode != Mode.BOARDING:
+		return
+	var v := ride
+	var spot: Variant = null
+	if is_instance_valid(v):
+		var entry := VehicleEntry.of(v)
+		spot = entry.find_exit(character, true) if entry else null
+		if spot == null:
+			var ground := v.upright_ground_transform()
+			spot = ground.translated_local(Vector3(v.body_half_width + 0.9, 0.0, 0.0))
+	else:
+		spot = Transform3D(Basis.IDENTITY, character.global_position)
+	_step_off(spot, false)
+
+
+## Stands the passenger up at `spot` (on foot again); `glide`: the camera
+## glides back to the on-foot camera, else it's there at once.
+func _step_off(spot: Transform3D, glide: bool) -> void:
+	var from_cam := _view_camera()
+	_end_ride()
+	mode = Mode.ON_FOOT
+	character.set_hidden(false)
+	character.place(spot)
+	var foot := camera_of(Controllable.CHARACTER)
+	foot.set_target(character)
+	if foot is OnFootCamera:
+		(foot as OnFootCamera).match_view(from_cam)
+	_give(Controllable.CHARACTER, character)
+	if glide:
+		blend.start(from_cam, foot, BLEND_OUT)
+	else:
+		blend.cancel()
+		_show_if_playing()
+	_scan = 0.0
+	_cooldown = COOLDOWN
+	changed.emit(character)
+
+
+## Frees the passenger seat (if any) and gives the cameras back.
+func _end_ride() -> void:
+	if ride == null:
+		return
+	var entry := VehicleEntry.of(ride)
+	if entry:
+		entry.remove_rider(self)
+	for k: StringName in rigs:
+		var cam: Camera3D = rigs[k]["camera"]
+		if "passenger" in cam:
+			cam.set("passenger", false)
+	# The chase camera goes back to the player's own vehicle.
+	var chase := camera_of(Controllable.VEHICLE)
+	if player and is_instance_valid(player.vehicle) and chase.get("target") == ride:
+		chase.set_target(player.vehicle)
+	ride = null
+
+
+## "Player 1" if a player drives `v`, else "".
+func _driver_name(v: Vehicle) -> String:
+	var c := Controllable.of(v)
+	var p := c.controller as Possession if c and not c.is_free() else null
+	if p and p != self and p.player:
+		return "Player %d" % (p.player.index + 1)
+	return ""
+
+
+func _toast(text: String) -> void:
+	if player:
+		player.hud.show_toast(text, 2.0)
+
+
 # --- Getting out -------------------------------------------------------------
 
 ## Gets out of the vehicle (stopping it first if it's moving). False if the
@@ -263,6 +459,13 @@ func _physics_process(dt: float) -> void:
 	match mode:
 		Mode.EXITING:
 			_exiting(dt)
+		Mode.RIDING:
+			if not is_instance_valid(ride) or not ride.is_inside_tree():
+				leave_ride_now()  # (the vehicle went away)
+			else:
+				# The hidden character goes along, so getting out of a vehicle
+				# that vanished leaves them where it was.
+				character.global_position = ride.global_position
 		Mode.ON_FOOT:
 			_scan -= dt
 			if _scan <= 0.0:
@@ -337,16 +540,20 @@ func _release(v: Vehicle) -> void:
 		player.leave_vehicle(v)
 
 
-## Hands input to the rig for `kind` (it gets `pawn`); every other rig lets go.
-func _give(kind: StringName, p: Node3D) -> void:
+## Hands input to the rig for `kind` (it gets `pawn`); every other rig lets
+## go. A `passenger` gets the camera only: every controller lets go.
+func _give(kind: StringName, p: Node3D, passenger := false) -> void:
 	for k: StringName in rigs:
 		var ctrl: Node = rigs[k]["controller"]
-		if k != kind:
+		if k != kind or passenger:
 			ctrl.control(null)
-	(rigs[kind]["controller"]).control(p)
+	if not passenger:
+		(rigs[kind]["controller"]).control(p)
 	var cam: Camera3D = rigs[kind]["camera"]
 	if cam.get("target") != p:
 		cam.set_target(p)  # (re-targeting re-snaps it: not mid-glide)
+	if "passenger" in cam:
+		cam.set("passenger", passenger)
 	if p is PlayerCharacter:
 		Controllable.of(p).take(self)
 	else:
@@ -370,6 +577,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_scan = 0.0
 	elif mode == Mode.IN_VEHICLE:
 		if exit():
+			get_viewport().set_input_as_handled()
+	elif mode == Mode.RIDING:
+		if leave_ride():
 			get_viewport().set_input_as_handled()
 
 

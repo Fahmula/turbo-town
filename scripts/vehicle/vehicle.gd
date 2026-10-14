@@ -507,6 +507,14 @@ func upright_ground_transform() -> Transform3D:
 	return Transform3D(Basis.looking_at(fwd.normalized(), Vector3.UP), pos)
 
 
+## Where a passenger's eyes are (local): beside the driver, on the right.
+## (Most driver eyes sit on the middle line, for the hood view.)
+func passenger_eye() -> Vector3:
+	var e := driver_eye
+	e.x = -e.x if absf(e.x) > 0.05 else body_half_width * 0.42
+	return e
+
+
 ## Places the car at a transform with all motion cleared.
 func teleport(xform: Transform3D) -> void:
 	global_transform = xform
