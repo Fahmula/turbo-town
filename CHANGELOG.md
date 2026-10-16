@@ -9,6 +9,8 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-16
+
 ### Two players
 - Ride along! Walk up to the other player's car (or plane, truck, bus...) and
   press B to hop in the passenger seat, parked or with them at the wheel. Look

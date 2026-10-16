@@ -248,7 +248,7 @@ controllers), cruising around together; NPCs next. 30 fps on the Deck in split-s
 
 ---
 
-## v0.11 — Riding along (branch `ride-along`, not released)
+## v0.11 — Riding along (released as v0.11.0, 2026-10-16)
 
 The owner's son wants player 2 to ride as a passenger in any vehicle, the plane too (owner,
 2026-10-13).
@@ -270,7 +270,8 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 - [x] Garage on foot: when there's no room right beside you, the new vehicle is parked a bit
       further out (`spot_near`) instead of at the last teleport spot
 - [x] Tests: `--ride` (64 checks)
-- [ ] Owner review, then the son on the Deck
+- [x] Owner review: PR #1 merged and released as v0.11.0 (2026-10-16)
+- [ ] The son on the Deck: getting in and out, the passenger's view
 
 ### Ideas for later (not started)
 - [ ] One full-screen view while both sit in the same vehicle (the two halves show nearly the same
@@ -430,3 +431,4 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 - 2026-10-07 — v0.10 (`split-screen` branch): two players on one screen.
 - 2026-10-08 — v0.10.0: two-player split-screen; released.
 - 2026-10-13 — v0.11 (`ride-along` branch): riding along as a passenger in the other player's vehicle.
+- 2026-10-16 — v0.11.0: riding along as a passenger; released.
