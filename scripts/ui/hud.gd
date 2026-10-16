@@ -100,6 +100,9 @@ var compact := false
 var on_foot := false
 ## Flying a plane (set_flying): flight readouts, help and warnings.
 var flying := false
+## Riding along in the other player's vehicle: its gauges, but no "press R"
+## hint (the driver does that).
+var passenger := false
 ## Set by Game: true while the plane is being turned back to the island.
 var turning_back := false
 ## Set by Game: shows its status line while a race is on.
@@ -505,7 +508,7 @@ func _process(dt: float) -> void:
 		_flight_readouts(plane)
 	else:
 		_hint.text = "Upside down? Press R to flip your car!"
-		_hint.visible = vehicle.upside_down_time > 1.5
+		_hint.visible = vehicle.upside_down_time > 1.5 and not passenger
 	if _damage:
 		var d := int(_damage.total_damage)
 		_damage_label.text = "" if d <= 0 else "DAMAGE %d%%" % d

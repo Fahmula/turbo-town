@@ -157,7 +157,7 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - [ ] Character customization (outfit colours) saved like vehicle loadouts
 - [ ] Pedestrians in the city (the character class takes any controller)
 - [ ] Swimming instead of respawning in the sea; climbing; ragdoll falls
-- [ ] Passenger seats; entering from the passenger side and sliding across
+- [~] Passenger seats (done for two players in v0.11); entering from the passenger side and sliding across
 
 ---
 
@@ -242,9 +242,42 @@ controllers), cruising around together; NPCs next. 30 fps on the Deck in split-s
 
 ### Ideas for later (not started)
 - [ ] Races for two (head to head), tag / chase games, a shared score
-- [ ] Passenger seats so one can ride with the other
+- [x] Passenger seats so one can ride with the other (v0.11, below)
 - [ ] Online / LAN play (builds on LocalPlayer; needs traffic and props synced)
 - [ ] Vertical split option on a big TV; a third and fourth player
+
+---
+
+## v0.11 — Riding along (branch `ride-along`, not released)
+
+The owner's son wants player 2 to ride as a passenger in any vehicle, the plane too (owner,
+2026-10-13).
+
+### Passenger seats (done, `ride-along` branch)
+- [x] `VehicleEntry` keeps a passenger seat (`riders`, one per vehicle: there are two players);
+      what the interact button does is one place now (`use_for`: flip / drive / ride)
+- [x] By the other player's vehicle, parked or driven: "Sit in Player 1's sedan" / "Ride with
+      Player 1" / "Fly with Player 1"; you still can't drive it
+- [x] `Possession` RIDING mode: walk to the door, character hidden, no controls, your own camera
+      for that kind of vehicle aimed at it; the close-up view is from the passenger seat
+      (`Vehicle.passenger_eye()`); gauges and maps show the ride; rumble on its bumps
+- [x] Getting out: B once it has (nearly) stopped, on the passenger side ("Wait until Player 1
+      stops / lands!"); the driver getting out leaves the passenger in their seat
+- [x] The driver's teleports, falling in the sea and garage swaps take the passenger along (to the
+      plane too); the passenger's own teleport, X and garage get them out first; P2 leaving
+      mid-ride stands everyone up; a vehicle with a passenger is never tidied away
+- [x] No P1 / P2 markers over a vehicle both sit in; toasts on both screens when getting in and out
+- [x] Garage on foot: when there's no room right beside you, the new vehicle is parked a bit
+      further out (`spot_near`) instead of at the last teleport spot
+- [x] Tests: `--ride` (64 checks)
+- [ ] Owner review, then the son on the Deck
+
+### Ideas for later (not started)
+- [ ] One full-screen view while both sit in the same vehicle (the two halves show nearly the same
+      picture; one view would also cost half the GPU on the Deck)
+- [ ] A visible passenger (and driver) in the seat; waving from the window
+- [ ] Passenger fun: honk the horn, a camera to take photos, a parachute jump from the plane
+- [ ] More seats (the bus) for three or four players or NPC passengers
 
 ---
 
@@ -396,3 +429,4 @@ controllers), cruising around together; NPCs next. 30 fps on the Deck in split-s
 - 2026-10-06 — v0.9.0: planes; released.
 - 2026-10-07 — v0.10 (`split-screen` branch): two players on one screen.
 - 2026-10-08 — v0.10.0: two-player split-screen; released.
+- 2026-10-13 — v0.11 (`ride-along` branch): riding along as a passenger in the other player's vehicle.

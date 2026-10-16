@@ -12,6 +12,11 @@ extends Node
 ## take it). Vehicles they got out of before that stay parked for a while
 ## (left_vehicles). The rig nodes are children of Game (player 1's keep their
 ## old names: "Character", "FootCamera"...; player 2's end in "2").
+##
+## In split-screen a player can also ride along in the other player's
+## vehicle (Possession.ride_with): their camera, gauges and maps follow that
+## vehicle and they feel its bumps; teleports, the garage and "go to the
+## other player" get them out first.
 
 const CHARACTER_SCENE := preload("res://scenes/player/player_character.tscn")
 ## Each player's colour: their arrow on the maps, the marker over them in the
@@ -50,6 +55,8 @@ var view: SubViewport
 
 ## Split-screen: the marker over this player, shown in the other's view.
 var _tag: Label3D
+## The vehicle this player rode in last (to notice getting in and out).
+var _last_ride: Vehicle
 var _lost_timer := 0.0
 var _tidy_timer := 0.0
 
@@ -254,6 +261,9 @@ func _fit_tag() -> void:
 
 
 func _process(_dt: float) -> void:
+	if _tag:
+		# (No marker over a vehicle both players sit in.)
+		_tag.visible = view != null and not _with_anyone()
 	if _tag and _tag.visible:
 		var p := possession.pawn()
 		if p and is_instance_valid(p):
@@ -270,9 +280,30 @@ func view_camera() -> Camera3D:
 	return possession.active_camera()
 
 
-## What traffic lives around: the character on foot, else the vehicle.
+## What traffic lives around: the character on foot, else the vehicle
+## (driven or ridden in).
 func focus_node() -> Node3D:
 	return possession.pawn() if possession else vehicle
+
+
+## Riding along in someone's vehicle as a passenger?
+func riding() -> bool:
+	return possession != null and possession.riding()
+
+
+## Are this player and `other` in the same vehicle (one drives, one rides)?
+func together_with(other: LocalPlayer) -> bool:
+	if other == self or possession == null or other.possession == null:
+		return false
+	var mine := possession.pawn()
+	return mine is Vehicle and mine == other.possession.pawn()
+
+
+func _with_anyone() -> bool:
+	for p in game.players:
+		if together_with(p):
+			return true
+	return false
 
 
 ## Removes this player's nodes (player 2 leaving). They stop at once: their
@@ -310,18 +341,48 @@ func _step_out_beside(v: Vehicle) -> void:
 func _on_pawn_changed(pawn: Node3D) -> void:
 	var foot := pawn == character
 	var plane := pawn as Aircraft
+	var ride := possession.ride if possession.riding() else null
 	if game.traffic and index == 0:
 		game.traffic.focus = pawn
+	# A passenger's gauges and maps show the vehicle they ride in.
+	var shown := ride if ride else vehicle
+	if hud.vehicle != shown:
+		hud.set_vehicle(shown)
+	hud.passenger = ride != null
 	hud.set_flying(plane != null)
 	hud.set_on_foot(foot, character, foot_camera)
+	controller.riding = ride
 	stunts.enabled = stunts_wanted()
 	_fit_headlights()
 	_fit_reflection()
 	if not foot:
 		hud.show_prompt_for("Get out", 4.0)
-	if plane and plane.on_ground and game.state == Game.State.DRIVING:
+	if plane and plane.on_ground and game.state == Game.State.DRIVING and ride == null:
 		_take_off_tip()
+	_note_ride(ride)
 	game.refresh_friends()
+
+
+## Says so when this player gets in or out of the other player's vehicle
+## (on both players' screens).
+func _note_ride(ride: Vehicle) -> void:
+	if ride == _last_ride:
+		return
+	var before := _last_ride
+	_last_ride = ride
+	if game.state != Game.State.DRIVING:
+		return
+	if ride:
+		var driver := game.player_driving(ride)
+		if driver:
+			hud.show_toast(("Flying with Player %d!" if ride is Aircraft else "Riding with Player %d!") % (driver.index + 1), 3.0)
+			driver.hud.show_toast("Player %d is riding with you!" % (index + 1), 3.0)
+		elif VehicleEntry.of(ride).owner_index() >= 0:
+			hud.show_toast("Waiting for Player %d" % (VehicleEntry.of(ride).owner_index() + 1), 3.0)
+	elif before and is_instance_valid(before):
+		var driver := game.player_driving(before)
+		if driver:
+			driver.hud.show_toast("Player %d got out" % (index + 1), 2.5)
 
 
 ## How to take off, for the controller in use.
@@ -368,6 +429,12 @@ func teleport_to(i: int) -> void:
 	var sp: Dictionary = world.spawn_points[spawn_index]
 	if possession:
 		possession.settle()
+		# A passenger goes alone (their own vehicle comes, as on foot).
+		possession.leave_ride_now()
+	# Anyone riding in the vehicle comes along (a parked plane stays put).
+	var riders: Array[LocalPlayer] = []
+	if not (vehicle is Aircraft and possession and possession.on_foot()):
+		riders = game.riders_in(vehicle)
 	if vehicle is Aircraft:
 		_teleport_plane(vehicle as Aircraft, sp)
 	else:
@@ -378,6 +445,8 @@ func teleport_to(i: int) -> void:
 			_step_out_beside(vehicle)
 	if game.state == Game.State.DRIVING:
 		hud.show_toast(sp["name"])
+		for r: LocalPlayer in riders:
+			r.hud.show_toast(sp["name"])
 
 
 ## Teleporting with a plane. Flying, it flies on over the place (the
@@ -414,7 +483,8 @@ func _put_on_runway(plane: Aircraft) -> void:
 	var start := game.runway_start(plane, _runway_lane())
 	for p in game.players:
 		for v: Vehicle in p.left_vehicles.duplicate():
-			if is_instance_valid(v) and v != plane and v.global_position.distance_to(start.origin) < 12.0:
+			if is_instance_valid(v) and v != plane and v.global_position.distance_to(start.origin) < 12.0 \
+					and not _has_riders(v):
 				p.left_vehicles.erase(v)
 				if game.traffic:
 					game.traffic.untrack(v)
@@ -449,6 +519,11 @@ func respawn() -> void:
 func regroup(other: LocalPlayer) -> void:
 	if possession:
 		possession.settle()
+	if together_with(other):
+		hud.show_toast("You're with Player %d!" % (other.index + 1))
+		return
+	if possession:
+		possession.leave_ride_now()
 	var them := other.focus_node()
 	if them == null or not is_instance_valid(them):
 		return
@@ -546,8 +621,11 @@ func physics_tick(dt: float) -> void:
 			hud.show_popup("SPLASH!" if p.y > -60.0 else "WHOOPS!")
 		_lost_timer += dt
 		if _lost_timer > 2.0:
-			_lost_timer = 0.0
-			respawn()
+			if riding() and game.player_driving(possession.ride):
+				pass  # the driver brings the vehicle back, with us in it
+			else:
+				_lost_timer = 0.0
+				respawn()
 	else:
 		_lost_timer = 0.0
 	_tidy_timer -= dt
@@ -581,7 +659,12 @@ func _unhandled_input(event: InputEvent) -> void:
 ## no room). With `place_here` false the caller positions it (e.g. a
 ## teleport right after).
 func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
+	if possession:
+		# Riding along: you get out and drive your new vehicle.
+		possession.leave_ride_now()
 	var old := vehicle
+	# Whoever rides in the old vehicle comes along in the new one.
+	var riders := game.riders_in(old)
 	var car := VehicleCatalog.scene(i).instantiate() as Vehicle
 	car.traction_control = old.traction_control
 	loadout = setup.copy() if setup else Loadout.saved(VehicleCatalog.ENTRIES[i]["id"])
@@ -594,6 +677,8 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 		# flying plane: it goes to the spawn point.)
 		if on_foot:
 			spot = _room_beside_character(car, old)
+			if spot.is_empty():
+				spot = spot_near(character, car)
 		else:
 			spot = game.find_room(car, old.upright_ground_transform(), [old.get_rid()])
 
@@ -617,6 +702,8 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 	adopt_vehicle(car, true)
 	if possession:
 		possession.replace_vehicle(old, car)
+	for r: LocalPlayer in riders:
+		r.possession.start_riding(car)
 	if not place_here:
 		return
 	if plane:
@@ -631,12 +718,15 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 ## Brings the player's vehicle next to the character and puts them in it
 ## (the garage, picking the vehicle you already have while on foot).
 func _drive_up(v: Vehicle) -> void:
+	possession.leave_ride_now()
 	if v is Aircraft:
 		_put_on_runway(v as Aircraft)
 		adopt_vehicle(v)
 		possession.start_in_vehicle(v)
 		return
 	var spot := _room_beside_character(v, v)
+	if spot.is_empty():
+		spot = spot_near(character, v)
 	if not spot.is_empty():
 		v.teleport(spot["xform"])
 	adopt_vehicle(v)
@@ -733,6 +823,9 @@ func adopt_vehicle(car: Vehicle, fresh := false) -> void:
 ## traffic follow the character now.
 func leave_vehicle(car: Vehicle) -> void:
 	game.on_player_left_vehicle(self)
+	for r: LocalPlayer in game.riders_in(car):
+		r.hud.show_toast("Player %d got out" % (index + 1), 2.5)
+		r.hud.show_prompt_for("Get out", 4.0)
 	stunts.bank_now()
 	var audio := car.get_node_or_null("Audio") as VehicleAudio
 	if audio:
@@ -746,6 +839,11 @@ func leave_vehicle(car: Vehicle) -> void:
 		probe.queue_free()
 	if game.traffic:
 		game.traffic.track(car)
+
+
+static func _has_riders(v: Vehicle) -> bool:
+	var entry := VehicleEntry.of(v)
+	return entry != null and entry.has_riders()
 
 
 ## Disconnects the player-only signals from a vehicle the player no longer has.
@@ -797,6 +895,8 @@ func _tidy_left_vehicles() -> void:
 		if not is_instance_valid(v):
 			left_vehicles.erase(v)
 			continue
+		if _has_riders(v):
+			continue  # someone's still sitting in it
 		var too_many := left_vehicles.size() > Game.MAX_LEFT_VEHICLES and v == left_vehicles[0]
 		var far := v.global_position.distance_to(here) > Game.LEFT_VEHICLE_RANGE or v.global_position.y < MapLayout.SEA_LEVEL - 2.0
 		var seen := Views.sees(game, v.global_position, 260.0)

@@ -8,13 +8,16 @@ extends Node
 ## Swapping this moves input and rumble to the new vehicle.
 @export var vehicle: Vehicle:
 	set(v):
-		if vehicle and vehicle.impact.is_connected(_on_impact):
-			vehicle.impact.disconnect(_on_impact)
-			vehicle.landed.disconnect(_on_landed)
+		_feel(vehicle, false)
 		vehicle = v
-		if vehicle:
-			vehicle.impact.connect(_on_impact)
-			vehicle.landed.connect(_on_landed)
+		_feel(vehicle, true)
+## The vehicle the player rides in as a passenger (split-screen): its crashes
+## and landings rumble their gamepad too, but they don't drive it.
+var riding: Vehicle:
+	set(v):
+		_feel(riding, false)
+		riding = v
+		_feel(riding, true)
 ## Keyboard steering is digital; this smooths it into a ramp (per second).
 @export var keyboard_steer_speed := 5.0
 ## Air tricks. Plain steering spins the car gently (to aim a landing); with
@@ -128,9 +131,24 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # --- Rumble ---------------------------------------------------------------
 
+## Rumble for `v`'s crashes and landings (`on`) or not.
+func _feel(v: Vehicle, on: bool) -> void:
+	if v == null or not is_instance_valid(v):
+		return
+	if on and not v.impact.is_connected(_on_impact):
+		v.impact.connect(_on_impact)
+		v.landed.connect(_on_landed)
+	elif not on and v.impact.is_connected(_on_impact):
+		v.impact.disconnect(_on_impact)
+		v.landed.disconnect(_on_landed)
+
+
 func _on_impact(strength: float, _pos: Vector3, _normal: Vector3) -> void:
+	var v := vehicle if vehicle else riding
+	if v == null:
+		return
 	# Bigger vehicles shrug off bumps that would rattle a small car.
-	var s := clampf(strength / (14000.0 * maxf(vehicle.mass / 1300.0, 1.0)), 0.0, 1.0)
+	var s := clampf(strength / (14000.0 * maxf(v.mass / 1300.0, 1.0)), 0.0, 1.0)
 	if s > 0.08:
 		rumble(s * 0.6, s, 0.15 + s * 0.35)
 

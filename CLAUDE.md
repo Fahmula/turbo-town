@@ -15,16 +15,14 @@ Art direction: ART_BIBLE.md.
   ART_BIBLE.md in the same commit.
 - The style reference images are in `reference images/stylized-realism/`
   (local only). They're other games' art, so never commit them.
-- **The art migration (ART_BIBLE.md §31) happens on the `dev` branch.** Commit
-  and push art work there (`origin dev`). Merge `dev` into `main` only when the
-  owner says so. Small fixes for the released game still go on `main`; merge
-  `main` into `dev` afterwards so `dev` keeps them.
 
 ## Git and releases
 
-- The repo is **public** at github.com/Fahmula/turbo-town (never commit secrets). Develop on `main`.
-  Commit working, tested states with clear messages and push them. Don't commit
-  half-broken work to `main` (use a branch if needed).
+- The repo is **public** at github.com/Fahmula/turbo-town (never commit secrets).
+- **Work on a feature branch off `main`** (there is no `dev` branch any more,
+  since 2026-10-13). Commit working, tested states with clear messages. When
+  the owner says it's ready, push the branch and open a PR into `main`; the
+  owner reviews and merges it themselves. Never merge into `main` yourself.
 - The owner's son plays **stable releases** on a Steam Deck. Releases are made
   only when the owner explicitly asks: `tools/release.sh X.Y.Z`. Full workflow
   and versioning rules are in RELEASING.md.

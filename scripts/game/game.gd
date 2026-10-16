@@ -309,6 +309,24 @@ func on_player_vehicle(p: LocalPlayer, car: Vehicle, old: Vehicle) -> void:
 		replay.clear()
 
 
+## The player driving `v` (null if no player does).
+func player_driving(v: Vehicle) -> LocalPlayer:
+	var c := Controllable.of(v)
+	if c == null or c.is_free():
+		return null
+	var pos := c.controller as Possession
+	return pos.player if pos else null
+
+
+## The players riding along in `v` as passengers.
+func riders_in(v: Vehicle) -> Array[LocalPlayer]:
+	var out: Array[LocalPlayer] = []
+	for p in players:
+		if v and p.possession and p.possession.riding() and p.possession.ride == v:
+			out.append(p)
+	return out
+
+
 ## Player `p` got out of their vehicle.
 func on_player_left_vehicle(p: LocalPlayer) -> void:
 	if p != p1:
@@ -791,6 +809,9 @@ func remove_player() -> void:
 	if not is_split():
 		return
 	var p2: LocalPlayer = players[1]
+	# Nobody stays in a passenger seat (player 2's vehicles are going away).
+	for p in players:
+		p.possession.leave_ride_now()
 	_end_split()
 	players.remove_at(1)
 	if traffic:

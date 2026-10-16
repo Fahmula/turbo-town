@@ -285,7 +285,8 @@ func run() -> void:
 	# --- Cars -----------------------------------------------------------------------
 	var p1_entry := p1.vehicle.get_node("Entry") as VehicleEntry
 	var p2_entry := p2.vehicle.get_node("Entry") as VehicleEntry
-	check(p1_entry.prompt(p2.character) == "" and p2_entry.prompt(p1.character) == "", "neither player can take the other's car")
+	check(p1_entry.use_for(p2.character) == VehicleEntry.Use.RIDE and p2_entry.use_for(p1.character) == VehicleEntry.Use.RIDE,
+		"neither player can take the other's car (only ride along: --ride)")
 	check(p2_entry.prompt(p2.character) != "", "player 2 can get in their own car")
 	p2._step_out_beside(p2.vehicle)
 	await wait_s(0.4)
