@@ -38,6 +38,9 @@ extends Node
 ##   --ride=<dir>     two players, one riding along in the other's car or plane: getting
 ##                    in and out, cameras, teleports, garage swaps, leaving mid-ride
 ##                    (checks and shots; scripts/dev/ride_tests.gd)
+##   --weather-test=<dir> every weather, soaking and drying, wet grip, rain under the
+##                    overpass, lightning, Changing, split-screen rain (checks and shots;
+##                    scripts/dev/weather_tests.gd)
 ##   --splitbench=<dir> one view vs split-screen: GPU and frame time, draw calls, Low /
 ##                    Medium / High (use --gpu-index 0 --resolution 1280x800)
 ##   --scenery=<dir>  fixed views of the city and the north bridge at day /
@@ -163,6 +166,9 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--ride="):
 			_mode = "ride"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--weather-test="):
+			_mode = "weather"
 			_dir = arg.split("=")[1]
 		elif arg.begins_with("--splitbench="):
 			_mode = "splitbench"
@@ -298,6 +304,8 @@ func _run() -> void:
 		await preload("res://scripts/dev/split_tests.gd").new(self, game, _dir).bench()
 	elif _mode == "ride":
 		await preload("res://scripts/dev/ride_tests.gd").new(self, game, _dir).run()
+	elif _mode == "weather":
+		await preload("res://scripts/dev/weather_tests.gd").new(self, game, _dir).run()
 	else:
 		await _drive(game)
 	VehicleAudio.quit_quietly(get_tree())

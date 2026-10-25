@@ -4,7 +4,8 @@ extends Node3D
 ## particles falling through a box that follows the camera, pushed ahead of
 ## it while it moves so you drive into rain that's already falling. Drawn as
 ## thin streaks (rain.gdshader). Stops under a roof (a bridge, the tunnel):
-## a ray straight up a few times a second. ART_BIBLE.md §23.
+## a ray down from high above the camera a few times a second (road decks
+## and the terrain only collide from above). ART_BIBLE.md §23.
 
 ## Drops in the box per graphics level (Low, Medium, High, Ultra).
 const DROPS := [2500, 4000, 6000, 9000]
@@ -15,8 +16,9 @@ const HALF_HEIGHT := 8.0
 const FALL_SPEED := 10.0
 ## How far ahead of a moving camera the box goes (seconds of travel).
 const LEAD := 0.7
-## A roof this far above the camera (from 2.5 m up, so the car's own roof
-## doesn't count) keeps the rain off.
+## Anything of the world (layer 1) between 2.5 m and this far above the
+## camera keeps the rain off. Cars are on another layer, so the hood
+## camera's own roof doesn't count.
 const ROOF_RAY := 60.0
 
 var _particles: GPUParticles3D
@@ -99,5 +101,5 @@ func _place(p: Vector3) -> void:
 
 func _roof_over(cam: Camera3D, p: Vector3) -> bool:
 	var space := cam.get_world_3d().direct_space_state
-	var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 2.5, p + Vector3.UP * ROOF_RAY, 1)
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * ROOF_RAY, p + Vector3.UP * 2.5, 1)
 	return not space.intersect_ray(q).is_empty()

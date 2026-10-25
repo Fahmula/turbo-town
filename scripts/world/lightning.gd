@@ -1,7 +1,7 @@
 class_name Lightning
 extends Node3D
 ## Lightning in a thunderstorm (Weather turns it on): every so often a bolt
-## 0.4-1 km from player 1's camera, somewhere in front of it, drawn for a
+## 0.6-1.4 km from player 1's camera, somewhere in front of it, drawn for a
 ## moment as a jagged glowing ribbon, with the clouds round its top lit up
 ## (a big soft glow) and the ambient light lifted a little. Never a
 ## full-screen flash (ART_BIBLE.md §23, photosensitivity): one bolt with at
@@ -12,8 +12,9 @@ signal struck(distance: float)
 
 ## Seconds between bolts (min, max).
 const GAP := [7.0, 18.0]
-## How high the bolt starts (m, the cloud base).
-const CLOUD_BASE := 420.0
+## How high the bolt starts (m, the cloud base): low enough that, that far
+## away, it shows above the city's rooftops.
+const CLOUD_BASE := 320.0
 ## On/off times (s from the strike) and the light's fade-out time.
 const PULSES := [[0.0, 0.07], [0.13, 0.26]]
 const FADE := 0.3
@@ -67,7 +68,8 @@ func _process(dt: float) -> void:
 		for p: Array in PULSES:
 			if _t >= p[0] and _t < p[1]:
 				on = 1.0
-		var light := on
+		# The clouds stay faintly lit between the flickers.
+		var light := maxf(on, 0.35)
 		var last: Array = PULSES[PULSES.size() - 1]
 		if _t >= last[1]:
 			light = 1.0 - clampf((_t - last[1]) / FADE, 0.0, 1.0)
@@ -88,13 +90,15 @@ func _process(dt: float) -> void:
 		_strike()
 
 
-func _strike() -> void:
+## A bolt `turn` radians off where player 1 looks (random within the view
+## if not given).
+func _strike(turn := NAN) -> void:
 	var cam := Views.camera(self, 0)
 	if cam == null:
 		return
 	var fwd := -cam.global_basis.z
-	var yaw := atan2(fwd.x, fwd.z) + _rng.randf_range(-1.0, 1.0)
-	var dist := _rng.randf_range(400.0, 1000.0)
+	var yaw := atan2(fwd.x, fwd.z) + (_rng.randf_range(-0.6, 0.6) if is_nan(turn) else turn)
+	var dist := _rng.randf_range(600.0, 1400.0)
 	var base := cam.global_position + Vector3(sin(yaw), 0.0, cos(yaw)) * dist
 	base.y = 0.0
 	# The ribbon faces the camera (it's only up for a fraction of a second).
