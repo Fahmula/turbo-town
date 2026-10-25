@@ -280,6 +280,39 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 - [ ] Passenger fun: honk the horn, a camera to take photos, a parachute jump from the plane
 - [ ] More seats (the bus) for three or four players or NPC passengers
 
+## v0.12 — Weather (branch `feature/weather`, not released)
+
+The owner's son wants weather in the game (owner, 2026-10-24): clear, cloudy, rain and
+thunderstorms, picked in Settings or Changing by itself, and wet roads a little slippier.
+
+### Weather (done, `feature/weather` branch)
+- [x] `Weather` + a Weather setting (Clear / Cloudy / Rain / Thunderstorm / Changing): blends over
+      4 s from the menu; Changing drifts between kinds every 1.5–4 min, blending over 45 s
+- [x] Sky: three CC0 cloud photos (cloudy, overcast, storm) over the time of day's sky, tinted to
+      the hour; the sun dims and cools, its shadows fade out under a full overcast; grey ambient,
+      thicker haze, no stars
+- [x] Rain round each camera (`RainFx`, one per split-screen view), off under the overpass and in
+      the tunnel; lit streaks that glint in headlights
+- [x] Wet world (global `wet`, soaks in ~25 s, dries in ~2 min): every world shader darkens and
+      turns glossy (`wet_surface`), puddles in dips, wheel ruts, gutters and on flat dirt, raindrop
+      rings on High, ripples on the sea
+- [x] Wet grip: up to 12% less (braking from 90 km/h: 28.3 m dry, 32.1 m soaked); tyre spray; no
+      dust off wet dirt
+- [x] Thunderstorms: lightning bolts with lit clouds (no full-screen flashes), thunder at the speed
+      of sound, street lamps / headlights / windows on
+- [x] Sounds: rain (steady, downpour, muffled from the hood camera, quieter under a roof) and
+      thunder from CC0 / public-domain recordings
+- [x] Steam Deck: rain and storms measured cheaper than clear weather on the iGPU (no sun shadows
+      under overcast); the rain itself is 0.04–0.2 ms
+- [x] Tests: `--weather-test` (33 checks); `--weather=<kind>` for any dev run
+- [ ] Owner review and the son on the Deck: how it looks and sounds there, is the wet grip right?
+
+### Ideas for later (not started)
+- [ ] Snow (white-dusted ground, roofs and trees: touches every world shader)
+- [ ] Fog as its own weather; wind that sways trees harder in a storm
+- [ ] Raindrops on the windscreen in the hood view, wipers
+- [ ] Puddle splashes when driving through standing water; traffic drives slower in the rain
+
 ---
 
 ## Backlog
@@ -432,3 +465,4 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 - 2026-10-08 — v0.10.0: two-player split-screen; released.
 - 2026-10-13 — v0.11 (`ride-along` branch): riding along as a passenger in the other player's vehicle.
 - 2026-10-16 — v0.11.0: riding along as a passenger; released.
+- 2026-10-24 — v0.12 (`feature/weather` branch): weather (clear, cloudy, rain, thunderstorm, changing).

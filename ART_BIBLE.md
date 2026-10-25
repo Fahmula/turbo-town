@@ -142,8 +142,9 @@ modern car game, with the surface noise, grime and expense stripped out.
 **Setting:** a temperate-to-subtropical coastal island. A downtown core of
 stone-and-glass towers. Low-rise stucco streets toward the beach and harbour.
 Conifer-covered hills and a mountain. Dirt fields, airfield, harbour,
-lighthouse islet. Default weather is clear with fair-weather cumulus. Time of
-day can be day, sunset, night or a cycle.
+lighthouse islet. Default weather is clear with fair-weather cumulus; the
+player can also pick cloudy, rain, a thunderstorm or changing weather (§11).
+Time of day can be day, sunset, night or a cycle.
 
 ---
 
@@ -785,8 +786,42 @@ exposure, same tonemapper.
   **No faceted mesh clouds.**
 - **Sun:** the photo's own (clamped) sun with glow; `sky.gdshader` can draw a
   disc (`disc`, off). No lens flares or ghosts. Stars at night (as today).
-- **No weather by default.** If rain is ever added, no SSR puddles: darken
-  roughness and add a few streaks.
+- **Weather** (added 2026-10-24 on the owner's go-ahead; the owner's son
+  asked for it): the Weather setting is Clear (the default), Cloudy, Rain,
+  Thunderstorm or Changing (drifts from one to the next every 1.5-4 minutes,
+  blending over 45 s). `Weather` (`scripts/world/weather.gd`) owns it and
+  hands `DayNight` how cloudy (0 clear, 0.5 cloudy, 1 overcast) and how
+  stormy it is; DayNight stays the one owner of the lighting:
+  - **Sky:** three more CC0 Poly Haven photos laid over the time of day's
+    sky in turn (`DayNight.COVER_KEYS`: cloudy `kloppenheim_03`, overcast
+    `kloofendal_overcast`, storm `overcast_soil`), each turned so its bright
+    patch sits toward the sun, at 0.9 / 0.75 / 0.45 of the clear sky's
+    brightness, tinted with the hue of the hour (warm at sunset, blue at
+    night). No mesh clouds.
+  - **Light:** the sun dims to 55% under the cloudy sky, 17% under overcast,
+    8% in a storm, and turns a neutral cool white; its shadows fade out and
+    stop being drawn under a full overcast (they're all but invisible, and
+    it saves the Deck the shadow passes). The ambient turns grey at the same
+    brightness and by day rises up to +50% (overcast nights, with no moon,
+    get 30% darker; storms 30% darker again). Haze: fog density 0.0005 clear,
+    +0.0001 cloudy, +0.0011 overcast, +0.0014 storm; no sun scatter under
+    overcast. Stars hide behind the clouds.
+  - **Thunderstorms are dark enough for the lights:** `night` rises to 0.65
+    and `is_night` turns on, so street lamps, headlights, lamp glow and lit
+    windows come on, as at dusk.
+  - **Wet surfaces:** no SSR puddles (SSR stays Ultra only). The global
+    `wet` (0-1, lags the rain: ~25 s to soak, ~2 min to dry) drives
+    `wet_surface()` in `world_common.gdshaderinc` for every world shader:
+    porous surfaces darken (asphalt and soil to about half; `porous` 1 for
+    asphalt and soil, 0.7 concrete and paving, 0.6 walls, 0.3 paint,
+    0.25 props, 0.35 grass), everything turns glossy (roughness × 0.25 +
+    0.04), walls and other steep faces get 30% of it. Water pools in the
+    asphalt's dips, wheel ruts and gutters (`road_pool()`, about a tenth of
+    the road) and on flat dirt: near-mirror (roughness 0.03), bumps drowned,
+    with raindrop rings on High (`rain_ripples()`, ALU only, faded out by
+    20 m). Grass and leaves only darken 12-15% and turn a little glossy;
+    bark soaks dark. The sea gets ripples and a little roughness.
+  - **Rain:** streaks round each camera (§23).
 
 ---
 
@@ -1512,6 +1547,9 @@ sizes 14–64, with outlines.
 | Engine smoke | grey puffs from the bonnet | white-grey, darkening toward `#4A4A4E` as damage rises; lit; rises and drifts |
 | Debris | detached parts as rigid bodies | real parts in their own materials |
 | Water splash | none | white foam burst and droplets when a car hits the water (future) |
+| Rain | streaks round each player's camera (`RainFx`, `rain.gdshader`, since 2026-10-24) | GPU particles in a 28 × 16 × 28 m box that follows the camera (pushed up to 21 m ahead while moving), falling at 10 m/s (slanted by the wind in a storm); 2,500 / 4,000 / 6,000 / 9,000 drops on Low / Medium / High / Ultra. A thin quad per drop, 0.9 m × 12 mm, widening to stay ~1 px across far away (fading by as much), faded out within 2.5 m (the hood camera) and beyond 11-17 m. Lit: ambient plus a glint toward lights behind the drop. Off under a roof (a ray down from 60 m above the camera). |
+| Tyre spray | grey mist behind the rear wheels on a wet road | above 8 m/s, within 70 m of a camera, ≤ 24 per wheel, lit per vertex, `#DCE0E6` at alpha 0.22; replaces dirt dust when wet |
+| Lightning | a jagged ribbon bolt (`Lightning`, `lightning.gdshader`) | 0.6-1.4 km away within ±35° of the view, from a 320 m cloud base, every 7-18 s in a storm. On for 0.07 s, off, on 0.13 s, then the cloud glow (a soft additive billboard) fades over 0.3 s and the ambient lifts by up to 60% with it. Never more than that flicker, never a full-screen flash. |
 | Landing puff | none | a short dust burst on hard landings (future) |
 
 **Rules**
@@ -1854,6 +1892,26 @@ window):
 
 **Rules**
 
+- **Weather** (2026-10-24, branch `feature/weather`, `--perfsweep` on the
+  iGPU at 1280×800, traffic off, `--weather=clear|rain|storm`). Rain and
+  storms are *cheaper* than clear weather, because the sun's shadows go
+  under a full overcast; the rain itself (6,000 drops on High) costs
+  0.04–0.2 ms, and wet shading nothing measurable (rain with the shadows
+  forced back on = clear, 23.8 vs 23.9 ms downtown on High). So the worst
+  case, a Changing blend with shadows still on, costs what a clear day does.
+
+  | iGPU GPU ms, Medium (clear → rain → storm) | |
+  |---|---|
+  | Downtown street | 17.5 → 13.1 → 14.1 |
+  | Avenue | 16.5 → 12.2 → 13.9 |
+  | Park | 21.5 → 14.6 → 16.8 |
+  | Aerial over the city | 18.5 → 14.9 → 15.7 |
+  | Driving the avenue (average / p95) | 16.3 / 18.8 → 12.2 / 13.6 → 13.1 / 14.5 |
+
+  Per quality: Low 2,500 drops, no ripples; Medium 4,000; High 6,000 with
+  ripples; Ultra 9,000 (plus SSR on the wet roads). Spray and lightning are
+  a few dozen particles and two meshes.
+
 - **Every new visual feature declares its Low/Medium/High behaviour** in
   `GraphicsQuality.apply` (or uses a `NightLight`-style Low fallback), and Low
   must be meaningfully cheaper.
@@ -2047,6 +2105,10 @@ readable, kid-friendly (crashes are big and fun, never scary).
 
 - **Sources:** real recordings where they beat what we can make, synthesis
   where it's as good (electronic beeps, wind, hisses, starters, knocks).
+  Weather sounds (rain loops, thunder) come from recordings too and play on
+  the Environment bus (`Weather`): rain about 8-11 dB under the engine, so
+  it never turns into the hiss the owner dislikes; thunder's rumble gets
+  added harmonics so it carries on the Deck's speakers.
   Licences per `ASSET_MANIFEST.md` (CC0/public domain first, CC BY with the
   attribution in the manifest and the CREDITS page; never BY-SA, NC, GPL or
   ripped material). Every file comes out of `tools/audio/build_audio.py`

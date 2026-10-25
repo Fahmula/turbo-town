@@ -9,6 +9,15 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Weather
+- Weather! Pick it in Settings: Clear, Cloudy, Rain, Thunderstorm, or
+  Changing, where the sky clouds over, rains and clears up again by itself.
+- Rain soaks the roads: they turn dark and shiny, puddles form, and the
+  street lights reflect in them at night. Wet roads are a little slippery,
+  and cars throw up spray. Once the rain stops, the ground dries off slowly.
+- Thunderstorms bring lightning and rumbling thunder, and they get so dark
+  that the street lamps and headlights come on.
+
 ## [0.11.0] - 2026-10-16
 
 ### Two players

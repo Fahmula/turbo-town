@@ -156,7 +156,9 @@ puts you back at the last gate; END RACE in the pause menu stops it.
 
 **Settings** (title screen or pause menu): traffic amount (few / normal / busy),
 graphics quality (low / medium / high / ultra), time of day (day / sunset / night /
-day & night cycle), speed units, driving assists, gamepad vibration, minimap,
+day & night cycle), weather (clear / cloudy / rain / thunderstorm / changing: rain
+soaks the roads, which get a little slippery, and dries off slowly; storms bring
+lightning and turn the lights on), speed units, driving assists, gamepad vibration, minimap,
 crash cam, speaker boost, fullscreen and volume. Saved to `user://settings.cfg`
 (`~/.local/share/godot/app_userdata/Turbo Town/` on Linux and the Steam Deck).
 What is and isn't saved: see **Saving** below.
@@ -216,7 +218,9 @@ scripts/
              (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs),
              art_palette.gd (world colours), day_night.gd (sun, real skies through
              the day, lights after dark), sky_catalog.gd (generated: each sky photo's
-             sun and colours), grass_field.gd (3D grass tufts round the camera),
+             sun and colours), weather.gd (clouds, rain, wet ground, wet grip),
+             rain_fx.gd (rain round each camera), lightning.gd (bolts in a storm),
+             grass_field.gd (3D grass tufts round the camera),
              tree_scatter.gd / tree_lod.gd / tree_colliders.gd (where trees grow,
              their LOD quadtree, trunk colliders), night_light.gd, lighthouse_beam.gd
   props/     prop.gd, kit_prop.gd (props whose mesh comes from StreetKit), ramp.gd
@@ -480,6 +484,9 @@ godot --path . -- --ride=/tmp/shots     two players, one riding along with the o
 godot --path . --gpu-index 0 --resolution 1280x800 -- --splitbench=/tmp/perf   one view vs split-screen: GPU and
                                         frame time, draw calls at Low / Medium / High (--levels=0,1 --views=city_city)
     add --graphics=0..3 to any dev run to use Low / Medium / High / Ultra
+    add --weather=clear|cloudy|rain|storm|changing to any dev run to start in that weather
+godot --path . -- --weather-test=/tmp/shots  every weather, soaking/drying, wet grip and spray, rain under the
+                                        overpass, lightning, storm lights, Changing, split-screen rain (pass/fail)
 godot --path . --gpu-index 0 -- --perfsweep=/tmp/perf   GPU cost of each graphics effect, Medium/Low, trees and grass,
                                         standing and driving (--gpu-index 0 = a weak integrated GPU, close to the Deck)
 godot --path . -- --wheels=/tmp/shots   every rim, rim colour, tyre and tyre stripe in the garage + on the road (shots)
