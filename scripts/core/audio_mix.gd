@@ -15,7 +15,7 @@ extends RefCounted
 ##                          compressor
 ##     Impacts [Player]     crashes, metal, glass, debris, scraping: thump
 ##                          shelf, de-harsh shelf, low-pass, compressor, limiter
-##     Environment [Player] wind, splashes
+##     Environment [Player] wind, splashes, rain and thunder (Weather)
 ##     Signals [Player]     horn, reverse beeper
 ##   Traffic [Master]       every traffic sound but engines: de-harsh shelf,
 ##                          compressor

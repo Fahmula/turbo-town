@@ -151,6 +151,23 @@ OTHER = {
                 "file": "oga_27_metal.zip",
                 "sha256": "479e85403898c2ff2d1e2d6a130b8cfb4ae00fbd8cbcaf440917450f996f5232"},
 }
+# Weather (played by weather.gd). Rain: Kresiek's
+# "AMB Rain Loop 2" (CC0, a 12-minute stereo recording); thunder: stephan's
+# "Storm, Thunderbolts" (public domain, PDSounds). Commons rate-limits quick
+# downloads; the User-Agent below is enough at this pace.
+WEATHER = {
+    "rain": {"url": "https://opengameart.org/sites/default/files/amb_rain2.flac",
+             "file": "oga_amb_rain2.flac",
+             "sha256": "c33d833842c88e9559882b35f6f149c3a96bbf236eb34491e36ea4cae8879985"},
+    "thunder": {"url": "https://upload.wikimedia.org/wikipedia/commons/b/bd/Storm_thunderbolts.ogg",
+                "file": "commons_Storm_thunderbolts.ogg",
+                "sha256": "5c3b89ab57f640bca4483982b456e317c139aac8be47a5e11402afab55fabf94"},
+}
+# Thunder cut from the recording: (start, end) in seconds. Near = a crack and
+# its rumble; far = rolling rumbles with no crack.
+THUNDER_NEAR = [(67.7, 80.0), (88.2, 101.5)]
+THUNDER_FAR = [(34.3, 44.0), (52.4, 62.0), (106.9, 119.0), (157.5, 165.0)]
+
 # The Accord's starter: four compression strokes before it catches.
 CRANK = (0.1, 0.47)
 
@@ -409,6 +426,39 @@ def build_other(write, fetch):
         for i, take in enumerate(takes):
             x = _zip_audio(zf, base % take)
             write("%s_%d.wav" % (set_name, start + i), dsp.fade(dsp.normalize_peak(x, -1.0), 0.0005, 0.05))
+
+
+def build_weather(write, fetch):
+    """Rain loops (outside, a heavier downpour, and heard from inside a car)
+    and thunder one-shots."""
+    print("weather (CC0 / public domain):")
+    # Rain: a steady stretch (the swells elsewhere sound like passing cars),
+    # its top end softened so it's a patter rather than a hiss.
+    src = fetch(WEATHER["rain"])
+    a = _clean(dsp.decode(src, 400.0, 40.0))
+    b = _clean(dsp.decode(src, 610.0, 40.0))
+    n, xf = int(18.0 * R), int(1.5 * R)
+    rain = dsp.lowpass(dsp.make_loop(a, n, xf, int(2.0 * R)), 7000, 2)
+    write("weather/rain.wav", dsp.normalize_rms(rain, -20.0), loop=True, rate=32000)
+    # The downpour: two stretches on top of each other (denser, no doubled
+    # pattern) with more low-mid weight.
+    heavy = rain + dsp.lowpass(dsp.make_loop(b, n, xf, int(5.0 * R)), 7000, 2)
+    heavy = heavy + 0.6 * dsp.peaks(heavy, [(350.0, 0.7, 1.0)])
+    write("weather/rain_heavy.wav", dsp.normalize_rms(heavy, -18.0), loop=True, rate=32000)
+    # From inside a car: the roof and glass take the top off, the body booms.
+    inside = dsp.lowpass(heavy, 1100, 2) + 0.5 * dsp.peaks(heavy, [(180.0, 0.8, 1.0)])
+    write("weather/rain_inside.wav", dsp.normalize_rms(inside, -20.0), loop=True, rate=32000)
+    # Thunder: each event from just before its onset, faded out at the end.
+    # The rumble is mostly below 150 Hz, which small speakers (the Steam
+    # Deck's) can't play: saturate it gently and add back the harmonics.
+    x = _clean(dsp.decode(fetch(WEATHER["thunder"])))
+    for kind, cuts in (("near", THUNDER_NEAR), ("far", THUNDER_FAR)):
+        for k, (s, e) in enumerate(cuts):
+            seg = dsp.normalize_peak(x[int(s * R):int(e * R)], -1.0)
+            low = dsp.lowpass(seg, 180, 2)
+            seg = seg + 0.35 * dsp.bandpass(dsp.soft_clip(low, 4.0), 200, 1200, 2)
+            write("weather/thunder_%s_%d.wav" % (kind, k + 1),
+                  dsp.fade(dsp.normalize_peak(seg, -1.0), 0.02, 2.0), rate=32000)
 
 
 def _zip_audio(zf, name):

@@ -2807,6 +2807,13 @@ func _perfsweep(game: Game) -> void:
 				(mmi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF],
 		["shadow2048", func() -> void: RenderingServer.directional_shadow_atlas_set_size(2048, true)],
 		["-shadows", func() -> void: sun.shadow_enabled = false],
+		["-rain", func() -> void:
+			game.weather.process_mode = Node.PROCESS_MODE_DISABLED
+			for fx in game.weather.find_children("*", "RainFx", false, false):
+				(fx as Node3D).visible = false],
+		["+shadows", func() -> void:
+			sun.shadow_enabled = true
+			sun.shadow_opacity = 1.0],
 		["-probe", func() -> void:
 			var probe := game.vehicle.get_node_or_null("Reflection") as Node3D
 			if probe:
@@ -2832,6 +2839,9 @@ func _perfsweep(game: Game) -> void:
 	var reset := func() -> void:
 		Settings.set_value("graphics", GraphicsQuality.HIGH)
 		GraphicsQuality.apply(GraphicsQuality.HIGH, vp, world)
+		# As the game does after a graphics change (the weather may hide the sun's shadows).
+		game.day_night.refresh()
+		game.weather.process_mode = Node.PROCESS_MODE_PAUSABLE
 		hide.call(grass, false)
 		hide.call([trees], false)
 		var probe := game.vehicle.get_node_or_null("Reflection") as Node3D

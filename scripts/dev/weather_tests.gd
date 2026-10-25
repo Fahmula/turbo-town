@@ -52,10 +52,13 @@ func run() -> void:
 
 	# --- Wet grip: braking from 90 km/h, dry and soaked ----------------------------
 	w.set_mode(Weather.Kind.CLEAR, true)
-	var dry := await _braking_distance()
+	var sprays := [false]
+	var dry := await _braking_distance(sprays)
+	check(not sprays[0], "no spray on a dry road")
 	w.set_mode(Weather.Kind.RAIN, true)
-	var soaked := await _braking_distance()
+	var soaked := await _braking_distance(sprays)
 	check(soaked > dry * 1.03 and soaked < dry * 1.3, "braking from 90 km/h: %.1f m dry, %.1f m soaked (a little longer)" % [dry, soaked])
+	check(sprays[0], "spray off the rear tyres on a wet road")
 
 	# --- Under the overpass: no rain ---------------------------------------------------
 	var cam := g.camera
@@ -87,6 +90,8 @@ func run() -> void:
 	check(w.storm == 1.0 and w.rain == 1.0, "storm: full storm and downpour")
 	var lightning: Lightning = w.get_node("Lightning")
 	check(lightning.active, "lightning on in a storm")
+	check(dn.is_night and g.get_tree().get_nodes_in_group("night_lights").any(func(l: Node) -> bool: return l is Light3D and (l as Light3D).visible),
+		"dark enough in a storm for the street lamps")
 	var base_ambient := env.ambient_light_energy
 	var strikes := [0.0]
 	var on_strike := func(d: float) -> void: strikes[0] = d
@@ -146,7 +151,9 @@ func run() -> void:
 	w.set_mode(Weather.Kind.CLEAR, true)
 	Settings.set_value("weather", Weather.Kind.CLEAR)
 	await wait_s(0.5)
-	check(w.get_child_count() <= kids_before + 2, "no stray weather nodes (%d -> %d)" % [kids_before, w.get_child_count()])
+	await wait_s(12.0)  # thunder still rolling
+	check(w.find_children("*", "RainFx", false, false).size() == 1 and w.get_child_count() == kids_before + 1,
+		"no stray weather nodes (%d -> %d: player 1's rain)" % [kids_before, w.get_child_count()])
 	print("WEATHER %d checks, %d failed" % [checks, fails])
 
 
@@ -167,8 +174,9 @@ func _rain_shown() -> int:
 	return n
 
 
-## Braking distance (m) from 90 km/h to a stop, straight down the runway.
-func _braking_distance() -> float:
+## Braking distance (m) from 90 km/h to a stop, straight down the runway;
+## sets `sprays[0]` if the car threw up spray on the way.
+func _braking_distance(sprays: Array) -> float:
 	var g := game
 	var v := g.vehicle
 	# The controller zeroes the pedals even when disabled: stop it instead.
@@ -188,9 +196,17 @@ func _braking_distance() -> float:
 	v.brake_input = 1.0
 	var start := v.global_position
 	var t := 0.0
+	sprays[0] = false
+	var fx := v.get_node("Effects") as VehicleEffects
 	while v.linear_velocity.length() > 0.3 and t < 10.0:
 		await tools.get_tree().physics_frame
 		t += tools.get_physics_process_delta_time()
+		for sp in fx._spray:
+			if sp and sp.emitting:
+				sprays[0] = true
+		if is_equal_approx(snappedf(t, 0.25), 0.5) and Weather.ground_wet > 0.5 and not sprays.has("shot"):
+			sprays.append("shot")
+			await shot("rain_spray")
 	var d := start.distance_to(v.global_position)
 	v.brake_input = 0.0
 	g.controller.set_physics_process(true)

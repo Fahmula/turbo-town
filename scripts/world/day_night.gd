@@ -61,6 +61,7 @@ const FOG_COVER := [0.0001, 0.0011, 0.0014]
 
 var hour := 13.0
 var cycling := false
+## Dark enough for the lights: night, or a thunderstorm.
 var is_night := false
 ## Weather: how cloudy (0 clear, 0.5 the cloudy sky, 1 overcast) and how
 ## stormy (0-1).
@@ -220,12 +221,14 @@ func _apply() -> void:
 		var fog := Color(minf(horizon.r, 1.0), minf(horizon.g, 1.0), minf(horizon.b, 1.0)).linear_to_srgb()
 		_env.fog_light_color = fog
 	var night_amount := smoothstep(3.0, -6.0, elev)
-	RenderingServer.global_shader_parameter_set("night", night_amount)
+	# A thunderstorm is dark enough for the lights: windows, lamps, headlights.
+	var storm_dark := smoothstep(0.3, 0.9, cw.z)
+	RenderingServer.global_shader_parameter_set("night", maxf(night_amount, 0.65 * storm_dark))
 	if _stars:
 		var star_amount := night_amount * (1.0 - 0.6 * cw.x) * (1.0 - cw.y)
 		_stars.visible = star_amount > 0.05
 		_star_mat.albedo_color = Color(1, 1, 1, star_amount)
-	var night := elev < 1.5
+	var night := elev < 1.5 or cw.z > 0.5
 	if night != is_night:
 		is_night = night
 		get_tree().call_group("night_lights", "set_night", night)

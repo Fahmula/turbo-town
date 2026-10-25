@@ -21,6 +21,11 @@ const LEAD := 0.7
 ## camera's own roof doesn't count.
 const ROOF_RAY := 60.0
 
+## 1 out in the open, 0 under a roof (eases between them).
+var open_amount: float:
+	get:
+		return _cover
+
 var _particles: GPUParticles3D
 var _process_mat: ParticleProcessMaterial
 var _cover := 1.0
