@@ -174,6 +174,9 @@ void fragment() {
 		} else {
 			col *= 0.94 + 0.12 * hash12(floor(vec2(world_pos.x + world_pos.z, world_pos.y) * 1.3));
 		}
+		// Rain (Weather): roofs soak, walls darken a little.
+		vec2 no_bump = vec2(0.0);
+		wet_surface(wet_amount(n), 0.0, 0.6, col, rough, no_bump);
 		ALBEDO = col;
 		ROUGHNESS = rough;
 		METALLIC = 0.0;
@@ -544,6 +547,9 @@ void fragment() {
 		// Far away: an even glow, varying slowly by floor and bay group.
 		float group = hash12(vec2(floor(bay / 4.0), level) + seed * 31.0);
 		emit += vec3(1.0, 0.74, 0.44) * far * night * (curtain ? 0.22 : 0.14) * (0.3 + 0.7 * group) * (gf ? 0.0 : 1.0);
+		// Rain (Weather): the walls darken a little and turn glossier.
+		vec2 no_bump = vec2(0.0);
+		wet_surface(wet_amount(n), 0.0, 0.6, col, rough, no_bump);
 
 		ALBEDO = col;
 		ROUGHNESS = rough;

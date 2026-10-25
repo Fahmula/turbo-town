@@ -47,7 +47,8 @@ extends Node
 ##                    of meshes at a time and prints what it cost, --stress
 ##                    renders at 2x resolution so fill costs dominate,
 ##                    --traffic-on keeps traffic running for the shots)
-## Add --graphics=<0-3> (low, medium, high, ultra) to run any of them at that quality.
+## Add --graphics=<0-3> (low, medium, high, ultra) to run any of them at that quality,
+## and --weather=<clear|cloudy|rain|storm|changing> to run them in that weather.
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -180,6 +181,18 @@ func _ready() -> void:
 	_run.call_deferred()
 
 
+## --weather=<name>: that weather, straight away (no blend).
+func _set_weather(weather_name: String) -> void:
+	var i := ["clear", "cloudy", "rain", "storm", "changing"].find(weather_name)
+	if i < 0:
+		push_error("dev tools: unknown weather '%s'" % weather_name)
+		return
+	Settings.set_value("weather", i)
+	var game := get_tree().current_scene as Game
+	if game and game.weather:
+		game.weather.set_mode(i, true)
+
+
 func _wait(frames: int) -> void:
 	for i in frames:
 		await get_tree().process_frame
@@ -204,6 +217,8 @@ func _run() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--graphics="):
 			Settings.set_value("graphics", clampi(int(arg.split("=")[1]), 0, 3))
+		if arg.begins_with("--weather="):
+			_set_weather(arg.split("=")[1])
 	if _vehicle_id != "":
 		var vi := VehicleCatalog.index_of_id(_vehicle_id)
 		if vi < 0:
@@ -1346,8 +1361,14 @@ func _menus(game: Game) -> void:
 	await _tap("ui_right")
 	await _tap("ui_right")
 	_check(Settings.get_value("graphics") == 2 and game.get_viewport().scaling_3d_scale == 1.0, "graphics high again")
-	# Units row (below graphics and time of day).
+	# Weather row (below graphics and time of day): Cloudy, then Clear again.
 	await _tap("ui_down")
+	await _tap("ui_down")
+	await _tap("ui_right")
+	_check(Settings.get_value("weather") == 1 and game.weather.kind == Weather.Kind.CLOUDY, "weather cloudy")
+	await _tap("ui_left")
+	_check(Settings.get_value("weather") == 0 and game.weather.kind == Weather.Kind.CLEAR, "weather clear")
+	# Units row.
 	await _tap("ui_down")
 	await _tap("ui_right")
 	_check(game.hud.speedometer.use_mph, "units switched to mph")

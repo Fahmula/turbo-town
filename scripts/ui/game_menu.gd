@@ -420,12 +420,12 @@ func _build_settings() -> Control:
 	right.append(_cycle_row(grid, "Flying controls", "flight_invert", ["Pull back to climb", "Push up to climb"]))
 	left.append(_cycle_row(grid, "Time of day", "time_of_day", Settings.TIME_LABELS))
 	right.append(_cycle_row(grid, "Vibration", "vibration", ["Off", "On"]))
-	left.append(_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"]))
+	left.append(_cycle_row(grid, "Weather", "weather", Settings.WEATHER_LABELS))
 	right.append(_cycle_row(grid, "Crash cam", "crash_cam", ["Off", "On"]))
-	left.append(_cycle_row(grid, "Minimap", "minimap", ["Off", "On"]))
+	left.append(_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"]))
 	# Auto: on for the Steam Deck's own speakers (engines carry on them).
 	right.append(_cycle_row(grid, "Speaker boost", "speakers", Settings.SPEAKER_LABELS))
-	left.append(_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"]))
+	left.append(_cycle_row(grid, "Minimap", "minimap", ["Off", "On"]))
 	var first := left[0]
 	grid.add_child(UiKit.label("Volume", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
 	var vol_row := HBoxContainer.new()
@@ -446,6 +446,7 @@ func _build_settings() -> Control:
 	grid.add_child(vol_row)
 	_setting_widgets["master_volume"] = slider
 	right.append(slider)
+	left.append(_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"]))
 
 	var back := _button(col, "BACK", _back)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

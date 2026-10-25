@@ -62,11 +62,16 @@ void fragment() {
 	col = mix(col, paint_w, zebra);
 	rough = mix(rough, 0.58, zebra);
 	nxy *= 1.0 - zebra * 0.5;
+	// Rain (Weather): wet asphalt, puddles in the dips.
+	float pool = wet_surface(wet, road_pool(s, mid * 0.4), mix(1.0, 0.3, zebra), col, rough, nxy);
 
 	ALBEDO = col;
-	ROUGHNESS = clamp(rough, 0.25, 1.0);
+	ROUGHNESS = clamp(rough, mix(0.25, 0.03, wet), 1.0);
 	AO = s.ao;
 	if (!low) {
 		NORMAL = bump_normal(NORMAL, VERTEX, wp / asph_tile, nxy);
+	}
+	if (quality >= 2 && pool * rain > 0.0) {
+		NORMAL = rippled(NORMAL, VIEW_MATRIX, wp, TIME, length(VERTEX), pool * rain);
 	}
 }

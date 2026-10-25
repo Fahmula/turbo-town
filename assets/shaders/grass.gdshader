@@ -160,9 +160,10 @@ void fragment() {
 	vec3 col = mix(green, dry, v_dry);
 	// Darker at the root, lighter at the tips.
 	float ao = mix(0.3, 1.0, smoothstep(0.0, 0.6, v_h));
-	ALBEDO = col * ao * v_var;
-	ROUGHNESS = 0.82;
-	SPECULAR = 0.25;
+	// Rain (Weather): wet blades are a little darker and catch the light.
+	ALBEDO = col * ao * v_var * (1.0 - 0.15 * wet);
+	ROUGHNESS = mix(0.82, 0.5, wet);
+	SPECULAR = mix(0.25, 0.4, wet);
 	BACKLIGHT = col * 0.3;
 	NORMAL = normalize((VIEW_MATRIX * vec4(v_ground_n, 0.0)).xyz);
 }

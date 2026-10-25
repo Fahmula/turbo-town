@@ -23,6 +23,7 @@ const DEFAULTS := {
 	"minimap": true,
 	"crash_cam": true,  # slow-motion replay of big crashes
 	"time_of_day": 0,  # 0 day, 1 sunset, 2 night, 3 cycle
+	"weather": 0,  # 0 clear, 1 cloudy, 2 rain, 3 thunderstorm, 4 changing (Weather)
 	"assists": true,
 	"flight_invert": false,  # planes: false = pull back to climb, true = push up to climb
 	"vehicle": "sports_car",
@@ -36,6 +37,7 @@ const TRAFFIC_LABELS := ["Few", "Normal", "Busy"]
 const TRAFFIC_CARS := [10, 22, 30]
 const GRAPHICS_LABELS := ["Low", "Medium", "High", "Ultra"]
 const TIME_LABELS := ["Day", "Sunset", "Night", "Day & night"]
+const WEATHER_LABELS := ["Clear", "Cloudy", "Rain", "Thunderstorm", "Changing"]
 const SPEAKER_LABELS := ["Auto", "On", "Off"]
 
 ## False for dev/test runs: nothing is read from or written to disk.

@@ -59,6 +59,10 @@ void fragment() {
 	}
 	// Flatter in the shallows (the swell dies as it reaches the beach).
 	float calm = mix(0.35, 1.0, smoothstep(0.0, 1.5, d_m));
+	// Rain (Weather) pocks the surface with little rings close by.
+	if (quality >= 2 && rain > 0.0) {
+		sl += rain_ripples(p, TIME, dist) * rain * 1.5;
+	}
 	vec3 n = normalize(vec3(sl * 0.8 * calm, 1.0));
 	NORMAL_MAP = n * 0.5 + 0.5;
 
@@ -104,6 +108,6 @@ void fragment() {
 	}
 	ALBEDO = mix(col, foam_color.rgb, foam);
 	ALPHA = mix(alpha, 1.0, foam);
-	ROUGHNESS = mix(mix(0.035, 0.22, smoothstep(40.0, 600.0, dist)), 0.7, foam);
+	ROUGHNESS = mix(mix(0.035, 0.22, smoothstep(40.0, 600.0, dist)) + 0.08 * rain, 0.7, foam);
 	SPECULAR = mix(0.5, 0.25, foam);
 }

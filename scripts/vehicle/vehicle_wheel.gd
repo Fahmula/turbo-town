@@ -72,6 +72,8 @@ var _caliper: Node3D
 
 ## Caliper materials by colour, shared by every wheel using that colour.
 static var _caliper_mats := {}
+## Grip left on wet ground (Weather): 1 dry.
+static var weather_grip := 1.0
 
 
 func setup(vehicle: RigidBody3D, collision_mask: int) -> void:
@@ -226,7 +228,7 @@ func update_physics(dt: float, mass_share: float, traction_control: bool, tire_f
 
 	# Tire load is capped so hard landings don't turn into super-grip.
 	tire_load = minf(susp_force, mass_share * 9.81 * 3.0)
-	var max_f := grip * surface_grip * tire_load
+	var max_f := grip * surface_grip * weather_grip * tire_load
 	var locked := has_handbrake and handbrake_engaged
 	var stop_force := -v_long * mass_share / dt
 

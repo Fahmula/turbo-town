@@ -67,10 +67,14 @@ void fragment() {
 		col *= 1.0 - joint * 0.6;
 		ao *= 1.0 - joint * 0.5;
 	}
+	// Rain (Weather): darker and a little glossy, walls less than tops.
+	float rough = s.rough;
+	vec2 nxy = s.nxy;
+	wet_surface(wet_amount(n), 0.0, 0.7, col, rough, nxy);
 	ALBEDO = col;
-	ROUGHNESS = clamp(s.rough, 0.65, 1.0);
+	ROUGHNESS = clamp(rough, mix(0.65, 0.3, wet), 1.0);
 	AO = ao;
 	if (!low) {
-		NORMAL = bump_normal(NORMAL, VERTEX, uvw / cast_tile, s.nxy);
+		NORMAL = bump_normal(NORMAL, VERTEX, uvw / cast_tile, nxy);
 	}
 }

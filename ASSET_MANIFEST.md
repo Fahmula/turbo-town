@@ -51,6 +51,9 @@ copied here.
 | Kloppenheim 06 (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/kloppenheim_06_puresky | CC0 1.0 | sunset sky (sky.gdshader) |
 | Qwantani Dusk 2 (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/qwantani_dusk_2_puresky | CC0 1.0 | dusk sky (sky.gdshader) |
 | Qwantani Moonrise (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/qwantani_moonrise_puresky | CC0 1.0 | night sky (sky.gdshader) |
+| Kloppenheim 03 (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/kloppenheim_03_puresky | CC0 1.0 | cloudy weather sky (sky.gdshader) |
+| Kloofendal Overcast (Pure Sky) | Greg Zaal | https://polyhaven.com/a/kloofendal_overcast_puresky | CC0 1.0 | rain (overcast) sky (sky.gdshader) |
+| Overcast Soil (Pure Sky) | Jarod Guest, Sergej Majboroda | https://polyhaven.com/a/overcast_soil_puresky | CC0 1.0 | thunderstorm sky (sky.gdshader) |
 
 ### Roads, paving and concrete (`tools/textures/fetch_road.py`)
 

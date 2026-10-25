@@ -32,7 +32,8 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fetch_common import CACHE, ROOT, credit, download, out, polyhaven_files, polyhaven_info, write_sources  # noqa: E402
 
-# key -> Poly Haven id. Hours and blending are in DayNight.SKY_KEYS.
+# key -> Poly Haven id. Hours and blending are in DayNight.SKY_KEYS; the
+# weather covers in DayNight.COVER_KEYS.
 SKIES = {
     "dawn": "qwantani_sunrise_puresky",
     "morning": "kloofendal_38d_partly_cloudy_puresky",
@@ -40,6 +41,10 @@ SKIES = {
     "sunset": "kloppenheim_06_puresky",
     "dusk": "qwantani_dusk_2_puresky",
     "night": "qwantani_moonrise_puresky",
+    # Weather covers (Weather, DayNight): laid over the time of day's sky.
+    "cloudy": "kloppenheim_03_puresky",
+    "overcast": "kloofendal_overcast_puresky",
+    "storm": "overcast_soil_puresky",
 }
 RES = "4k"
 # Skies whose sun/moon halo is too big for the game: the moonrise photo is a

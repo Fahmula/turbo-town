@@ -68,11 +68,14 @@ void fragment() {
 		vec4 mc = texture(road_macro, wp / 30.0 + vec2(0.31, 0.57));
 		float streak = smoothstep(0.45, 0.8, texture(road_macro, vec2(UV.x * 0.1, UV.y * 0.012) + vec2(0.11, 0.47)).a) * (1.0 - smoothstep(0.2, 1.6, UV.y));
 		vec3 col = c.col * mix(0.82, 1.1, mc.g) * (1.0 - streak * 0.22);
+		float rough = c.rough;
+		vec2 nxy = c.nxy;
+		wet_surface(wet * 0.3, 0.0, 0.7, col, rough, nxy);
 		ALBEDO = col;
-		ROUGHNESS = clamp(c.rough, 0.6, 1.0);
+		ROUGHNESS = clamp(rough, mix(0.6, 0.3, wet), 1.0);
 		AO = c.ao;
 		if (!low) {
-			NORMAL = bump_normal(NORMAL, VERTEX, UV / cast_tile, c.nxy);
+			NORMAL = bump_normal(NORMAL, VERTEX, UV / cast_tile, nxy);
 		}
 	} else {
 		float x = UV.x;
@@ -266,15 +269,24 @@ void fragment() {
 			}
 		}
 
+		// Rain (Weather): wet asphalt; water stands in the wheel ruts, the
+		// dips and along the kerb. Paint soaks up less.
+		float gutter_w = street ? smoothstep(half_width - 0.7, half_width - 0.25, ax) : 0.0;
+		float pool = wet_surface(wet, road_pool(s, max(wheel * 0.8, gutter_w)), mix(1.0, 0.3, paint), col, rough, nxy);
+		paint_h *= 1.0 - pool;
+
 		// Binder-coated stone tops turn glossy at grazing angles.
 		float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 		rough *= 1.0 - 0.3 * pow(1.0 - ndv, 4.0);
 		ALBEDO = col;
-		ROUGHNESS = clamp(rough, 0.25, 1.0);
+		ROUGHNESS = clamp(rough, mix(0.25, 0.03, wet), 1.0);
 		AO = ao;
 		if (!low) {
 			NORMAL = bump_normal(NORMAL, VERTEX, wp / asph_tile, nxy);
 			NORMAL = height_bump(NORMAL, VERTEX, paint_h, 1.0);
+		}
+		if (quality >= 2 && pool * rain > 0.0) {
+			NORMAL = rippled(NORMAL, VIEW_MATRIX, wp, TIME, dist, pool * rain);
 		}
 	}
 }

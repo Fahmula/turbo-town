@@ -118,6 +118,7 @@ var title_camera: MenuCamera
 var world_map: WorldMap
 var race: RaceManager
 var day_night: DayNight
+var weather: Weather
 var replay: Replay
 ## Start on the title screen. Off for dev/test runs (they pass command-line
 ## args) so they start driving straight away.
@@ -209,6 +210,12 @@ func _ready() -> void:
 	day_night.setup(world)
 	day_night.night_changed.connect(func(_on: bool) -> void: _fit_headlights())
 	day_night.set_mode(Settings.get_value("time_of_day"))
+	weather = Weather.new()
+	weather.name = "Weather"
+	weather.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(weather)
+	weather.setup(day_night)
+	weather.set_mode(Settings.get_value("weather"), true)
 	possession.start_in_vehicle(vehicle)
 	teleport_to(0)
 	if start_on_foot:
@@ -629,10 +636,13 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 			if split:
 				split.apply_graphics(value)
 			day_night.refresh()
+			weather.refresh()
 			get_tree().call_group("night_lights", "set_night", day_night.is_night)
 			_fit_reflection()
 		"time_of_day":
 			day_night.set_mode(value)
+		"weather":
+			weather.set_mode(value)
 
 
 ## A player's gamepad was unplugged (or ran out of battery) mid-game: pause,

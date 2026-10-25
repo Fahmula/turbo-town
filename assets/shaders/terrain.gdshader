@@ -229,10 +229,25 @@ void fragment() {
 		ao = mix(ao, 1.0, steep);
 	}
 	// ----------------------------------------------------------- wetness ---
-	float wet = 1.0 - smoothstep(SEA_LEVEL_Y - 0.1, SEA_LEVEL_Y + 0.55, world_pos.y + (nz.b - 0.5) * 0.18);
-	col *= mix(1.0, 0.55, wet);
-	rough = mix(rough, 0.28, wet);
-	spec = mix(spec, 0.55, wet);
+	float shore = 1.0 - smoothstep(SEA_LEVEL_Y - 0.1, SEA_LEVEL_Y + 0.55, world_pos.y + (nz.b - 0.5) * 0.18);
+	col *= mix(1.0, 0.55, shore);
+	rough = mix(rough, 0.28, shore);
+	spec = mix(spec, 0.55, shore);
+	// Rain (Weather): soil, sand and rock soak up the most; grass only turns
+	// a little darker and glossier. Muddy pools collect on flat dirt.
+	if (wet > 0.0) {
+		float bare = max(max(w_dirt, w_sand), steep);
+		float w = wet_amount(N) * mix(0.6, 1.0, bare);
+		float pool = w_dirt * (1.0 - w_sand) * smoothstep(0.95, 0.99, N.y) * smoothstep(0.6, 0.75, 1.0 - nz.g + (nz.b - 0.5) * 0.3);
+		vec2 flat_n = vec2(0.0);
+		float p = wet_surface(w, pool * (1.0 - shore), mix(0.35, 1.0, bare), col, rough, flat_n);
+		n_out = normalize(mix(n_out, N, p));
+		if (high && rain > 0.0 && p > 0.0) {
+			vec2 rip = rain_ripples(wp, TIME, dist) * p * rain;
+			n_out = normalize(n_out + vec3(rip.x, 0.0, rip.y));
+		}
+		spec = mix(spec, 0.5, w);
+	}
 
 	ALBEDO = col;
 	ROUGHNESS = rough;
