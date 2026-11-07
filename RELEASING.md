@@ -86,6 +86,16 @@ each PR says what changed **for the player**:
   "Runs smoother" (`perf`), with the `(scope)` in bold. Keep each line on one
   line; anything on the next line without a blank line is dropped. Without the
   block, the PR title is the only line.
+
+  **Write the two marker words only as the block itself**, never in a sentence,
+  a code span or a checklist elsewhere in the description. release-please
+  takes everything after the *first* `BEGIN_COMMIT_OVERRIDE` it finds, up to
+  the next `END_COMMIT_OVERRIDE` (or the end of the description). A mention
+  in the text replaces the real notes with that text, which doesn't parse, so
+  the PR silently drops out of the release notes. (PR #3 did this: its
+  description mentioned the word, and the run logged "commit could not be
+  parsed".) A line inside the block without a `feat:`/`fix:`/... prefix is
+  dropped the same way.
 - **Fixing notes**: edit the merged PR's description, then run the workflow by
   hand on `main` (Actions > Release > Run workflow). The release PR is
   rewritten. You can also edit CHANGELOG.md in the release PR's branch, but the
