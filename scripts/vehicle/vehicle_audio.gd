@@ -141,7 +141,9 @@ func _stop_all() -> void:
 ## run again; get_tree().quit() alone tears the tree down first, which leaves
 ## the playbacks (and their streams) behind ("ObjectDB instances were leaked
 ## at exit"). Waits real time, so it also works under --fixed-fps.
-static func quit_quietly(tree: SceneTree) -> void:
+## `exit_code` is the process's (Updates.EXIT_RESTART asks the launcher to
+## install an update and start the game again).
+static func quit_quietly(tree: SceneTree, exit_code := 0) -> void:
 	if tree.has_meta(&"quitting"):
 		return
 	tree.set_meta(&"quitting", true)
@@ -156,7 +158,7 @@ static func quit_quietly(tree: SceneTree) -> void:
 	while Time.get_ticks_msec() < until:
 		await tree.process_frame
 	await tree.process_frame
-	tree.quit()
+	tree.quit(exit_code)
 
 
 ## Switches between the player's FULL sound and traffic's LITE sound.

@@ -41,6 +41,14 @@ static func label(text: String, font_size: int, col := Color.WHITE, align := HOR
 	return l
 
 
+## A label for text inside a panel: like `label`, without the outline
+## (ART_BIBLE §20: outlines are for text over the 3D world).
+static func panel_label(text: String, font_size: int, col := Color.WHITE, align := HORIZONTAL_ALIGNMENT_CENTER) -> Label:
+	var l := label(text, font_size, col, align)
+	l.add_theme_constant_override("outline_size", 0)
+	return l
+
+
 ## Theme for menus: focusable buttons with a clear yellow focus ring (for
 ## gamepad/keyboard navigation), sliders, and default label sizes.
 static func menu_theme() -> Theme:
@@ -82,6 +90,10 @@ static func menu_theme() -> Theme:
 	t.set_stylebox("grabber_area", "HSlider", fill)
 	t.set_stylebox("grabber_area_highlight", "HSlider", fill)
 	t.set_stylebox("focus", "HSlider", focus)
+	# Progress bars (the update download): the same track and fill.
+	t.set_stylebox("background", "ProgressBar", track)
+	t.set_stylebox("fill", "ProgressBar", fill)
+	t.set_font_size("font_size", "ProgressBar", 18)
 	t.set_font_size("font_size", "Label", 20)
 	_theme = t
 	return t

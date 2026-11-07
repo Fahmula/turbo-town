@@ -1469,9 +1469,12 @@ meshes beyond (with fades), and tints each tree ±6% by instance colour.
 
 **Today:** all UI is built in code. `UiKit` (`scripts/ui/ui_kit.gd`) holds the
 shared look: yellow accent, navy panels at 88%, rounded panels (radius 18),
-buttons (radius 12), a 3 px yellow focus ring. `hud.gd` duplicates the panel
-and label helpers with 72% panels. The speedometer and minimap are drawn with
-`_draw()`.
+buttons (radius 12), a 3 px yellow focus ring, and progress bars in the
+slider's track and fill. `UiKit.label` is outlined text for over the 3D world;
+`UiKit.panel_label` is the same without the outline, for text inside panels
+(the update box and WHAT'S NEW use it; older pages still use `label`).
+`hud.gd` duplicates the panel and label helpers with 72% panels. The
+speedometer and minimap are drawn with `_draw()`.
 
 **Direction:** keep the structure and colours; they already match Ref 3's
 layout. Refine toward a clean automotive instrument rather than a cartoon.

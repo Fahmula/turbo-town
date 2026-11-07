@@ -114,6 +114,8 @@ var stunts: StuntTracker:
 
 var picker: VehiclePicker
 var menu: GameMenu
+## The "new version ready" toast was shown (once per session).
+var _update_told := false
 var title_camera: MenuCamera
 var world_map: WorldMap
 var race: RaceManager
@@ -178,6 +180,7 @@ func _ready() -> void:
 		traffic.pedestrians = [p1.character]
 
 	Records.record_broken.connect(func(what: String) -> void: hud.show_toast("NEW RECORD: %s!" % what, 3.0))
+	Updates.changed.connect(_tell_update)
 	var t0 := Time.get_ticks_msec()
 	world_map = WorldMap.new(world)
 	world_map.name = "WorldMap"
@@ -568,9 +571,21 @@ func _enter_driving() -> void:
 			p.snap_camera()
 			p.foot_camera.snap()
 			p.hud.show_help_for(14.0)
+	_tell_update()
+
+
+## Once per session, while driving: a downloaded update is ready (the title
+## screen has the RESTART TO UPDATE button).
+func _tell_update() -> void:
+	if _update_told or state != State.DRIVING or Updates.state != Updates.State.READY:
+		return
+	_update_told = true
+	p1.hud.show_toast("New version ready! Find it in the MAIN MENU.", 5.0)
 
 
 func _enter_pause(note := "") -> void:
+	if note == "" and Updates.state == Updates.State.READY:
+		note = "Update ready: see MAIN MENU"
 	state = State.PAUSED
 	menu.racing = race.is_active()
 	menu.two_players = is_split()
@@ -594,6 +609,8 @@ func _on_menu_action(action_name: String) -> void:
 			_enter_title()
 		"quit":
 			VehicleAudio.quit_quietly(get_tree())
+		"update":
+			Updates.restart_to_update()
 		"end_race":
 			race.end_race()
 			_enter_driving()
