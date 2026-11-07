@@ -1,0 +1,106 @@
+# Turbo Town releases. See RELEASING.md.
+#
+# - Every push to main: release-please opens or updates the release PR
+#   ("chore(main): release X.Y.Z") from the merged PRs' feat:/fix: lines.
+# - The owner merges that PR: release-please tags vX.Y.Z and creates a DRAFT
+#   GitHub Release. The publish job then builds the game, smoke-tests it,
+#   uploads it and publishes the release. The Steam Deck only ever installs
+#   published releases, so a failed build never reaches it.
+# - Pull requests into main: a test build + smoke test. Nothing is published.
+# - Run by hand on main (Actions > Release > Run workflow): refreshes the
+#   release PR and makes a test build, or with a tag, builds and publishes a
+#   draft release whose build failed.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Draft release to build and publish (like v0.12.0). Leave empty for a test build.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    # Also on a manual run, which refreshes the release PR (for example after
+    # fixing the release notes in a merged PR's description).
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # tags and draft releases
+      pull-requests: write   # the release PR
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    # After release-please made a draft release, or by hand with a tag.
+    if: >-
+      !cancelled() && (
+        needs.release-please.outputs.release_created == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write        # upload to and publish the draft release
+    concurrency:
+      group: publish
+      cancel-in-progress: false
+    env:
+      TAG: ${{ needs.release-please.outputs.tag || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0     # tags and history for the release notes
+      - uses: ./.github/actions/setup-godot
+      - name: Build, smoke-test and publish ${{ env.TAG }}
+        run: tools/release.sh "${TAG#v}" "$TAG" --publish --yes
+      - name: Keep the build logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-logs
+          path: build/release/*/*.log
+          if-no-files-found: ignore
+          retention-days: 30
+
+  test-build:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.tag == '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: test-build-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-godot
+      - name: Build and smoke-test (dry run, nothing is published)
+        run: tools/release.sh "$(cat version.txt)" HEAD --dry-run
+      - name: Keep the build logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-build-logs
+          path: build/release/*/*.log
+          if-no-files-found: ignore
+          retention-days: 14

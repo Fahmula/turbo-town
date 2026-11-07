@@ -2070,10 +2070,10 @@ window):
 7. Run the existing tests for the area: damage → `--damage`; vehicles →
    `--garage`, `--showcase`, plus the physics autotests if collision or wheels
    changed; menus → `--menus`.
-8. Add a line under `## [Unreleased]` in CHANGELOG.md for anything a player
-   would notice. Update this bible if you set a new rule or value.
-9. Commit with a clear message. Releases happen only when the owner asks
-   (RELEASING.md).
+8. Note anything a player would notice as a `feat:`/`fix:` line for the PR's
+   release notes (RELEASING.md). Update this bible if you set a new rule or value.
+9. Commit with a clear message. Releases happen only when the owner merges the
+   release PR (RELEASING.md).
 
 ---
 
