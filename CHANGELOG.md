@@ -9,6 +9,18 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [0.12.0](https://github.com/Fahmula/turbo-town/compare/v0.11.0...v0.12.0) (2026-11-07)
+
+
+### New stuff
+
+* **garage:** New BODY tab: spoilers on every vehicle (lip, ducktail, GT wing and a huge Mega Wing), bonnet vents, scoops and a supercharger sticking out of the bonnet, roof scoops, racks, light bars (they light up at night) and roof boxes. ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** New DECALS tab: flames, lightning, stars, checkers, speed lines or a paint splash in any of 12 colours, plus a race number on the doors and bonnet. ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** New EXTRAS tab: underglow neon in eight colours (brightest at night) and eight horns to pick from, including an old-timer "ah-oo-gah", a little tune, a clown honk and a train horn. You hear each one as you pick it. ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** PAINT: finishes (gloss, metallic, pearl, matte, chrome) and two-tone paint (roof, bonnet, both, or the lower half in a second colour). ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** The garage camera turns to show the part you're changing. ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** The sports car and sedan also get Sport and Race bumpers, side skirts and wheel arches (bolt-on flares or a wide body that pushes the wheels out). New bumpers and wings still fall off when you crash! ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+
 ## [0.11.0] - 2026-10-16
 
 ### Two players
