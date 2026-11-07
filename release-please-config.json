@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "1f83bbd2471183ea742cd63c187acd9502f70d55",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": true,
+      "force-tag-creation": true,
+      "pull-request-header": "Merging this PR releases Turbo Town to the Steam Deck. GitHub Actions builds the game, smoke-tests it and only then publishes the release.",
+      "changelog-sections": [
+        { "type": "feat", "section": "New stuff" },
+        { "type": "fix", "section": "Fixes" },
+        { "type": "perf", "section": "Runs smoother" },
+        { "type": "revert", "section": "Undone", "hidden": true },
+        { "type": "docs", "section": "Docs", "hidden": true },
+        { "type": "chore", "section": "Chores", "hidden": true },
+        { "type": "refactor", "section": "Code clean-up", "hidden": true },
+        { "type": "test", "section": "Tests", "hidden": true },
+        { "type": "build", "section": "Build", "hidden": true },
+        { "type": "ci", "section": "CI", "hidden": true },
+        { "type": "style", "section": "Style", "hidden": true }
+      ]
+    }
+  }
+}

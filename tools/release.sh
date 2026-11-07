@@ -1,38 +1,48 @@
 #!/usr/bin/env bash
 # Turbo Town release pipeline. See RELEASING.md.
 #
-#   tools/release.sh 0.3.0              build HEAD, tag v0.3.0, publish GitHub Release
-#   tools/release.sh 0.3.0 <commit>     release a specific (already pushed) commit
-#   tools/release.sh 0.3.0 --dry-run    build + package + smoke test only; no tag, no release
-#   tools/release.sh 0.3.0 --yes        don't ask for confirmation before publishing
+# Releases are made by release-please: merging its release PR tags vX.Y.Z and
+# creates a draft GitHub Release, and GitHub Actions then runs --publish.
+#
+#   tools/release.sh 0.12.0 --dry-run            build + package + smoke test HEAD; publishes nothing
+#   tools/release.sh 0.12.0 <commit> --dry-run   the same for another commit
+#   tools/release.sh 0.12.0 --publish            build the tag v0.12.0, upload it to its draft
+#                                                release and publish it (what CI runs)
+#   tools/release.sh 0.12.0 --publish --yes      the same without asking first
 #
 # The build is made from a clean `git archive` of the commit, never from the
 # working tree, so uncommitted or experimental work can't leak into a release.
 set -euo pipefail
 
 GODOT="${GODOT:-godot}"
-GODOT_VERSION="4.7.2"                       # must match the installed export templates
+GODOT_VERSION="4.7.2"                       # must match the installed export templates (CI reads this too)
 PRESET="Linux x86_64 (Steam Deck)"          # name in export_presets.cfg
 GAME="TurboTown"
 BRANCH="main"
 
 die() { echo "release: error: $*" >&2; exit 1; }
+warn() { echo "release: warning: $*" >&2; }
 step() { echo; echo "==> $*"; }
 
-VERSION="" COMMIT="HEAD" DRY_RUN=0 YES=0
+VERSION="" COMMIT="" DRY_RUN=0 PUBLISH=0 YES=0
 for arg in "$@"; do
 	case "$arg" in
 		--dry-run) DRY_RUN=1 ;;
+		--publish) PUBLISH=1 ;;
 		--yes|-y) YES=1 ;;
-		-h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+		-h|--help) sed -n '2,14p' "$0"; exit 0 ;;
 		-*) die "unknown option $arg" ;;
 		*) if [[ -z "$VERSION" ]]; then VERSION="$arg"; else COMMIT="$arg"; fi ;;
 	esac
 done
-[[ -n "$VERSION" ]] || die "usage: tools/release.sh X.Y.Z [commit] [--dry-run] [--yes]"
+[[ -n "$VERSION" ]] || die "usage: tools/release.sh X.Y.Z [commit] --dry-run | --publish [--yes]"
+[[ $DRY_RUN == 1 || $PUBLISH == 1 ]] \
+	|| die "pick --dry-run (test build) or --publish (CI). Releases are made by merging the release-please PR, see RELEASING.md"
+[[ $DRY_RUN == 1 && $PUBLISH == 1 ]] && die "--dry-run and --publish can't be combined"
 VERSION="${VERSION#v}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "version must look like 0.3.0 (got '$VERSION')"
 TAG="v$VERSION"
+[[ -n "$COMMIT" ]] || { [[ $PUBLISH == 1 ]] && COMMIT="$TAG" || COMMIT="HEAD"; }
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
@@ -40,37 +50,57 @@ cd "$ROOT"
 # ---------------------------------------------------------------- checks
 step "Checking prerequisites"
 command -v "$GODOT" >/dev/null || die "godot not found (set GODOT=/path/to/godot)"
-"$GODOT" --version | grep -q "^$GODOT_VERSION\." || die "expected Godot $GODOT_VERSION, got $("$GODOT" --version)"
+"$GODOT" --headless --version | grep -q "^$GODOT_VERSION\." || die "expected Godot $GODOT_VERSION, got $("$GODOT" --headless --version)"
 TEMPLATES="$HOME/.local/share/godot/export_templates/$GODOT_VERSION.stable"
 [[ -f "$TEMPLATES/linux_release.x86_64" ]] || die "missing export template $TEMPLATES/linux_release.x86_64 (see RELEASING.md)"
 
-SHA="$(git rev-parse --verify "$COMMIT^{commit}")" || die "unknown commit $COMMIT"
-SHORT="${SHA:0:8}"
-git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists"
-
-PREV_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$SHA" 2>/dev/null || true)"
-if [[ -n "$PREV_TAG" ]]; then
-	# sort -V: the new version must be strictly newer than the previous release
-	[[ "$(printf '%s\n%s\n' "${PREV_TAG#v}" "$VERSION" | sort -V | tail -1)" == "$VERSION" && "${PREV_TAG#v}" != "$VERSION" ]] \
-		|| die "$TAG is not newer than previous release $PREV_TAG"
+if [[ $PUBLISH == 1 ]]; then
+	# In CI gh uses GH_TOKEN; on a PC it needs `gh auth login`.
+	[[ -n "${GH_TOKEN:-}" ]] || gh auth status >/dev/null 2>&1 || die "gh is not logged in (run: gh auth login)"
+	git fetch -q origin "$BRANCH" --tags
+	git rev-parse -q --verify "refs/tags/$TAG" >/dev/null \
+		|| die "tag $TAG doesn't exist; release-please makes it when the release PR is merged"
 fi
 
+SHA="$(git rev-parse --verify "$COMMIT^{commit}")" || die "unknown commit $COMMIT"
+SHORT="${SHA:0:8}"
+
+if [[ $PUBLISH == 1 ]]; then
+	[[ "$(git rev-parse "$TAG^{commit}")" == "$SHA" ]] || die "tag $TAG is not on commit $SHORT"
+	git merge-base --is-ancestor "$SHA" "origin/$BRANCH" || die "commit $SHORT is not on origin/$BRANCH"
+	# Only a draft is (re)built. A published release is on the Deck already and
+	# its files must never change: ship a new version instead.
+	IS_DRAFT="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" \
+		|| die "there is no GitHub Release for $TAG (release-please creates it as a draft)"
+	[[ "$IS_DRAFT" == "true" ]] || die "$TAG is already published; releases are permanent, ship a new version instead"
+	# Publishing marks the release "latest", and the Deck installs whatever is
+	# latest, so an old draft published late would downgrade it.
+	LATEST="$(gh release view --json tagName --jq .tagName 2>/dev/null || true)"
+	if [[ -n "$LATEST" && "$(printf '%s\n%s\n' "${LATEST#v}" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]]; then
+		die "$LATEST is already published and newer than $TAG; publishing $TAG would downgrade the Deck"
+	fi
+	REPO_WEB="$(gh repo view --json url --jq .url)"
+elif git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+	warn "tag $TAG already exists (fine for a test build)"
+fi
+
+PREV_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "$TAG" "$SHA" 2>/dev/null || true)"
+if [[ -n "$PREV_TAG" ]]; then
+	# sort -V: the new version must be strictly newer than the previous release
+	if ! [[ "$(printf '%s\n%s\n' "${PREV_TAG#v}" "$VERSION" | sort -V | tail -1)" == "$VERSION" && "${PREV_TAG#v}" != "$VERSION" ]]; then
+		[[ $PUBLISH == 1 ]] && die "$TAG is not newer than previous release $PREV_TAG"
+		warn "$TAG is not newer than previous release $PREV_TAG (fine for a test build)"
+	fi
+fi
+
+# release-please writes "## [X.Y.Z](compare link) (date)"; older entries are "## [X.Y.Z] - date".
 NOTES="$(git show "$SHA:CHANGELOG.md" 2>/dev/null | awk -v v="$VERSION" '
-	$0 ~ "^## \\[" v "\\]" { on = 1; next }
+	index($0, "## [" v "]") == 1 { on = 1; next }
 	on && /^## \[/ { exit }
 	on { print }' | sed -e '/./,$!d' || true)"   # drop leading blank lines
 if [[ -z "${NOTES//[[:space:]]/}" ]]; then
-	[[ $DRY_RUN == 1 ]] || die "CHANGELOG.md at $SHORT has no '## [$VERSION]' section; write the release notes and commit first"
-	echo "warning: no CHANGELOG.md section for $VERSION (ok for --dry-run)"
-fi
-
-if [[ $DRY_RUN == 0 ]]; then
-	gh auth status >/dev/null 2>&1 || die "gh is not logged in (run: gh auth login)"
-	REPO_WEB="$(gh repo view --json url --jq .url)"
-	git fetch -q origin "$BRANCH" --tags
-	git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists on origin"
-	git merge-base --is-ancestor "$SHA" "origin/$BRANCH" \
-		|| die "commit $SHORT is not on origin/$BRANCH yet; push first: git push origin $BRANCH"
+	[[ $PUBLISH == 1 ]] && die "CHANGELOG.md at $SHORT has no '## [$VERSION]' section (release-please writes it in the release PR)"
+	warn "no CHANGELOG.md section for $VERSION (fine for a test build)"
 fi
 
 # ---------------------------------------------------------------- build
@@ -168,17 +198,17 @@ echo "  previous release: ${PREV_TAG:-none}"
 echo "  asset: $TARBALL"
 echo "  notes: $NOTES_FILE"
 if [[ $YES == 0 ]]; then
-	read -r -p "Tag and publish $TAG as the new stable release? [y/N] " answer
-	[[ "$answer" == [yY]* ]] || die "cancelled; nothing was tagged or published"
+	read -r -p "Publish $TAG as the new stable release (the Steam Deck installs it on its next launch)? [y/N] " answer
+	[[ "$answer" == [yY]* ]] || die "cancelled; the draft release was not changed"
 fi
 
-step "Tagging $TAG"
-git tag -a "$TAG" "$SHA" -m "Turbo Town $TAG"
-git push origin "refs/tags/$TAG"
-
-step "Creating GitHub Release"
+# Files first, then publish: until the last command the release is still a
+# draft, which the Deck never sees. --clobber replaces files from a failed run.
+step "Uploading to the draft release $TAG"
 cp "$SRC/tools/steamdeck/turbotown.sh" "$OUT/turbotown.sh"
-gh release create "$TAG" "$TARBALL" "$TARBALL.sha256" "$OUT/turbotown.sh" \
-	--verify-tag --latest --title "Turbo Town $TAG" --notes-file "$NOTES_FILE"
+gh release upload "$TAG" "$TARBALL" "$TARBALL.sha256" "$OUT/turbotown.sh" --clobber
+
+step "Publishing $TAG"
+gh release edit "$TAG" --title "Turbo Town $TAG" --notes-file "$NOTES_FILE" --draft=false --latest
 echo
 echo "Released $TAG: $(gh release view "$TAG" --json url --jq .url)"

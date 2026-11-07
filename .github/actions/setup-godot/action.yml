@@ -1,0 +1,52 @@
+name: Set up Godot
+description: >-
+  Installs the Godot version named in tools/release.sh (GODOT_VERSION) plus its
+  Linux x86_64 export templates, checked against Godot's SHA-512 sums and cached
+  between runs. Sets GODOT to the binary for tools/release.sh.
+
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      run: |
+        v="$(sed -n 's/^GODOT_VERSION="\([^"]*\)".*/\1/p' tools/release.sh)"
+        [[ -n "$v" ]] || { echo "::error::GODOT_VERSION not found in tools/release.sh"; exit 1; }
+        echo "godot=$v" >>"$GITHUB_OUTPUT"
+
+    - id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/godot
+          ~/.local/share/godot/export_templates/${{ steps.version.outputs.godot }}.stable
+        key: godot-${{ steps.version.outputs.godot }}-linux-x86_64
+
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        V: ${{ steps.version.outputs.godot }}
+      run: |
+        set -euo pipefail
+        base="https://github.com/godotengine/godot/releases/download/$V-stable"
+        editor="Godot_v$V-stable_linux.x86_64.zip"
+        templates="Godot_v$V-stable_export_templates.tpz"
+        dl="$RUNNER_TEMP/godot-download"
+        mkdir -p "$dl" && cd "$dl"
+        curl -fsSL --retry 3 -O "$base/SHA512-SUMS.txt" -O "$base/$editor" -O "$base/$templates"
+        grep -E "  ($editor|$templates)\$" SHA512-SUMS.txt >sums
+        [[ "$(wc -l <sums)" == 2 ]] || { echo "::error::$editor or $templates missing from SHA512-SUMS.txt"; exit 1; }
+        sha512sum --check --strict sums
+        mkdir -p ~/godot
+        unzip -q -o "$editor" -d ~/godot
+        mv -f ~/godot/"Godot_v$V-stable_linux.x86_64" ~/godot/godot
+        t=~/.local/share/godot/export_templates/"$V".stable
+        mkdir -p "$t"
+        unzip -q -j -o "$templates" templates/linux_release.x86_64 templates/linux_debug.x86_64 templates/version.txt -d "$t"
+        rm -rf "$dl"
+
+    - shell: bash
+      run: |
+        chmod +x ~/godot/godot
+        echo "GODOT=$HOME/godot/godot" >>"$GITHUB_ENV"
+        ~/godot/godot --headless --version

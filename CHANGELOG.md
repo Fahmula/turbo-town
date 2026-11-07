@@ -1,13 +1,13 @@
 # Changelog
 
-Player-facing changes per stable release. `tools/release.sh X.Y.Z` uses the
-`## [X.Y.Z]` section below as the GitHub Release notes, so write it for the
-player (what's new, what's fixed), not as a commit log.
+Player-facing changes per stable release, newest first. Each version's
+section is also its GitHub Release notes, so it's written for the player
+(what's new, what's fixed), not as a commit log.
 
-Before releasing: rename `[Unreleased]` to the new version, add the date,
-commit, push, then run the release script. Start a fresh `[Unreleased]` after.
-
-## [Unreleased]
+Since 0.12.0, release-please writes the new sections: one bullet per
+`feat:`/`fix:` line in the merged PRs' descriptions (see RELEASING.md). Don't
+add an "Unreleased" heading here; new versions are inserted above the first
+version heading.
 
 ## [0.11.0] - 2026-10-16
 
