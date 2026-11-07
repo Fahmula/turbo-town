@@ -4,7 +4,8 @@ extends CanvasLayer
 ## keyboard, gamepad (D-pad/stick + A/B) and mouse. Emits `action` with what
 ## the player chose; Game decides what that means.
 
-## "drive", "garage", "resume", "title", "quit", "race:<index>", "end_race",
+## "drive", "garage", "resume", "title", "quit", "update" (restart into the
+## downloaded update), "race:<index>", "end_race",
 ## "join:<player 1's device>:<player 2's device>" (a second player pressed A
 ## on the 2 PLAYERS page; -1 = the keyboard) or "remove_player".
 signal action(name: String)
@@ -76,6 +77,17 @@ var _note: Label
 var _join_p1_label: Label
 var _join_p2_label: Label
 var _join_note: Label
+var _title_quit: Button
+## The title screen's update box and the WHAT'S NEW page (Updates).
+var _update_box: PanelContainer
+var _update_title: Label
+var _update_status: Label
+var _update_bar: ProgressBar
+var _update_restart: Button
+var _update_notes: Button
+var _news_title: Label
+var _news_text: RichTextLabel
+var _news_restart: Button
 ## The title screen's column and its spacers (tightened on short screens).
 var _title_col: VBoxContainer
 var _title_label: Label
@@ -112,6 +124,7 @@ func _ready() -> void:
 	_add_page(root, "races", _build_races())
 	_add_page(root, "credits", _build_credits())
 	_add_page(root, "join", _build_join())
+	_add_page(root, "whats_new", _build_whats_new())
 
 
 func _add_page(root: Control, page_name: String, node: Control) -> void:
@@ -139,6 +152,9 @@ func show_page(page_name: String, remember_current := false) -> void:
 		_refresh_races()
 	elif page_name == "title":
 		_fit_title()
+		_refresh_update()
+	elif page_name == "whats_new":
+		_refresh_news()
 	elif page_name == "pause":
 		_end_race_button.visible = racing
 		_races_button.visible = not two_players
@@ -179,6 +195,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") or (page == "pause" and event.is_action_pressed("pause")):
 		get_viewport().set_input_as_handled()
 		_back()
+	elif page == "whats_new" and (event.is_action_pressed("ui_up", true) or event.is_action_pressed("ui_down", true)):
+		get_viewport().set_input_as_handled()
+		_news_text.get_v_scroll_bar().value += 66.0 * (1.0 if event.is_action_pressed("ui_down", true) else -1.0)
 
 
 ## One page back. The rest of the trail is kept, so pages two deep (CONTROLS
@@ -241,7 +260,7 @@ func _build_title() -> Control:
 	_button(buttons, "RECORDS", func() -> void: show_page("records", true))
 	_button(buttons, "CONTROLS", func() -> void: show_page("controls", true))
 	_button(buttons, "CREDITS", func() -> void: show_page("credits", true))
-	_button(buttons, "QUIT", func() -> void: action.emit("quit"))
+	_title_quit = _button(buttons, "QUIT", func() -> void: action.emit("quit"))
 	_first_focus["title"] = drive
 	var gap2 := Control.new()
 	gap2.custom_minimum_size = Vector2(0, 12)
@@ -249,13 +268,130 @@ func _build_title() -> Control:
 	_ride_label = UiKit.label("", 20, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
 	col.add_child(_ride_label)
 
+	# Bottom right: the update box (when there's a new version) above the version.
+	var corner := VBoxContainer.new()
+	corner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	corner.alignment = BoxContainer.ALIGNMENT_END
+	corner.add_theme_constant_override("separation", 8)
+	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	corner.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	page_root.add_child(corner)
+	corner.add_child(_build_update_box())
 	var version: String = ProjectSettings.get_setting("application/config/version", "")
-	var ver := UiKit.label("v" + version if version != "" else "dev build", 16, Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_RIGHT)
-	ver.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	ver.position = Vector2(-216, -40)
-	ver.size = Vector2(200, 30)
-	page_root.add_child(ver)
+	var ver := UiKit.label("v" + version if version != "" else "dev build", 18, Color(1, 1, 1, 0.75), HORIZONTAL_ALIGNMENT_RIGHT)
+	ver.size_flags_horizontal = Control.SIZE_SHRINK_END
+	corner.add_child(ver)
+	corner.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 24)
 	return page_root
+
+
+## The title screen's update box (see Updates): a newer version downloading,
+## ready to install, or failed. Hidden when there's nothing new.
+func _build_update_box() -> Control:
+	_update_box = UiKit.panel(18)
+	_update_box.visible = false
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	col.custom_minimum_size = Vector2(340, 0)
+	_update_box.add_child(col)
+	_update_title = UiKit.panel_label("", 24, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
+	col.add_child(_update_title)
+	_update_status = UiKit.panel_label("", 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_update_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_update_status.custom_minimum_size = Vector2(340, 0)
+	col.add_child(_update_status)
+	_update_bar = ProgressBar.new()
+	_update_bar.show_percentage = false
+	_update_bar.max_value = 1.0
+	_update_bar.step = 0.001
+	_update_bar.custom_minimum_size = Vector2(0, 14)
+	col.add_child(_update_bar)
+	_update_restart = _button(col, "RESTART TO UPDATE", func() -> void: action.emit("update"))
+	_update_notes = _button(col, "WHAT'S NEW?", func() -> void: show_page("whats_new", true))
+	Updates.changed.connect(_refresh_update)
+	_refresh_update.call_deferred()
+	return _update_box
+
+
+func _refresh_update() -> void:
+	var u := Updates
+	_update_box.visible = u.has_news()
+	if _update_box.visible:
+		_update_title.text = "NEW VERSION %s" % u.latest
+		_update_bar.visible = u.state in [u.State.DOWNLOADING, u.State.VERIFYING]
+		_update_bar.value = u.progress
+		_update_restart.visible = u.state == u.State.READY
+		_update_notes.visible = u.notes != ""
+		match u.state:
+			u.State.DOWNLOADING:
+				_update_status.text = "Downloading... %d%%" % roundi(u.progress * 100.0)
+			u.State.VERIFYING:
+				_update_status.text = "Checking the download..."
+			u.State.READY:
+				_update_status.text = "Ready! Restart the game to play it."
+			_:
+				_update_status.text = "Couldn't download it. Trying again soon."
+	_wire_update_focus()
+	if page == "whats_new":
+		_refresh_news()
+
+
+## D-pad between QUIT and the update box's buttons (down / right from QUIT).
+func _wire_update_focus() -> void:
+	var targets: Array[Button] = []
+	for b: Button in [_update_restart, _update_notes]:
+		if _update_box.visible and b.visible:
+			targets.append(b)
+	var focused := get_viewport().gui_get_focus_owner() if is_inside_tree() else null
+	if focused and not focused.is_visible_in_tree() and page == "title":
+		_title_quit.grab_focus.call_deferred()   # its button just went away
+	if targets.is_empty():
+		_title_quit.focus_neighbor_bottom = NodePath()
+		_title_quit.focus_neighbor_right = NodePath()
+		return
+	_title_quit.focus_neighbor_bottom = _title_quit.get_path_to(targets[0])
+	_title_quit.focus_neighbor_right = _title_quit.get_path_to(targets[0])
+	for i in targets.size():
+		var b := targets[i]
+		b.focus_neighbor_left = b.get_path_to(_title_quit)
+		b.focus_neighbor_top = b.get_path_to(_title_quit if i == 0 else targets[i - 1])
+		b.focus_neighbor_bottom = b.get_path_to(targets[i + 1] if i + 1 < targets.size() else b)
+
+
+## WHAT'S NEW: the new version's release notes, scrolled with up / down.
+func _build_whats_new() -> Control:
+	var center := _centered()
+	var p := UiKit.panel(30)
+	center.add_child(p)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	col.custom_minimum_size = Vector2(760, 0)
+	p.add_child(col)
+	_news_title = UiKit.panel_label("WHAT'S NEW", 32, UiKit.ACCENT)
+	col.add_child(_news_title)
+	_news_text = RichTextLabel.new()
+	_news_text.bbcode_enabled = true
+	_news_text.scroll_active = true
+	_news_text.custom_minimum_size = Vector2(760, 420)
+	_news_text.add_theme_font_size_override("normal_font_size", 22)
+	_news_text.add_theme_font_size_override("bold_font_size", 26)
+	_news_text.add_theme_constant_override("paragraph_separation", 8)
+	col.add_child(_news_text)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 16)
+	col.add_child(buttons)
+	_news_restart = _button(buttons, "RESTART TO UPDATE", func() -> void: action.emit("update"))
+	var back := _button(buttons, "BACK", _back)
+	back.custom_minimum_size = Vector2(200, 0)
+	_first_focus["whats_new"] = back
+	return center
+
+
+func _refresh_news() -> void:
+	_news_title.text = "WHAT'S NEW IN %s" % Updates.latest
+	_news_text.text = Updates.notes
+	_news_restart.visible = Updates.state == Updates.State.READY
 
 
 ## Short screens (the Steam Deck's 800 px): the title column moves up and

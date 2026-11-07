@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 Settings="*res://scripts/core/settings.gd"
 Records="*res://scripts/core/records.gd"
 InputSetup="*res://scripts/core/input_setup.gd"
+Updates="*res://scripts/core/updates.gd"
 DevTools="*res://scripts/dev/dev_tools.gd"
 AudioMixPanel="*res://scripts/dev/audio_mix_panel.gd"
 

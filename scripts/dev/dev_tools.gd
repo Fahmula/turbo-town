@@ -18,6 +18,11 @@ extends Node
 ##                    fit, crash, repair, save and leak checks (scripts/dev/parts_tests.gd)
 ##   --partsbench     a fully kitted player car against a stock one: GPU, draw calls (A/B)
 ##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
+##   --updater=<dir>  in-game updates against a fake GitHub: checks, a bad download, the
+##                    background download, toast, title box, WHAT'S NEW, restart code 42
+##                    (scripts/dev/updater_tests.gd; run tools/steamdeck/test_updates.sh)
+##   --updatecycle    an exported build started by the launcher: restart into a downloaded
+##                    update, or quit once up to date (tools/steamdeck/test_update_e2e.sh)
 ##   --lanes=<dir>    traffic passing a parked player, horn reactions, highway lane changes
 ##   --junction=<dir> the signalized highway/avenue junction: turns used, crashes, jams
 ##   --stunts=<dir>   air, flips, rolls, spins, drift, near miss, wipeout -> combos and records
@@ -124,6 +129,12 @@ func _ready() -> void:
 		elif arg.begins_with("--menus="):
 			_mode = "menus"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--updater="):
+			_mode = "updater"
+			_dir = arg.split("=")[1]
+		elif arg == "--updatecycle":
+			_mode = "updatecycle"
+			_dir = OS.get_user_data_dir()
 		elif arg.begins_with("--garage="):
 			_mode = "garage"
 			_dir = arg.split("=")[1]
@@ -248,6 +259,10 @@ func _run() -> void:
 		await _perfsweep(game)
 	elif _mode == "menus":
 		await _menus(game)
+	elif _mode == "updater":
+		await preload("res://scripts/dev/updater_tests.gd").new(self, game, _dir).run()
+	elif _mode == "updatecycle":
+		await _update_cycle()
 	elif _mode == "lanes":
 		await _lanes(game)
 	elif _mode == "junction":
@@ -299,6 +314,20 @@ func _run() -> void:
 	else:
 		await _drive(game)
 	VehicleAudio.quit_quietly(get_tree())
+
+
+## --updatecycle: waits for Updates to settle, then restarts into the downloaded
+## update (exit code 42) or, when up to date, lets the run end normally.
+func _update_cycle() -> void:
+	var end := Time.get_ticks_msec() + 180000
+	var settled := [Updates.State.OFF, Updates.State.UP_TO_DATE, Updates.State.READY]
+	while Time.get_ticks_msec() < end and Updates.state not in settled:
+		await get_tree().process_frame
+	print("updatecycle: version %s, state %s, latest %s %s" % [Updates.version, Updates.State.keys()[Updates.state],
+		Updates.latest if Updates.latest != "" else "-", Updates.problem])
+	if Updates.state == Updates.State.READY:
+		Updates.restart_to_update()
+		await get_tree().create_timer(5.0).timeout
 
 
 func _tour(game: Game) -> void:
