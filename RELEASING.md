@@ -158,7 +158,7 @@ Install the matching templates on your PC too.
 ## Steam Deck: install and auto-update
 
 `tools/steamdeck/turbotown.sh` is uploaded with every release. It installs the
-game, adds it to Steam, and updates it on every launch.
+game, adds it to Steam, and keeps it up to date (together with the game itself).
 
 **First-time install** (Desktop Mode, open Konsole):
 
@@ -170,19 +170,53 @@ This installs to `~/Games/TurboTown/` (`turbotown.sh` + `current/`), adds a
 menu entry, and adds a "Turbo Town" shortcut to Steam (via `steamos-add-to-steam`).
 If Steam doesn't show it, add it yourself: Add a Non-Steam Game > Turbo Town.
 
-**After that, nothing:** every time the game is started from Steam, the launcher:
+**After that, nothing:** updates happen by themselves.
 
-- checks `github.com/Fahmula/turbo-town/releases/latest`, which only ever
-  points to the newest stable release (drafts and pre-releases are ignored);
-- if it's newer, downloads it, verifies the SHA-256, and swaps it in. A failed
-  download never touches the installed game;
-- updates itself to the launcher script from that release;
-- starts the game. With no internet it just starts the installed version.
+- **The game checks** `api.github.com/.../releases/latest` (only the newest
+  stable release; drafts and pre-releases are ignored) a few seconds after it
+  starts and every 30 minutes after that, but only when the launcher started
+  it. It sets `TURBOTOWN_LAUNCHER=2` and `TURBOTOWN_DIR`, so builds from the
+  editor and the CI smoke test never go online.
+- **A newer version downloads in the background** while the player plays:
+  the package, its `.sha256` and the launcher script, into
+  `~/Games/TurboTown/pending.part/`. The SHA-256 is checked, `VERSION` is
+  written, and the folder is renamed to `pending/`. The title screen shows the
+  progress, then **RESTART TO UPDATE** and **WHAT'S NEW?** (the release
+  notes). A toast while driving and a note in the pause menu say when it's
+  ready. If the download fails, it's retried later (20 s, 1 min, 5 min, then
+  every 15 min).
+- **RESTART TO UPDATE** quits with exit code 42. The launcher is still
+  running (Steam sees one session the whole time), so it checks the SHA-256
+  again, swaps the new version into `current/`, updates itself to the
+  release's launcher script, and starts the game again. If the player just
+  quits instead, the download is installed at the next launch. A damaged,
+  half-finished or older download is thrown away, and the installed game is
+  only replaced once the new one checked out.
+- **The launcher starts the game straight away**, with no download first.
+  The exception: if the game hasn't managed to check for 7 days (the game
+  touches `~/Games/TurboTown/last-check` after each check), the launcher
+  updates before starting, the old way. That covers older versions without
+  the updater, and a broken updater, so the Deck can't get stuck on an old
+  version. With no internet the installed version just starts.
 
-Other commands: `~/Games/TurboTown/turbotown.sh status | update`. Log:
+Other commands: `~/Games/TurboTown/turbotown.sh status | update` (`status`
+also shows a waiting download and the game's last check). Log:
 `~/Games/TurboTown/update.log`. Save data is in `~/.local/share/godot/app_userdata/`
 and is never touched by updates. To uninstall, delete `~/Games/TurboTown`,
 `~/.local/share/applications/turbotown.desktop` and the Steam shortcut.
 
-To test the launcher locally, point it at a fake server with
-`TURBOTOWN_REPO_URL=...` and `TURBOTOWN_DIR=...`.
+**Testing updates on a PC** (none of it touches GitHub or your real install):
+
+- `tools/steamdeck/test_launcher.sh`: the launcher with fake packages
+  (install, the 7-day fallback, installing a download at start and on exit
+  code 42, refusing bad or older downloads, self-update, the restart cap).
+- `tools/steamdeck/test_updates.sh`: the launcher test, then the game's
+  updater (`--updater`) against a fake GitHub (`fake_github.py`). It covers
+  checks, failures, the background download, the title screen, WHAT'S NEW
+  and exit code 42. Screenshots go to `build/updater_shots/`.
+- `tools/steamdeck/test_update_e2e.sh`: commit first. It exports HEAD as
+  0.12.0 and 0.13.0, and the real 0.12.0 build, started by the real launcher,
+  updates itself to 0.13.0.
+- By hand: `TURBOTOWN_REPO_URL=...` (the launcher), `TURBOTOWN_API_URL=...`
+  (the game) and `TURBOTOWN_DIR=...` point everything at a fake server and
+  a temp folder.

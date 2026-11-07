@@ -68,7 +68,7 @@ check 'grep -q "Restarting Turbo Town to install the update." "$G/update.log"' "
 check '[[ "$(cat "$G/current/VERSION")" == 0.13.0 ]] && grep -q "Installed Turbo Town 0.13.0." "$G/update.log"' "the launcher installed 0.13.0"
 check 'grep -q "^updatecycle: version 0.13.0, state UP_TO_DATE" "$WORK/run.log"' "0.13.0 started and found it's up to date"
 check '[[ ! -e "$G/pending" && ! -e "$G/pending.part" ]]' "pending/ is gone"
-check '[[ "$(grep -c "GET /releases/download/v0.13.0/$P " "$R/requests.log")" == 1 ]]' "the package was downloaded once, by the game"
+check '[[ "$(grep -c "^GET /releases/download/v0.13.0/$P$" "$R/requests.log")" == 1 ]]' "the package was downloaded once, by the game"
 check '! grep -E "SCRIPT ERROR|Parse Error" "$WORK/run.log" >/dev/null' "no script errors"
 check '[[ -f "$WORK/home/.local/share/godot/app_userdata/Turbo Town/settings.cfg" || -d "$WORK/home/.local/share/godot" ]]' "save data stayed in the test HOME"
 
