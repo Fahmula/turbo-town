@@ -38,8 +38,10 @@ Art direction: ART_BIBLE.md.
   `docs:`, `chore:`), since PRs are squash-merged and release-please reads them.
   Put the player-facing release notes in the PR description, between
   `BEGIN_COMMIT_OVERRIDE` and `END_COMMIT_OVERRIDE`: one `feat:`/`fix:` line per
-  change, a blank line between lines. Don't edit CHANGELOG.md by hand;
-  release-please writes it. Details in RELEASING.md.
+  change, a blank line between lines. Write those two marker words nowhere
+  else in the description (not even in backticks): release-please reads from
+  the first mention. Don't edit CHANGELOG.md by hand; release-please writes it.
+  Details in RELEASING.md.
 - `.godot/`, `build/`, `dist/` and `reference images/` are gitignored. Don't
   commit caches, builds or secrets.
 
