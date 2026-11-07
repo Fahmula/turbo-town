@@ -48,12 +48,16 @@ published), so a broken export shows up on the PR, before it's merged.
 `MAJOR.MINOR.PATCH`, tagged `vX.Y.Z`. release-please picks the number from the
 merged PRs since the last release:
 
-- `feat:` → **MINOR** (0.11.0 → 0.12.0): new features or content.
-- `fix:` or `perf:` → **PATCH** (0.12.0 → 0.12.1).
-- **MAJOR** stays 0 until the game is "finished". Even a breaking change
-  (`feat!:`) only bumps MINOR while the version is 0.x.
-- To pick a version yourself, add a blank line and then `Release-As: 1.0.0`
-  under one of the lines in a PR's override block (see below).
+- `feat:` → **MINOR** (1.0.0 → 1.1.0): new features or content.
+- `fix:` or `perf:` → **PATCH** (1.1.0 → 1.1.1).
+- **MAJOR** went to 1 with **1.0.0**, the release that brought in-game updates
+  (the owner's call, 2026-11-07; everything before it was 0.x). From now on a
+  breaking change (`feat!:`, or a `BREAKING CHANGE:` footer) would jump to
+  2.0.0, so don't use them unless that's what's meant. A game has no API to
+  break, so a new major is a milestone like 1.0, chosen with `Release-As`.
+- To pick a version yourself, add a blank line and then `Release-As: 2.0.0`
+  under one of the lines in a PR's override block (see below). That's how
+  PR #6 made 1.0.0.
 
 The tag is the source of truth. The build stamps the version into the exported
 game (`application/config/version`, shown on the title screen) and into
