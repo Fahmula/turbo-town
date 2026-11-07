@@ -55,6 +55,8 @@ var _rows: Array[Array] = []
 var _row_focus: Array[int] = []
 var _arrows: Array[Button] = []
 var _hints: RichTextLabel
+var _horn: AudioStreamPlayer
+var _horn_left := 0.0
 
 
 func _ready() -> void:
@@ -94,7 +96,7 @@ func _ready() -> void:
 		var b := Button.new()
 		b.text = PartsCatalog.TABS[t]["name"]
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(124, 40)
+		b.custom_minimum_size = Vector2(104, 40)
 		b.add_theme_font_size_override("font_size", 20)
 		b.pressed.connect(func() -> void: _set_tab(t))
 		tabs.add_child(b)
@@ -332,6 +334,10 @@ func loadout() -> Loadout:
 
 
 func _process(dt: float) -> void:
+	if _horn and _horn.playing:
+		_horn_left -= dt
+		if _horn_left <= 0.0 or not is_open:
+			_horn.stop()
 	if not is_open:
 		return
 	_update_view(dt)
@@ -420,7 +426,8 @@ func _change_row(dir: int) -> void:
 		return
 	var r := rows[_row_focus[tab]] as SlotRow
 	if r.enabled:
-		_set_slot(r.slot, PartsCatalog.index_of(r.slot, loadout().get_value(r.slot)) + dir)
+		var vid := loadout().vehicle_id
+		_set_slot(r.slot, PartsCatalog.index_of(r.slot, loadout().get_value(r.slot), vid) + dir)
 
 
 func _on_row_changed(slot: String, option_index: int) -> void:
@@ -431,12 +438,38 @@ func _on_row_changed(slot: String, option_index: int) -> void:
 	_set_slot(slot, option_index)
 
 
-## Sets a slot of the shown vehicle's setup and shows it on the turntable.
+## Sets a slot of the shown vehicle's setup (`option_index` into the
+## options that fit it) and shows it on the turntable.
 func _set_slot(slot: String, option_index: int) -> void:
-	loadout().set_value(slot, PartsCatalog.value_at(slot, option_index))
+	var l := loadout()
+	l.set_value(slot, PartsCatalog.value_at(slot, option_index, l.vehicle_id))
 	if _car:
-		loadout().apply(_car)
+		l.apply(_car)
+	if slot == "horn":
+		_play_horn(l.get_value("horn"))
 	_refresh_rows()
+
+
+## Plays a second of the horn picked (the shown vehicle's own for "stock").
+func _play_horn(id: String) -> void:
+	if _horn == null:
+		_horn = AudioStreamPlayer.new()
+		_horn.bus = &"Signals"
+		add_child(_horn)
+	var o := PartsCatalog.option("horn", id)
+	var profile := VehicleCatalog.scene_value(index, "Audio", "profile", null) as VehicleSoundProfile
+	if o.has("file"):
+		_horn.stream = load(PartsCatalog.horn_stream(id))
+		_horn.volume_db = o["db"]
+		_horn.pitch_scale = o["pitch"]
+	elif profile and profile.horn:
+		_horn.stream = profile.horn
+		_horn.volume_db = profile.horn_volume_db
+		_horn.pitch_scale = profile.horn_pitch
+	else:
+		return
+	_horn.play()
+	_horn_left = 1.1
 
 
 ## "Surprise me!": a random vehicle on the CAR tab, otherwise random
@@ -448,8 +481,10 @@ func _surprise() -> void:
 		return
 	var l := loadout()
 	for r: SlotRow in rows:
-		var n := PartsCatalog.options(r.slot).size()
-		l.set_value(r.slot, PartsCatalog.value_at(r.slot, randi_range(0, n - 1)))
+		if not r.enabled or r.slot == "horn":
+			continue
+		var n := PartsCatalog.options(r.slot, l.vehicle_id).size()
+		l.set_value(r.slot, PartsCatalog.value_at(r.slot, randi_range(0, n - 1), l.vehicle_id))
 	if _car:
 		l.apply(_car)
 	_refresh_rows()
@@ -511,7 +546,18 @@ func _update_view(dt: float) -> void:
 	var look: Vector3
 	var pos: Vector3
 	var wheel := _view_wheel() if PartsCatalog.TABS[tab]["focus"] == "wheel" else null
-	if wheel:
+	var view := _slot_view()
+	if view != "" and VIEWS.has(view):
+		# Turn the part toward the camera and frame the car a little closer.
+		var v: Dictionary = VIEWS[view]
+		var k := 1.0 if _snap_camera else 1.0 - exp(-5.0 * dt)
+		_turntable.rotation.y = lerp_angle(_turntable.rotation.y, v["angle"], k)
+		var half_len := maxf(_car.body_front, _car.body_rear)
+		var radius := sqrt(half_len * half_len + _car.footprint_half_width * _car.footprint_half_width)
+		var dist: float = (radius * 3.1 + 2.0) * v["dist"]
+		look = Vector3(0.0, (_car.ride_height() + _car.body_top) * v["look"], 0.0)
+		pos = look + Vector3(0.0, dist * v["height"], dist)
+	elif wheel:
 		var k := 1.0 if _snap_camera else 1.0 - exp(-6.0 * dt)
 		_turntable.rotation.y = lerp_angle(_turntable.rotation.y, WHEEL_VIEW_ANGLE, k)
 		var vis := wheel.get_node("Visual") as Node3D
@@ -538,6 +584,27 @@ func _update_view(dt: float) -> void:
 	_camera.look_at(_cam_look)
 
 
+## Where the camera looks while a slot's row is picked (PartsCatalog
+## SLOTS "view"): turntable angle (0 = rear toward the camera, PI = front),
+## camera distance (x the whole-car distance), height (x distance) and the
+## look-at height (x the car's height).
+const VIEWS := {
+	"front": {"angle": PI - 0.6, "dist": 0.8, "height": 0.2, "look": 0.3},
+	"rear": {"angle": -0.6, "dist": 0.8, "height": 0.25, "look": 0.35},
+	"side": {"angle": PI * 0.5 + 0.1, "dist": 0.85, "height": 0.18, "look": 0.35},
+	"top": {"angle": PI - 0.75, "dist": 0.85, "height": 0.62, "look": 0.4},
+	"low": {"angle": PI * 0.5 + 0.35, "dist": 0.85, "height": 0.06, "look": 0.15},
+}
+
+
+## The focused row's camera view ("" = the tab's own).
+func _slot_view() -> String:
+	if tab >= _rows.size() or _rows[tab].is_empty():
+		return ""
+	var r := _rows[tab][_row_focus[tab]] as SlotRow
+	return PartsCatalog.SLOTS[r.slot].get("view", "")
+
+
 ## The front wheel on the side the wheel view shows (front left).
 func _view_wheel() -> VehicleWheel:
 	for child in _car.get_children():
@@ -554,17 +621,7 @@ func _refresh_rows() -> void:
 	var body := _car.get_node_or_null("Body") as VehicleBodyVisual if _car else null
 	var rows: Array = _rows[tab]
 	for r: SlotRow in rows:
-		var why := ""
-		if _car is Aircraft and r.slot in Loadout.WHEEL_SLOTS:
-			why = "Planes keep their own wheels"
-		match r.slot:
-			"stripes":
-				if body == null or not body.has_stripes():
-					why = "Not on this vehicle"
-			"calipers":
-				if why == "" and not PartsCatalog.option("rims", l.get_value("rims")).get("open", false):
-					why = "Hidden by these rims"
-		r.show_value(l, why)
+		r.show_value(l, why_not(r.slot, l, _car))
 	# Keep the focus on a row that can be changed.
 	if not rows.is_empty() and not (rows[_row_focus[tab]] as SlotRow).enabled:
 		for i in rows.size():
@@ -573,6 +630,32 @@ func _refresh_rows() -> void:
 				break
 	for i in rows.size():
 		(rows[i] as SlotRow).set_focused(i == _row_focus[tab])
+
+
+## Why `slot` can't be changed on `car` right now ("" = it can).
+static func why_not(slot: String, l: Loadout, car: Vehicle) -> String:
+	var body := car.get_node_or_null("Body") as VehicleBodyVisual if car else null
+	if car is Aircraft:
+		if slot in Loadout.WHEEL_SLOTS:
+			return "Planes keep their own wheels"
+		if PartsCatalog.is_body_slot(slot) or slot in ["two_tone", "tone_color", "decal", "decal_color", "number", "underglow", "horn"]:
+			return "Not on planes"
+	match slot:
+		"stripes":
+			if body == null or not body.has_stripes():
+				return "Not on this vehicle"
+		"calipers":
+			if not PartsCatalog.option("rims", l.get_value("rims")).get("open", false):
+				return "Hidden by these rims"
+		"tone_color":
+			if l.get_value("two_tone") == "off":
+				return "Pick a two-tone first"
+		"decal_color":
+			if l.get_value("decal") == "none" and l.get_value("number") == "none":
+				return "Pick a decal or number first"
+	if PartsCatalog.kind(slot) == "choice" and PartsCatalog.options(slot, l.vehicle_id).size() <= 1:
+		return "Not on this vehicle"
+	return ""
 
 
 ## A flat button that draws a big triangle (the default font has no arrow glyphs).
@@ -604,8 +687,9 @@ class SlotRow extends PanelContainer:
 	var _swatches: Array[Panel] = []
 	var _toggle: Button
 	var _focused := false
-	## Index of the current value in PartsCatalog.options(slot).
+	## Index of the current value in PartsCatalog.options(slot, _vehicle).
 	var _current := 0
+	var _vehicle := ""
 
 	func _init(slot_id: String, swatch_size: int) -> void:
 		slot = slot_id
@@ -692,7 +776,7 @@ class SlotRow extends PanelContainer:
 		b.pressed.connect(func() -> void:
 			if enabled:
 				clicked.emit(self)
-				var opts := PartsCatalog.options(slot)
+				var opts := PartsCatalog.options(slot, _vehicle)
 				changed.emit(slot, wrapi(_current + dir, 0, opts.size())))
 		return b
 
@@ -702,8 +786,9 @@ class SlotRow extends PanelContainer:
 		enabled = why_not.is_empty()
 		modulate.a = 1.0 if enabled else 0.45
 		var v: Variant = l.get_value(slot)
-		_current = PartsCatalog.index_of(slot, v)
-		var opts := PartsCatalog.options(slot)
+		_vehicle = l.vehicle_id
+		_current = PartsCatalog.index_of(slot, v, _vehicle)
+		var opts := PartsCatalog.options(slot, _vehicle)
 		var o: Dictionary = opts[_current]
 		_stock.visible = enabled and l.is_stock(slot) and slot != "stripes" and o["id"] != "stock"
 		match _kind:

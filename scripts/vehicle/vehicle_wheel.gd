@@ -61,6 +61,10 @@ var compression_speed := 0.0
 var spin_speed := 0.0
 var is_left := false
 var is_front := false
+## How far (m) the wheel model sits out from its physics position, sideways
+## (+ = car right). Cosmetic: wide arches push the wheels out to fill them
+## (BodyKit). The physics wheel never moves.
+var track_offset := 0.0
 
 var _vehicle: RigidBody3D
 var _ray := PhysicsRayQueryParameters3D.new()
@@ -140,9 +144,19 @@ func rest_drop(supported_mass: float) -> float:
 func pose_at_rest(supported_mass: float) -> void:
 	var vis := get_node_or_null("Visual") as Node3D
 	if vis:
-		vis.position = Vector3(0.0, -rest_drop(supported_mass), 0.0)
+		vis.position = Vector3(track_offset, -rest_drop(supported_mass), 0.0)
 		if _caliper:
 			_caliper.position = vis.position
+
+
+## Moves the wheel model `offset` m sideways (see track_offset).
+func set_track_offset(offset: float) -> void:
+	track_offset = offset
+	var vis := get_node_or_null("Visual") as Node3D
+	if vis:
+		vis.position.x = offset
+	if _caliper:
+		_caliper.position.x = offset
 
 
 func reset_state() -> void:
@@ -297,7 +311,7 @@ func _update_visual(dt: float, target_len: float) -> void:
 	# Visual follows the physics closely but smooths single-tick pops.
 	_visual_len = lerpf(_visual_len, target_len, 1.0 - exp(-40.0 * dt))
 	_spin_angle = wrapf(_spin_angle + spin_speed * dt, -PI, PI)
-	_visual.position = Vector3(0.0, -_visual_len, 0.0)
+	_visual.position = Vector3(track_offset, -_visual_len, 0.0)
 	_visual.rotation = Vector3(-_spin_angle, 0.0, 0.0)
 	if _caliper:
 		_caliper.position = _visual.position

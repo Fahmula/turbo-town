@@ -171,10 +171,19 @@ Only files listed there as CC BY 4.0 or CC0 are used. Its older VDrift sounds
 Synthesised by `tools/audio/synth.py` (no third-party material): reverse
 beeper, wind, road roar on asphalt, turbo and supercharger whine, blow-off,
 exhaust pops, gear-shift clunk, suspension knocks and landings,
-splashes, the plane's propeller. (Fallbacks kept in the script but not used: tyre squeal, gravel,
-horns, air brakes.) The engine start-ups mix the recorded starter crank with
+splashes, the plane's propeller, and the garage's extra horns (`horn/klaxon.wav`,
+`tune.wav` (a made-up fanfare), `clown.wav`, `train.wav`; `build_audio.py horns`).
+(Fallbacks kept in the script but not used: tyre squeal, gravel, horns, air brakes.) The engine start-ups mix the recorded starter crank with
 each engine's own idle loop; the glass shatters `glass_7-8` and `tinkle_4-5`
 are cascades built from Kenney's glass hits.
+
+Garage parts and decals (no third-party material):
+
+| Asset | Made by | Notes |
+|---|---|---|
+| `assets/models/kits/<vehicle>_kit.glb` | `tools/blender/make_kits.py` | spoilers, bonnets, roof parts and the sports car / sedan body kits, placed on the committed body models |
+| `assets/textures/vehicle/decals.png` | `tools/textures/make_decals.py` | side graphics (flames, lightning, stars, checkers, speed lines, paint splash): made-up shapes |
+| `assets/textures/vehicle/digits.png` | `tools/textures/make_decals.py` | race-number digits set in Fira Sans ExtraBold (SIL OFL 1.1); only the glyph shapes are in the PNG |
 
 ## Sources considered and not used
 

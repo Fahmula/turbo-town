@@ -891,6 +891,82 @@ along its length so it never dips under curved panels.
 - The garage shows the toggle (X / gamepad Y) only for vehicles that have
   stripes.
 
+**Garage body parts (player option, `BodyKit`):** each drivable vehicle has a
+kit, `assets/models/kits/<vehicle>_kit.glb` from `tools/blender/make_kits.py`,
+with one mesh per part named `<slot>_<id>` (`PartsCatalog.BODY_PARTS`; `on`
+lists the vehicles a part fits). The rules:
+- **Modelled in the vehicle's own space** (origin at wheel-centre height
+  between the axles), so `BodyKit` puts every part on with an identity
+  transform under `Body/Kit`. All body models have their meshes at the
+  origin; keep it that way, or kits and the paint measurements break.
+- **Placed on the committed body model:** the generator imports the body
+  glb and ray-casts onto it (stands reach the deck, scoops follow the
+  bonnet, arches follow the side), so regenerating a body means
+  regenerating its kit.
+- **Bumpers come from the vehicle's own BodySpec** with a deeper lower edge
+  that fades in from `bumper_split`: rows above the bumper's top edge are
+  untouched, so a kit bumper meets the stock shell exactly. Thickened like
+  the stock ones (they fall off and tumble).
+- **Damage contract:** `BodyKit` hides the stock `FrontBumper` / `RearBumper`
+  / `Spoiler` and renames the kit part to that name, then `VehicleDamage`
+  rescans the body (hidden meshes are left out). Kit parts dent with the
+  shell. "None" on the spoiler row only exists where there is a stock wing.
+- **Wide arches** (`flares`) push the wheel models out by `track` (3.5 and
+  4.5 cm, `VehicleWheel.track_offset`); the physics wheel never moves.
+- Materials are the usual contract names (`Paint`, `Trim`, `Chrome`,
+  `Headlight` with UV kind `AUX` for light-bar lamps, so they light at night).
+- Full kits (bumpers, skirts, arches) are on the sports car and sedan;
+  spoilers fit every road vehicle, bonnets the cars and trucks with a
+  bonnet, roof parts where the roof is free (the monster truck keeps its own
+  light bar). Kits add 0.25–4.7k Blender vertices per vehicle, but only the
+  parts picked are ever loaded onto the car.
+- Garage parts are cosmetic, like the wheels: collision shapes, mass and
+  handling never change.
+
+**Garage paint (player option):** finishes, two-tone, side decals and race
+numbers. `VehicleBodyVisual.set_paint_style` swaps the player's own paint
+material to `car_paint_custom.gdshader` (the shared `car_paint.gdshaderinc`
+with `PAINT_CUSTOM`) only when one of them is on; traffic and parked cars
+keep the plain `car_paint.gdshader` and pay nothing.
+- Finishes (`PartsCatalog.FINISHES`): gloss and metallic follow the paint
+  rules above; pearl tints grazing angles toward a lighter colour a little
+  round the hue wheel; matte is roughness 0.62 with no clear coat; chrome is
+  metallic 1 at roughness 0.14 with the paint colour lightened 55% (metal
+  reflects its albedo) and no flakes. "Stock" is the colour's own finish.
+- Two-tone and decals are placed from **body lines measured from the stock
+  model** (once per vehicle): belt = bottom of the side windows (normals
+  facing sideways; windscreens dip lower), but never below 42% of the way
+  from the underbody to the roof (glass doors on the bus and truck cab
+  reach much lower), roof = top of the glass,
+  windscreen and rear-window bases = the glass's front and rear ends,
+  underbody, nose and tail. Roof and bonnet tone only on upward-facing
+  paint; "lower half" is below halfway from the underbody to the belt.
+- Side decals are single-channel masks in `assets/textures/vehicle/decals.png`
+  (`tools/textures/make_decals.py`), one 4:1 strip per graphic, as tall as
+  the side from sill to belt, anchored at the nose, the tail or stretched
+  nose to tail (`mode`). Made-up shapes only: no real liveries or logos.
+- Race numbers: a white roundel with digits (`digits.png`, Fira Sans
+  ExtraBold, OFL) on both doors, read the right way round from each side,
+  and on the bonnet when it's longer than 0.9 m, read from in front. The
+  door roundel sits 30% along the side windows, halfway up the painted side
+  (sill to belt); one that would overlap a wheel slides toward the middle
+  of the car, or, where the door is right over the wheel (the cab-over
+  truck), shrinks to fit between the arch and the end of the body. Side
+  graphics also start at the painted body's bottom (the monster truck's
+  chassis hangs far below it). Digits
+  take the decal colour, or near-black on a light decal colour.
+- Decals are painted on: grime, scrapes and primer go over them.
+- Decal and underglow colours are saturated on purpose (player accents,
+  §0 rule 2), like racing stripes.
+
+**Underglow (player option, `Underglow`):** two thin unshaded tubes under
+the sills and a soft pool of colour on the ground under the car: an
+additive quad (`underglow.gdshader`) that follows the ground the wheels
+stand on and fades out in the air, like the contact shadow. Energy 0.55 by
+day, 1.2 at night (the `night_lights` group). No real light and **no
+Decal**: a ground `Decal` measured ~1 ms on the iGPU at Medium, the quad
+nothing measurable. Same on every quality level.
+
 **Reference dimensions (metres).** The vehicle scenes (`scenes/vehicles/*.tscn`)
 are the authority for wheel positions and radii.
 
@@ -946,7 +1022,8 @@ light), 6 `GRILLE_MESH` (honeycomb), 7 `GRILLE_SLATS`.
 
 **Detachable meshes are matched by exact name:** `FrontBumper`, `RearBumper`,
 `Spoiler`. A wing exported as "Wing" silently never falls off (it happened once;
-the legacy pipeline renamed it on export, `body_kit` does not).
+the legacy pipeline renamed it on export, `body_kit` does not). Garage kit parts
+are exported as `<slot>_<id>` and renamed to these names when fitted (§12).
 
 New names are fine for fixed materials. Add them to this table.
 
@@ -1786,6 +1863,14 @@ window):
     voices, traffic loops for at most 6 cars.
   - Deformable vertices: +18 to +68 per body (indicator patches), max 5,953.
 
+- **Garage parts** (2026-11-07, `--partsbench` on the iGPU at Medium, city
+  centre, traffic off, three A/B runs): a fully kitted player car (race
+  bumpers, skirts, wide body, Mega Wing, supercharger, light bar, pearl paint,
+  two-tone, flames, number, underglow) adds 10–17 draw calls and ~4.6k
+  primitives; GPU time is within the run-to-run noise (±0.5 ms) for body
+  parts, the custom paint shader and the underglow quad alike. Traffic and
+  parked cars are untouched (plain paint shader, no kits).
+
 - **After the player character** (2026-10-03, `--onfootbench`, city centre,
   22 cars): the character adds ~10–13 draw calls and no measurable GPU time
   (iGPU at Medium ≈ +0.2 ms in alternating A/B runs, inside the noise), and
@@ -2124,6 +2209,12 @@ readable, kid-friendly (crashes are big and fun, never scary).
   build).
 - **Kid safety:** no screams, sirens of panic or injury sounds. Horns are
   friendly, crashes are metal and glass.
+- **Garage horns** (`PartsCatalog.HORNS`, the player's car only): the three
+  recorded horns (also a higher "Little Toot" pitch) plus four synthesised
+  ones (`build_audio.py horns`: an old-timer klaxon, a made-up fanfare, a
+  rubber-bulb honk, a three-chime train horn). They loop while held like
+  every horn; patterned ones end in a short gap. Levels −7 to −9 dB, like
+  the stock horns.
 - **Planes:** the engine is the flat-four set (aero engines are air-cooled
   flat fours and sixes) at 950–2750 rpm, 2 dB under the cars, plus a
   synthesised propeller loop (`synth.propeller`: the blade-pass tone at

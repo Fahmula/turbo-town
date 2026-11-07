@@ -14,6 +14,9 @@ extends Node
 ##                    views and while driving (run it on a weak GPU: --gpu-index 0 = the iGPU)
 ##   --wheels=<dir>   every rim, rim colour, tyre and tyre stripe in the garage's wheel view,
 ##                    plus custom wheels on a few vehicles and on the road (shots for review)
+##   --parts=<dir>    every body part, finish, decal, number and underglow in the garage, then
+##                    fit, crash, repair, save and leak checks (scripts/dev/parts_tests.gd)
+##   --partsbench     a fully kitted player car against a stock one: GPU, draw calls (A/B)
 ##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
 ##   --lanes=<dir>    traffic passing a parked player, horn reactions, highway lane changes
 ##   --junction=<dir> the signalized highway/avenue junction: turns used, crashes, jams
@@ -136,6 +139,12 @@ func _ready() -> void:
 		elif arg.begins_with("--wheels="):
 			_mode = "wheels"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--parts="):
+			_mode = "parts"
+			_dir = arg.split("=")[1]
+		elif arg == "--partsbench":
+			_mode = "partsbench"
+			_dir = OS.get_user_data_dir()
 		elif arg.begins_with("--perfsweep="):
 			_mode = "perfsweep"
 			_dir = arg.split("=")[1]
@@ -283,6 +292,10 @@ func _run() -> void:
 		await preload("res://scripts/dev/split_tests.gd").new(self, game, _dir).bench()
 	elif _mode == "ride":
 		await preload("res://scripts/dev/ride_tests.gd").new(self, game, _dir).run()
+	elif _mode == "parts":
+		await preload("res://scripts/dev/parts_tests.gd").new(self, game, _dir).run()
+	elif _mode == "partsbench":
+		await preload("res://scripts/dev/parts_tests.gd").new(self, game, _dir).bench()
 	else:
 		await _drive(game)
 	VehicleAudio.quit_quietly(get_tree())
@@ -953,7 +966,9 @@ func _garage(game: Game) -> void:
 		await _shot("garage_%d" % (i + 1))
 	_check(p.index == 4, "four steps right reach the bus")
 	await _tap("menu_tab_next")
-	_check(p.tab == 1, "Q/E (LB/RB) switch to the PAINT tab")
+	_check(p.tab == _tab_of("body"), "Q/E (LB/RB) switch to the BODY tab")
+	await _tap("menu_tab_next")
+	_check(p.tab == _tab_of("paint"), "next tab: PAINT")
 	for i in 3:
 		await _tap("menu_right")
 	await _wait(10)
@@ -961,8 +976,9 @@ func _garage(game: Game) -> void:
 	var want_color: Color = p.loadout().get_value("paint")
 	_check(want_color != Loadout.stock("bus").get_value("paint"), "left/right repaints the bus")
 	await _tap("menu_tab_next")
+	await _tap("menu_tab_next")
 	await _wait(40)
-	_check(p.tab == 2, "next tab: WHEELS")
+	_check(p.tab == _tab_of("wheels"), "two tabs on: WHEELS")
 	await _shot("garage_wheels")
 	await _tap("menu_right")  # rims: the next one after the bus's steelies
 	var want_rims: String = p.loadout().get_value("rims")
@@ -1003,7 +1019,9 @@ func _garage(game: Game) -> void:
 	await _tap("change_vehicle")
 	await _wait(5)
 	await _tap("menu_tab_prev")
-	_check(p.tab == 2, "tabs wrap round (CAR -> WHEELS)")
+	_check(p.tab == PartsCatalog.TABS.size() - 1, "tabs wrap round (CAR -> EXTRAS)")
+	await _tap("menu_tab_prev")
+	_check(p.tab == _tab_of("wheels"), "and back to WHEELS")
 	await _tap("menu_right")
 	var kept: String = p.loadout().get_value("rims")
 	await _tap("menu_back")
@@ -1021,6 +1039,7 @@ func _garage(game: Game) -> void:
 	# Surprise me, on the WHEELS tab.
 	await _tap("change_vehicle")
 	await _wait(5)
+	await _tap("menu_tab_prev")
 	await _tap("menu_tab_prev")
 	var before := p.loadout().values.duplicate()
 	await _tap("menu_extra")
@@ -1146,6 +1165,14 @@ func _garage(game: Game) -> void:
 		"0.6 paint and stripes became the sports car's setup")
 
 
+## Index of the garage tab with this id (PartsCatalog.TABS).
+func _tab_of(id: String) -> int:
+	for t in PartsCatalog.TABS.size():
+		if PartsCatalog.TABS[t]["id"] == id:
+			return t
+	return -1
+
+
 ## A stock setup for catalog entry `index` in paint `c` (snapped to the
 ## garage colours).
 func _painted(index: int, c: Color) -> Loadout:
@@ -1197,7 +1224,7 @@ func _wheels(game: Game) -> void:
 	game.open_garage()
 	await _wait(5)
 	var p := game.picker
-	p._set_tab(2)
+	p._set_tab(_tab_of("wheels"))
 	await _wait(60)
 	for i in PartsCatalog.RIMS.size():
 		p._set_slot("rims", i)
@@ -1226,7 +1253,7 @@ func _wheels(game: Game) -> void:
 		p._set_tab(0)
 		p.index = VehicleCatalog.index_of_id(id)
 		p._show_vehicle()
-		p._set_tab(2)
+		p._set_tab(_tab_of("wheels"))
 		await _wait(50)
 		await _shot("vehicle_%s_stock" % id)
 		var parts: Array = custom[id]
@@ -1242,7 +1269,7 @@ func _wheels(game: Game) -> void:
 	p._set_slot("rims", PartsCatalog.index_of("rims", "star5"))
 	p._set_slot("rim_color", PartsCatalog.index_of("rim_color", "gold"))
 	p._set_slot("tyre_stripe", PartsCatalog.index_of("tyre_stripe", "red"))
-	p._set_tab(2)
+	p._set_tab(_tab_of("wheels"))
 	await _wait(40)
 	await _shot("garage_custom_sports")
 	await _tap("menu_accept")

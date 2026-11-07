@@ -126,9 +126,14 @@ sideways view and crops the top and bottom, and the HUD is a compact version.
 
 **Garage** (V / D-pad down): pick the sports car, sedan, van, delivery truck,
 bus, pickup, buggy, monster truck or plane and set it up. Tabs (Q / E or LB / RB):
-CAR (left/right = vehicle), PAINT (colour, racing stripes) and WHEELS (rims,
-rim colour, tyres, tyre stripe, brake caliper colour; the camera zooms in on a
-wheel). On PAINT and WHEELS, up/down picks a row and left/right changes it.
+CAR (left/right = vehicle), BODY (front and rear bumpers, side skirts, wheel
+arches, spoiler, bonnet, roof), PAINT (colour, finish, two-tone and its second
+colour, racing stripes), DECALS (side graphic, its colour, race number), WHEELS
+(rims, rim colour, tyres, tyre stripe, brake caliper colour; the camera zooms in
+on a wheel) and EXTRAS (underglow, horn). On every tab but CAR, up/down picks a
+row and left/right changes it; the camera turns to the part being changed.
+Rows that don't fit the shown vehicle are greyed out with the reason (full body
+kits are on the sports car and sedan; planes keep their own shape).
 X / Y = surprise me (a random vehicle, or random choices on the tab), Enter / A =
 drive (on foot, the vehicle is brought to you and you get in), Esc / B = back.
 Each vehicle keeps its own setup, changes stick even when you back out, and
@@ -199,8 +204,10 @@ scripts/
              vehicle_catalog.gd (the garage's vehicle list, blurbs, star ratings,
              stock wheel parts), paint_palette.gd (garage and traffic paints)
   vehicle/custom/ parts_catalog.gd (everything the garage can change: tabs, slots,
-             options), loadout.gd (one vehicle's setup: saved per vehicle, put on
-             the car), wheel_kit.gd (fits rim + tyre parts to a vehicle's wheels)
+             options, which vehicles a part fits), loadout.gd (one vehicle's setup:
+             saved per vehicle, put on the car), wheel_kit.gd (fits rim + tyre parts
+             to a vehicle's wheels), body_kit.gd (fits bumpers, skirts, arches,
+             spoilers, bonnet and roof parts from the vehicle's kit), underglow.gd
   vehicle/audio/  vehicle_sound_profile.gd (what a vehicle class sounds like),
              vehicle_sound_bank.gd (shared tyre/crash/glass sounds), audio_director.gd
              (traffic voice budget, Doppler)
@@ -435,7 +442,11 @@ ASSET_MANIFEST.md              Every third-party asset: source, creator, licence
 * **Garage parts**: a new rim or tyre is a builder in `tools/blender/make_wheels.py`
   (rims are built to one standard fit, see its docstring) plus an entry in
   `PartsCatalog.RIMS` / `TYRES`; colours are entries in the other lists there.
-  A new kind of customization (spoilers, exhausts...) is a slot: add it to
+  A new body part is a builder in `tools/blender/make_kits.py` (a mesh named
+  `<slot>_<id>` in the vehicle's kit) plus an entry in `PartsCatalog.BODY_PARTS`
+  (with `on` = the vehicles it fits). A new decal is a strip in
+  `tools/textures/make_decals.py` plus an entry in `PartsCatalog.DECALS`.
+  A new kind of customization (exhausts, window tint...) is a slot: add it to
   `PartsCatalog.SLOTS` and a tab in `TABS`, give it a stock value in
   `Loadout._stock_values()` and put it on the car in `Loadout.apply()`. The
   garage builds its rows from the catalog, and saving works for any slot.
@@ -483,6 +494,9 @@ godot --path . --gpu-index 0 --resolution 1280x800 -- --splitbench=/tmp/perf   o
 godot --path . --gpu-index 0 -- --perfsweep=/tmp/perf   GPU cost of each graphics effect, Medium/Low, trees and grass,
                                         standing and driving (--gpu-index 0 = a weak integrated GPU, close to the Deck)
 godot --path . -- --wheels=/tmp/shots   every rim, rim colour, tyre and tyre stripe in the garage + on the road (shots)
+godot --path . -- --parts=/tmp/shots    every body part on every vehicle, finishes, two-tone, decals, numbers, underglow
+                                        (shots), then fit, crash/repair, save and leak checks (pass/fail);
+                                        add --vehicles=a,b for only those vehicles' parts
 godot --path . -- --menus=/tmp/shots    title/pause/settings/controls menus driven by input (pass/fail)
 godot --path . -- --lanes=/tmp/shots    passing a parked player, horn reactions, highway lane changes
 godot --path . -- --stunts=/tmp/shots   air, flips, rolls, spins, drift, near miss, wipeout (pass/fail)

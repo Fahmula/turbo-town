@@ -18,6 +18,11 @@ extends Node3D
 ## turns it on, never traffic).
 
 const PAINT_SHADER := preload("res://assets/shaders/vehicle/car_paint.gdshader")
+const PAINT_CUSTOM_SHADER := preload("res://assets/shaders/vehicle/car_paint_custom.gdshader")
+## Side graphics (PartsCatalog.DECALS rows) and race-number digits, from
+## tools/textures/make_decals.py.
+const DECAL_ATLAS := preload("res://assets/textures/vehicle/decals.png")
+const DIGITS := preload("res://assets/textures/vehicle/digits.png")
 const GLASS_SHADER := preload("res://assets/shaders/vehicle/vehicle_glass.gdshader")
 const GLASS_OPAQUE_SHADER := preload("res://assets/shaders/vehicle/vehicle_glass_opaque.gdshader")
 const LAMP_SHADER := preload("res://assets/shaders/vehicle/vehicle_lamp.gdshader")
@@ -68,8 +73,12 @@ var _shadow_strength := 0.0
 var _glass_meshes: Array[MeshInstance3D] = []
 var _dirt_timer := 0.0
 var _cracked: ShaderMaterial
+## The garage paint style (Loadout.paint_style(); {} = plain paint).
+var _paint_style := {}
 
 static var _shared := {}
+## Vehicle scene -> its measured body lines (body_lines()).
+static var _lines_cache := {}
 
 
 func _ready() -> void:
@@ -313,12 +322,197 @@ func set_glass_cracked(on: bool, world_pos := Vector3.ZERO) -> void:
 ## Repaints the car (works before or after it enters the tree).
 func set_paint_color(c: Color) -> void:
 	paint_color = c
-	if _mats.has("paint"):
-		var m := _mats["paint"] as ShaderMaterial
-		m.set_shader_parameter("paint_color", c)
-		m.set_shader_parameter("metallic_amount", PaintPalette.metallic_of(c))
+	_apply_finish()
 	if _mats.has("stripe"):
 		(_mats["stripe"] as ShaderMaterial).set_shader_parameter("paint_color", PaintPalette.stripe_color(c))
+
+
+## The garage paint: finish, two-tone, side decal and race number (a
+## Loadout.paint_style() Dictionary; {} = the plain paint every car has).
+## Only a car that needs it gets the custom paint shader.
+func set_paint_style(style: Dictionary) -> void:
+	_paint_style = style
+	var m := _mats.get("paint") as ShaderMaterial
+	if m == null:
+		return
+	var custom := not style.is_empty()
+	var want: Shader = PAINT_CUSTOM_SHADER if custom else PAINT_SHADER
+	if m.shader != want:
+		var keep := {}
+		for u: Dictionary in m.shader.get_shader_uniform_list():
+			keep[u["name"]] = m.get_shader_parameter(u["name"])
+		m.shader = want
+		for k: String in keep:
+			if keep[k] != null:
+				m.set_shader_parameter(k, keep[k])
+	_apply_finish()
+	if not custom:
+		return
+	var lines := body_lines()
+	m.set_shader_parameter("body_lines", lines["lines"])
+	m.set_shader_parameter("body_ends", lines["ends"])
+	m.set_shader_parameter("tone_mode", style["tone_mode"])
+	m.set_shader_parameter("tone_color", style["tone_color"])
+	var row: int = style["decal_row"]
+	var decal: Dictionary = PartsCatalog.DECALS[0]
+	for o: Dictionary in PartsCatalog.DECALS:
+		if o["row"] == row:
+			decal = o
+	m.set_shader_parameter("decal_row", row)
+	m.set_shader_parameter("decal_rows", PartsCatalog.DECALS.size() - 1)
+	m.set_shader_parameter("decal_mode", decal.get("mode", 0))
+	m.set_shader_parameter("decal_color", style["decal_color"])
+	m.set_shader_parameter("decal_atlas", DECAL_ATLAS)
+	var dc: Color = style["decal_color"]
+	m.set_shader_parameter("number", style["number"])
+	m.set_shader_parameter("number_color", Color(0.11, 0.11, 0.12) if dc.get_luminance() > 0.6 else dc)
+	m.set_shader_parameter("number_place", lines["number"])
+	m.set_shader_parameter("number_y", lines["number_y"])
+	m.set_shader_parameter("side_bottom", lines["side_bottom"])
+	m.set_shader_parameter("digits", DIGITS)
+
+
+## Puts the paint finish on the paint material: the colour's own (solid or
+## metallic, PaintPalette) unless the garage picked one.
+func _apply_finish() -> void:
+	var m := _mats.get("paint") as ShaderMaterial
+	if m == null:
+		return
+	var f: Dictionary = _paint_style.get("finish", {})
+	var c := paint_color
+	var custom := not _paint_style.is_empty()
+	if f.is_empty() or f["id"] == "stock":
+		m.set_shader_parameter("paint_color", c)
+		m.set_shader_parameter("metallic_amount", PaintPalette.metallic_of(c))
+		m.set_shader_parameter("solid_roughness", 0.13)
+		m.set_shader_parameter("metallic_roughness", 0.2)
+		m.set_shader_parameter("clearcoat_amount", 0.6)
+		if custom:
+			m.set_shader_parameter("pearl", 0.0)
+			m.set_shader_parameter("flakes", 1.0)
+		return
+	var chrome: float = f.get("chrome", 0.0)
+	# Chrome is a tinted mirror: metal reflects its albedo, so lighten it.
+	m.set_shader_parameter("paint_color", c.lerp(Color(0.94, 0.94, 0.95), 0.55) if chrome > 0.0 else c)
+	m.set_shader_parameter("metallic_amount", f["metal"])
+	m.set_shader_parameter("solid_roughness", f["rough"])
+	m.set_shader_parameter("metallic_roughness", f["rough"])
+	m.set_shader_parameter("clearcoat_amount", f["coat"])
+	m.set_shader_parameter("flakes", 0.0 if chrome > 0.0 else 1.0)
+	var pearl: float = f.get("pearl", 0.0)
+	m.set_shader_parameter("pearl", pearl)
+	if pearl > 0.0:
+		# A lighter tint a little further round the colour wheel.
+		m.set_shader_parameter("pearl_color", Color.from_hsv(fposmod(c.h + 0.06, 1.0), c.s * 0.6, minf(c.v * 1.2 + 0.2, 1.0)))
+
+
+## Lines on this vehicle's body, in model space, for the custom paint:
+## "lines" = (belt, roof, windscreen base z, rear window base z), "ends" =
+## (underbody y, nose z, tail z), "number" = the race-number places
+## (door roundel centre z and diameter, bonnet roundel centre z and
+## diameter or 0). Measured from the stock model's glass and shell (once
+## per vehicle scene).
+func body_lines() -> Dictionary:
+	var key := _vehicle.scene_file_path if _vehicle else ""
+	if key != "" and _lines_cache.has(key):
+		return _lines_cache[key]
+	var all := AABB()
+	var glass := AABB()
+	var side := AABB()  # side windows only (windscreens can dip much lower)
+	var painted := AABB()  # the paint (a monster truck's chassis hangs far below it)
+	var have := [false, false, false, false]
+	for node in find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.mesh == null or String(get_path_to(mi)).begins_with("Kit/") or mi.name == "Stripes":
+			continue
+		var xf := _transform_to(mi, self)
+		for i in mi.mesh.get_surface_count():
+			var src := mi.mesh.surface_get_material(i)
+			var arrays := mi.mesh.surface_get_arrays(i)
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			if verts.is_empty():
+				continue
+			var is_glass := src != null and src.resource_name == "Glass"
+			var is_paint := src != null and src.resource_name == "Paint"
+			var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL] if is_glass else PackedVector3Array()
+			for k in verts.size():
+				var p := xf * verts[k]
+				all = _grow(all, p, have, 0)
+				if is_paint:
+					painted = _grow(painted, p, have, 3)
+				if is_glass:
+					glass = _grow(glass, p, have, 1)
+					if k < normals.size() and absf((xf.basis * normals[k]).normalized().x) > 0.7:
+						side = _grow(side, p, have, 2)
+	if not have[2]:
+		side = glass
+		have[2] = have[1]
+	var floor_y := all.position.y
+	var nose := all.position.z
+	var tail := all.end.z
+	var roof := glass.end.y if have[1] else all.end.y + 10.0
+	# Glass doors (bus, truck cab) reach far lower than the windows: never
+	# put the belt below 42% of the way up to the roof.
+	var belt := side.position.y if have[2] else lerpf(all.position.y, all.end.y, 0.45)
+	belt = maxf(belt, lerpf(floor_y, minf(roof, all.end.y), 0.42))
+	var ws := glass.position.z if have[1] else lerpf(nose, tail, 0.3)
+	var rw := glass.end.z if have[1] else tail
+	# Side graphics and numbers go on the painted side, sill to belt.
+	var y0 := (painted.position.y if have[3] else floor_y) + 0.07
+	var h := maxf(belt - 0.03 - y0, 0.1)
+	var door_d := minf(h * 0.85, 0.62)
+	var door_y := y0 + h * 0.5
+	var z0 := side.position.z if have[2] else nose
+	var z1 := side.end.z if have[2] else tail
+	var door_z := lerpf(z0, z1, 0.3) if have[2] else lerpf(nose, tail, 0.4)
+	# Slide the door roundel clear of a wheel it would overlap: toward the
+	# middle of the car if that stays along the windows, else the other way.
+	if _vehicle:
+		for w in _vehicle.wheels:
+			var gap := w.radius + door_d * 0.5 + 0.05
+			if absf(w.position.z - door_z) >= gap or door_y - door_d * 0.5 > w.position.y + w.radius:
+				continue
+			var inward := w.position.z - signf(w.position.z) * gap
+			if inward >= z0 - 0.1 and inward <= z1 + 0.1:
+				door_z = inward
+				continue
+			# No room toward the middle (a cab-over truck's door is right
+			# over the wheel): fit it, smaller, on the flat side between
+			# the wheel and the end of the body.
+			var arch := w.position.z + signf(w.position.z) * (w.radius + 0.05)
+			var end := (nose + 0.35) if w.position.z < 0.0 else (tail - 0.35)
+			door_d = clampf(absf(arch - end), 0.24, door_d)
+			door_z = (arch + end) * 0.5
+	var hood := ws - nose
+	var hood_d := minf(hood * 0.36, 0.55) if hood > 0.9 else 0.0
+	var out := {
+		"lines": Vector4(belt, roof, ws, rw),
+		"ends": Vector3(floor_y, nose, tail),
+		"side_bottom": y0,
+		"number": Vector4(door_z, door_d, lerpf(nose, ws, 0.55), hood_d),
+		"number_y": door_y,
+	}
+	if key != "":
+		_lines_cache[key] = out
+	return out
+
+
+static func _grow(box: AABB, p: Vector3, have: Array, k: int) -> AABB:
+	if not have[k]:
+		have[k] = true
+		return AABB(p, Vector3.ZERO)
+	return box.expand(p)
+
+
+## `n`'s transform relative to `root` (one of its ancestors).
+static func _transform_to(n: Node3D, root: Node3D) -> Transform3D:
+	var xf := Transform3D.IDENTITY
+	var at: Node = n
+	while at != null and at != root:
+		if at is Node3D:
+			xf = (at as Node3D).transform * xf
+		at = at.get_parent()
+	return xf
 
 
 ## Sets the road grime (0 clean .. 1 filthy) on the paint and tyres.
