@@ -177,6 +177,85 @@ def horn(freqs, seconds=1.0, formants=((1600, 2.0, 1.0), (3100, 3.0, 0.6)), bras
     return dsp.normalize_rms(x, -14.0)
 
 
+# ------------------------------------------------------------ garage horns --
+# Fun horns for the garage's EXTRAS tab (PartsCatalog.HORNS). They loop while
+# the horn is held and restart from the top on each press, so patterned ones
+# (klaxon, tune, honks) end in a short gap.
+
+def _sweep(freq_fn, seconds, harmonics=30, fmax=9000.0):
+    """A buzzy tone whose pitch follows freq_fn(t) (Hz), band-limited."""
+    t = _t(seconds)
+    f = freq_fn(t)
+    phase = 2 * np.pi * np.cumsum(f) / R
+    x = np.zeros(len(t))
+    for k in range(1, harmonics + 1):
+        x += np.where(f * k < fmax, 1.0 / k, 0.0) * np.sin(k * phase)
+    return x.astype(np.float32)
+
+
+def _gate(t, on, off, ramp=0.012):
+    return np.clip((t - on) / ramp, 0, 1) * np.clip((off - t) / ramp, 0, 1)
+
+
+def klaxon():
+    """Old-timer "ah-oo-gah": a rasping buzzer that whoops up, holds, and
+    drops at the end."""
+    s = 1.05
+    t = _t(s)
+    f = np.interp(t, [0.0, 0.32, 0.58, 0.72, 0.8], [150, 330, 340, 230, 200])
+    x = _sweep(lambda _t: f, s)
+    x *= 1.0 + 0.35 * np.sin(2 * np.pi * 58 * t)                 # the motor's rasp
+    x = dsp.peaks(x, [(850, 2.0, 1.4), (2300, 2.5, 0.8), (3600, 3.0, 0.4)])
+    x *= _gate(t, 0.0, 0.8, 0.02)
+    x = dsp.soft_clip(dsp.normalize_peak(x, -2.0), 1.8)
+    return dsp.normalize_rms(x, -16.0)
+
+
+def tune():
+    """A made-up fanfare (a rising major arpeggio and a held top note) on a
+    two-tone electric horn timbre."""
+    notes = [(523.25, 0.15), (659.25, 0.15), (783.99, 0.15), (1046.5, 0.42), (783.99, 0.15), (1046.5, 0.55)]
+    gap = 0.3
+    s = sum(d for _, d in notes) + gap
+    t = _t(s)
+    f = np.zeros(len(t))
+    env = np.zeros(len(t))
+    at = 0.0
+    for (hz, d) in notes:
+        on = (t >= at) & (t < at + d)
+        f[on] = hz
+        env += _gate(t, at, at + d - 0.02, 0.01)
+        at += d
+    f[f == 0] = notes[-1][0]
+    x = _sweep(lambda _t: f, s, harmonics=16) + 0.6 * _sweep(lambda _t: f * 1.26, s, harmonics=12)
+    x = dsp.peaks(x, [(1500, 2.0, 1.0), (3000, 3.0, 0.5)])
+    x *= env
+    x = dsp.soft_clip(dsp.normalize_peak(x, -2.0), 1.3)
+    return dsp.normalize_rms(x, -17.0)
+
+
+def clown():
+    """A rubber-bulb horn: two quick nasal honks."""
+    s = 0.72
+    t = _t(s)
+    f = np.full(len(t), 470.0)
+    env = np.zeros(len(t))
+    for on in (0.0, 0.3):
+        seg = (t >= on) & (t < on + 0.24)
+        f[seg] = np.interp(t[seg] - on, [0.0, 0.05, 0.24], [380, 520, 430])
+        env += _gate(t, on, on + 0.24, 0.015) * np.interp(t - on, [0.0, 0.05, 0.24], [0.6, 1.0, 0.7])
+    x = _sweep(lambda _t: f, s, harmonics=24)
+    x = dsp.peaks(x, [(1100, 2.5, 1.6), (2600, 3.0, 0.9)])
+    x *= env
+    x = dsp.soft_clip(dsp.normalize_peak(x, -2.0), 2.2)
+    return dsp.normalize_rms(x, -17.0)
+
+
+def train():
+    """A three-chime air horn chord (steady, loops while held)."""
+    return horn((277.2, 349.2, 415.3), seconds=1.0, formants=((900, 2.0, 1.0), (2200, 3.0, 0.5)), brass=1.0, seed=73)
+
+
 # -------------------------------------------------------------- one-shots --
 
 def air_brake(seed=81):

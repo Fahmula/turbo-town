@@ -11,6 +11,8 @@ extends RefCounted
 
 ## Slots that change the wheels (WheelKit rebuilds them).
 const WHEEL_SLOTS := ["rims", "rim_color", "tyres", "tyre_stripe", "calipers"]
+## Slots the custom paint shader shows (VehicleBodyVisual.set_paint_style).
+const PAINT_STYLE_SLOTS := ["finish", "two_tone", "tone_color", "decal", "decal_color", "number"]
 
 var vehicle_id := ""
 ## Slot id -> value, for every slot.
@@ -63,7 +65,11 @@ func set_value(slot: String, value: Variant) -> void:
 			if value is bool:
 				values[slot] = value
 		_:
-			if (value is String or value is StringName) and not PartsCatalog.option(slot, str(value)).is_empty():
+			if not (value is String or value is StringName):
+				return
+			var o := PartsCatalog.option(slot, str(value))
+			# Unknown ids and parts that don't fit this vehicle are ignored.
+			if not o.is_empty() and (vehicle_id.is_empty() or PartsCatalog.fits(o, vehicle_id)):
 				values[slot] = str(value)
 
 
@@ -85,7 +91,22 @@ func overrides() -> Dictionary:
 
 
 func wheels_stock() -> bool:
-	for slot: String in WHEEL_SLOTS:
+	return _all_stock(WHEEL_SLOTS)
+
+
+func body_stock() -> bool:
+	return _all_stock(PartsCatalog.BODY_PARTS.keys())
+
+
+## True if the paint needs nothing but the plain car paint (no finish,
+## two-tone, decals or number).
+func paint_style_stock() -> bool:
+	return get_value("finish") == "stock" and get_value("two_tone") == "off" \
+		and get_value("decal") == "none" and get_value("number") == "none"
+
+
+func _all_stock(slots: Array) -> bool:
+	for slot: String in slots:
 		if not is_stock(slot):
 			return false
 	return true
@@ -113,6 +134,30 @@ func apply(v: Vehicle) -> void:
 		body.set_paint_color(get_value("paint"))
 		body.set_stripes(get_value("stripes") and body.has_stripes())
 	WheelKit.fit(v, self)
+	BodyKit.fit(v, self)
+	if body:
+		body.set_paint_style(paint_style())
+	Underglow.fit(v, PartsCatalog.option("underglow", get_value("underglow")))
+	var audio := v.get_node_or_null("Audio") as VehicleAudio
+	if audio:
+		audio.set_horn_override(get_value("horn"))
+
+
+## What VehicleBodyVisual.set_paint_style needs ({} = plain paint).
+func paint_style() -> Dictionary:
+	if paint_style_stock():
+		return {}
+	var tone := PartsCatalog.option("tone_color", get_value("tone_color"))
+	var decal := PartsCatalog.option("decal", get_value("decal"))
+	var number: String = get_value("number")
+	return {
+		"finish": PartsCatalog.option("finish", get_value("finish")),
+		"tone_mode": PartsCatalog.option("two_tone", get_value("two_tone"))["mode"],
+		"tone_color": tone.get("color", Color.BLACK),
+		"decal_row": decal["row"],
+		"decal_color": PartsCatalog.option("decal_color", get_value("decal_color"))["color"],
+		"number": -1 if number == "none" else int(number),
+	}
 
 
 static func _stock_values(id: String) -> Dictionary:
@@ -132,4 +177,19 @@ static func _stock_values(id: String) -> Dictionary:
 		"tyres": e.get("tyres", "sport"),
 		"tyre_stripe": "none",
 		"calipers": PartsCatalog.CALIPER_COLORS[PartsCatalog.closest_color(caliper_colors, caliper)]["id"],
+		"finish": "stock",
+		"two_tone": "off",
+		"tone_color": str(PaintPalette.GARAGE.size() - 1),  # graphite
+		"decal": "none",
+		"decal_color": "white",
+		"number": "none",
+		"front": "stock",
+		"rear": "stock",
+		"skirts": "stock",
+		"flares": "stock",
+		"spoiler": "stock",
+		"bonnet": "stock",
+		"roof": "stock",
+		"underglow": "off",
+		"horn": "stock",
 	}

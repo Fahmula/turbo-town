@@ -280,6 +280,37 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 - [ ] Passenger fun: honk the horn, a camera to take photos, a parachute jump from the plane
 - [ ] More seats (the bus) for three or four players or NPC passengers
 
+## Car parts — body kits, paint and extras (`feature/car-parts`)
+
+The owner's son wants more customization: spoilers, body kits and more (owner, 2026-11-07). Owner
+picked: full body kits on the sports car and sedan first (spoilers, bonnet and roof parts on every
+vehicle), underglow, paint finishes, decals and numbers, horn sounds. Not now: window tint, exhaust
+tips + flames (fire needs an owner yes), ride height.
+
+### Done (branch `feature/car-parts`, off `main`)
+- [x] Garage tabs CAR / BODY / PAINT / DECALS / WHEELS / EXTRAS; parts can fit only some vehicles
+      (`on`), rows that don't fit are greyed out with the reason; the camera turns to the part
+- [x] `make_kits.py`: a kit per vehicle placed on its committed body (ray casts): lip, ducktail,
+      GT wing, Mega Wing; bonnet vents, scoop, supercharger; roof scoop, rack, light bar (lit at
+      night), roof box; sports car + sedan: Sport / Race bumpers from their own BodySpec (exact
+      seam), splitter, canards, diffuser fins, side skirts, bolt-on flares and a wide body
+- [x] `BodyKit` fits them; kit bumpers and wings still fall off (damage rescan) and repair; wide
+      arches push the wheel models out
+- [x] Paint: finishes (gloss, metallic, pearl, matte, chrome), two-tone (roof, bonnet, both,
+      lower half), side decals (6) in 12 colours, race numbers on doors and bonnet. A player-only
+      paint shader variant, so traffic costs nothing
+- [x] Underglow in 8 colours (ground decal + tubes, brighter at night)
+- [x] Horns: 8 to pick (3 recorded + a higher one + 4 synthesised), previewed in the garage
+- [x] Tests: `--parts` (all vehicles), `--garage` and `--wheels` updated for the new tabs;
+      `--partsbench` for the cost
+- [ ] Owner review, then the son on the Deck (look of the parts, garage on the small screen)
+
+### Ideas for later
+- [ ] Body kits for the van, pickup, trucks, bus, buggy and monster truck
+- [ ] Exhaust tips (and backfire flames, if the owner says yes), window tint, ride height
+- [ ] Carbon-fibre finish for wings and bonnets; more decals; custom number colours
+- [ ] Part thumbnails in the garage instead of names
+
 ---
 
 ## Backlog
@@ -299,9 +330,9 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 ### Garage customization (ideas; the platform is ready for them)
 - [ ] Tyres that change grip (off-road tyres better on dirt, slicks on tarmac)? Needs an owner
       decision: today every part is cosmetic
-- [ ] Spoilers / wings, exhaust tips, bumpers or body kits (new meshes per vehicle)
+- [x] Spoilers / wings, bumpers and body kits, underglow, decals, horns (`feature/car-parts`)
+- [ ] Exhaust tips, window tint
 - [ ] Ride height and wheel size (touches physics and arch clearance)
-- [ ] Underglow, window tint, liveries / decals, horn sounds
 - [ ] Rim thumbnails in the garage instead of names
 
 ### Vehicles
@@ -432,3 +463,5 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 - 2026-10-08 — v0.10.0: two-player split-screen; released.
 - 2026-10-13 — v0.11 (`ride-along` branch): riding along as a passenger in the other player's vehicle.
 - 2026-10-16 — v0.11.0: riding along as a passenger; released.
+- 2026-11-07 — Car parts (`feature/car-parts` branch): body kits, spoilers, bonnet and roof parts, paint finishes,
+  two-tone, decals and race numbers, underglow, horns.

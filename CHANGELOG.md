@@ -9,6 +9,22 @@ commit, push, then run the release script. Start a fresh `[Unreleased]` after.
 
 ## [Unreleased]
 
+### Garage
+- New BODY tab: spoilers on every vehicle (lip, ducktail, GT wing and a huge
+  Mega Wing), bonnet vents, scoops and a supercharger sticking out of the
+  bonnet, roof scoops, racks, light bars (they light up at night) and roof
+  boxes. The sports car and sedan also get Sport and Race bumpers, side skirts
+  and wheel arches (bolt-on flares or a wide body that pushes the wheels out).
+  New bumpers and wings still fall off when you crash!
+- PAINT: finishes (gloss, metallic, pearl, matte, chrome) and two-tone paint
+  (roof, bonnet, both, or the lower half in a second colour).
+- New DECALS tab: flames, lightning, stars, checkers, speed lines or a paint
+  splash in any of 12 colours, plus a race number on the doors and bonnet.
+- New EXTRAS tab: underglow neon in eight colours (brightest at night) and
+  eight horns to pick from, including an old-timer "ah-oo-gah", a little tune,
+  a clown honk and a train horn. You hear each one as you pick it.
+- The garage camera turns to show the part you're changing.
+
 ## [0.11.0] - 2026-10-16
 
 ### Two players

@@ -79,6 +79,10 @@ var _last_gear := 1
 var _skid := 0.0
 var _scrape := 0.0
 var _horn_until := 0.0
+## The garage horn (a PartsCatalog.HORNS id; "stock" = the profile's own).
+var horn_id := "stock"
+var _horn_db := 0.0
+var _horn_pitch := 1.0
 var _impact_cooldown := 0.0
 var _knock_cooldown := 0.0
 var _braked_from := 0.0
@@ -235,7 +239,7 @@ func _build() -> void:
 	else:
 		_add_loop("roll", VehicleSoundBank.loop(VehicleSoundBank.ROLL_ASPHALT), TYRES)
 	_add_loop("squeal", VehicleSoundBank.loop(VehicleSoundBank.SQUEAL), SKID)
-	_add_loop("horn", profile.horn, SIGNALS)
+	_add_loop("horn", _horn_stream(), SIGNALS)
 	if profile.reverse_beeper:
 		_add_loop("beeper", VehicleSoundBank.loop(VehicleSoundBank.BEEPER), SIGNALS)
 	for k in SHOTS[detail]:
@@ -461,11 +465,39 @@ func _update_tyres(dt: float, live: bool) -> void:
 	_set_loop("skid", _skid * dirt_frac, 0.9 + _skid * 0.2)
 
 
+## Swaps the horn for a garage one (Loadout.apply). Works before or after
+## the sounds are built.
+func set_horn_override(id: String) -> void:
+	if id == horn_id:
+		return
+	horn_id = id
+	if _built == -1:
+		return
+	var p: AudioStreamPlayer3D = _loops.get("horn")
+	if p:
+		p.stop()
+		p.queue_free()
+		_loops.erase("horn")
+	_add_loop("horn", _horn_stream(), SIGNALS)
+
+
+## The horn sound, and its level and pitch in _horn_db / _horn_pitch.
+func _horn_stream() -> AudioStream:
+	var o := PartsCatalog.option("horn", horn_id)
+	if not o.has("file"):
+		_horn_db = profile.horn_volume_db
+		_horn_pitch = profile.horn_pitch
+		return profile.horn
+	_horn_db = o["db"]
+	_horn_pitch = o["pitch"]
+	return load(PartsCatalog.horn_stream(horn_id)) as AudioStream
+
+
 func _update_horn_and_beeper(live: bool) -> void:
 	var horn_on := vehicle.horn_input or _time < _horn_until
 	if _loops.has("horn"):
-		_set_loop("horn", (db_to_linear(profile.horn_volume_db + volume_db) if horn_on and (live or detail == Detail.LITE) else 0.0),
-			profile.horn_pitch * _doppler, true)
+		_set_loop("horn", (db_to_linear(_horn_db + volume_db) if horn_on and (live or detail == Detail.LITE) else 0.0),
+			_horn_pitch * _doppler, true)
 	if _loops.has("beeper"):
 		var reversing := vehicle.gear == -1 and (vehicle.brake_input > 0.1 or absf(vehicle.forward_speed) > 0.3)
 		_set_loop("beeper", 0.35 if reversing and live else 0.0, 1.0, true)

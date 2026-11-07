@@ -7,6 +7,7 @@ Run from the project root:
     python3 tools/audio/build_audio.py            # everything
     python3 tools/audio/build_audio.py synth      # only the synthesised parts
     python3 tools/audio/build_audio.py footsteps  # only the character's footsteps
+    python3 tools/audio/build_audio.py horns      # only the garage's fun horns
 
 Needs NumPy and ffmpeg. Third-party recordings are downloaded once into
 build/audio_sources/ (gitignored) from the URLs in sources.py and checked
@@ -98,6 +99,16 @@ def build_synth():
     write("tyre/roll_asphalt.wav", synth.road_roar(), loop=True, rate=32000)
 
 
+def build_horns():
+    """The garage's extra horns (PartsCatalog.HORNS); the car, truck and big
+    rig horns are recordings (recorded.py)."""
+    print("garage horns:")
+    write("horn/klaxon.wav", synth.klaxon(), loop=True)
+    write("horn/tune.wav", synth.tune(), loop=True)
+    write("horn/clown.wav", synth.clown(), loop=True)
+    write("horn/train.wav", synth.train(), loop=True)
+
+
 # --------------------------------------------------------- Godot imports --
 
 # Which files loop (every run marks them, whatever it rebuilt).
@@ -137,6 +148,8 @@ def main(args):
     parts = args or ["synth", "recorded"]
     if "synth" in parts:
         build_synth()
+    if "horns" in parts or "synth" in parts:
+        build_horns()
     if "recorded" in parts:
         import recorded
         recorded.build(write, fetch)
