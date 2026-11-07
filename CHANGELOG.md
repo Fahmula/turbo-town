@@ -9,6 +9,14 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.0.0](https://github.com/Fahmula/turbo-town/compare/v0.12.0...v1.0.0) (2026-11-07)
+
+
+### New stuff
+
+* New versions now download by themselves while you play. When one is ready, the main menu shows RESTART TO UPDATE, and WHAT'S NEW? tells you what changed. ([f9f6912](https://github.com/Fahmula/turbo-town/commit/f9f69126c69f20976d59c228847ac1ba3dc4cdb4))
+* On the Steam Deck the game starts straight away, without waiting for an update to download first. ([f9f6912](https://github.com/Fahmula/turbo-town/commit/f9f69126c69f20976d59c228847ac1ba3dc4cdb4))
+
 ## [0.12.0](https://github.com/Fahmula/turbo-town/compare/v0.11.0...v0.12.0) (2026-11-07)
 
 
