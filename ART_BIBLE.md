@@ -447,6 +447,9 @@ Keep the existing `UiKit` values. They already fit.
 | Panel | `(0.05, 0.08, 0.15, 0.72–0.88)` | `UiKit.PANEL_BG`, HUD panels |
 | Text outline | `(0.05, 0.08, 0.2)` | `UiKit.OUTLINE` |
 | Text on accent | `(0.08, 0.1, 0.18)` | `UiKit.DARK_TEXT` |
+| Page (garage) | `(0.05, 0.07, 0.12, 0.95)` | `UiKit.PAGE_BG` |
+| Card / tile, hover | `(0.15, 0.19, 0.27, 0.95)`, `(0.21, 0.26, 0.36, 0.97)` | `UiKit.CARD`, `CARD_HOVER`: title tiles, menu buttons, garage tabs and preview card |
+| Secondary text | `(0.78, 0.82, 0.9)` | `UiKit.MUTED`: subtitles, stat names, slot names |
 | Info / speed | `(0.25, 0.8, 1.0)` | speedometer band |
 | Danger / redline / needle | `(1.0, 0.3, 0.2)` | speedometer |
 | Go / success | `(0.3, 1.0, 0.45)` | race start circle, "GO!" |
@@ -1468,16 +1471,67 @@ meshes beyond (with fades), and tints each tree ±6% by instance colour.
 ## 20. UI visual language
 
 **Today:** all UI is built in code. `UiKit` (`scripts/ui/ui_kit.gd`) holds the
-shared look: yellow accent, navy panels at 88%, rounded panels (radius 18),
-buttons (radius 12), a 3 px yellow focus ring, and progress bars in the
-slider's track and fill. `UiKit.label` is outlined text for over the 3D world;
-`UiKit.panel_label` is the same without the outline, for text inside panels
-(the update box and WHAT'S NEW use it; older pages still use `label`).
-`hud.gd` duplicates the panel and label helpers with 72% panels. The
-speedometer and minimap are drawn with `_draw()`.
+shared look: yellow accent, navy panels at 88%, slate cards (`CARD`),
+rounded panels (radius 18), buttons (radius 12), a 3 px yellow focus ring,
+and progress bars in the slider's track and fill. `UiKit.label` is outlined
+text for over the 3D world; `UiKit.panel_label` is the same without the
+outline, for text inside panels; `UiKit.heading` (heavy, §21) and
+`UiKit.text` (muted) are the heading and secondary lines inside panels and
+cards. Older pages still use `label` for their rows. `hud.gd` duplicates the
+panel and label helpers with 72% panels. The speedometer and minimap are
+drawn with `_draw()`.
+
+**Menus (the owner's arcade-racing mockups, 2026-11-07):** cards, not lists.
+
+- **Arcade flair** (owner's ask, 2026-11-07): the display font (§21) for
+  every heading, button, tab and tile title; **slanted shapes**
+  (`StyleBoxFlat.skew`, `UiKit.SKEW` = 0.2, about the font's italic) on
+  buttons, tabs, chips and the TURBO TOWN plate (`UiKit.badge`), never on
+  cards that hold several lines; **speed stripes** (`UiKit.Stripes`, four
+  or five slanted bars fading right) after page titles (`UiKit.page_title`)
+  and in the title header; **"go" chevrons** (`UiKit.Chevrons`) on the
+  yellow buttons.
+- **`UiKit.Tile`** is a big button made of other controls: a plain Button
+  underneath (focus, clicks, look from `UiKit.style_tile`) with icons and
+  text over it. Styles: `"tile"` (slate card; focused: lighter with a
+  yellow ring), `"primary"` (yellow card, dark text, a white ring 4 px
+  outside), `"flat"` (no fill until hovered), `"list"` (a slanted slate bar
+  that turns yellow with dark text when focused: `UiKit.MenuItem`, icon +
+  word). One primary per screen.
+- **Menu buttons** (the theme, `UiKit.menu_theme`): slanted slate bars that
+  turn yellow with dark text when focused or hovered. Hovering moves the
+  focus, so only one thing is ever lit.
+- **Title screen:** a column of cards on the left (64 px in, 46% of the
+  width, 560–720 px) over a dark fade, with the world and your car on the
+  right: a header card (TURBO TOWN in yellow, READY TO RIDE?, a tagline), a
+  yellow PLAY NOW tile (play icon, subtitle, chevron), a 2 × 2 grid of tiles
+  (icon in yellow, title, a line under it; GARAGE's line names your ride)
+  and a bottom bar of flat icon buttons (Settings, Controls, Credits, Quit).
+  The update box stays bottom-right.
+- **Pause menu:** a drawer down the left side (`PAGE_BG`, its right edge
+  slanted 0.06) with the paused world visible on the right: the TURBO TOWN
+  plate, PAUSED with stripes, your ride, then `MenuItem`s in groups (RESUME
+  / END RACE, the pages, MAIN MENU / QUIT GAME) and a hint row. The order
+  is fixed (the D-pad walks it; tests count on it).
+- **Settings:** a page with two columns of row buttons. Each row is one
+  focusable control: its name on the left, "‹ value ›" with a pip per
+  option on the right (`UiKit.CycleButton`; long values shrink to fit), or
+  a slanted ten-segment bar and percentage for the volume
+  (`UiKit.LevelButton`). A line under the rows says what the focused
+  setting does; BACK and a hint row sit at the bottom.
+- **Garage:** one page (`PAGE_BG`): MY GARAGE with a line under it and a
+  "01 / 09" chip, a full-width tab strip between its LB / RB prompts, the
+  preview card (a rounded showroom backdrop with a soft spotlight, clipped
+  with `clip_children`, chevrons either side), the info column (name, blurb,
+  stats as five long segments, slot rows as faint cards) and a yellow
+  DRIVE THIS CAR / FLY THIS PLANE tile, then the prompt bar.
+- **Prompts match the device in use** (`UiKit.prompt`, `UiKit.fill_hints`,
+  §22): the garage, pause menu and settings swap between gamepad buttons
+  and keyboard keys on the last input.
 
 **Direction:** keep the structure and colours; they already match Ref 3's
 layout. Refine toward a clean automotive instrument rather than a cartoon.
+New menu screens follow the card style above.
 
 **Rules**
 
@@ -1496,11 +1550,16 @@ layout. Refine toward a clean automotive instrument rather than a cartoon.
   redline; violet-pink = drift mode; gold/silver/bronze = medals.
 - **Text over the 3D world:** thinner outlines than today (2–3 px) or a soft
   drop shadow. No outline on text inside panels.
-- **Motion:** 150–250 ms ease-out for panels and popups. Numbers ease smoothly
-  (the speedometer already lerps). No bouncing or wobble, except one scale
-  punch on stunt popups.
-- **Gamepad first:** everything focusable, the yellow focus ring always visible,
-  button prompts that match the device in use. The mouse works too.
+- **Motion:** 150–250 ms ease-out for panels and popups (the title cards
+  slide in 32 px and fade over 220 ms; the garage fades and grows from 97%
+  over 180 ms). Numbers ease smoothly (the speedometer already lerps). No
+  bouncing or wobble, except one scale punch on stunt popups. Tiles don't
+  move or scale on focus (scaled text blurs); the ring and colour show it.
+  The "go" chevrons light up in turn: on PLAY NOW while it has focus, on the
+  garage's DRIVE button always.
+- **Gamepad first:** everything focusable, the focus always plain to see
+  (yellow fill on buttons and rows, a yellow ring on tiles), button prompts
+  that match the device in use. The mouse works too (hover = focus).
 - **For a young player:** short words, big text, icon plus text for actions,
   text contrast ≥ 4.5:1 against its panel.
 - **Split-screen** (two players, `SplitScreen`): each player's HUD lives in
@@ -1521,8 +1580,14 @@ layout. Refine toward a clean automotive instrument rather than a cartoon.
 
 ## 21. Typography
 
-**Today:** Godot's built-in default font everywhere (`ThemeDB.fallback_font`),
-sizes 14–64, with outlines.
+**Today:** menus use **Barlow Condensed ExtraBold Italic**
+(`assets/fonts/`, SIL OFL, added on the owner's yes 2026-11-07, MSDF import)
+through `UiKit.display_font()` (+1 px tracking) for headings, buttons, tabs,
+tile titles, settings rows and garage slot names. It's condensed, so keep it
+**≥ 20 px** (22+ for labels). Body text, hints and the HUD still use Godot's
+built-in default font (`ThemeDB.fallback_font`), with outlines over the
+world. A regular-width Barlow for body text would make it one family; that
+needs the owner's OK (it's another download).
 
 **Target**
 
@@ -1563,13 +1628,19 @@ sizes 14–64, with outlines.
   strokes at 32 px. One colour: white on dark, yellow when focused or active.
   A consistent 24/32/48 px grid with 2 px padding.
 - **Format:** SVG in `assets/ui/icons/` (set the import scale for crispness), or
-  drawn in `_draw()` for simple shapes. Today the garage arrows are triangles
-  drawn in code because the default font has no arrow glyphs.
+  drawn in `_draw()` for simple shapes. **Today:** `UiIcon`
+  (`scripts/ui/ui_icon.gd`) draws the menu icons from lines, arcs and dots
+  on a 24-unit grid with 2-unit strokes and round ends (play, players,
+  wrench, flag, trophy, gear, gamepad, exit, info, star, dice, chevrons and
+  the D-pad, home, close). Add a shape there before reaching for files. The
+  garage arrows, the settings rows' arrows and pips, `UiKit.Stripes` and
+  `UiKit.Chevrons` are drawn the same way.
 - **Never use font glyphs or emoji** for icons or arrows.
 - **Gamepad prompts:** Steam Deck/Xbox layout. A/B/X/Y as white letters in dark
   circles (monochrome, like the Deck's own buttons). LB/RB/LT/RT as rounded
   shapes. The D-pad as a cross with the active direction highlighted. Keyboard
-  keys as light rounded rectangles with dark text.
+  keys as light rounded rectangles with dark text (arrow keys show chevrons).
+  `UiKit.prompt(key, pad)` builds all of these; the garage uses it.
 - **Map icons:** the player is a red-orange arrow (in split-screen each
   player's arrow is in their colour, §5, and the other player is an arrow in
   theirs, pinned to the minimap's edge when far away), traffic is small white dots,

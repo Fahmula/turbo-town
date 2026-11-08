@@ -10,7 +10,7 @@ mountain road, dirt fields, a beach, a harbour and a stunt park full of
 ramps. Crash, jump, race and customize your ride.
 
 <p align="center">
-  <img src="docs/screenshots/title.jpg" alt="The title screen: the menu on the left, the sports car on a city street" width="49%">
+  <img src="docs/screenshots/title.jpg" alt="The title screen: menu cards on the left, the sports car on a city street" width="49%">
   <img src="docs/screenshots/garage.jpg" alt="The garage: customizing a car" width="49%">
 </p>
 
@@ -50,7 +50,7 @@ extract it and run `TurboTown/TurboTown.x86_64`.
 ### From source
 
 Open this folder in [Godot 4.7.2](https://godotengine.org/download) and press
-**Play (F5)**. The game opens on the title screen. **PLAY!** puts you on foot
+**Play (F5)**. The game opens on the title screen. **PLAY NOW** puts you on foot
 next to your vehicle, and Esc or Start opens the pause menu.
 
 Settings, the garage and records are saved in
