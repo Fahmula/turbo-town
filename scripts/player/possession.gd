@@ -12,7 +12,8 @@ extends Node
 ##
 ## Getting in: the character walks to the nearest door (a fraction of a
 ## second, no collisions), the camera glides to the vehicle's chase camera,
-## the character is hidden and the vehicle's controller takes over. Getting
+## the character sits in the seat (PlayerCharacter.sit_in) and the vehicle's
+## controller takes over. Getting
 ## out: the vehicle brakes to a stop first if it's moving, VehicleEntry finds
 ## a safe spot by a door (or anywhere nearby), the character appears there
 ## and the camera glides back, keeping the direction you were looking.
@@ -172,7 +173,7 @@ func start_in_vehicle(v: Vehicle) -> void:
 	_end_ride()
 	mode = Mode.IN_VEHICLE
 	vehicle = v
-	character.set_hidden(true)
+	character.sit_in(v)
 	_give(kind_of(v), v)
 	blend.cancel()
 	_set_prompt("")
@@ -250,7 +251,7 @@ func _finish_enter(v: Vehicle) -> void:
 		_give(Controllable.CHARACTER, character)
 		blend.start(_view_camera(), camera_of(Controllable.CHARACTER), BLEND_OUT)
 		return
-	character.set_hidden(true)
+	character.sit_in(v)
 	mode = Mode.IN_VEHICLE
 	_cooldown = COOLDOWN
 	_give(kind_of(v), v)
@@ -311,7 +312,7 @@ func _finish_boarding(v: Vehicle) -> void:
 		_give(Controllable.CHARACTER, character)
 		blend.start(_view_camera(), camera_of(Controllable.CHARACTER), BLEND_OUT)
 		return
-	character.set_hidden(true)
+	character.sit_in(v, true)
 	mode = Mode.RIDING
 	_cooldown = COOLDOWN
 	_give(kind_of(v), v, true)
@@ -330,7 +331,7 @@ func start_riding(v: Vehicle) -> bool:
 		return false
 	mode = Mode.RIDING
 	ride = v
-	character.set_hidden(true)
+	character.sit_in(v, true)
 	_give(kind_of(v), v, true)
 	blend.cancel()
 	_set_prompt("")

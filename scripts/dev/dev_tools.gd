@@ -55,6 +55,12 @@ extends Node
 ##   --weather-test=<dir> every weather, soaking and drying, wet grip, rain under the
 ##                    overpass, lightning, Changing, split-screen rain (checks and shots;
 ##                    scripts/dev/weather_tests.gd)
+##   --seatsheet=<dir> look-dev of the players sitting in every vehicle: cut-open and
+##                    outside views, how well hands and feet reach (scripts/dev/seat_tests.gd)
+##   --seats=<dir>    the players sitting in vehicles: getting in and out, cockpit views,
+##                    replays, garage swaps, the bus, the plane, split-screen passengers
+##                    (checks and shots; scripts/dev/seat_tests.gd)
+##   --seatbench      what a seated figure costs while driving (draw calls, GPU, CPU)
 ##   --splitbench=<dir> one view vs split-screen: GPU and frame time, draw calls, Low /
 ##                    Medium / High (use --gpu-index 0 --resolution 1280x800)
 ##   --scenery=<dir>  fixed views of the city and the north bridge at day /
@@ -205,6 +211,14 @@ func _ready() -> void:
 		elif arg.begins_with("--weather-test="):
 			_mode = "weather"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--seatsheet="):
+			_mode = "seatsheet"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--seats="):
+			_mode = "seats"
+			_dir = arg.split("=")[1]
+		elif arg == "--seatbench":
+			_mode = "seatbench"
 		elif arg.begins_with("--splitbench="):
 			_mode = "splitbench"
 			_dir = arg.split("=")[1]
@@ -351,6 +365,12 @@ func _run() -> void:
 		await preload("res://scripts/dev/ride_tests.gd").new(self, game, _dir).run()
 	elif _mode == "weather":
 		await preload("res://scripts/dev/weather_tests.gd").new(self, game, _dir).run()
+	elif _mode == "seatsheet":
+		await preload("res://scripts/dev/seat_tests.gd").new(self, game, _dir).sheet()
+	elif _mode == "seats":
+		await preload("res://scripts/dev/seat_tests.gd").new(self, game, _dir).run()
+	elif _mode == "seatbench":
+		await preload("res://scripts/dev/seat_tests.gd").new(self, game, _dir).bench()
 	elif _mode == "parts":
 		await preload("res://scripts/dev/parts_tests.gd").new(self, game, _dir).run()
 	elif _mode == "partsbench":

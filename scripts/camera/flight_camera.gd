@@ -138,7 +138,8 @@ func _frame(b: Basis) -> Basis:
 
 
 func _process(dt: float) -> void:
-	if target == null or not is_instance_valid(target):
+	# (A plane the garage just swapped out has already left the tree.)
+	if target == null or not is_instance_valid(target) or not target.is_inside_tree():
 		return
 	var t := target.get_global_transform_interpolated()
 	var b := t.basis.orthonormalized()

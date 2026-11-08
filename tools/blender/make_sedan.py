@@ -134,10 +134,12 @@ def _interior(shell, m, ys):
         bk.box(shell, im, (x, -0.40, 0.70), (0.26, 0.10, 0.14), rot=(math.radians(-12), 0, 0))
     bk.box(shell, im, (0, -0.92, -0.01), (1.5, 0.48, 0.16), bevel=0.04, segments=1)  # rear bench
     bk.box(shell, im, (0, -1.15, 0.30), (1.5, 0.13, 0.55), bevel=0.05, rot=(math.radians(-15), 0, 0), segments=1)
-    c = (-0.40, 0.38, 0.42)
+    # Steering wheel where the seated driver's hands reach (the scene's
+    # steering_wheel; ART_BIBLE.md §34).
+    c = (-0.40, 0.20, 0.46)
     bk.torus(shell, m["Trim"], c, 0.18, 0.018, 16, 5, tilt=math.radians(-25))
     bk.box(shell, m["Trim"], (c[0], c[1] - 0.005, c[2]), (0.1, 0.03, 0.08))
-    bk.tube(shell, m["Trim"], (-0.40, 0.41, 0.41), (-0.40, 0.6, 0.34), 0.025, 8)
+    bk.tube(shell, m["Trim"], (-0.40, 0.23, 0.45), (-0.40, 0.6, 0.34), 0.025, 8)
 
 
 if __name__ == "__main__":

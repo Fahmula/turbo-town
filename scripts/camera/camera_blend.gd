@@ -40,6 +40,11 @@ func start(from: Camera3D, to: Camera3D, seconds := 0.7) -> void:
 	current = true
 
 
+## The camera it glides to (null if it never started one).
+func target() -> Camera3D:
+	return _to if is_instance_valid(_to) else null
+
+
 ## Stops a blend in progress and shows its target right away.
 func cancel() -> void:
 	if blending:

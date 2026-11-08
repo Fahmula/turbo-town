@@ -77,6 +77,11 @@ map, help and pause all work on foot too.
 - Walk up to any vehicle (yours, one parked in a lot, or a traffic car that
   has stopped) and the prompt says "Get in the ...". Press **F** (**B** on a
   gamepad).
+- Inside, your character sits in the driver's seat with their hands on the
+  wheel (a plane's pilot holds the stick), seen through the glass. A rider
+  in split-screen sits beside them. The hood and cockpit views leave your own
+  character out (the camera is in their head). Nobody shows in the bus,
+  behind its dark glass.
 - Press it again to get out. A moving vehicle stops first. You step out by
   the driver's door, or wherever there's room if a wall is in the way.
 - Your vehicle stays where you left it, shown as a yellow square on the
@@ -312,7 +317,7 @@ generated files are committed, so you only need those tools to change them.
 
 | Folder | What's in it |
 |---|---|
-| `scripts/player/` | `local_player.gd` (one player on this machine: character, vehicle, rigs, HUD, input; two in split-screen), `player_input.gd` (one player's devices and actions), `possession.gd` (what the player controls; getting in and out), `controllable.gd` (component: who drives a pawn, which rig controls it), `player_character.gd` (walk / run / sprint / jump, kerbs, animation, footsteps, being bumped), `player_character_controller.gd` (input), `interactable.gd` (things you use with F / B), `vehicle_entry.gd` (a vehicle's doors and safe exit spots), `parked_car_entry.gd` (parked car props you can drive) |
+| `scripts/player/` | `local_player.gd` (one player on this machine: character, vehicle, rigs, HUD, input; two in split-screen), `player_input.gd` (one player's devices and actions), `possession.gd` (what the player controls; getting in and out), `controllable.gd` (component: who drives a pawn, which rig controls it), `player_character.gd` (walk / run / sprint / jump, kerbs, animation, footsteps, being bumped), `seat_figure.gd` (the character sitting in a vehicle, seen through the glass), `limb_ik.gd` (two-bone IK: hands on the wheel, feet in the footwell), `player_character_controller.gd` (input), `interactable.gd` (things you use with F / B), `vehicle_entry.gd` (a vehicle's doors and safe exit spots), `parked_car_entry.gd` (parked car props you can drive) |
 | `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
 | `scripts/vehicle/custom/` | `parts_catalog.gd` (everything the garage can change: tabs, slots, options, which vehicles a part fits), `loadout.gd` (one vehicle's setup: saved per vehicle, put on the car), `wheel_kit.gd` (fits rim + tyre parts to a vehicle's wheels), `body_kit.gd` (fits bumpers, skirts, arches, spoilers, bonnet and roof parts from the vehicle's kit), `underglow.gd` |
 | `scripts/vehicle/audio/` | `vehicle_sound_profile.gd` (what a vehicle class sounds like), `vehicle_sound_bank.gd` (shared tyre / crash / glass sounds), `audio_director.gd` (traffic voice budget, Doppler) |
@@ -490,7 +495,16 @@ The player controls a *pawn*: the character or a vehicle (`scripts/player/`).
 - **Getting in:** the `Interactable` nearest the character (a vehicle's
   `VehicleEntry`, a parked car's `ParkedCarEntry`) shows its prompt. F / B
   walks the character to the door for a moment while the `CameraBlend` glides
-  to the chase camera, then hides it and hands the vehicle the controls.
+  to the chase camera, then sits it down (`PlayerCharacter.sit_in`) and hands
+  the vehicle the controls.
+- **In the seat:** the walking character is hidden and a `SeatFigure` (a copy
+  of its model, same clothes) sits in the vehicle: the driving clip for the
+  driver, the sitting clip for a passenger. `LimbIK` (two-bone IK) puts the
+  hands on the steering wheel and the feet in the footwell, from each
+  vehicle scene's Seats settings (`seat_hip`, `seat_recline`, `seat_feet`,
+  `steering_wheel`...; the cabins in the Blender generators are laid out
+  round them). It's a child of the vehicle, so it moves with it, copies the
+  body's roll, and is kept out of the owner's own hood / cockpit view.
   `Game.adopt_vehicle` points the HUD, maps, traffic, stunts, replay,
   headlights, reflections and full engine sound at it.
 - **Getting out:** the vehicle brakes to a stop and `VehicleEntry.find_exit`
@@ -626,6 +640,7 @@ godot --path . -- --garage=/tmp/shots
 | `--onfoot` | The character: walk / run / sprint / jump, in and out of every vehicle type (keyboard + gamepad), traffic and parked cars, exits by walls, overturned and damaged vehicles, being bumped, garage / teleport / race / sea on foot, leak check |
 | `--split` | Two players: joining with a second gamepad, each player's own controls (simulated pads 0 and 1), views, cars, teleports, X to the other player, garage, planes, traffic around both, pause, leaving and rejoining |
 | `--ride` | Two players, one riding along with the other: getting in and out, cameras, no controls, teleports, the sea, garage swaps, the plane, leaving |
+| `--seats` | The players sitting in vehicles: getting in and out, the hood / cockpit view leaves your own character out, replays, teleports, garage swaps, the bus, the plane, a split-screen passenger in player 2's T-shirt, player 2 leaving |
 | `--flight` | The plane: take-off, cruise, turns, loop, roll, stall, the help button, teleports, the island's edge, landing, getting out and in, replay, parked planes, taxiing, crash, garage. Run with `--fixed-fps 60` |
 | `--menus` | Title, pause, settings and controls menus driven by input |
 | `--stunts` | Air, flips, rolls, spins, drift, near miss, wipeout → combos and records |
@@ -648,6 +663,7 @@ godot --path . -- --garage=/tmp/shots
 | `--scenery` | Fixed city and bridge views at day / sunset / night and Low / High, with draw calls, primitives and GPU time per view. `--views=a,b`, `--quick`, `--hours=6.4,9,18.2`, `--ultra`, `--stress`, `--profile`, `--traffic-on` narrow or measure |
 | `--lookdev` | Every vehicle from fixed cameras at day / sunset / night. `--vehicles=a,b --views=front34,rear34,side,wheel,chase,lamps --times=day --damaged` |
 | `--charsheet` | The character from fixed cameras at day / sunset / night, plus animation strips |
+| `--seatsheet` | A driver and a passenger in every vehicle, cut open and from outside, with how far hands and feet fall short and the headroom. `--vehicles=a,b --views=none --try=z,y,recline,wheel z,wheel y;...` tries other seat numbers |
 | `--fx` | Effects: a drift in the stunt park (tyre smoke) and a crash into a building at speed (dents) |
 
 #### Traffic
@@ -691,6 +707,7 @@ the Steam Deck on a PC.
 | `--gpu-index 0 --resolution 1280x800 -- --splitbench=<dir>` | One view vs split-screen: GPU and frame time, draw calls at Low / Medium / High (`--levels=0,1 --views=city_city`) |
 | `--gpu-index 0 -- --flightbench=<dir>` | GPU cost flying over the city at 60, 150 and 300 m, Medium / Low / High |
 | `-- --onfootbench` | The character's cost: draw calls, CPU and GPU with it shown and hidden, physics time |
+| `-- --seatbench` | A seated character's cost while driving: draw calls, CPU and GPU with it shown and hidden, animation and IK time |
 | `-- --partsbench` | A fully kitted player car against a stock one: GPU and draw calls |
 
 #### Sound

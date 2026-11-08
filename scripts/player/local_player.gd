@@ -261,6 +261,11 @@ func _fit_tag() -> void:
 
 
 func _process(_dt: float) -> void:
+	var figure := character.seated_figure() if character else null
+	if figure:
+		# The cockpit camera sits in the figure's head: this player doesn't
+		# see their own figure from there (the other player does).
+		figure.set_own_view_hidden(_cockpit_view(), index if view else -1)
 	if _tag:
 		# (No marker over a vehicle both players sit in.)
 		_tag.visible = view != null and not _with_anyone()
@@ -271,6 +276,19 @@ func _process(_dt: float) -> void:
 			if p is Vehicle:
 				top = (p as Vehicle).body_top + 1.2
 			_tag.global_position = p.get_global_transform_interpolated().origin + Vector3.UP * top
+
+
+## Does this player look out from the seat (hood / cockpit view, or gliding
+## into it)? Replays and menus show their own cameras: not then.
+func _cockpit_view() -> bool:
+	var cam := Views.camera(self, index)
+	if cam == camera_blend:
+		cam = camera_blend.target()
+	if cam is ChaseCamera:
+		return (cam as ChaseCamera).mode == ChaseCamera.Mode.HOOD
+	if cam is FlightCamera:
+		return (cam as FlightCamera).mode == FlightCamera.Mode.COCKPIT
+	return false
 
 
 ## The camera this player sees through now.

@@ -32,6 +32,11 @@ script = ExtResource("1_vehicle")
 brake_calipers = true
 caliper_color = Color(0.78, 0.09, 0.06, 1)
 display_name = "Sports Car"
+seat_hip = Vector3(-0.4, -0.03, 0.2)
+seat_recline = 20.0
+seat_feet = Vector3(0, -0.135, -0.72)
+steering_wheel = Vector3(-0.4, 0.36, -0.06)
+steering_wheel_radius = 0.17
 
 [node name="BodyShape" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)

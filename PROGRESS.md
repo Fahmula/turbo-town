@@ -153,7 +153,8 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - [ ] Owner review on the Deck (controls, feel, look)
 
 ### Ideas for later (not started)
-- [ ] Visible driver in the seat (the `Driving` animation is in the model), door open/close animations
+- [x] Visible driver in the seat (done on `feature/visible-drivers`, see "Visible drivers" below)
+- [ ] Door open/close animations (the doors are part of the body mesh today)
 - [ ] Character customization (outfit colours) saved like vehicle loadouts
 - [ ] Pedestrians in the city (the character class takes any controller)
 - [ ] Swimming instead of respawning in the sea; climbing; ragdoll falls
@@ -276,7 +277,8 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 ### Ideas for later (not started)
 - [ ] One full-screen view while both sit in the same vehicle (the two halves show nearly the same
       picture; one view would also cost half the GPU on the Deck)
-- [ ] A visible passenger (and driver) in the seat; waving from the window
+- [x] A visible passenger (and driver) in the seat (`feature/visible-drivers`)
+- [ ] Waving from the window
 - [ ] Passenger fun: honk the horn, a camera to take photos, a parachute jump from the plane
 - [ ] More seats (the bus) for three or four players or NPC passengers
 
@@ -343,6 +345,35 @@ thunderstorms, picked in Settings or Changing by itself, and wet roads a little 
 - [ ] Fog as its own weather; wind that sways trees harder in a storm
 - [ ] Raindrops on the windscreen in the hood view, wipers
 - [ ] Puddle splashes when driving through standing water; traffic drives slower in the rain
+
+## Visible drivers (branch `feature/visible-drivers`, not released)
+
+The owner wants the characters visible in vehicles (owner, 2026-11-08): the backlog's "visible
+driver in the seat" from the on-foot milestone and "a visible passenger" from riding along.
+
+### Done (branch `feature/visible-drivers`, off `main`)
+- [x] `SeatFigure`: a copy of the player's character (same clothes, player 2's blue T-shirt) sits
+      in the vehicle while they drive or ride; the driving clip for the driver, the sitting clip for
+      a passenger; leans with the body roll; no shadow of its own (the cabin is in the car's shadow)
+- [x] `LimbIK` (two-bone IK): hands on the steering wheel at ten to two (a pilot's right hand on
+      the stick, the left on the thigh), feet in the footwell, a passenger's hands on the thighs; the
+      neck and head lean forward again against the seat's recline, so they look at the road
+- [x] Seats settings per vehicle scene (`seat_hip`, `seat_recline`, `seat_feet`, `steering_wheel`,
+      radius, tilt); nobody shows in the bus (dark glass, no cabin)
+- [x] Cabins laid out round the seated driver in the generators: steering wheels moved to where the
+      hands reach (sports car, sedan, box truck, monster truck, buggy, the plane's sticks); the sports
+      car gets lower bucket seats further forward so the head fits under its fastback roof (≥ 5 cm)
+- [x] The hood / cockpit view leaves your own figure out (the camera is in its head); in split-screen
+      the other player still sees it. Replays show it
+- [x] Steam Deck: +5 draw calls, GPU within the noise on the iGPU at Medium and Low, ~0.035 ms CPU
+- [x] Tests: `--seats` (31 checks), `--seatsheet` (look-dev + fit numbers, 41 checks), `--seatbench`
+- [ ] Owner review, then the son on the Deck
+
+### Ideas for later (not started)
+- [ ] Drivers in traffic cars (needs a cheap far version of the character: 50+ cars)
+- [ ] Steering wheels as separate meshes that turn with the steering, the hands going with them
+- [ ] Head turns toward the steering direction; a lean into hard corners; a jolt on big landings
+- [ ] Getting in and out animations (`Sitting_Enter` / `Sitting_Exit` are in the model) and doors
 
 ---
 
@@ -507,3 +538,5 @@ thunderstorms, picked in Settings or Changing by itself, and wet roads a little 
   mockups (PLAY NOW tile, icon tiles, showroom preview, long stat bars, prompts that match the device), then arcade
   flair: Barlow Condensed italic, slanted buttons and tabs, speed stripes, "go" chevrons, a pause drawer and a
   settings page of row buttons with pips and help lines.
+- 2026-11-08 — Visible drivers (`feature/visible-drivers` branch): the players sit in their vehicles, hands on the
+  wheel, seen through the glass; cabins laid out round the seated driver.

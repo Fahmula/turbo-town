@@ -341,7 +341,7 @@ def cockpit(part, m, ys):
         bk.box(part, im, (x, -0.30, 0.56), (0.44, 0.50, 0.12))                     # cushion
         bk.box(part, im, (x, -0.62, 0.86), (0.44, 0.10, 0.62), rot=(math.radians(-18), 0, 0))   # back
         bk.box(part, im, (x, -0.74, 1.20), (0.24, 0.08, 0.13), rot=(math.radians(-18), 0, 0))   # headrest
-        bk.tube(part, m["Trim"], (x, 0.20, 0.48), (x, 0.12, 0.88), 0.018, 6)       # stick
+        bk.tube(part, m["Trim"], (x, 0.06, 0.48), (x, -0.04, 0.86), 0.018, 6)      # stick (in the pilot's hand)
     bk.box(part, m["Trim"], (0, 0.70, 0.66), (0.14, 0.30, 0.14))                  # throttle quadrant
     bk.tube(part, m["Trim"], (0, 0.70, 0.73), (0, 0.65, 0.84), 0.012, 6)
 
