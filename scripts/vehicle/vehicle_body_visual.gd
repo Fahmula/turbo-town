@@ -53,6 +53,9 @@ enum Blinker { OFF, LEFT, RIGHT, HAZARD }
 
 ## Turn signals / hazard lights (Blinker); TrafficDriver sets it.
 var indicator := Blinker.OFF
+## The merged far mesh of a traffic car (CarLod): gets the paint, grime and
+## lamp states too, as instance uniforms.
+var far_lods: Array[GeometryInstance3D] = []
 
 var _vehicle: Vehicle
 var _prev_vel := Vector3.ZERO
@@ -325,6 +328,26 @@ func set_paint_color(c: Color) -> void:
 	_apply_finish()
 	if _mats.has("stripe"):
 		(_mats["stripe"] as ShaderMaterial).set_shader_parameter("paint_color", PaintPalette.stripe_color(c))
+	_far("paint_color", c)
+	_far("paint_metallic", PaintPalette.metallic_of(c))
+
+
+## CarLod's far mesh for this car: it gets this car's paint and grime now, and
+## its lamp states from the next frame on.
+func add_far_lod(gi: GeometryInstance3D) -> void:
+	far_lods.append(gi)
+	_far("paint_color", paint_color)
+	_far("paint_metallic", PaintPalette.metallic_of(paint_color))
+	_far("dirt", dirt)
+	_brake_on = -1.0
+	_reverse_on = -1.0
+	_blink_out = Vector2(-1.0, -1.0)
+
+
+func _far(param: StringName, value: Variant) -> void:
+	for gi in far_lods:
+		if is_instance_valid(gi):
+			gi.set_instance_shader_parameter(param, value)
 
 
 ## The garage paint: finish, two-tone, side decal and race number (a
@@ -525,6 +548,7 @@ func set_dirt(amount: float) -> void:
 		(_mats["paint"] as ShaderMaterial).set_shader_parameter("dirt", dirt)
 	if _mats.has("tyre"):
 		(_mats["tyre"] as ShaderMaterial).set_shader_parameter("dust", clampf(dirt * 1.3, 0.0, 1.0))
+	_far("dirt", dirt)
 
 
 func _physics_process(dt: float) -> void:
@@ -562,10 +586,12 @@ func _update_lamps(dt: float) -> void:
 	if brake != _brake_on and _mats.has("tail"):
 		_brake_on = brake
 		(_mats["tail"] as ShaderMaterial).set_shader_parameter("brake", brake)
+		_far("brake", brake)
 	var rev := 1.0 if _vehicle.gear == -1 else 0.0
 	if rev != _reverse_on and _mats.has("reverse"):
 		_reverse_on = rev
 		(_mats["reverse"] as ShaderMaterial).set_shader_parameter("reverse", rev)
+		_far("reverse", rev)
 	# Indicators: about 85 flashes a minute, a quick bulb ramp on and off.
 	var out := Vector2.ZERO
 	if indicator != Blinker.OFF:
@@ -581,6 +607,7 @@ func _update_lamps(dt: float) -> void:
 				var m := _mats[role] as ShaderMaterial
 				m.set_shader_parameter("blink_left", out.x)
 				m.set_shader_parameter("blink_right", out.y)
+		_far("blink", out)
 
 
 ## Driving on dirt slowly dusts the car up (never washes off by itself).

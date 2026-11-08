@@ -1104,10 +1104,11 @@ Nodes: `Propeller` (spins about its local Z), `PropDisc`, `AileronL/R`,
   makes the per-car `car_paint` material. Vehicles and parked-car props both
   use it, so every car changes together. The finish (solid or metallic)
   belongs with the palette entry, not with each model. One exception:
-  parked cars beyond 40 m switch to a merged stand-in (`ParkedCarLod`,
-  `parked_far.gdshader`, §27), which copies car_paint's gloss, clear coat,
-  metallic flop and ground-reflection toning but not its flakes or grime.
-  Change it too when the paint, glass, lamp, trim or tyre looks change.
+  parked and traffic cars beyond 40 m switch to a merged stand-in (`CarLod`,
+  `car_far.gdshader`, §27), which copies car_paint's gloss, clear coat,
+  metallic flop, ground-reflection toning and (averaged) grime, and
+  vehicle_lamp's energies, but not the flakes. Change it too when the paint,
+  glass, lamp, trim or tyre looks change.
 
 **Other vehicle materials**
 
@@ -2013,7 +2014,7 @@ window):
     which this proxy can't show. The dev CPU is several times faster than the
     Deck's 4-core Zen 2.
 
-- **Cheap parked cars** (2026-11-07, `ParkedCarLod`; `--drawcalls` with the
+- **Cheap parked cars** (2026-11-07, `CarLod`, then named ParkedCarLod; `--drawcalls` with the
   "parked old way" A/B, iGPU at Medium, 1280×800): each parked-car prop
   gets its parts merged into one mesh with one shared material (looks baked
   into the vertices, paint per car by instance uniform), shown beyond 40 m
@@ -2032,7 +2033,33 @@ window):
     glass (the cabin isn't drawn); the parked DRL and tail glows are baked in.
   - Cost: the merges are built once per car type at world build (three
     types, two meshes each, LODs generated): ~90 ms on the dev CPU in a
-    normal run, 5% of the world build. **Check load time on the Deck.**
+    normal run, 5% of the world build (later ~35 ms: see below).
+
+- **Cheap traffic** (2026-11-07, `CarLod.fit_vehicle`; `--drawcalls` with the
+  "traffic old way" A/B, iGPU at Medium, 1280×800, 22 cars): the same
+  merged far mesh and shadow caster for traffic cars, built from the car at
+  rest (wheels straight and still, no body lean: none of it shows at 40 m),
+  placed on the vehicle root (not under Body, so VehicleDamage never dents
+  it). The lamps stay live: each lamp vertex carries a code, and
+  car_far.gdshader works out its glow from the car's brake, reverse and
+  indicator states and `night` (instance uniforms that VehicleBodyVisual
+  sends along with the paint and grime). A damaged car shows its real parts
+  at every distance until it's repaired (pooled cars are repaired on reuse);
+  a car the player takes loses the merged meshes.
+  - Intersection 503 → 308 draw calls, aerial 546 → 324, downtown street
+    368 → 275; city drive 570 → 350 on average, peak 782 → 455. Render CPU
+    −0.15 to −0.45 ms on the dev CPU; GPU within the noise.
+  - With the parked cars, against the start of the day: downtown 875 → 275,
+    aerial 874 → 324, city drive 876 → 350 on average and **peak 1,961 →
+    455**.
+  - Look: `--trafficlod` pairs (rear and front three-quarters, day and night,
+    brakes on, an indicator mid-blink) match for every type; the windows read
+    as tinted glass from afar.
+  - Load: both batches are built at load (`CarLod.prebuild`: the source
+    meshes are read on the main thread, the arrays and LODs built on worker
+    threads): parked ~35 ms + traffic ~70 ms on the dev CPU, against a 1.5 s
+    world build. Built on first spawn instead, a type appearing mid-drive
+    would stall a frame. **Check load time on the Deck.**
 
 - **After the player character** (2026-10-03, `--onfootbench`, city centre,
   22 cars): the character adds ~10–13 draw calls and no measurable GPU time
