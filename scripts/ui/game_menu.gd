@@ -10,6 +10,9 @@ extends CanvasLayer
 ## on the 2 PLAYERS page; -1 = the keyboard) or "remove_player".
 signal action(name: String)
 
+## The title screen's cards start this far from the left edge (px).
+const TITLE_LEFT := 64
+
 ## Controls page, two columns: driving, then on foot and anywhere.
 const CONTROLS := [
 	["Gas", "W / Up", "RT"],
@@ -88,11 +91,9 @@ var _update_notes: Button
 var _news_title: Label
 var _news_text: RichTextLabel
 var _news_restart: Button
-## The title screen's column and its spacers (tightened on short screens).
+## The title screen's column of cards and its big heading.
 var _title_col: VBoxContainer
 var _title_label: Label
-var _title_gap: Control
-var _title_buttons: VBoxContainer
 ## The device that pressed a button last (a gamepad id, -1 = keyboard/mouse).
 var _last_device := -1
 ## 2 PLAYERS page: player 1's device (the one that opened the page).
@@ -175,6 +176,7 @@ func close() -> void:
 		focused.release_focus()
 
 
+## The GARAGE tile's line names the vehicle you'll play with.
 func set_ride_name(ride: String) -> void:
 	_ride_label.text = "Your ride: %s" % ride
 
@@ -218,55 +220,79 @@ func _build_title() -> Control:
 	var page_root := Control.new()
 	page_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	page_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Dark fade on the left so the menu column reads well over a bright scene.
+	# Dark fade on the left so the cards read well over a bright scene; the
+	# right side stays open for your car.
 	var fade := TextureRect.new()
 	var grad := GradientTexture2D.new()
 	grad.gradient = Gradient.new()
-	grad.gradient.set_color(0, Color(0.02, 0.03, 0.08, 0.8))
-	grad.gradient.set_color(1, Color(0.02, 0.03, 0.08, 0.0))
+	grad.gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	grad.gradient.colors = PackedColorArray([
+		Color(0.02, 0.03, 0.08, 0.8), Color(0.02, 0.03, 0.08, 0.55), Color(0.02, 0.03, 0.08, 0.0)])
 	grad.fill_to = Vector2(1, 0)
 	fade.texture = grad
 	fade.stretch_mode = TextureRect.STRETCH_SCALE
 	fade.anchor_bottom = 1.0
-	fade.offset_right = 760
+	fade.offset_right = 1150
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page_root.add_child(fade)
+
+	# The cards, in a column down the left (width set by _fit_title).
 	var col := VBoxContainer.new()
-	col.position = Vector2(80, 60)
+	col.anchor_bottom = 1.0
+	col.offset_left = TITLE_LEFT
+	col.offset_top = 24
+	col.offset_bottom = -24
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 14)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page_root.add_child(col)
 	_title_col = col
-	var title := UiKit.label("TURBO TOWN", 92, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
-	title.add_theme_constant_override("outline_size", 22)
-	col.add_child(title)
-	_title_label = title
-	col.add_child(UiKit.label("A driving sandbox. Crash, jump and explore!", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 24)
-	col.add_child(gap)
-	_title_gap = gap
-	var buttons := VBoxContainer.new()
-	_title_buttons = buttons
-	buttons.add_theme_constant_override("separation", 10)
-	buttons.custom_minimum_size = Vector2(340, 0)
-	buttons.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	col.add_child(buttons)
-	var drive := _button(buttons, "PLAY!", func() -> void: action.emit("drive"))
-	drive.add_theme_font_size_override("font_size", 32)
-	_button(buttons, "2 PLAYERS", _open_join)
-	_button(buttons, "RACES", func() -> void: show_page("races", true))
-	_button(buttons, "GARAGE", func() -> void: action.emit("garage"))
-	_button(buttons, "SETTINGS", func() -> void: show_page("settings", true))
-	_button(buttons, "RECORDS", func() -> void: show_page("records", true))
-	_button(buttons, "CONTROLS", func() -> void: show_page("controls", true))
-	_button(buttons, "CREDITS", func() -> void: show_page("credits", true))
-	_title_quit = _button(buttons, "QUIT", func() -> void: action.emit("quit"))
-	_first_focus["title"] = drive
-	var gap2 := Control.new()
-	gap2.custom_minimum_size = Vector2(0, 12)
-	col.add_child(gap2)
-	_ride_label = UiKit.label("", 20, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
-	col.add_child(_ride_label)
+
+	var head := UiKit.panel(24)
+	col.add_child(head)
+	var hv := VBoxContainer.new()
+	hv.add_theme_constant_override("separation", 2)
+	head.add_child(hv)
+	hv.add_child(UiKit.heading("TURBO TOWN", 22, UiKit.ACCENT))
+	_title_label = UiKit.heading("READY TO RIDE?", 54)
+	hv.add_child(_title_label)
+	hv.add_child(UiKit.text("Your island. Your cars. Your adventures.", 22))
+
+	var play := UiKit.Tile.new("primary", false, Vector2(24, 18))
+	play.box.add_theme_constant_override("separation", 16)
+	play.box.add_child(UiIcon.new("play", 42, UiKit.DARK_TEXT))
+	var pv := VBoxContainer.new()
+	pv.add_theme_constant_override("separation", 0)
+	pv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	play.box.add_child(pv)
+	pv.add_child(UiKit.heading("PLAY NOW", 36, UiKit.DARK_TEXT))
+	pv.add_child(UiKit.text("Jump into your world", 20, UiKit.DARK_TEXT))
+	play.box.add_child(UiIcon.new("chevron_right", 34, UiKit.DARK_TEXT))
+	play.pressed.connect(func() -> void: action.emit("drive"))
+	col.add_child(play)
+	_first_focus["title"] = play.button
+
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	col.add_child(grid)
+	_title_tile(grid, "players", "2 PLAYERS", "Play together", _open_join)
+	_ride_label = _title_tile(grid, "wrench", "GARAGE", "Customise your ride", func() -> void: action.emit("garage"))
+	_title_tile(grid, "flag", "RACES", "Beat your best time", func() -> void: show_page("races", true))
+	_title_tile(grid, "trophy", "RECORDS", "Your biggest stunts", func() -> void: show_page("records", true))
+
+	var foot := UiKit.panel(8)
+	(foot.get_theme_stylebox("panel") as StyleBoxFlat).set_corner_radius_all(14)
+	col.add_child(foot)
+	var fh := HBoxContainer.new()
+	fh.add_theme_constant_override("separation", 6)
+	foot.add_child(fh)
+	_footer_button(fh, "gear", "Settings", func() -> void: show_page("settings", true))
+	_footer_button(fh, "gamepad", "Controls", func() -> void: show_page("controls", true))
+	_footer_button(fh, "info", "Credits", func() -> void: show_page("credits", true))
+	_title_quit = _footer_button(fh, "exit", "Quit", func() -> void: action.emit("quit"))
 
 	# Bottom right: the update box (when there's a new version) above the version.
 	var corner := VBoxContainer.new()
@@ -285,6 +311,38 @@ func _build_title() -> Control:
 	return page_root
 
 
+## A title screen tile: icon, title and a line under it. Returns that line.
+func _title_tile(grid: GridContainer, icon: String, title: String, line: String, on_press: Callable) -> Label:
+	var t := UiKit.Tile.new("tile", true, Vector2(22, 18))
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.box.add_theme_constant_override("separation", 4)
+	t.box.add_child(UiIcon.new(icon, 32, UiKit.ACCENT))
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 6)
+	t.box.add_child(gap)
+	t.box.add_child(UiKit.heading(title, 26))
+	var sub := UiKit.text(line, 20)
+	sub.clip_text = true
+	sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	t.box.add_child(sub)
+	t.pressed.connect(on_press)
+	grid.add_child(t)
+	return sub
+
+
+## A small flat button for the title screen's bottom bar: icon and word.
+func _footer_button(parent: Control, icon: String, text: String, on_press: Callable) -> Button:
+	var t := UiKit.Tile.new("flat", false, Vector2(14, 10), 10)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.box.alignment = BoxContainer.ALIGNMENT_CENTER
+	t.box.add_theme_constant_override("separation", 10)
+	t.box.add_child(UiIcon.new(icon, 24, Color.WHITE))
+	t.box.add_child(UiKit.heading(text, 20))
+	t.pressed.connect(on_press)
+	parent.add_child(t)
+	return t.button
+
+
 ## The title screen's update box (see Updates): a newer version downloading,
 ## ready to install, or failed. Hidden when there's nothing new.
 func _build_update_box() -> Control:
@@ -294,7 +352,7 @@ func _build_update_box() -> Control:
 	col.add_theme_constant_override("separation", 8)
 	col.custom_minimum_size = Vector2(340, 0)
 	_update_box.add_child(col)
-	_update_title = UiKit.panel_label("", 24, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT)
+	_update_title = UiKit.heading("", 24, UiKit.ACCENT)
 	col.add_child(_update_title)
 	_update_status = UiKit.panel_label("", 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_update_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -367,7 +425,7 @@ func _build_whats_new() -> Control:
 	col.add_theme_constant_override("separation", 12)
 	col.custom_minimum_size = Vector2(760, 0)
 	p.add_child(col)
-	_news_title = UiKit.panel_label("WHAT'S NEW", 32, UiKit.ACCENT)
+	_news_title = UiKit.heading("WHAT'S NEW", 32, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	col.add_child(_news_title)
 	_news_text = RichTextLabel.new()
 	_news_text.bbcode_enabled = true
@@ -394,15 +452,19 @@ func _refresh_news() -> void:
 	_news_restart.visible = Updates.state == Updates.State.READY
 
 
-## Short screens (the Steam Deck's 800 px): the title column moves up and
-## closes its gaps so all nine buttons and "Your ride" fit.
+## Sizes the title column to the screen (narrower on the Steam Deck's
+## 1280 px, so the car stays in view), shrinks the big heading on short
+## screens, and slides the cards in.
 func _fit_title() -> void:
-	var short := get_viewport().get_visible_rect().size.y < 880.0
-	_title_col.position.y = 28.0 if short else 60.0
-	_title_col.add_theme_constant_override("separation", 8 if short else 14)
-	_title_label.add_theme_font_size_override("font_size", 76 if short else 92)
-	_title_gap.custom_minimum_size.y = 6.0 if short else 24.0
-	_title_buttons.add_theme_constant_override("separation", 6 if short else 10)
+	var vp := get_viewport().get_visible_rect().size
+	var w := clampf(vp.x * 0.46, 560.0, 720.0)
+	_title_col.offset_right = TITLE_LEFT + w
+	_title_label.add_theme_font_size_override("font_size", 46 if vp.y < 880.0 else 54)
+	_title_col.modulate.a = 0.0
+	_title_col.position.x = TITLE_LEFT - 32.0
+	var tw := _title_col.create_tween().set_parallel().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(_title_col, "modulate:a", 1.0, 0.22)
+	tw.tween_property(_title_col, "position:x", float(TITLE_LEFT), 0.22)
 
 
 func _build_pause() -> Control:
@@ -413,7 +475,7 @@ func _build_pause() -> Control:
 	col.add_theme_constant_override("separation", 10)
 	col.custom_minimum_size = Vector2(340, 0)
 	p.add_child(col)
-	col.add_child(UiKit.label("PAUSED", 40, UiKit.ACCENT))
+	col.add_child(UiKit.heading("PAUSED", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	var resume := _button(col, "RESUME", func() -> void: action.emit("resume"))
 	_end_race_button = _button(col, "END RACE", func() -> void: action.emit("end_race"))
 	_races_button = _button(col, "RACES", func() -> void: show_page("races", true))
@@ -455,7 +517,7 @@ func _build_join() -> Control:
 	col.add_theme_constant_override("separation", 16)
 	col.custom_minimum_size = Vector2(620, 0)
 	p.add_child(col)
-	col.add_child(UiKit.label("2 PLAYERS", 40, UiKit.ACCENT))
+	col.add_child(UiKit.heading("2 PLAYERS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	col.add_child(UiKit.label("Two players, one screen: player 1 on top, player 2 below.", 20, Color(1, 1, 1, 0.85)))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -536,7 +598,7 @@ func _build_settings() -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	p.add_child(col)
-	col.add_child(UiKit.label("SETTINGS", 40, UiKit.ACCENT))
+	col.add_child(UiKit.heading("SETTINGS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	# Two columns of settings (label, value, label, value), so the page fits
 	# the Steam Deck's 800-pixel-high screen. Rows fill left then right; up /
 	# down run down the left column and on into the right one (left / right
@@ -632,7 +694,7 @@ func _build_controls() -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	p.add_child(col)
-	col.add_child(UiKit.label("CONTROLS", 40, UiKit.ACCENT))
+	col.add_child(UiKit.heading("CONTROLS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 56)
 	col.add_child(columns)
@@ -664,7 +726,7 @@ func _build_controls_flying() -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	p.add_child(col)
-	col.add_child(UiKit.label("FLYING", 40, UiKit.ACCENT))
+	col.add_child(UiKit.heading("FLYING", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	_controls_grid(col, "PLANES (at the Airfield, 7, or in the garage)", CONTROLS_FLYING)
 	var tip := UiKit.label("Take off: full power, then pull back at 80 km/h.\nLand: slow down low over the runway and let go.", 20,
 		Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
@@ -714,7 +776,7 @@ func _build_credits() -> Control:
 	col.add_theme_constant_override("separation", 12)
 	col.custom_minimum_size = Vector2(760, 0)
 	p.add_child(col)
-	col.add_child(UiKit.label("CREDITS", 40, UiKit.ACCENT))
+	col.add_child(UiKit.heading("CREDITS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	var text := RichTextLabel.new()
 	text.bbcode_enabled = true
 	text.fit_content = true
@@ -738,7 +800,7 @@ func _build_records() -> Control:
 	col.add_theme_constant_override("separation", 12)
 	col.custom_minimum_size = Vector2(620, 0)
 	p.add_child(col)
-	col.add_child(UiKit.label("RECORDS", 40, UiKit.ACCENT))
+	col.add_child(UiKit.heading("RECORDS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	_records_text = RichTextLabel.new()
 	_records_text.bbcode_enabled = true
 	_records_text.fit_content = true
@@ -781,7 +843,7 @@ func _build_races() -> Control:
 	col.add_theme_constant_override("separation", 12)
 	col.custom_minimum_size = Vector2(700, 0)
 	p.add_child(col)
-	col.add_child(UiKit.label("RACES", 40, UiKit.ACCENT))
+	col.add_child(UiKit.heading("RACES", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	col.add_child(UiKit.label("Drive into a green circle in the world to start a race, or pick one:", 18, Color(1, 1, 1, 0.8)))
 	_races_list = VBoxContainer.new()
 	_races_list.add_theme_constant_override("separation", 8)

@@ -465,3 +465,5 @@ tips + flames (fire needs an owner yes), ride height.
 - 2026-10-16 — v0.11.0: riding along as a passenger; released.
 - 2026-11-07 — Car parts (`feature/car-parts` branch): body kits, spoilers, bonnet and roof parts, paint finishes,
   two-tone, decals and race numbers, underglow, horns.
+- 2026-11-07 — Arcade menus (`feature/arcade-ui` branch): the title screen and garage rebuilt as cards from the owner's
+  mockups (PLAY NOW tile, icon tiles, showroom preview, long stat bars, prompts that match the device).
