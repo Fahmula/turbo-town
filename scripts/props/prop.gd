@@ -25,7 +25,7 @@ var paint := Color.TRANSPARENT
 
 
 ## Parked cars are drawn out to this distance (planes with a fade; cars as
-## their merged far mesh, see ParkedCarLod); beyond it they're a few pixels
+## their merged far mesh, see CarLod); beyond it they're a few pixels
 ## and only cost triangles.
 const PARKED_CAR_RANGE := 200.0
 
@@ -58,7 +58,7 @@ func _ready() -> void:
 	_apply_color(col)
 	if traffic_paint:
 		# One draw call per pass from afar, one shadow caster at any distance.
-		ParkedCarLod.fit(self, PARKED_CAR_RANGE)
+		CarLod.fit_prop(self, PARKED_CAR_RANGE)
 
 
 ## Paints the prop: `color_mesh` surface 0 and every surface using the paint

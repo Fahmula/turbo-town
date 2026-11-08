@@ -403,14 +403,13 @@ tips + flames (fire needs an owner yes), ride height.
       horns, tyre roll/squeal/gravel, wind, scraping, crash tiers by strength and material, glass,
       suspension knocks, splashes, tunnel reverb; traffic voice budget and Doppler; ASSET_MANIFEST.md
       and an in-game CREDITS page
-- [ ] Vehicle draw-call trim if the Deck needs it: the fleet costs ~+85 draw calls at the highway
-      spawn (ART_BIBLE.md §27); candidates: merge Interior into Trim, or a merged far version of
-      traffic cars like the parked cars' (25–31 surfaces each; van, box truck, bus and pickup have
-      no visibility ranges)
-- [x] Cheap parked cars (2026-11-07, `ParkedCarLod`): one merged mesh beyond 40 m and one
-      merged shadow caster, so a far parked car is 1 draw call per pass instead of ~25; the city
-      drive's draw-call peak went from ~1,980 to ~635 (ART_BIBLE.md §27, `--drawcalls`,
-      `--parkedlod`)
+- [x] Cheap parked and traffic cars (2026-11-07, `CarLod`): one merged mesh beyond 40 m and one
+      merged shadow caster, so a far car is 1 draw call per pass instead of ~25 (traffic keeps live
+      brake, indicator and night lamps; damaged cars show their real parts); the city drive's
+      draw-call peak went from ~1,960 to ~455 (ART_BIBLE.md §27, `--drawcalls`, `--parkedlod`,
+      `--trafficlod`)
+- [ ] Player-car draw-call trim if the Deck needs it: merge Interior into Trim (the player's car is
+      always near the camera, so CarLod doesn't help it)
 - [ ] Damage 3.0: crumple stiffness, scrape/primer/bare-metal layer, structure behind lost parts
 - [x] Buildings: facade base/middle/top, districts, roof clutter, chunked meshes
 - [x] Vegetation: card-based trees, palms, chunked MultiMeshes with LOD

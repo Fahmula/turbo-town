@@ -87,6 +87,11 @@ func _ready() -> void:
 	network.build(world.roads)
 	for sig in network.signals:
 		_signals.append({"green": _rng.randi() % 2, "phase": 0, "t": _rng.randf() * MAX_GREEN, "demand": [-100.0, -100.0]})
+	# Every type's merged far mesh now, so a type's first spawn mid-drive
+	# doesn't stall a frame building it.
+	var t0 := Time.get_ticks_msec()
+	CarLod.prebuild(car_scenes)
+	print("Traffic far meshes built in %d ms" % (Time.get_ticks_msec() - t0))
 	if player:
 		var p := player
 		player = null
@@ -220,6 +225,7 @@ func claim(v: Vehicle) -> bool:
 	v.remove_child(d)
 	d.queue_free()
 	v.handbrake_input = true
+	CarLod.unfit_vehicle(v)
 	return true
 
 
@@ -566,6 +572,7 @@ func _spawn(lane: TrafficNetwork.Lane, s: float, scene: PackedScene = null) -> T
 	car.transform = global_transform.affine_inverse() * xform
 	add_child(car)
 	car.teleport(xform)  # also repairs a reused car
+	CarLod.fit_vehicle(car)  # one draw call per pass from afar
 	car.linear_velocity = dir * lane.speed * 0.7
 	var driver := TrafficDriver.new()
 	driver.name = "Driver"
