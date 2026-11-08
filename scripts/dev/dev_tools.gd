@@ -52,6 +52,9 @@ extends Node
 ##   --ride=<dir>     two players, one riding along in the other's car or plane: getting
 ##                    in and out, cameras, teleports, garage swaps, leaving mid-ride
 ##                    (checks and shots; scripts/dev/ride_tests.gd)
+##   --weather-test=<dir> every weather, soaking and drying, wet grip, rain under the
+##                    overpass, lightning, Changing, split-screen rain (checks and shots;
+##                    scripts/dev/weather_tests.gd)
 ##   --splitbench=<dir> one view vs split-screen: GPU and frame time, draw calls, Low /
 ##                    Medium / High (use --gpu-index 0 --resolution 1280x800)
 ##   --scenery=<dir>  fixed views of the city and the north bridge at day /
@@ -61,7 +64,8 @@ extends Node
 ##                    of meshes at a time and prints what it cost, --stress
 ##                    renders at 2x resolution so fill costs dominate,
 ##                    --traffic-on keeps traffic running for the shots)
-## Add --graphics=<0-3> (low, medium, high, ultra) to run any of them at that quality.
+## Add --graphics=<0-3> (low, medium, high, ultra) to run any of them at that quality,
+## and --weather=<clear|cloudy|rain|storm|changing> to run them in that weather.
 ## Example:
 ##   godot --path . -- --tour=/tmp/shots
 
@@ -198,6 +202,9 @@ func _ready() -> void:
 		elif arg.begins_with("--ride="):
 			_mode = "ride"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--weather-test="):
+			_mode = "weather"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--splitbench="):
 			_mode = "splitbench"
 			_dir = arg.split("=")[1]
@@ -213,6 +220,18 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(_dir)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_run.call_deferred()
+
+
+## --weather=<name>: that weather, straight away (no blend).
+func _set_weather(weather_name: String) -> void:
+	var i := ["clear", "cloudy", "rain", "storm", "changing"].find(weather_name)
+	if i < 0:
+		push_error("dev tools: unknown weather '%s'" % weather_name)
+		return
+	Settings.set_value("weather", i)
+	var game := get_tree().current_scene as Game
+	if game and game.weather:
+		game.weather.set_mode(i, true)
 
 
 func _wait(frames: int) -> void:
@@ -239,6 +258,8 @@ func _run() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--graphics="):
 			Settings.set_value("graphics", clampi(int(arg.split("=")[1]), 0, 3))
+		if arg.begins_with("--weather="):
+			_set_weather(arg.split("=")[1])
 	if _vehicle_id != "":
 		var vi := VehicleCatalog.index_of_id(_vehicle_id)
 		if vi < 0:
@@ -328,6 +349,8 @@ func _run() -> void:
 		await preload("res://scripts/dev/split_tests.gd").new(self, game, _dir).bench()
 	elif _mode == "ride":
 		await preload("res://scripts/dev/ride_tests.gd").new(self, game, _dir).run()
+	elif _mode == "weather":
+		await preload("res://scripts/dev/weather_tests.gd").new(self, game, _dir).run()
 	elif _mode == "parts":
 		await preload("res://scripts/dev/parts_tests.gd").new(self, game, _dir).run()
 	elif _mode == "partsbench":
@@ -1423,8 +1446,14 @@ func _menus(game: Game) -> void:
 	await _tap("ui_right")
 	await _tap("ui_right")
 	_check(Settings.get_value("graphics") == 2 and game.get_viewport().scaling_3d_scale == 1.0, "graphics high again")
-	# Units row (below graphics and time of day).
+	# Weather row (below graphics and time of day): Cloudy, then Clear again.
 	await _tap("ui_down")
+	await _tap("ui_down")
+	await _tap("ui_right")
+	_check(Settings.get_value("weather") == 1 and game.weather.kind == Weather.Kind.CLOUDY, "weather cloudy")
+	await _tap("ui_left")
+	_check(Settings.get_value("weather") == 0 and game.weather.kind == Weather.Kind.CLEAR, "weather clear")
+	# Units row.
 	await _tap("ui_down")
 	await _tap("ui_right")
 	_check(game.hud.speedometer.use_mph, "units switched to mph")
@@ -2855,6 +2884,13 @@ func _perfsweep(game: Game) -> void:
 				(mmi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF],
 		["shadow2048", func() -> void: RenderingServer.directional_shadow_atlas_set_size(2048, true)],
 		["-shadows", func() -> void: sun.shadow_enabled = false],
+		["-rain", func() -> void:
+			game.weather.process_mode = Node.PROCESS_MODE_DISABLED
+			for fx in game.weather.find_children("*", "RainFx", false, false):
+				(fx as Node3D).visible = false],
+		["+shadows", func() -> void:
+			sun.shadow_enabled = true
+			sun.shadow_opacity = 1.0],
 		["-probe", func() -> void:
 			var probe := game.vehicle.get_node_or_null("Reflection") as Node3D
 			if probe:
@@ -2880,6 +2916,9 @@ func _perfsweep(game: Game) -> void:
 	var reset := func() -> void:
 		Settings.set_value("graphics", GraphicsQuality.HIGH)
 		GraphicsQuality.apply(GraphicsQuality.HIGH, vp, world)
+		# As the game does after a graphics change (the weather may hide the sun's shadows).
+		game.day_night.refresh()
+		game.weather.process_mode = Node.PROCESS_MODE_PAUSABLE
 		hide.call(grass, false)
 		hide.call([trees], false)
 		var probe := game.vehicle.get_node_or_null("Reflection") as Node3D

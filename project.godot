@@ -66,3 +66,11 @@ quality={
 "type": "int",
 "value": 2
 }
+wet={
+"type": "float",
+"value": 0.0
+}
+rain={
+"type": "float",
+"value": 0.0
+}

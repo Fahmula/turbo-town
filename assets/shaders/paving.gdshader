@@ -78,6 +78,9 @@ void fragment() {
 	float fade = 1.0 - smoothstep(3.0, 14.0, dist);
 	float rb = COLOR.r - COLOR.b;
 	float lawn_w = 0.0;
+	// Rain (Weather): how much water darkens this, and where it pools.
+	float porous = 0.7;
+	float pool = 0.0;
 	bool is_dirt = kind == 0 && rb > 0.17 && rb < 0.32 && COLOR.g > COLOR.b + 0.1 && COLOR.g < COLOR.r;
 
 	if (kind == 4 || kind == 2) {
@@ -108,6 +111,7 @@ void fragment() {
 		col *= 1.0 - joint * 0.45;
 		ao *= 1.0 - joint * 0.4;
 		rough = mix(rough, 0.95, joint);
+		pool = smoothstep(0.78, 0.9, 1.0 - mc.g + (mc.a - 0.5) * 0.3) * step(0.7, an.y);
 		if (an.y >= 0.7) {
 			nxy += vec2(sx, -sz) * fade;
 		}
@@ -139,6 +143,8 @@ void fragment() {
 		ao = s.ao;
 		nxy = s.nxy;
 		uvw = wp;
+		porous = 1.0;
+		pool = road_pool(s, 0.0);
 	} else if (is_dirt) {
 		// Packed dirt: a pebbly scan at two scales; the ruts are in the vertex colours.
 		vec2 uvd = wp / dirt_tile;
@@ -153,6 +159,8 @@ void fragment() {
 		ao = nra.a;
 		spec = 0.35;
 		nxy = low ? vec2(0.0) : (nra.rg * 2.0 - 1.0) * bump_strength;
+		porous = 1.0;
+		pool = smoothstep(0.62, 0.78, 1.0 - mc.g + (mc.a - 0.5) * 0.3);
 	} else {
 		float chroma = max(base.r, max(base.g, base.b)) - min(base.r, min(base.g, base.b));
 		if (lum(base) > 0.5 && chroma < 0.12) {
@@ -161,6 +169,7 @@ void fragment() {
 			col = base * 0.86 * (0.78 + 0.22 * mc.g);
 			col = mix(col, vec3(0.03), chip * 0.45);
 			rough = 0.58;
+			porous = 0.3;
 		} else {
 			// Plain ground (lawns etc.). Lawns are the terrain's grass.
 			float lawn = clamp((COLOR.g - COLOR.r) * 10.0, 0.0, 1.0);
@@ -191,14 +200,20 @@ void fragment() {
 				lawn_col *= 1.0 + (stripe - 0.5) * 0.06;
 				col = mix(col, lawn_col, lawn);
 				rough = mix(rough, 0.9, lawn);
+				porous = mix(porous, 0.35, lawn);
 			}
 		}
 	}
+	float w = wet_amount(N) * (1.0 - 0.4 * lawn_w);
+	pool = wet_surface(w, pool * (1.0 - lawn_w), porous, col, rough, nxy);
 	ALBEDO = col;
-	ROUGHNESS = clamp(rough, 0.3, 1.0);
+	ROUGHNESS = clamp(rough, mix(0.3, 0.03, wet), 1.0);
 	SPECULAR = spec;
 	AO = ao;
 	if (!low && (kind != 0 || is_dirt || lawn_w > 0.01)) {
 		NORMAL = bump_normal(NORMAL, VERTEX, lawn_w > 0.01 ? wp / grass_tile : (is_dirt ? wp / dirt_tile : (kind == 1 ? wp / asph_tile : uvw / slab_tile)), nxy);
+	}
+	if (quality >= 2 && pool * rain > 0.0) {
+		NORMAL = rippled(NORMAL, VIEW_MATRIX, wp, TIME, dist, pool * rain);
 	}
 }

@@ -180,6 +180,8 @@ func parked_lod_shots() -> void:
 	# alone up close.
 	_vp = tools.get_viewport().get_viewport_rid()
 	Settings.set_value("time_of_day", 0)
+	_calm_weather()
+	await wait(20)  # a bolt already in the air fades out
 	cam.fov = 2.0
 	for path: String in picked:
 		var p: Prop = picked[path]
@@ -203,6 +205,7 @@ func parked_lod_shots() -> void:
 			check(objs == want, "%s at %.0f m draws %d surfaces in the camera pass (want %d)" % [path.get_file(), d, objs, want])
 	cam.fov = fov
 	cam.set_process(true)
+	_restore_weather()
 	Settings.set_value("time_of_day", 0)
 
 
@@ -274,7 +277,8 @@ func traffic_lod_shots() -> void:
 				body.indicator = VehicleBodyVisual.Blinker.OFF
 			_force(v, "auto")
 	Settings.set_value("time_of_day", 0)
-	await wait(10)
+	_calm_weather()
+	await wait(20)  # a bolt already in the air fades out
 	# What each car's meshes add to the camera pass ("objects" counts
 	# surfaces; exhaust smoke and other effects aren't meshes and stay).
 	for v in cars:
@@ -304,6 +308,7 @@ func traffic_lod_shots() -> void:
 			check(got == want, "%s at %.0f m draws %d surfaces in the camera pass (want %d)" % [v.display_name, d, got, want])
 	cam.fov = fov
 	cam.set_process(true)
+	_restore_weather()
 	# Damage shows the real parts at every distance; a repair brings it back.
 	var v0 := cars[0]
 	var dmg := v0.get_node("Damage") as VehicleDamage
@@ -342,6 +347,19 @@ func traffic_lod_shots() -> void:
 		and bm.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		and (v1.get_node("Body") as VehicleBodyVisual).far_lods.is_empty(), "claimed car: real parts only, casting shadows")
 	print("TRAFFICLOD %d checks, %d failed" % [checks, fails])
+
+
+## Rain (particles in a box round the camera, off under a roof) and lightning
+## come and go as the camera moves, which would throw the surface counts off
+## by one: clear weather while counting (a run with --weather=rain or storm).
+func _calm_weather() -> void:
+	if game.weather:
+		game.weather.set_mode(Weather.Kind.CLEAR, true)
+
+
+func _restore_weather() -> void:
+	if game.weather:
+		game.weather.set_mode(Settings.get_value("weather"), true)
 
 
 ## Shows only the real parts ("near"), only the merged mesh ("far"), or the

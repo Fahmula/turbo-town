@@ -7,6 +7,7 @@ Run from the project root:
     python3 tools/audio/build_audio.py            # everything
     python3 tools/audio/build_audio.py synth      # only the synthesised parts
     python3 tools/audio/build_audio.py footsteps  # only the character's footsteps
+    python3 tools/audio/build_audio.py weather    # only the rain and thunder
     python3 tools/audio/build_audio.py horns      # only the garage's fun horns
 
 Needs NumPy and ffmpeg. Third-party recordings are downloaded once into
@@ -113,7 +114,7 @@ def build_horns():
 
 # Which files loop (every run marks them, whatever it rebuilt).
 LOOP_PATTERNS = ["engine/*/on_*.wav", "engine/*/off_*.wav", "engine/*_whine.wav", "engine/propeller.wav", "tyre/*.wav", "horn/*.wav",
-                 "body/wind.wav", "body/scrape.wav", "body/reverse_beeper.wav"]
+                 "body/wind.wav", "body/scrape.wav", "body/reverse_beeper.wav", "weather/rain*.wav"]
 
 
 def import_settings():
@@ -156,6 +157,9 @@ def main(args):
     elif "footsteps" in parts:
         import recorded
         recorded.build_footsteps(write, fetch=fetch)
+    if "weather" in parts or "recorded" in parts:
+        import recorded
+        recorded.build_weather(write, fetch)
     if "profiles" in parts or "recorded" in parts:
         import profiles
         import recorded

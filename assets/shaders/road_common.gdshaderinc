@@ -183,3 +183,10 @@ Surf concrete_surface(sampler2D alb, sampler2D nra_tex, vec2 uvw, vec2 dx_w, vec
 	s.oil = 0.0;
 	return s;
 }
+
+// Where rain water stands on asphalt (wet_surface's `pool`): the dips in
+// the large-scale tone (about a tenth of the road), more along `rut` 0..1
+// (wheel paths, gutters).
+float road_pool(Surf s, float rut) {
+	return 1.0 - smoothstep(0.17, 0.3, s.tone - rut * 0.13 + (s.film - 0.5) * 0.12);
+}

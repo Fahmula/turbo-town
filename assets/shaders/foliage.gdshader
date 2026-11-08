@@ -88,10 +88,11 @@ void fragment() {
 			float blossom = smoothstep(0.52, 0.68, fol_noise(UV * vec2(70.0, 70.0) + v_inst.y * 31.0));
 			col = mix(col, srgb_to_linear(blossom_color) * (0.8 + 0.4 * t.g), blossom * 0.6);
 		}
-		ALBEDO = col * mix(1.0, ao, 0.55);
+		// Rain (Weather): wet leaves are darker and shinier.
+		ALBEDO = col * mix(1.0, ao, 0.55) * (1.0 - 0.12 * wet);
 		AO = ao;
 		AO_LIGHT_AFFECT = 0.6;
-		ROUGHNESS = 0.7;
+		ROUGHNESS = mix(0.7, 0.45, wet);
 		SPECULAR = 0.12;
 		BACKLIGHT = col * COLOR.b * translucency;
 	} else if (kind > 0.25) {
@@ -99,19 +100,20 @@ void fragment() {
 		float n = quality > 0 ? fol_noise(v_world.xz * 0.6 + v_world.y * 0.4) : 0.5;
 		vec3 col = mix(blob_dark, blob_lit, clamp(ao * 0.8 + (n - 0.5) * 0.7, 0.0, 1.0));
 		col = fol_autumn(col, v_inst.x, fract(v_inst.y * 7.3));
-		ALBEDO = col * (0.9 + 0.2 * v_inst.z);
+		ALBEDO = col * (0.9 + 0.2 * v_inst.z) * (1.0 - 0.12 * wet);
 		AO = ao;
 		AO_LIGHT_AFFECT = 0.6;
-		ROUGHNESS = 0.9;
+		ROUGHNESS = mix(0.9, 0.6, wet);
 		SPECULAR = 0.1;
 		BACKLIGHT = ALBEDO * 0.2 * translucency;
 	} else {
 		ALPHA = 1.0;
 		vec3 b = texture(bark_albedo, UV).rgb * bark_tint;
-		ALBEDO = b * mix(0.55, 1.0, ao);
+		// Rain soaks the bark dark.
+		ALBEDO = b * mix(0.55, 1.0, ao) * (1.0 - 0.35 * wet);
 		AO = ao;
 		AO_LIGHT_AFFECT = 0.5;
-		ROUGHNESS = 0.92;
+		ROUGHNESS = mix(0.92, 0.55, wet);
 		SPECULAR = 0.1;
 		if (quality > 0) {
 			NORMAL_MAP = texture(bark_normal, UV).rgb;

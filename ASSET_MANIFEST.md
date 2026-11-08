@@ -27,8 +27,9 @@ idle loop; heavy crashes have a synthesised low thump mixed in.
 > Gabovitch** from a recording by **Tom Haigh (audible-edge)**, CC BY 3.0.
 > "Air Break" and "Window Shattering" by **Mike Koenig** (SoundBible.com),
 > CC BY 3.0. CC0 sounds by Kenney, cognito perceptu, 15HPanska_Ruttner_Jan,
-> HarveyHenkelmann, X5DragonFire, TinyWorlds / Till Behrend, rubberduck and
-> blacklodgegames. Sounds changed for Turbo Town (looped, filtered, mixed,
+> HarveyHenkelmann, X5DragonFire, TinyWorlds / Till Behrend, rubberduck,
+> blacklodgegames and Kresiek The Furry; public-domain thunder by stephan
+> (PDSounds). Sounds changed for Turbo Town (looped, filtered, mixed,
 > levels). Skies, textures and rock models from Poly Haven and ambientCG (CC0).
 > Character and animations from the Universal Animation Library by Quaternius (CC0).
 > Barlow Condensed font by The Barlow Project Authors (SIL OFL 1.1).
@@ -61,6 +62,9 @@ copied here.
 | Kloppenheim 06 (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/kloppenheim_06_puresky | CC0 1.0 | sunset sky (sky.gdshader) |
 | Qwantani Dusk 2 (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/qwantani_dusk_2_puresky | CC0 1.0 | dusk sky (sky.gdshader) |
 | Qwantani Moonrise (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/qwantani_moonrise_puresky | CC0 1.0 | night sky (sky.gdshader) |
+| Kloppenheim 03 (Pure Sky) | Greg Zaal, Jarod Guest | https://polyhaven.com/a/kloppenheim_03_puresky | CC0 1.0 | cloudy weather sky (sky.gdshader) |
+| Kloofendal Overcast (Pure Sky) | Greg Zaal | https://polyhaven.com/a/kloofendal_overcast_puresky | CC0 1.0 | rain (overcast) sky (sky.gdshader) |
+| Overcast Soil (Pure Sky) | Jarod Guest, Sergej Majboroda | https://polyhaven.com/a/overcast_soil_puresky | CC0 1.0 | thunderstorm sky (sky.gdshader) |
 
 ### Roads, paving and concrete (`tools/textures/fetch_road.py`)
 
@@ -165,6 +169,8 @@ copied here.
 | "WABCO E2" air horn | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:WABCO_E2.ogg) | HarveyHenkelmann | CC0 1.0 | none | `https://upload.wikimedia.org/wikipedia/commons/8/8a/WABCO_E2.ogg` | `assets/audio/horn/air.wav` (delivery truck) |
 | "Leslie S-3L" air horn | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Leslie_S-3L.ogg) | HarveyHenkelmann | CC0 1.0 | none | `https://upload.wikimedia.org/wikipedia/commons/9/9c/Leslie_S-3L.ogg` | `assets/audio/horn/air_big.wav` (monster truck) |
 | "1997AccordSE enginestart" (the starter crank, 0.1–0.47 s) | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:1997AccordSE_enginestart.ogg) | X5DragonFire | CC0 1.0 | none | `https://upload.wikimedia.org/wikipedia/commons/3/3d/1997AccordSE_enginestart.ogg` | the crank in every `assets/audio/engine/*/startup.wav` |
+| "AMB Rain Loop 2" `amb_rain2.flac` (400–440 s and 610–650 s) | [OpenGameArt](https://opengameart.org/content/amb-rain-loop-2) | Kresiek The Furry | CC0 1.0 | none | `https://opengameart.org/sites/default/files/amb_rain2.flac` | `assets/audio/weather/rain.wav`, `rain_heavy.wav` (two stretches layered), `rain_inside.wav` (low-passed) |
+| "Storm, Thunderbolts" `Storm_thunderbolts.ogg` | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Storm_thunderbolts.ogg) (PDSounds #301) | stephan | Public domain | none | `https://upload.wikimedia.org/wikipedia/commons/b/bd/Storm_thunderbolts.ogg` | `assets/audio/weather/thunder_near_*.wav`, `thunder_far_*.wav` (six strikes cut out, harmonics added to the rumble for small speakers) |
 | "Air Break" (SoundBible 525, the hiss at 2.65–4.4 s) | [soundbible.com/525-Air-Break.html](https://soundbible.com/525-Air-Break.html) | Mike Koenig | CC BY 3.0 | "'Air Break' by Mike Koenig, SoundBible.com, CC BY 3.0", note changes | `https://soundbible.com/grab.php?id=525&type=wav` | `assets/audio/brake/air_1.wav` (truck and bus air brakes) |
 | "Window Shattering" (SoundBible 392) | [soundbible.com/392-Window-Shattering.html](https://soundbible.com/392-Window-Shattering.html) | Mike Koenig | CC BY 3.0 | "'Window Shattering' by Mike Koenig, SoundBible.com, CC BY 3.0", note changes | `https://soundbible.com/grab.php?id=392&type=wav` | `assets/audio/impact/glass_1.wav`, `glass_2.wav` (windows breaking) |
 | "glass_breaking.wav" | [OpenGameArt](https://opengameart.org/content/glass-break) | TinyWorlds (with permission of Till Behrend) | CC0 1.0 | none | `https://opengameart.org/sites/default/files/glass_breaking.wav` | `assets/audio/impact/glass_3.wav` |

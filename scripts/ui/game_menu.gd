@@ -677,6 +677,7 @@ const SETTING_HELP := {
 	"graphics": "Lower runs smoother. Higher looks nicer.",
 	"flight_invert": "Which way to push the stick to make a plane climb.",
 	"time_of_day": "Day, sunset, night, or a day that keeps changing.",
+	"weather": "Sunny, cloudy, rain or a thunderstorm, or weather that keeps changing.",
 	"vibration": "The controller rumbles when you crash.",
 	"units_mph": "Show your speed in km/h or mph.",
 	"crash_cam": "A slow-motion replay of your biggest crashes.",
@@ -718,18 +719,19 @@ func _build_settings() -> Control:
 	right.append(_cycle_row(grid, "Flying controls", "flight_invert", ["Pull back to climb", "Push up to climb"]))
 	left.append(_cycle_row(grid, "Time of day", "time_of_day", Settings.TIME_LABELS))
 	right.append(_cycle_row(grid, "Vibration", "vibration", ["Off", "On"]))
-	left.append(_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"]))
+	left.append(_cycle_row(grid, "Weather", "weather", Settings.WEATHER_LABELS))
 	right.append(_cycle_row(grid, "Crash cam", "crash_cam", ["Off", "On"]))
-	left.append(_cycle_row(grid, "Minimap", "minimap", ["Off", "On"]))
+	left.append(_cycle_row(grid, "Speed units", "units_mph", ["km/h", "mph"]))
 	# Auto: on for the Steam Deck's own speakers (engines carry on them).
 	right.append(_cycle_row(grid, "Speaker boost", "speakers", Settings.SPEAKER_LABELS))
-	left.append(_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"]))
+	left.append(_cycle_row(grid, "Minimap", "minimap", ["Off", "On"]))
 	var volume := UiKit.LevelButton.new("Volume")
 	volume.value_changed.connect(func(v: float) -> void: Settings.set_value("master_volume", v))
 	volume.focus_entered.connect(_show_help.bind("master_volume"))
 	grid.add_child(volume)
 	_setting_widgets["master_volume"] = volume
 	right.append(volume)
+	left.append(_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"]))
 
 	# What the focused setting does.
 	var help := PanelContainer.new()

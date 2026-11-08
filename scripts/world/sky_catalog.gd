@@ -20,4 +20,10 @@ const SKIES := {
 		"horizon": Color(0.8940, 0.7150, 0.9565), "zenith": Color(0.7677, 0.8679, 1.5117)},
 	"night": {"energy": 36.5276, "sun_az": 0.6290, "sun_el": 13.83, "sun_color": Color(1.000, 0.777, 0.621),
 		"horizon": Color(3.1415, 3.7111, 4.0307), "zenith": Color(0.4024, 0.7322, 1.3163)},
+	"cloudy": {"energy": 9.9296, "sun_az": 0.6286, "sun_el": 58.69, "sun_color": Color(0.975, 1.000, 0.993),
+		"horizon": Color(0.6711, 0.7046, 0.7450), "zenith": Color(1.2134, 1.2349, 1.3252)},
+	"overcast": {"energy": 5.7140, "sun_az": 0.6805, "sun_el": 22.71, "sun_color": Color(1.000, 0.921, 0.843),
+		"horizon": Color(0.6263, 0.6614, 0.7405), "zenith": Color(0.9397, 1.0738, 1.3395)},
+	"storm": {"energy": 3.5446, "sun_az": 0.5471, "sun_el": 60.35, "sun_color": Color(1.000, 0.969, 0.947),
+		"horizon": Color(0.5465, 0.5077, 0.4705), "zenith": Color(1.2208, 1.2109, 1.2208)},
 }

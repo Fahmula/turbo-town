@@ -199,6 +199,9 @@ void fragment() {
 	float dirt = grime * (1.0 - smoothstep(0.0, 0.5, local_y));
 	col *= 1.0 - 0.3 * dirt;
 	rough = mix(rough, 0.92, dirt * 0.4);
+	// Rain (Weather): painted metal and plastic just turn glossier.
+	vec2 no_bump = vec2(0.0);
+	wet_surface(wet_amount((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz), 0.0, 0.25, col, rough, no_bump);
 
 	ALBEDO = col;
 	ROUGHNESS = clamp(rough, 0.03, 1.0);

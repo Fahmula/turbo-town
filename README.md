@@ -191,6 +191,14 @@ pickup, buggy, monster truck or plane, and set it up. Switch tabs with Q / E
 - Enter / A skips. The game is paused while a replay plays and carries on
   exactly where it was.
 
+### Weather
+
+Clear, cloudy, rain, thunderstorms, or Changing (it drifts from one to the
+next by itself). Rain soaks the roads, which shine, grow puddles and get a
+little slippery, then dry off slowly; tyres throw up spray. Storms bring
+lightning, thunder you hear a moment later, and turn the lights on. Pick it
+in Settings.
+
 ### Settings
 
 On the title screen or in the pause menu:
@@ -198,6 +206,7 @@ On the title screen or in the pause menu:
 - traffic amount (few / normal / busy);
 - graphics quality (low / medium / high / ultra);
 - time of day (day / sunset / night / day & night cycle);
+- weather (clear / cloudy / rain / thunderstorm / changing);
 - speed units, driving assists, gamepad vibration, minimap, crash cam, speaker
   boost, flying controls, fullscreen and volume.
 
@@ -309,7 +318,7 @@ generated files are committed, so you only need those tools to change them.
 | `scripts/vehicle/audio/` | `vehicle_sound_profile.gd` (what a vehicle class sounds like), `vehicle_sound_bank.gd` (shared tyre / crash / glass sounds), `audio_director.gd` (traffic voice budget, Doppler) |
 | `scripts/traffic/` | `traffic_network.gd` (lane graph built from the roads, turn curves, junctions, U-turns), `traffic_manager.gd` (spawning, signal timing), `traffic_driver.gd` (AI driver, turn signals), `traffic_light_prop.gd` |
 | `scripts/camera/` | `chase_camera.gd` (driving), `flight_camera.gd` (flying), `on_foot_camera.gd` (walking), `camera_blend.gd` (glides between them), `menu_camera.gd` (title screen), `views.gd` (the cameras the players see through: one, or one per split-screen view) |
-| `scripts/world/` | `map_layout.gd` (**all** the map's numbers); the terrain, road, city, nature, stunt park and landmark builders; `building_kit.gd`, `street_kit.gd`, `tree_kit.gd` (buildings, street furniture and trees, built in code); `mesh_builder.gd` (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs); `art_palette.gd` (world colours); `day_night.gd` (sun, real skies through the day, lights after dark); `sky_catalog.gd` (generated: each sky photo's sun and colours); `grass_field.gd` (3D grass tufts round the camera); `tree_scatter.gd`, `tree_lod.gd`, `tree_colliders.gd` (where trees grow, their LOD quadtree, trunk colliders); `night_light.gd`, `lighthouse_beam.gd` |
+| `scripts/world/` | `map_layout.gd` (**all** the map's numbers); the terrain, road, city, nature, stunt park and landmark builders; `building_kit.gd`, `street_kit.gd`, `tree_kit.gd` (buildings, street furniture and trees, built in code); `mesh_builder.gd` (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs); `art_palette.gd` (world colours); `day_night.gd` (sun, real skies through the day, lights after dark); `sky_catalog.gd` (generated: each sky photo's sun and colours); `weather.gd` (clouds, rain, wet ground, wet grip), `rain_fx.gd` (rain round each camera), `lightning.gd` (bolts in a storm); `grass_field.gd` (3D grass tufts round the camera); `tree_scatter.gd`, `tree_lod.gd`, `tree_colliders.gd` (where trees grow, their LOD quadtree, trunk colliders); `night_light.gd`, `lighthouse_beam.gd` |
 | `scripts/props/` | `prop.gd`, `kit_prop.gd` (props whose mesh comes from StreetKit), `ramp.gd` (`@tool`, editable in the editor) |
 | `scripts/ui/` | `hud.gd`, `speedometer.gd`, `world_map.gd` (top-down island picture drawn at startup), `minimap.gd` (round heading-up minimap), `big_map.gd` (M), `vehicle_picker.gd` (the garage), `game_menu.gd` (title, pause, settings, controls pages), `ui_kit.gd` (the shared menu look) |
 | `scripts/game/` | `game.gd` (title / driving / pause / garage states, spawning, teleports, respawn, changing vehicle), `graphics_quality.gd` (Low / Medium / High / Ultra), `stunt_tracker.gd` (tricks, combos, near misses, drifts), `race_catalog.gd` (race routes + medal times), `race_manager.gd` (gates, countdown, timing), `replay.gd` |
@@ -602,6 +611,8 @@ godot --path . -- --garage=/tmp/shots
   that quality.
 - Add `--vehicle=<id>` (`sedan`, `van`, `box_truck`, `bus`, `pickup`, `buggy`,
   `monster_truck`) to run a main-game test in another vehicle.
+- Add `--weather=<clear|cloudy|rain|storm|changing>` to start any of them in
+  that weather.
 - Add `--audio-driver Dummy` (before the `--`) to keep a test silent. The game
   still mixes its sound, so `--audio` can record it.
 
@@ -622,6 +633,7 @@ godot --path . -- --garage=/tmp/shots
 | `--replay` | Pausing freezes everything, instant replay, the slow-motion crash cam |
 | `--damage` | Crashes into walls: parts off, lights and glass, pull, power, repair |
 | `--night` | Sunset, night and the day / night cycle: lights switch (+ shots) |
+| `--weather-test` | Every weather, soaking and drying, wet grip and spray, rain under the overpass, lightning, storm lights, Changing, split-screen rain |
 
 #### Driving and the world (shots)
 

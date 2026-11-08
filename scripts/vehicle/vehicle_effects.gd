@@ -1,15 +1,22 @@
 class_name VehicleEffects
 extends Node
-## Tire smoke, off-road dust, skid marks and impact sparks for a Vehicle.
-## Add as a child of the vehicle; everything it spawns lives in world space.
+## Tire smoke, off-road dust, skid marks, impact sparks and spray off wet
+## roads for a Vehicle. Add as a child of the vehicle; everything it spawns
+## lives in world space.
 
 @export var skid_mark_count := 1600
 @export var smoke_threshold := 0.35
 @export var mark_threshold := 0.3
+## Spray off a wet road (Weather): above this speed (m/s), and only this
+## close to a camera (ART_BIBLE.md §23: emitters stop beyond ~80 m).
+const SPRAY_SPEED := 8.0
+const SPRAY_RANGE := 70.0
 
 var _vehicle: Vehicle
 var _smoke: Array[GPUParticles3D] = []
 var _dust: Array[GPUParticles3D] = []
+## Per wheel: spray behind the rear wheels (null for the front ones).
+var _spray: Array[GPUParticles3D] = []
 var _last_mark: Array[Vector3] = []
 var _marks: MultiMesh
 var _mark_index := 0
@@ -32,9 +39,13 @@ func _ready() -> void:
 	add_child(_fx_root)
 	var smoke_mat := _puff_material(Color(0.95, 0.95, 0.95, 0.55))
 	var dust_mat := _puff_material(Color(0.72, 0.58, 0.40, 0.5))
+	var spray_mat := _puff_material(Color(0.86, 0.88, 0.9, 0.22))
+	# Lit (per vertex): spray is grey under clouds and dark at night.
+	spray_mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
 	for w in _vehicle.wheels:
 		_smoke.append(_make_puffs(smoke_mat, 2.2, 1.6))
 		_dust.append(_make_puffs(dust_mat, 1.6, 1.2))
+		_spray.append(null if w.is_front else _make_spray(spray_mat))
 		_last_mark.append(Vector3.INF)
 	_build_marks()
 	_build_sparks()
@@ -110,6 +121,22 @@ func _make_puffs(mat: StandardMaterial3D, size: float, lifetime: float) -> GPUPa
 	return p
 
 
+## Mist thrown up and back by a tyre: drifts behind the car (it keeps only
+## part of the car's speed), spreads and fades.
+func _make_spray(mat: StandardMaterial3D) -> GPUParticles3D:
+	var p := _make_puffs(mat, 1.2, 0.8)
+	var pm := p.process_material as ParticleProcessMaterial
+	pm.inherit_velocity_ratio = 0.55
+	pm.spread = 35.0
+	pm.initial_velocity_min = 1.0
+	pm.initial_velocity_max = 2.5
+	pm.gravity = Vector3(0, -2.0, 0)
+	pm.damping_min = 2.0
+	pm.damping_max = 3.0
+	p.amount = 24
+	return p
+
+
 func _build_marks() -> void:
 	var quad := PlaneMesh.new()
 	quad.size = Vector2(0.26, 0.5)
@@ -180,6 +207,9 @@ func _on_impact(strength: float, pos: Vector3, _normal: Vector3) -> void:
 
 func _physics_process(_dt: float) -> void:
 	var speed := _vehicle.linear_velocity.length()
+	var wet := Weather.ground_wet
+	var spraying := wet > 0.3 and speed > SPRAY_SPEED \
+			and Views.nearest_distance(self, _vehicle.global_position) < SPRAY_RANGE
 	for i in _vehicle.wheels.size():
 		var w := _vehicle.wheels[i]
 		var smoke := _smoke[i]
@@ -188,7 +218,8 @@ func _physics_process(_dt: float) -> void:
 		var is_dirt := w.surface_grip < 0.95
 		var skid := w.skid if on_ground else 0.0
 		var want_smoke := on_ground and not is_dirt and skid > smoke_threshold
-		var want_dust := on_ground and is_dirt and (speed > 6.0 or skid > 0.2)
+		# Wet dirt doesn't make dust.
+		var want_dust := on_ground and is_dirt and wet < 0.3 and (speed > 6.0 or skid > 0.2)
 		# Only touch the particle nodes when something is (or was) emitting.
 		if want_smoke or smoke.emitting:
 			smoke.global_position = w.contact_point + Vector3.UP * 0.15
@@ -198,6 +229,11 @@ func _physics_process(_dt: float) -> void:
 			dust.global_position = w.contact_point + Vector3.UP * 0.15
 			dust.emitting = want_dust
 			dust.amount_ratio = clampf(maxf(speed / 30.0, skid), 0.2, 1.0)
+		var spray := _spray[i]
+		if spray and (spraying or spray.emitting):
+			spray.global_position = w.contact_point + Vector3.UP * 0.25
+			spray.emitting = spraying and on_ground
+			spray.amount_ratio = clampf((speed - SPRAY_SPEED) / 25.0, 0.15, 1.0) * wet
 		if on_ground and not is_dirt and skid > mark_threshold:
 			if w.contact_point.distance_to(_last_mark[i]) > 0.35:
 				_add_mark(w.contact_point + w.contact_normal * 0.02, w.contact_normal)

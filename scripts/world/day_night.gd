@@ -5,6 +5,8 @@ extends Node
 ## light, lights building windows, shows stars, and switches the
 ## "night_lights" group (street lamps, the lighthouse beam...) on after dark.
 ## Settings: Day / Sunset / Night, or Cycle (a whole day in DAY_MINUTES).
+## Weather (set_weather) lays cloud photos over the sky, dims the sun and
+## thickens the haze.
 
 signal night_changed(is_night: bool)
 
@@ -49,9 +51,22 @@ const SKY_KEYS := [
 	[24.0, "night", 0.07],
 ]
 
+## Weather covers (Weather, SkyCatalog): the photo laid over the sky as it
+## clouds over, and how bright it is next to the clear sky at that hour.
+const COVER_KEYS := [["cloudy", 0.9], ["overcast", 0.75], ["storm", 0.45]]
+## Haze (fog density) clear, and added by the cloudy, overcast and storm
+## covers. Clear: about a third fogged at 800 m (ART_BIBLE.md §11).
+const FOG_CLEAR := 0.0005
+const FOG_COVER := [0.0001, 0.0011, 0.0014]
+
 var hour := 13.0
 var cycling := false
+## Dark enough for the lights: night, or a thunderstorm.
 var is_night := false
+## Weather: how cloudy (0 clear, 0.5 the cloudy sky, 1 overcast) and how
+## stormy (0-1).
+var clouds := 0.0
+var storm := 0.0
 
 var _sun: DirectionalLight3D
 var _env: Environment
@@ -59,6 +74,7 @@ var _sky: ShaderMaterial
 var _stars: MultiMeshInstance3D
 var _star_mat: StandardMaterial3D
 var _sky_tex := {}
+var _ambient_energy := 1.0
 
 
 func setup(world: Node) -> void:
@@ -92,6 +108,26 @@ func _process(dt: float) -> void:
 			_stars.global_position = cam.global_position
 
 
+## Weather sets how cloudy and stormy it is (Weather).
+func set_weather(cloudiness: float, storminess: float) -> void:
+	clouds = cloudiness
+	storm = storminess
+	_apply()
+
+
+## Lightning (0-1) lifts the ambient light for a moment. Leaves the sky
+## alone, so its reflections aren't re-rendered.
+func set_flash(amount: float) -> void:
+	if _env:
+		_env.ambient_light_energy = _ambient_energy * (1.0 + 0.6 * amount)
+
+
+## How much each weather cover shows: [cloudy, overcast, storm], laid over
+## the clear sky in that order.
+func cover_weights() -> Vector3:
+	return Vector3(clampf(clouds * 2.0, 0.0, 1.0), clampf(clouds * 2.0 - 1.0, 0.0, 1.0), clampf(storm, 0.0, 1.0))
+
+
 ## Sun height in degrees (negative = below the horizon).
 func sun_elevation() -> float:
 	return sin((hour - 6.0) / 12.0 * PI) * 62.0
@@ -112,11 +148,33 @@ func _apply() -> void:
 	var light_elev := deg_to_rad(maxf(lerpf(a["sun_el"], b["sun_el"], t), 3.0))
 	# Arc through the southern (+Z) sky, like the hand-placed daytime sun.
 	var dir := Vector3(sin(az) * cos(light_elev), sin(light_elev), cos(az) * cos(light_elev) * 0.6).normalized()
+	# Weather: clouds hide the sun (the overcast light is soft and a little
+	# cool) and the sky's own light takes over.
+	var cw := cover_weights()
+	var sun_energy: float = k[3] * (1.0 - 0.45 * cw.x) * (1.0 - 0.7 * cw.y) * (1.0 - 0.5 * cw.z)
 	if _sun:
 		_sun.global_basis = Basis.looking_at(-dir, Vector3.UP)
-		_sun.light_color = k[2]
-		_sun.light_energy = k[3]
+		_sun.light_color = (k[2] as Color).lerp(Color(0.85, 0.88, 0.95), 0.6 * cw.y)
+		_sun.light_energy = sun_energy
+		# Under a full overcast the sun's shadows are all but gone: fade them
+		# out and stop drawing them (a big saving on the Steam Deck).
+		_sun.shadow_opacity = 1.0 - smoothstep(0.6, 0.95, cw.y)
+		_sun.shadow_enabled = _sun.shadow_opacity > 0.0
+	var brightness := lerpf(sk[3], sk[4], t)
 	var horizon: Color = (a["horizon"] as Color) * float(sk[3]) * (1.0 - t) + (b["horizon"] as Color) * float(sk[4]) * t
+	# The covers take the hue of the clear sky's horizon (warm at sunset,
+	# blue at night) and its brightness.
+	var hue := horizon / maxf(horizon.get_luminance(), 0.001)
+	var tint := Color(1, 1, 1).lerp(Color(minf(hue.r, 2.0), minf(hue.g, 2.0), minf(hue.b, 2.0)), 0.5)
+	var cover_energy := Vector3.ZERO
+	var cover_rot := Vector3.ZERO
+	var fog_density := FOG_CLEAR
+	for i in COVER_KEYS.size():
+		var c: Dictionary = SkyCatalog.SKIES[COVER_KEYS[i][0]]
+		cover_energy[i] = c["energy"] * brightness * COVER_KEYS[i][1]
+		cover_rot[i] = float(c["sun_az"]) - atan2(dir.x, -dir.z)
+		horizon = horizon.lerp((c["horizon"] as Color) * brightness * COVER_KEYS[i][1] * tint, cw[i])
+		fog_density += FOG_COVER[i] * cw[i]
 	if _sky:
 		# Turn each photo so its sun lines up with the light.
 		var light_az := atan2(dir.x, -dir.z)
@@ -127,28 +185,50 @@ func _apply() -> void:
 		_sky.set_shader_parameter("energy_b", b["energy"] * sk[4])
 		_sky.set_shader_parameter("rot_a", float(a["sun_az"]) - light_az)
 		_sky.set_shader_parameter("rot_b", float(b["sun_az"]) - light_az)
-		var ground := (GROUND_BOUNCE.srgb_to_linear() * clampf(k[3] / 1.4, 0.1, 1.0))
+		var ground := (GROUND_BOUNCE.srgb_to_linear() * clampf(k[3] / 1.4, 0.1, 1.0) * (1.0 - 0.4 * cw.y))
 		_sky.set_shader_parameter("ground_bottom", Vector3(ground.r, ground.g, ground.b))
 		_sky.set_shader_parameter("disc", 0.0)
 		_sky.set_shader_parameter("haze", Vector3(minf(horizon.r, 1.0), minf(horizon.g, 1.0), minf(horizon.b, 1.0)))
+		_sky.set_shader_parameter("cover_w", cw)
+		if cw != Vector3.ZERO:
+			_sky.set_shader_parameter("cover_energy", cover_energy)
+			_sky.set_shader_parameter("cover_rot", cover_rot)
+			_sky.set_shader_parameter("cover_tint", Vector3(tint.r, tint.g, tint.b))
+			for i in COVER_KEYS.size():
+				if cw[i] > 0.0:
+					_sky.set_shader_parameter("cover_" + COVER_KEYS[i][0], _sky_texture(COVER_KEYS[i][0]))
 	if _env:
 		var ambient: Color = k[4]
 		# Below Ultra there's no SDFGI to bounce the warm, sunlit ground into
 		# the shade, so mix some of that colour in (scaled by the sunlight), or
 		# shadows read cold next to Ultra.
 		if not _env.sdfgi_enabled:
-			ambient = ambient.lerp(WARM_BOUNCE, 0.35 * clampf(float(k[3]) / 1.4, 0.0, 1.0))
+			ambient = ambient.lerp(WARM_BOUNCE, 0.35 * clampf(sun_energy / 1.4, 0.0, 1.0))
+		# Under cloud the sky light turns grey (as bright as before) and by
+		# day takes over from the sun; overcast nights, with no moon, and
+		# storms are darker.
+		var grey := Color(0.84, 0.86, 0.9) * tint
+		grey *= ambient.get_luminance() / maxf(grey.get_luminance(), 0.001)
+		ambient = ambient.lerp(grey, 0.7 * cw.y)
+		var daylight := clampf(float(k[3]) / 1.4, 0.0, 1.0)
+		_ambient_energy = k[5] * (1.0 + (0.15 * cw.x + 0.35 * cw.y) * daylight) \
+				* (1.0 - 0.3 * cw.y * (1.0 - daylight)) * (1.0 - 0.3 * cw.z)
 		_env.ambient_light_color = ambient
-		_env.ambient_light_energy = k[5]
+		_env.ambient_light_energy = _ambient_energy
+		_env.fog_density = fog_density
+		_env.fog_sun_scatter = 0.15 * (1.0 - cw.y)
 		# Haze takes the colour of the sky at the horizon.
 		var fog := Color(minf(horizon.r, 1.0), minf(horizon.g, 1.0), minf(horizon.b, 1.0)).linear_to_srgb()
 		_env.fog_light_color = fog
 	var night_amount := smoothstep(3.0, -6.0, elev)
-	RenderingServer.global_shader_parameter_set("night", night_amount)
+	# A thunderstorm is dark enough for the lights: windows, lamps, headlights.
+	var storm_dark := smoothstep(0.3, 0.9, cw.z)
+	RenderingServer.global_shader_parameter_set("night", maxf(night_amount, 0.65 * storm_dark))
 	if _stars:
-		_stars.visible = night_amount > 0.05
-		_star_mat.albedo_color = Color(1, 1, 1, night_amount)
-	var night := elev < 1.5
+		var star_amount := night_amount * (1.0 - 0.6 * cw.x) * (1.0 - cw.y)
+		_stars.visible = star_amount > 0.05
+		_star_mat.albedo_color = Color(1, 1, 1, star_amount)
+	var night := elev < 1.5 or cw.z > 0.5
 	if night != is_night:
 		is_night = night
 		get_tree().call_group("night_lights", "set_night", night)
