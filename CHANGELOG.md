@@ -9,6 +9,22 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.2.0](https://github.com/Fahmula/turbo-town/compare/v1.1.0...v1.2.0) (2026-11-08)
+
+
+### New stuff
+
+* **weather:** Rain soaks the roads: they turn dark and shiny, puddles form, and the street lights reflect in them at night. Wet roads are a little slippery, cars throw up spray, and once the rain stops the ground dries off slowly. ([adc405d](https://github.com/Fahmula/turbo-town/commit/adc405d4efcd5c3f033edad7640eee0e3ba7ec3c))
+* **weather:** Thunderstorms bring lightning and rumbling thunder, and they get so dark that the street lamps and headlights come on. ([adc405d](https://github.com/Fahmula/turbo-town/commit/adc405d4efcd5c3f033edad7640eee0e3ba7ec3c))
+* **weather:** Weather! Pick it in Settings: Clear, Cloudy, Rain, Thunderstorm, or Changing, where the sky clouds over, rains and clears up again by itself. ([adc405d](https://github.com/Fahmula/turbo-town/commit/adc405d4efcd5c3f033edad7640eee0e3ba7ec3c))
+* **weather:** You can hear the rain: louder in a downpour, quieter under a bridge, muffled from the bonnet camera. The thunder rolls in a moment after the flash. ([adc405d](https://github.com/Fahmula/turbo-town/commit/adc405d4efcd5c3f033edad7640eee0e3ba7ec3c))
+
+
+### Runs smoother
+
+* Parked cars are much cheaper to draw from a distance, so busy city streets run smoother, especially on the Steam Deck. ([719a76f](https://github.com/Fahmula/turbo-town/commit/719a76f3ed25521b50b4b731559c74a293e3ccf9))
+* Traffic is much cheaper to draw from a distance, so busy streets run smoother, and far-off cars still show their brake lights, indicators and headlights. ([060d5c3](https://github.com/Fahmula/turbo-town/commit/060d5c3f2ac1b7cbb3ca06d8a906bf10226e13b1))
+
 ## [1.1.0](https://github.com/Fahmula/turbo-town/compare/v1.0.0...v1.1.0) (2026-11-08)
 
 
