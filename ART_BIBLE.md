@@ -1945,6 +1945,32 @@ window):
   parts, the custom paint shader and the underglow quad alike. Traffic and
   parked cars are untouched (plain paint shader, no kits).
 
+- **Where the draw calls go** (2026-11-07, `--drawcalls` on the iGPU at
+  Medium, 1280×800, 22 traffic cars, world paused while measuring, what-ifs as
+  the median of five back-to-back A/B pairs):
+  - Totals: downtown street 834 calls (332 camera + 502 shadow), 1.6 M
+    primitives (over the 1.5 M budget), 17.7 ms GPU; aerial 827 (407 + 420);
+    avenue chase 323 (174 + 149), ~18 ms GPU. The shadow passes are 45–60% of
+    all calls. City drive at 80 km/h: ~770–880 calls on average, peaks ~2,070
+    (~880 of them shadow). Desktop render CPU is 1.3–2.8 ms per frame.
+  - **Parked cars are the biggest item:** 102 on the map, 25–26 surfaces each,
+    all casting shadows, visible to 200 m. Hiding them saves 507 calls
+    downtown (158 camera, 349 shadow), 1.1 ms render CPU and 0.9 ms GPU;
+    338 calls in the aerial view. Traffic cars are 25–31 surfaces each, and
+    the van, box truck, bus and pickup have no visibility ranges at all.
+  - What-ifs (GPU / render CPU): Medium's 4 shadow splits → 2: −0.5 to
+    −0.9 ms GPU, −48 to −219 calls. Parked cars not casting shadows: −350 calls
+    downtown, −0.35 ms GPU, −0.5 ms CPU. Road decks not casting shadows:
+    −0.45 to −0.65 ms GPU, but the ground-level ones (city, country, trails)
+    give ~0: the cost is the highway and bridge decks, each one whole-map
+    mesh (~250k primitives in nearly every view). Shadow distance 120 m and
+    small props without shadows: ~0 GPU. MSAA 2× off: −1.2 to −2.6 ms GPU,
+    the largest single GPU item tested.
+  - Draw calls cost the CPU far more than the GPU here (as the earlier
+    far-car visibility-range test found): their win on the Deck is CPU time,
+    which this proxy can't show. The dev CPU is several times faster than the
+    Deck's 4-core Zen 2.
+
 - **After the player character** (2026-10-03, `--onfootbench`, city centre,
   22 cars): the character adds ~10–13 draw calls and no measurable GPU time
   (iGPU at Medium ≈ +0.2 ms in alternating A/B runs, inside the noise), and
