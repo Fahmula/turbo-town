@@ -9,6 +9,18 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.1.0](https://github.com/Fahmula/turbo-town/compare/v1.0.0...v1.1.0) (2026-11-08)
+
+
+### New stuff
+
+* **garage:** The garage has a new look: a showroom stage for your car, long stat bars, colour palettes on one row and a DRIVE THIS CAR button. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** A new arcade-style main menu: a big PLAY NOW button, picture tiles for 2 PLAYERS, GARAGE, RACES and RECORDS, and your car on show beside them. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** A new pause menu down the side of the screen, so you can still see the game behind it. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** A new settings page: every setting shows its choices as dots, the volume is a bar, and a line says what each setting does. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** Button hints show your controller's buttons or your keyboard keys, whichever you used last. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** Racing-style lettering, slanted buttons and speed stripes all through the menus. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+
 ## [1.0.0](https://github.com/Fahmula/turbo-town/compare/v0.12.0...v1.0.0) (2026-11-07)
 
 
