@@ -1068,7 +1068,11 @@ Nodes: `Propeller` (spins about its local Z), `PropDisc`, `AileronL/R`,
 - **The paint look is defined in one place:** `VehicleBodyVisual.paint_material()`
   makes the per-car `car_paint` material. Vehicles and parked-car props both
   use it, so every car changes together. The finish (solid or metallic)
-  belongs with the palette entry, not with each model.
+  belongs with the palette entry, not with each model. One exception:
+  parked cars beyond 40 m switch to a merged stand-in (`ParkedCarLod`,
+  `parked_far.gdshader`, §27), which copies car_paint's gloss, clear coat,
+  metallic flop and ground-reflection toning but not its flakes or grime.
+  Change it too when the paint, glass, lamp, trim or tyre looks change.
 
 **Other vehicle materials**
 
@@ -1970,6 +1974,27 @@ window):
     far-car visibility-range test found): their win on the Deck is CPU time,
     which this proxy can't show. The dev CPU is several times faster than the
     Deck's 4-core Zen 2.
+
+- **Cheap parked cars** (2026-11-07, `ParkedCarLod`; `--drawcalls` with the
+  "parked old way" A/B, iGPU at Medium, 1280×800): each parked-car prop
+  gets its parts merged into one mesh with one shared material (looks baked
+  into the vertices, paint per car by instance uniform), shown beyond 40 m
+  (a clean swap with 4 m of hysteresis: the dithered crossfade doubled the
+  car), and the same merge minus the see-through glass casts its shadow at
+  every distance. The real parts follow the merged mesh as HLOD children
+  (`visibility_parent`) and cast no shadow. A far car is 1 draw call per
+  pass instead of 25–26; a near one costs 1 per shadow split instead of ~25.
+  - Downtown street 816 → 314 draw calls (camera −160, shadow −342), render
+    CPU −1.0 ms on the dev CPU; aerial 816 → 489; city drive 809 → 469 on
+    average and **peak 1,979 → 635**. On High (`--scenery`): aerial 728 →
+    332, downtown_up 588 → 251. Primitives downtown 1.6 M → 1.34 M (under the
+    1.5 M budget again). GPU: −0.6 to −0.7 ms (median, noisy).
+  - Look: long-lens near/far pairs (`--parkedlod`) match by day and night,
+    from the road and from above. From afar the windows read as dark tinted
+    glass (the cabin isn't drawn); the parked DRL and tail glows are baked in.
+  - Cost: the merges are built once per car type at world build (three
+    types, two meshes each, LODs generated): ~90 ms on the dev CPU in a
+    normal run, 5% of the world build. **Check load time on the Deck.**
 
 - **After the player character** (2026-10-03, `--onfootbench`, city centre,
   22 cars): the character adds ~10–13 draw calls and no measurable GPU time

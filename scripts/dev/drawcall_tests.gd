@@ -83,7 +83,7 @@ func bench() -> void:
 	if only.is_empty() or only.has("drive"):
 		_report("")
 		for c: Array in _configs():
-			if not (c[0] in ["as is", "2 splits", "props no shadow", "2 splits + props no shadow"]):
+			if not (c[0] in ["as is", "parked old way", "2 splits", "2 splits + props no shadow"]):
 				continue
 			var undo: Callable = (c[1] as Callable).call()
 			await _drive_stats(c[0])
@@ -92,6 +92,139 @@ func bench() -> void:
 	var f := FileAccess.open(dir.path_join("drawcalls.txt"), FileAccess.WRITE)
 	if f:
 		f.store_string("\n".join(_lines) + "\n")
+
+
+## --parkedlod=<dir>: parked cars of each type through a long lens, the real
+## parts against the merged far mesh (ParkedCarLod), by day and night, and a
+## walk-up from 70 m to 20 m across the switch; plus the merge's build time.
+func parked_lod_shots() -> void:
+	var g := game
+	g.traffic.set_enabled(false)
+	g.hud.visible = false
+	var t0 := Time.get_ticks_usec()
+	var cache: Dictionary = ParkedCarLod._meshes.duplicate()
+	ParkedCarLod._meshes.clear()
+	var picked := {}
+	for c in g.world.get_node("Props").get_children():
+		var p := c as Prop
+		if p == null or not p.traffic_paint or picked.has(p.scene_file_path):
+			continue
+		picked[p.scene_file_path] = p
+	for path: String in picked:
+		var p: Prop = picked[path]
+		var parts: Array[MeshInstance3D] = []
+		for n in p.find_children("*", "MeshInstance3D", true, false):
+			var mi := n as MeshInstance3D
+			if mi.mesh and mi.name != &"Far" and mi.name != &"Shadow" and mi.is_visible_in_tree():
+				parts.append(mi)
+		var t1 := Time.get_ticks_usec()
+		var far: Mesh = ParkedCarLod._merge(p, parts, false)
+		var shadow: Mesh = ParkedCarLod._merge(p, parts, true)
+		print("PARKEDLOD %s: merged in %.1f ms, far %d verts / %d indices, shadow %d verts" % [path.get_file(),
+			(Time.get_ticks_usec() - t1) / 1000.0, far.surface_get_array_len(0), far.surface_get_array_index_len(0),
+			shadow.surface_get_array_len(0)])
+	ParkedCarLod._meshes = cache
+	print("PARKEDLOD all types merged in %.1f ms" % ((Time.get_ticks_usec() - t0) / 1000.0))
+	var cam := g.camera
+	cam.set_process(false)
+	var fov := cam.fov
+	# Each car on its own open stretch of the avenue (x = 2.4), 70 m apart,
+	# across the road; the camera looks along the road at it.
+	g.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(40.0, 0.8, 300.0)))
+	var space := g.world.get_world_3d().direct_space_state
+	var k := 0
+	for path: String in picked:
+		var p: Prop = picked[path]
+		p.freeze = true
+		var at := Vector3(2.4, 50.0, -40.0 + 70.0 * k)
+		var q := PhysicsRayQueryParameters3D.create(at, at + Vector3.DOWN * 100.0)
+		q.exclude = [p.get_rid()]
+		var hit := space.intersect_ray(q)
+		at.y = (hit["position"] as Vector3).y if hit else 0.15
+		p.global_transform = Transform3D(Basis(Vector3.UP, PI * 0.5), at)
+		k += 1
+	await wait(10)
+	for hour_i in 2:
+		Settings.set_value("time_of_day", 0 if hour_i == 0 else 2)
+		await wait(20)
+		for path: String in picked:
+			var p: Prop = picked[path]
+			var c := p.global_position + Vector3.UP * 0.8
+			var dir := Vector3(0.12, 0.0, 1.0).normalized()
+			var tag := "%s_%s" % [path.get_file().get_basename(), "day" if hour_i == 0 else "night"]
+			# Long lens from 60 m, so the car fills the frame as it would at
+			# ~6 m: from the road, and from above (as from a plane or a hill).
+			cam.fov = 7.0
+			for view: Array in [["", dir * 60.0 + Vector3.UP * 4.0], ["top_", dir * 40.0 + Vector3.UP * 45.0]]:
+				cam.global_position = c + (view[1] as Vector3)
+				cam.look_at(c, Vector3.UP)
+				for mode in ["near", "far"]:
+					_force(p, mode)
+					await wait(8)
+					await shot("%s_%s%s" % [tag, view[0], mode])
+			_force(p, "auto")
+			if hour_i == 0:
+				# Walking up to it at a normal lens, across the switch.
+				cam.fov = fov
+				# In from 250 m and back out: the swap has hysteresis.
+				var step := 0
+				for d in [250.0, 70.0, 45.0, 41.0, 37.0, 30.0, 41.0, 45.0]:
+					cam.global_position = c + dir * d + Vector3.UP * 2.0
+					cam.look_at(c, Vector3.UP)
+					await wait(6)
+					await shot("%s_walk%d_%03d" % [tag, step, int(d)])
+					step += 1
+	# What each car adds to the camera pass at a distance (frustum culling only,
+	# so hills in the way don't matter; the "objects" counter counts surfaces):
+	# nothing past the range, the merged mesh alone far away, the real parts
+	# alone up close.
+	_vp = tools.get_viewport().get_viewport_rid()
+	Settings.set_value("time_of_day", 0)
+	cam.fov = 2.0
+	for path: String in picked:
+		var p: Prop = picked[path]
+		var c := p.global_position + Vector3.UP * 0.8
+		var parts := 0
+		for n in p.find_children("*", "MeshInstance3D", true, false):
+			if n.name != &"Far" and n.name != &"Shadow" and (n as MeshInstance3D).is_visible_in_tree():
+				parts += (n as MeshInstance3D).mesh.get_surface_count()
+		for d: float in [260.0, 100.0, 20.0]:
+			cam.fov = 2.0 if d > 50.0 else 30.0  # the whole car in frame
+			cam.global_position = c + Vector3(0.12, 0.0, 1.0).normalized() * d + Vector3.UP * 2.0
+			cam.look_at(c, Vector3.UP)
+			await wait(4)
+			var with_car: Array = await _stats(4)
+			p.visible = false
+			await wait(4)
+			var without: Array = await _stats(4)
+			p.visible = true
+			var objs: int = with_car[4] - without[4]
+			var want := 0 if d > 220.0 else (1 if d > ParkedCarLod.NEAR else parts)
+			check(objs == want, "%s at %.0f m draws %d surfaces in the camera pass (want %d)" % [path.get_file(), d, objs, want])
+	cam.fov = fov
+	cam.set_process(true)
+	Settings.set_value("time_of_day", 0)
+
+
+## Shows only the real parts ("near"), only the merged mesh ("far"), or the
+## normal distance switch ("auto"). The real parts follow the far mesh
+## (visibility_parent), so only its range changes.
+func _force(p: Prop, mode: String) -> void:
+	var far := p.get_node_or_null("Far") as MeshInstance3D
+	if far == null:
+		return
+	if not far.has_meta("range"):
+		far.set_meta("range", Vector2(far.visibility_range_begin, far.visibility_range_end))
+	var r: Vector2 = far.get_meta("range")
+	if mode == "auto":
+		far.visibility_range_begin = r.x
+		far.visibility_range_end = r.y
+	elif mode == "far":
+		far.visibility_range_begin = 0.0
+		far.visibility_range_end = 0.0
+	else:
+		far.visibility_range_begin = 100000.0
+		far.visibility_range_end = 0.0
 
 
 ## [camera-pass calls, shadow-pass calls, primitives, gpu ms, objects, render cpu ms]
@@ -216,6 +349,7 @@ func _configs() -> Array:
 			ground_roads.append(r)
 	return [
 		["as is", func() -> Callable: return func() -> void: pass],
+		["parked old way", func() -> Callable: return _parked_old_way(parked)],
 		["2 splits", func() -> Callable: return _sun_mode(DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS, _sun.directional_shadow_max_distance)],
 		["shadow 120 m", func() -> Callable: return _sun_mode(_sun.directional_shadow_mode, 120.0)],
 		["props no shadow", func() -> Callable: return _no_shadow([props])],
@@ -256,6 +390,34 @@ func _configs() -> Array:
 				b.call()
 				c.call()],
 	]
+
+
+## Parked cars as they were before ParkedCarLod: every real part drawn and
+## casting shadows out to 200 m, no merged meshes.
+func _parked_old_way(parked: Array) -> Callable:
+	var changed: Array = []
+	for p: Node in parked:
+		var far := p.get_node_or_null("Far") as MeshInstance3D
+		if far == null:
+			continue
+		for n in p.find_children("*", "MeshInstance3D", true, false):
+			var mi := n as MeshInstance3D
+			changed.append([mi, mi.visible, mi.visibility_parent, mi.visibility_range_end, mi.cast_shadow, mi.visibility_range_fade_mode])
+			if mi.name == &"Far" or mi.name == &"Shadow":
+				mi.visible = false
+			elif mi.visible:
+				mi.visibility_parent = NodePath()
+				mi.visibility_range_end = Prop.PARKED_CAR_RANGE
+				mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	return func() -> void:
+		for c: Array in changed:
+			var mi := c[0] as MeshInstance3D
+			mi.visible = c[1]
+			mi.visibility_parent = c[2]
+			mi.visibility_range_end = c[3]
+			mi.cast_shadow = c[4]
+			mi.visibility_range_fade_mode = c[5]
 
 
 func _sun_mode(mode: DirectionalLight3D.ShadowMode, dist: float) -> Callable:

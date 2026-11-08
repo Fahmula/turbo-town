@@ -19,6 +19,8 @@ extends Node
 ##   --partsbench     a fully kitted player car against a stock one: GPU, draw calls (A/B)
 ##   --drawcalls=<dir> where the draw calls go in city views and a city drive: camera vs
 ##                    shadow passes, per world family, car surfaces (scripts/dev/drawcall_tests.gd)
+##   --parkedlod=<dir> parked cars' real parts against their merged far mesh (long lens,
+##                    day/night) and a walk-up across the switch; merge build time
 ##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
 ##   --updater=<dir>  in-game updates against a fake GitHub: checks, a bad download, the
 ##                    background download, toast, title box, WHAT'S NEW, restart code 42
@@ -164,6 +166,9 @@ func _ready() -> void:
 		elif arg.begins_with("--drawcalls="):
 			_mode = "drawcalls"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--parkedlod="):
+			_mode = "parkedlod"
+			_dir = arg.split("=")[1]
 		elif arg == "--bench":
 			_mode = "bench"
 			_dir = OS.get_user_data_dir()
@@ -264,6 +269,8 @@ func _run() -> void:
 		await _perfsweep(game)
 	elif _mode == "drawcalls":
 		await preload("res://scripts/dev/drawcall_tests.gd").new(self, game, _dir).bench()
+	elif _mode == "parkedlod":
+		await preload("res://scripts/dev/drawcall_tests.gd").new(self, game, _dir).parked_lod_shots()
 	elif _mode == "menus":
 		await _menus(game)
 	elif _mode == "updater":
