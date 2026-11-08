@@ -84,6 +84,11 @@ func _build() -> void:
 	var props := Node3D.new()
 	props.name = "Props"
 	add_child(props)
+	if not Engine.is_editor_hint():
+		# The parked cars' merged far meshes, all types at once (CarLod).
+		var t2 := Time.get_ticks_msec()
+		CarLod.prebuild([PROP_SCENES["parked_car"], PROP_SCENES["parked_sedan"], PROP_SCENES["parked_van"]])
+		print("Parked-car far meshes built in %d ms" % (Time.get_ticks_msec() - t2))
 	_spawn_props(props, city.prop_spawns)
 	_spawn_props(props, park.prop_spawns)
 	_spawn_props(props, _extra_props())

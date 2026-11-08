@@ -427,6 +427,8 @@ func _detach(part_name: String) -> void:
 	debris.add_child(cs)
 	_vehicle.get_parent().add_child(debris)
 	debris.global_transform = world
+	# Debris shows on its own, not on the car's far mesh (CarLod's HLOD link).
+	mi.visibility_parent = NodePath()
 	mi.get_parent().remove_child(mi)
 	debris.add_child(mi)
 	mi.transform = Transform3D.IDENTITY
