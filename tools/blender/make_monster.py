@@ -173,9 +173,11 @@ def _interior(shell, m, ys):
     bk.box(shell, im, (0, 0.78, 1.30), (1.66, 0.28, 0.22))
     bk.box(shell, im, (0, -0.15, FLOOR + 0.20), (1.5, 0.5, 0.16), bevel=0.04, segments=1)   # bench seat
     bk.box(shell, im, (0, -0.38, 1.25), (1.5, 0.12, 0.62), bevel=0.05, segments=1)
-    c = (-0.40, 0.55, 1.42)
+    # Steering wheel where the seated driver's hands reach (the scene's
+    # steering_wheel; ART_BIBLE.md §34).
+    c = (-0.40, 0.24, 1.48)
     bk.torus(shell, m["Trim"], c, 0.19, 0.02, 16, 5, tilt=math.radians(-28))
-    bk.tube(shell, m["Trim"], (-0.40, 0.58, 1.41), (-0.40, 0.76, 1.32), 0.025, 8)
+    bk.tube(shell, m["Trim"], (-0.40, 0.27, 1.47), (-0.40, 0.76, 1.32), 0.025, 8)
 
 
 def _stripes(surf):

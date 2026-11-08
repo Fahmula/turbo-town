@@ -179,8 +179,10 @@ def _cockpit(shell, m):
                segments=1)
         for z in (0.24, 0.52):                                                               # side bolsters
             bk.box(shell, im, (x + sx * 0.19, -0.60, z), (0.04, 0.16, 0.22), bevel=0.015, segments=1)
-    bk.torus(shell, im, (-0.27, 0.20, 0.62), 0.15, 0.018, 14, 5, tilt=math.radians(-25))
-    bk.tube(shell, im, (-0.27, 0.23, 0.61), (-0.27, COWL - 0.1, 0.44), 0.022, 8)
+    # Steering wheel where the seated driver's hands reach (the scene's
+    # steering_wheel; ART_BIBLE.md §34).
+    bk.torus(shell, im, (-0.27, -0.04, 0.60), 0.15, 0.018, 14, 5, tilt=math.radians(-25))
+    bk.tube(shell, im, (-0.27, -0.01, 0.59), (-0.27, COWL - 0.1, 0.44), 0.022, 8)
     bk.tube(shell, m["Chrome"], (0.0, 0.05, -0.02), (0.0, 0.05, 0.36), 0.015, 6)              # gear stick
     bk.tube(shell, im, (0.0, 0.05, 0.36), (0.0, 0.05, 0.40), 0.03, 8)
 

@@ -13,7 +13,8 @@ extends CharacterBody3D
 ## Getting in and out of vehicles is the Possession's job: VehicleEntry
 ## emits `vehicle_requested` (drive it) or `ride_requested` (sit beside the
 ## other player), the Possession walks the character to the door (walk_to),
-## hides it (set_hidden) and later puts it back (place).
+## sits it in the vehicle (sit_in: hidden here, a SeatFigure copy of it shows
+## in the seat) and later puts it back (place).
 
 signal vehicle_requested(vehicle: Vehicle)
 signal ride_requested(vehicle: Vehicle)
@@ -127,6 +128,14 @@ var _land_time := 0.0
 var _tick := 0
 ## Surface -> [AudioStream] (shared by every character).
 static var _step_streams := {}
+## The character sitting in a vehicle (sit_in); waits under the character.
+var _figure: SeatFigure
+
+
+func _notification(what: int) -> void:
+	# A figure left sitting in a vehicle goes with the character.
+	if what == NOTIFICATION_PREDELETE and is_instance_valid(_figure) and _figure.get_parent() != self:
+		_figure.queue_free()
 
 
 func _ready() -> void:
@@ -209,8 +218,28 @@ func place(xform: Transform3D) -> void:
 	_play("idle", 0.0)
 
 
-## Hidden = in a vehicle: invisible, no collisions, no physics, no animation.
+## Sits in `v` (a passenger seat if `passenger`): the character itself is
+## hidden, and a copy of it (SeatFigure) shows in the seat if the vehicle has
+## seats to show.
+func sit_in(v: Vehicle, passenger := false) -> void:
+	set_hidden(true)
+	if v == null or not is_instance_valid(v) or not v.has_seats() or _model == null:
+		return
+	if not is_instance_valid(_figure):
+		_figure = SeatFigure.make(_model)
+	_figure.seat(v, passenger)
+
+
+## The copy of the character sitting in a vehicle now, or null.
+func seated_figure() -> SeatFigure:
+	return _figure if is_instance_valid(_figure) and _figure.is_seated() else null
+
+
+## Hidden = in a vehicle: invisible, no collisions, no physics, no animation
+## (and out of the seat it was in).
 func set_hidden(hidden: bool) -> void:
+	if is_instance_valid(_figure) and _figure.vehicle != null:
+		_figure.leave(self)
 	visible = not hidden
 	if _anim:
 		_anim.active = not hidden

@@ -881,7 +881,11 @@ docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
 - Dark wheel-well liners and a simple dark underbody, so you never see through
   to the sky.
 - A simple interior (seats, dash, steering wheel) in dark materials, 300–800
-  tris, visible through the glass.
+  tris, visible through the glass. **Laid out round the seated character
+  (§34):** the steering wheel where the driver's hands reach with the elbows a
+  little bent, the seat under the hips, ≥ 3 cm between the top of the head
+  and the headliner. Change the generator and the scene's Seats numbers
+  together, and check with `--seatsheet`.
 
 **Wheels:** multi-spoke rims with depth (5–10 spokes). Open alloy wheels show a
 dark brake disc and a caliper behind the spokes (`Vehicle.brake_calipers`,
@@ -2069,6 +2073,12 @@ window):
   draw calls on the city drive). The same view on the iGPU is 35–44 ms at
   Medium with or without it: the city centre itself is the Deck's problem.
 
+- **Seated characters** (2026-11-08, `--seatbench` on the iGPU at
+  1280×800, city centre, chase camera, traffic off): the driver's figure adds
+  5 draw calls (401 vs 396 at Medium, 299 vs 294 at Low); GPU time is within
+  the run-to-run noise (Medium 19.2–20.5 ms either way, Low 9.3–10.1 ms);
+  animation ~0.02 ms and IK ~0.015 ms per frame. No shadow pass (§34).
+
 - **Flying** (2026-10-05, branch `flight`, `--flightbench` on the iGPU,
   traffic off, a fixed line across the city at 60 m/s): Medium 21.7 / 20.9 /
   17.9 ms average GPU at 60 / 150 / 300 m (p95 24 ms), Low 9.4–10.8 ms, High
@@ -2498,6 +2508,40 @@ everything else: **stylized realism**, believable first.
 - **Look-dev:** `--charsheet=<dir>` shoots it from fixed cameras at day,
   sunset and night plus strips of every locomotion clip.
 
+### Seated in vehicles (2026-11-08)
+
+Players stay visible in their vehicles: a `SeatFigure` (a copy of their
+character model, same clothes) sits in the seat while the walking character
+is hidden.
+
+- **Pose:** the library's `Driving` clip for the driver, `Sitting_Idle` for a
+  passenger (leaned back 15° more: that clip sits more upright). The whole body
+  leans back with the seat (`seat_recline`) and the neck and head lean forward
+  again by the same amount, so the eyes stay on the road. `LimbIK` (two-bone
+  IK after the animation) puts the wrists at the steering wheel (ten to two,
+  62° from the top) or a plane's stick (right hand; the left rests on the
+  thigh), a passenger's on the thighs, and the ankles 12 cm either side of the
+  seat's middle above the heel spot. Never edit the clips for a vehicle: move
+  the targets.
+- **Per-vehicle numbers** live in each vehicle scene's Seats group:
+  `seat_hip` (the driver's hip joint; the passenger mirrors x), `seat_recline`,
+  `seat_feet` (heels, from the hip), `steering_wheel` (centre), its radius and
+  tilt (as the generator builds it; radius 0 = a stick). `seat_hip` ZERO =
+  nobody shows (the bus: dark glass, no cabin). The fit targets: every hand
+  and foot reaches (≤ 2 cm short, ideally 2–6 cm to spare), ≥ 3 cm headroom.
+  `--seatsheet` measures both and shoots cut-open views (the camera's near
+  plane slices the door, roof or dash); `--try=` tries other numbers.
+- **Measured fit** (2026-11-08): headroom 5–10 cm in the closed cars (sports
+  car 6, monster truck 5, sedan 10), 6–7 cm under the plane's canopy, 20–40 cm
+  in the van, pickup and box truck; hands 1–7 cm to spare everywhere.
+- **Look:** no shadow of its own (the cabin is in the vehicle's shadow; one
+  less pass per cascade), same layer as the vehicle. Its owner's hood and
+  cockpit views leave it out (the camera sits in its head); in split-screen
+  only that player's view does (the other player still sees it).
+- **Budget:** one more skinned character per player in a vehicle: +5 draw
+  calls, GPU within the noise on the iGPU at Medium and Low, ~0.02 ms of
+  animation and ~0.015 ms of IK per frame (`--seatbench`, §27).
+
 ---
 
 *Revision log*
@@ -2544,3 +2588,6 @@ everything else: **stylized realism**, believable first.
   player, §27 split-screen target (30 fps on the Deck), measurements and
   trims, §33 players' car sounds fade with distance in split-screen, §34
   player 2's blue T-shirt.
+- 2026-11-08: visible drivers (branch `feature/visible-drivers`): §12
+  interiors laid out round the seated character, §27 seated-character
+  cost, §34 "Seated in vehicles".

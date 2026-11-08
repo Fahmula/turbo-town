@@ -16,6 +16,22 @@ signal vehicle_reset
 ## Where the hood camera sits (local space, roughly the driver's eyes).
 @export var driver_eye := Vector3(0.0, 1.2, -0.2)
 
+@export_group("Seats")
+## The driver's hip joint (local); the passenger's seat mirrors it across the
+## middle. The players sit there, seen through the glass (SeatFigure).
+## ZERO = nobody shows in the seats (the bus: dark glass, no cabin).
+@export var seat_hip := Vector3.ZERO
+## How far the seat back leans the body back from upright (degrees).
+@export var seat_recline := 12.0
+## Where the heels rest, from the hip (local).
+@export var seat_feet := Vector3(0.0, -0.3, -0.75)
+## The steering wheel's centre (local), radius and lean (degrees, the top
+## tilted away from the driver), as the vehicle's generator builds it.
+## Radius 0 = a control stick with its grip at `steering_wheel` (planes).
+@export var steering_wheel := Vector3.ZERO
+@export var steering_wheel_radius := 0.18
+@export var steering_wheel_tilt := 25.0
+
 @export_group("Engine")
 @export var max_engine_torque := 430.0
 @export var idle_rpm := 900.0
@@ -505,6 +521,11 @@ func upright_ground_transform() -> Transform3D:
 	if not hit.is_empty():
 		pos = hit.position
 	return Transform3D(Basis.looking_at(fwd.normalized(), Vector3.UP), pos)
+
+
+## Do the people in it show in the seats (SeatFigure)?
+func has_seats() -> bool:
+	return seat_hip != Vector3.ZERO
 
 
 ## Where a passenger's eyes are (local): beside the driver, on the right.

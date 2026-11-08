@@ -146,16 +146,20 @@ def _interior(shell, m, ys):
     bk.box(shell, im, (0, -1.25, 0.43), (1.62, 0.62, 0.02))                  # parcel shelf (over the arches)
     bk.box(shell, im, (0, -0.95, 0.135), (1.62, 0.05, 0.59))                 # bulkhead behind seats
     bk.box(shell, im, (0, -0.05, -0.06), (0.20, 0.95, 0.20))                 # console
+    # Low bucket seats placed round the seated driver (SeatFigure: the
+    # scene's seat_hip sits about 0.13 in front of the back, 0.03 above the
+    # cushion; ART_BIBLE.md §34).
     for sx in (-1, 1):
         x = sx * 0.40
-        bk.box(shell, im, (x, -0.33, -0.08), (0.50, 0.52, 0.16), bevel=0.04, segments=1)                 # cushion
-        bk.box(shell, im, (x, -0.66, 0.28), (0.50, 0.14, 0.62), bevel=0.05, rot=(math.radians(-14), 0, 0), segments=1)  # back
-        bk.box(shell, im, (x, -0.74, 0.64), (0.26, 0.10, 0.14), rot=(math.radians(-14), 0, 0))           # headrest
-    # Steering wheel (left-hand drive) on its column.
-    c = (-0.40, 0.22, 0.34)
+        bk.box(shell, im, (x, -0.15, -0.11), (0.50, 0.42, 0.10), bevel=0.04, segments=1)                 # cushion
+        bk.box(shell, im, (x, -0.42, 0.22), (0.50, 0.14, 0.62), bevel=0.05, rot=(math.radians(-14), 0, 0), segments=1)  # back
+        bk.box(shell, im, (x, -0.50, 0.58), (0.26, 0.10, 0.14), rot=(math.radians(-14), 0, 0))           # headrest
+    # Steering wheel (left-hand drive) on its column, where the driver's
+    # hands reach (the scene's steering_wheel).
+    c = (-0.40, 0.06, 0.36)
     bk.torus(shell, m["Trim"], c, 0.17, 0.018, 16, 5, tilt=math.radians(-25))
     bk.box(shell, m["Trim"], (c[0], c[1] - 0.005, c[2] - 0.002), (0.10, 0.03, 0.08))
-    bk.tube(shell, m["Trim"], (-0.40, 0.25, 0.33), (-0.40, 0.45, 0.26), 0.025, 8)
+    bk.tube(shell, m["Trim"], (-0.40, 0.09, 0.35), (-0.40, 0.45, 0.26), 0.025, 8)
 
 
 def _mirrors(shell, m):
