@@ -70,12 +70,15 @@ var _first_focus := {}
 var _dim: ColorRect
 var _ride_label: Label
 var _setting_widgets := {}
-var _volume_label: Label
+## The settings page's line about the focused setting.
+var _settings_help: Label
 var _records_text: RichTextLabel
 var _races_list: VBoxContainer
-var _end_race_button: Button
-var _races_button: Button
-var _player2_button: Button
+var _end_race_button: UiKit.MenuItem
+var _races_button: UiKit.MenuItem
+var _player2_button: UiKit.MenuItem
+## The pause menu's "Your ride" line.
+var _pause_ride: Label
 var _note: Label
 var _join_p1_label: Label
 var _join_p2_label: Label
@@ -94,10 +97,14 @@ var _news_restart: Button
 ## The title screen's column of cards and its big heading.
 var _title_col: VBoxContainer
 var _title_label: Label
+## Page -> [its row of button hints, the hints] (see _refresh_hints).
+var _hint_rows := {}
 ## The device that pressed a button last (a gamepad id, -1 = keyboard/mouse).
 var _last_device := -1
 ## 2 PLAYERS page: player 1's device (the one that opened the page).
-var _join_p1 := -1## Set by Game: the races (RaceCatalog dictionaries) and whether one is running.
+var _join_p1 := -1
+
+## Set by Game: the races (RaceCatalog dictionaries) and whether one is running.
 var races: Array = []
 var racing := false
 ## Set by Game: two players are playing (split-screen).
@@ -143,8 +150,11 @@ func show_page(page_name: String, remember_current := false) -> void:
 	visible = true
 	for k: String in _pages:
 		(_pages[k] as Control).visible = k == page_name
-	# The title screen lets the world show through; other pages dim it.
-	_dim.color = Color(0.02, 0.03, 0.08, 0.15 if page_name == "title" else 0.55)
+	# The title screen and the pause drawer let the world show through;
+	# other pages dim it.
+	var dim := {"title": 0.15, "pause": 0.3}
+	_dim.color = Color(0.02, 0.03, 0.08, dim.get(page_name, 0.55))
+	_refresh_hints()
 	if page_name == "settings":
 		_refresh_settings()
 	elif page_name == "records":
@@ -179,14 +189,18 @@ func close() -> void:
 ## The GARAGE tile's line names the vehicle you'll play with.
 func set_ride_name(ride: String) -> void:
 	_ride_label.text = "Your ride: %s" % ride
+	_pause_ride.text = "Your ride: %s" % ride
 
 
 func _input(event: InputEvent) -> void:
 	if event.is_pressed() and not event.is_echo():
+		var was_pad := _last_device >= 0
 		if event is InputEventJoypadButton:
 			_last_device = event.device
 		elif event is InputEventKey or event is InputEventMouseButton:
 			_last_device = -1
+		if (_last_device >= 0) != was_pad:
+			_refresh_hints()
 	if page == "join":
 		_join_input(event)
 
@@ -250,13 +264,20 @@ func _build_title() -> Control:
 
 	var head := UiKit.panel(24)
 	col.add_child(head)
+	var hrow := HBoxContainer.new()
+	hrow.add_theme_constant_override("separation", 12)
+	head.add_child(hrow)
 	var hv := VBoxContainer.new()
 	hv.add_theme_constant_override("separation", 2)
-	head.add_child(hv)
-	hv.add_child(UiKit.heading("TURBO TOWN", 22, UiKit.ACCENT))
-	_title_label = UiKit.heading("READY TO RIDE?", 54)
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hrow.add_child(hv)
+	hv.add_child(UiKit.badge("TURBO TOWN", 24))
+	_title_label = UiKit.heading("READY TO RIDE?", 64)
 	hv.add_child(_title_label)
 	hv.add_child(UiKit.text("Your island. Your cars. Your adventures.", 22))
+	var stripes := UiKit.Stripes.new(76, 5)
+	stripes.size_flags_vertical = Control.SIZE_SHRINK_END
+	hrow.add_child(stripes)
 
 	var play := UiKit.Tile.new("primary", false, Vector2(24, 18))
 	play.box.add_theme_constant_override("separation", 16)
@@ -266,9 +287,12 @@ func _build_title() -> Control:
 	pv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	play.box.add_child(pv)
-	pv.add_child(UiKit.heading("PLAY NOW", 36, UiKit.DARK_TEXT))
+	pv.add_child(UiKit.heading("PLAY NOW", 46, UiKit.DARK_TEXT))
 	pv.add_child(UiKit.text("Jump into your world", 20, UiKit.DARK_TEXT))
-	play.box.add_child(UiIcon.new("chevron_right", 34, UiKit.DARK_TEXT))
+	# "Go" chevrons, lit up in turn while PLAY NOW has the focus.
+	var go := UiKit.Chevrons.new(40)
+	play.box.add_child(go)
+	play.lit_changed.connect(func(lit: bool) -> void: go.animate = lit)
 	play.pressed.connect(func() -> void: action.emit("drive"))
 	col.add_child(play)
 	_first_focus["title"] = play.button
@@ -320,7 +344,7 @@ func _title_tile(grid: GridContainer, icon: String, title: String, line: String,
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 6)
 	t.box.add_child(gap)
-	t.box.add_child(UiKit.heading(title, 26))
+	t.box.add_child(UiKit.heading(title, 32))
 	var sub := UiKit.text(line, 20)
 	sub.clip_text = true
 	sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -337,7 +361,7 @@ func _footer_button(parent: Control, icon: String, text: String, on_press: Calla
 	t.box.alignment = BoxContainer.ALIGNMENT_CENTER
 	t.box.add_theme_constant_override("separation", 10)
 	t.box.add_child(UiIcon.new(icon, 24, Color.WHITE))
-	t.box.add_child(UiKit.heading(text, 20))
+	t.box.add_child(UiKit.heading(text, 24))
 	t.pressed.connect(on_press)
 	parent.add_child(t)
 	return t.button
@@ -459,7 +483,7 @@ func _fit_title() -> void:
 	var vp := get_viewport().get_visible_rect().size
 	var w := clampf(vp.x * 0.46, 560.0, 720.0)
 	_title_col.offset_right = TITLE_LEFT + w
-	_title_label.add_theme_font_size_override("font_size", 46 if vp.y < 880.0 else 54)
+	_title_label.add_theme_font_size_override("font_size", 56 if vp.y < 880.0 else 64)
 	_title_col.modulate.a = 0.0
 	_title_col.position.x = TITLE_LEFT - 32.0
 	var tw := _title_col.create_tween().set_parallel().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
@@ -467,35 +491,90 @@ func _fit_title() -> void:
 	tw.tween_property(_title_col, "position:x", float(TITLE_LEFT), 0.22)
 
 
+## The pause menu: a drawer down the left side (the paused world shows on
+## the right) with a list of slanted buttons. The order (RESUME, END RACE,
+## RACES, GARAGE, SETTINGS, CONTROLS, RECORDS, CREDITS, ADD PLAYER 2,
+## MAIN MENU, QUIT GAME) is what the D-pad walks through.
 func _build_pause() -> Control:
-	var center := _centered()
-	var p := UiKit.panel(30)
-	center.add_child(p)
+	var page_root := Control.new()
+	page_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	page_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var drawer := PanelContainer.new()
+	# The right edge leans like the buttons; the left one is off screen.
+	var sb := UiKit.slant(UiKit.box(UiKit.PAGE_BG, 0, 0), 0.06)
+	sb.expand_margin_left = 120
+	sb.content_margin_left = TITLE_LEFT
+	sb.content_margin_right = 76
+	sb.content_margin_top = 20
+	sb.content_margin_bottom = 20
+	drawer.add_theme_stylebox_override("panel", sb)
+	drawer.anchor_bottom = 1.0
+	drawer.offset_right = 560
+	page_root.add_child(drawer)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
-	col.custom_minimum_size = Vector2(340, 0)
-	p.add_child(col)
-	col.add_child(UiKit.heading("PAUSED", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
-	var resume := _button(col, "RESUME", func() -> void: action.emit("resume"))
-	_end_race_button = _button(col, "END RACE", func() -> void: action.emit("end_race"))
-	_races_button = _button(col, "RACES", func() -> void: show_page("races", true))
-	_button(col, "GARAGE", func() -> void: action.emit("garage"))
-	_button(col, "SETTINGS", func() -> void: show_page("settings", true))
-	_button(col, "CONTROLS", func() -> void: show_page("controls", true))
-	_button(col, "RECORDS", func() -> void: show_page("records", true))
-	_button(col, "CREDITS", func() -> void: show_page("credits", true))
-	_player2_button = _button(col, "ADD PLAYER 2", func() -> void:
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 4)
+	drawer.add_child(col)
+	col.add_child(UiKit.badge("TURBO TOWN", 22))
+	col.add_child(UiKit.page_title("PAUSED", 58))
+	_pause_ride = UiKit.text("", 20)
+	col.add_child(_pause_ride)
+	col.add_child(_gap(12))
+	var resume := _menu_item(col, "play", "RESUME", func() -> void: action.emit("resume"))
+	_end_race_button = _menu_item(col, "close", "END RACE", func() -> void: action.emit("end_race"))
+	col.add_child(_gap(8))
+	_races_button = _menu_item(col, "flag", "RACES", func() -> void: show_page("races", true))
+	_menu_item(col, "wrench", "GARAGE", func() -> void: action.emit("garage"))
+	_menu_item(col, "gear", "SETTINGS", func() -> void: show_page("settings", true))
+	_menu_item(col, "gamepad", "CONTROLS", func() -> void: show_page("controls", true))
+	_menu_item(col, "trophy", "RECORDS", func() -> void: show_page("records", true))
+	_menu_item(col, "info", "CREDITS", func() -> void: show_page("credits", true))
+	_player2_button = _menu_item(col, "players", "ADD PLAYER 2", func() -> void:
 		if two_players:
 			action.emit("remove_player")
 		else:
 			_open_join())
-	_button(col, "MAIN MENU", func() -> void: action.emit("title"))
-	_button(col, "QUIT GAME", func() -> void: action.emit("quit"))
-	_note = UiKit.label("", 20, UiKit.ACCENT)
+	col.add_child(_gap(8))
+	_menu_item(col, "home", "MAIN MENU", func() -> void: action.emit("title"))
+	_menu_item(col, "exit", "QUIT GAME", func() -> void: action.emit("quit"))
+	_note = UiKit.text("", 20, UiKit.ACCENT)
 	_note.visible = false
 	col.add_child(_note)
-	_first_focus["pause"] = resume
-	return center
+	col.add_child(_gap(8))
+	col.add_child(_hint_row("pause", [[["A"], ["Enter"], "Select"], [["B"], ["Esc"], "Resume"]]))
+	_first_focus["pause"] = resume.button
+	return page_root
+
+
+func _menu_item(parent: Control, icon: String, text: String, on_press: Callable) -> UiKit.MenuItem:
+	var m := UiKit.MenuItem.new(icon, text, 26)
+	m.pressed.connect(on_press)
+	parent.add_child(m)
+	return m
+
+
+func _gap(h: float) -> Control:
+	var g := Control.new()
+	g.custom_minimum_size = Vector2(0, h)
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return g
+
+
+## A row of button hints for a page, shown for the device in use.
+func _hint_row(page_name: String, hints: Array) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hint_rows[page_name] = [row, hints]
+	return row
+
+
+## Fills the shown page's hint row for the last device used (gamepad or
+## keyboard).
+func _refresh_hints() -> void:
+	var entry: Array = _hint_rows.get(page, [])
+	if not entry.is_empty():
+		UiKit.fill_hints(entry[0], entry[1], _last_device >= 0)
 
 
 ## A line under the pause menu's buttons ("" hides it).
@@ -517,7 +596,7 @@ func _build_join() -> Control:
 	col.add_theme_constant_override("separation", 16)
 	col.custom_minimum_size = Vector2(620, 0)
 	p.add_child(col)
-	col.add_child(UiKit.heading("2 PLAYERS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
+	col.add_child(UiKit.page_title("2 PLAYERS", 44, UiKit.ACCENT, true))
 	col.add_child(UiKit.label("Two players, one screen: player 1 on top, player 2 below.", 20, Color(1, 1, 1, 0.85)))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -591,21 +670,42 @@ func _join_input(event: InputEvent) -> void:
 	action.emit("join:%d:%d" % [_join_p1, device])
 
 
+## A line about each setting, shown under the rows while it's focused.
+const SETTING_HELP := {
+	"traffic_density": "How many cars drive around town.",
+	"assists": "On: the car (or plane) helps you steer. Off: drift mode, it's all you!",
+	"graphics": "Lower runs smoother. Higher looks nicer.",
+	"flight_invert": "Which way to push the stick to make a plane climb.",
+	"time_of_day": "Day, sunset, night, or a day that keeps changing.",
+	"vibration": "The controller rumbles when you crash.",
+	"units_mph": "Show your speed in km/h or mph.",
+	"crash_cam": "A slow-motion replay of your biggest crashes.",
+	"minimap": "The little map in the corner while you drive.",
+	"speakers": "Louder engines on small speakers. Auto: on for a Steam Deck.",
+	"fullscreen": "Fill the whole screen with the game.",
+	"master_volume": "How loud the whole game is.",
+}
+
+
 func _build_settings() -> Control:
 	var center := _centered()
-	var p := UiKit.panel(30)
+	var p := UiKit.page_panel(28)
 	center.add_child(p)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	p.add_child(col)
-	col.add_child(UiKit.heading("SETTINGS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
-	# Two columns of settings (label, value, label, value), so the page fits
-	# the Steam Deck's 800-pixel-high screen. Rows fill left then right; up /
-	# down run down the left column and on into the right one (left / right
-	# change a value).
+	var head := VBoxContainer.new()
+	head.add_theme_constant_override("separation", 0)
+	col.add_child(head)
+	head.add_child(UiKit.page_title("SETTINGS", 52))
+	head.add_child(UiKit.text("Set up the game your way", 20))
+	# Two columns of rows (each row is one button: its name and its value),
+	# so the page fits the Steam Deck's 800-pixel-high screen. Rows fill left
+	# then right; up / down run down the left column and on into the right
+	# one (left / right change a value).
 	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 30)
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
 	grid.add_theme_constant_override("v_separation", 10)
 	col.add_child(grid)
 
@@ -624,30 +724,35 @@ func _build_settings() -> Control:
 	# Auto: on for the Steam Deck's own speakers (engines carry on them).
 	right.append(_cycle_row(grid, "Speaker boost", "speakers", Settings.SPEAKER_LABELS))
 	left.append(_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"]))
-	var first := left[0]
-	grid.add_child(UiKit.label("Volume", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
-	var vol_row := HBoxContainer.new()
-	vol_row.add_theme_constant_override("separation", 12)
-	var slider := HSlider.new()
-	slider.min_value = 0.0
-	slider.max_value = 1.0
-	slider.step = 0.05
-	slider.custom_minimum_size = Vector2(200, 30)
-	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	slider.value_changed.connect(func(v: float) -> void:
-		Settings.set_value("master_volume", v)
-		_volume_label.text = "%d%%" % roundi(v * 100.0))
-	vol_row.add_child(slider)
-	_volume_label = UiKit.label("", 20, Color.WHITE)
-	_volume_label.custom_minimum_size = Vector2(60, 0)
-	vol_row.add_child(_volume_label)
-	grid.add_child(vol_row)
-	_setting_widgets["master_volume"] = slider
-	right.append(slider)
+	var volume := UiKit.LevelButton.new("Volume")
+	volume.value_changed.connect(func(v: float) -> void: Settings.set_value("master_volume", v))
+	volume.focus_entered.connect(_show_help.bind("master_volume"))
+	grid.add_child(volume)
+	_setting_widgets["master_volume"] = volume
+	right.append(volume)
 
-	var back := _button(col, "BACK", _back)
-	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# What the focused setting does.
+	var help := PanelContainer.new()
+	help.add_theme_stylebox_override("panel", UiKit.box(Color(1, 1, 1, 0.04), 12, 12))
+	col.add_child(help)
+	var hrow := HBoxContainer.new()
+	hrow.add_theme_constant_override("separation", 12)
+	help.add_child(hrow)
+	hrow.add_child(UiIcon.new("info", 26, UiKit.ACCENT))
+	_settings_help = UiKit.text("", 20, Color.WHITE)
+	hrow.add_child(_settings_help)
+
+	var bottom := HBoxContainer.new()
+	bottom.add_theme_constant_override("separation", 22)
+	col.add_child(bottom)
+	var back := _button(bottom, "BACK", _back)
 	back.custom_minimum_size = Vector2(200, 0)
+	back.focus_entered.connect(func() -> void: _settings_help.text = "Back to the menu.")
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom.add_child(spacer)
+	bottom.add_child(_hint_row("settings", [
+		[["dpad_v"], ["up", "down"], "Pick"], [["dpad_h"], ["left", "right"], "Change"], [["B"], ["Esc"], "Back"]]))
 	# One chain: down the left column, on to the top of the right one, BACK.
 	var chain: Array[Control] = left + right
 	chain.append(back)
@@ -659,19 +764,23 @@ func _build_settings() -> Control:
 		if i < chain.size() - 1:
 			c.focus_neighbor_bottom = c.get_path_to(chain[i + 1])
 			c.focus_next = c.focus_neighbor_bottom
-	_first_focus["settings"] = first
+	_first_focus["settings"] = left[0]
 	return center
 
 
 func _cycle_row(grid: GridContainer, text: String, key: String, options: Array) -> Control:
-	grid.add_child(UiKit.label(text, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT))
-	var b := UiKit.CycleButton.new(options, 0)
+	var b := UiKit.CycleButton.new(options, 0, text)
 	b.value_changed.connect(func(i: int) -> void:
 		var default: Variant = Settings.DEFAULTS[key]
 		Settings.set_value(key, bool(i) if default is bool else i))
+	b.focus_entered.connect(_show_help.bind(key))
 	grid.add_child(b)
 	_setting_widgets[key] = b
 	return b
+
+
+func _show_help(key: String) -> void:
+	_settings_help.text = SETTING_HELP.get(key, "")
 
 
 func _refresh_settings() -> void:
@@ -682,9 +791,8 @@ func _refresh_settings() -> void:
 			var b := w as UiKit.CycleButton
 			b.index = int(v)
 			b._refresh()
-		elif w is HSlider:
-			(w as HSlider).set_value_no_signal(v)
-			_volume_label.text = "%d%%" % roundi(float(v) * 100.0)
+		elif w is UiKit.LevelButton:
+			(w as UiKit.LevelButton).set_value_no_signal(v)
 
 
 func _build_controls() -> Control:
@@ -694,7 +802,7 @@ func _build_controls() -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	p.add_child(col)
-	col.add_child(UiKit.heading("CONTROLS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
+	col.add_child(UiKit.page_title("CONTROLS", 44, UiKit.ACCENT, true))
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 56)
 	col.add_child(columns)
@@ -726,7 +834,7 @@ func _build_controls_flying() -> Control:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	p.add_child(col)
-	col.add_child(UiKit.heading("FLYING", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
+	col.add_child(UiKit.page_title("FLYING", 44, UiKit.ACCENT, true))
 	_controls_grid(col, "PLANES (at the Airfield, 7, or in the garage)", CONTROLS_FLYING)
 	var tip := UiKit.label("Take off: full power, then pull back at 80 km/h.\nLand: slow down low over the runway and let go.", 20,
 		Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
@@ -739,7 +847,7 @@ func _build_controls_flying() -> Control:
 
 
 func _controls_grid(parent: Control, title: String, rows: Array) -> void:
-	parent.add_child(UiKit.label(title, 22, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT))
+	parent.add_child(UiKit.heading(title, 26, UiKit.ACCENT))
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 24)
@@ -762,7 +870,8 @@ const CREDITS := "[b]TURBO TOWN[/b]\n\n" \
 	+ "[color=#ffd54a]Air Break, Window Shattering[/color]  by Mike Koenig (SoundBible.com). CC BY 3.0\n" \
 	+ "[color=#ffd54a]CC0 sounds[/color]  by Kenney, cognito perceptu, 15HPanska_Ruttner_Jan, HarveyHenkelmann, X5DragonFire, TinyWorlds / Till Behrend, rubberduck, blacklodgegames\n\n" \
 	+ "[color=#ffd54a]Skies, textures, rock models[/color]  from Poly Haven and ambientCG. CC0\n" \
-	+ "[color=#ffd54a]Character and animations[/color]  from the Universal Animation Library by Quaternius. CC0\n\n" \
+	+ "[color=#ffd54a]Character and animations[/color]  from the Universal Animation Library by Quaternius. CC0\n" \
+	+ "[color=#ffd54a]Barlow Condensed font[/color]  by The Barlow Project Authors. SIL OFL 1.1\n\n" \
 	+ "Sounds changed for Turbo Town (looped, filtered, mixed, levels).\n" \
 	+ "CC BY: creativecommons.org/licenses/by/4.0 and /by/3.0\n" \
 	+ "Everything else is made for this game."
@@ -776,7 +885,7 @@ func _build_credits() -> Control:
 	col.add_theme_constant_override("separation", 12)
 	col.custom_minimum_size = Vector2(760, 0)
 	p.add_child(col)
-	col.add_child(UiKit.heading("CREDITS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
+	col.add_child(UiKit.page_title("CREDITS", 44, UiKit.ACCENT, true))
 	var text := RichTextLabel.new()
 	text.bbcode_enabled = true
 	text.fit_content = true
@@ -800,7 +909,7 @@ func _build_records() -> Control:
 	col.add_theme_constant_override("separation", 12)
 	col.custom_minimum_size = Vector2(620, 0)
 	p.add_child(col)
-	col.add_child(UiKit.heading("RECORDS", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
+	col.add_child(UiKit.page_title("RECORDS", 44, UiKit.ACCENT, true))
 	_records_text = RichTextLabel.new()
 	_records_text.bbcode_enabled = true
 	_records_text.fit_content = true
@@ -843,7 +952,7 @@ func _build_races() -> Control:
 	col.add_theme_constant_override("separation", 12)
 	col.custom_minimum_size = Vector2(700, 0)
 	p.add_child(col)
-	col.add_child(UiKit.heading("RACES", 40, UiKit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
+	col.add_child(UiKit.page_title("RACES", 44, UiKit.ACCENT, true))
 	col.add_child(UiKit.label("Drive into a green circle in the world to start a race, or pick one:", 18, Color(1, 1, 1, 0.8)))
 	_races_list = VBoxContainer.new()
 	_races_list.add_theme_constant_override("separation", 8)
@@ -893,9 +1002,14 @@ func _centered() -> CenterContainer:
 	return c
 
 
+## A menu button (theme: slanted, yellow while focused or hovered).
+## Hovering with the mouse moves the focus to it, so only one is lit.
 func _button(parent: Control, text: String, on_press: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.pressed.connect(on_press)
+	b.mouse_entered.connect(func() -> void:
+		if b.focus_mode != Control.FOCUS_NONE:
+			b.grab_focus())
 	parent.add_child(b)
 	return b

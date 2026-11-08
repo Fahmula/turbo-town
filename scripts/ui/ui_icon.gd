@@ -5,7 +5,7 @@ extends Control
 ## 2-unit strokes and round ends, and scale to the control's size.
 ##
 ## Shapes: play, players, wrench, flag, trophy, gear, gamepad, exit, info,
-## star, dice, chevron_left / _right / _up / _down, dpad_h, dpad_v (a D-pad
+## home, close, star, dice, chevron_left / _right / _up / _down, dpad_h, dpad_v (a D-pad
 ## with left/right or up/down lit).
 
 var shape := ""
@@ -90,6 +90,13 @@ func _draw() -> void:
 			_line(_round_rect(Rect2(3.5, 3.5, 17, 17), 3.5), true)
 			for p: Vector2 in [Vector2(8.2, 8.2), Vector2(12, 12), Vector2(15.8, 15.8)]:
 				_dot(p, 1.5)
+		"home":
+			_line([Vector2(3.5, 11.5), Vector2(12, 4), Vector2(20.5, 11.5)])
+			_line([Vector2(6, 9.5), Vector2(6, 20), Vector2(18, 20), Vector2(18, 9.5)])
+			_line([Vector2(10, 20), Vector2(10, 14.5), Vector2(14, 14.5), Vector2(14, 20)])
+		"close":
+			_line([Vector2(6, 6), Vector2(18, 18)])
+			_line([Vector2(18, 6), Vector2(6, 18)])
 		"info":
 			_circle(Vector2(12, 12), 10.0)
 			_line([Vector2(12, 11), Vector2(12, 16.5)])

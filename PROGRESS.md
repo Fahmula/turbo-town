@@ -466,4 +466,6 @@ tips + flames (fire needs an owner yes), ride height.
 - 2026-11-07 — Car parts (`feature/car-parts` branch): body kits, spoilers, bonnet and roof parts, paint finishes,
   two-tone, decals and race numbers, underglow, horns.
 - 2026-11-07 — Arcade menus (`feature/arcade-ui` branch): the title screen and garage rebuilt as cards from the owner's
-  mockups (PLAY NOW tile, icon tiles, showroom preview, long stat bars, prompts that match the device).
+  mockups (PLAY NOW tile, icon tiles, showroom preview, long stat bars, prompts that match the device), then arcade
+  flair: Barlow Condensed italic, slanted buttons and tabs, speed stripes, "go" chevrons, a pause drawer and a
+  settings page of row buttons with pips and help lines.

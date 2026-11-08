@@ -31,6 +31,16 @@ idle loop; heavy crashes have a synthesised low thump mixed in.
 > blacklodgegames. Sounds changed for Turbo Town (looped, filtered, mixed,
 > levels). Skies, textures and rock models from Poly Haven and ambientCG (CC0).
 > Character and animations from the Universal Animation Library by Quaternius (CC0).
+> Barlow Condensed font by The Barlow Project Authors (SIL OFL 1.1).
+
+## Fonts
+
+| Asset | Author | Source | Licence | Used for |
+|---|---|---|---|---|
+| Barlow Condensed ExtraBold Italic (`assets/fonts/BarlowCondensed-ExtraBoldItalic.ttf`) | The Barlow Project Authors (Jeremy Tribby) | https://github.com/google/fonts/tree/main/ofl/barlowcondensed (2026-11-07) | SIL OFL 1.1 (`assets/fonts/OFL.txt`) | menu headings, buttons, tabs and tile titles (`UiKit.display_font`) |
+
+The OFL lets the font be bundled and shipped with the game; it can't be sold
+on its own, and a changed version can't use the name "Barlow".
 
 ## Textures, skies and models (realism branch)
 

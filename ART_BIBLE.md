@@ -1483,11 +1483,24 @@ drawn with `_draw()`.
 
 **Menus (the owner's arcade-racing mockups, 2026-11-07):** cards, not lists.
 
+- **Arcade flair** (owner's ask, 2026-11-07): the display font (§21) for
+  every heading, button, tab and tile title; **slanted shapes**
+  (`StyleBoxFlat.skew`, `UiKit.SKEW` = 0.2, about the font's italic) on
+  buttons, tabs, chips and the TURBO TOWN plate (`UiKit.badge`), never on
+  cards that hold several lines; **speed stripes** (`UiKit.Stripes`, four
+  or five slanted bars fading right) after page titles (`UiKit.page_title`)
+  and in the title header; **"go" chevrons** (`UiKit.Chevrons`) on the
+  yellow buttons.
 - **`UiKit.Tile`** is a big button made of other controls: a plain Button
   underneath (focus, clicks, look from `UiKit.style_tile`) with icons and
-  text over it. Styles: `"tile"` (slate card, yellow focus ring),
-  `"primary"` (yellow card, dark text, a white ring 4 px outside),
-  `"flat"` (no fill until hovered). One primary per screen.
+  text over it. Styles: `"tile"` (slate card; focused: lighter with a
+  yellow ring), `"primary"` (yellow card, dark text, a white ring 4 px
+  outside), `"flat"` (no fill until hovered), `"list"` (a slanted slate bar
+  that turns yellow with dark text when focused: `UiKit.MenuItem`, icon +
+  word). One primary per screen.
+- **Menu buttons** (the theme, `UiKit.menu_theme`): slanted slate bars that
+  turn yellow with dark text when focused or hovered. Hovering moves the
+  focus, so only one thing is ever lit.
 - **Title screen:** a column of cards on the left (64 px in, 46% of the
   width, 560–720 px) over a dark fade, with the world and your car on the
   right: a header card (TURBO TOWN in yellow, READY TO RIDE?, a tagline), a
@@ -1495,14 +1508,26 @@ drawn with `_draw()`.
   (icon in yellow, title, a line under it; GARAGE's line names your ride)
   and a bottom bar of flat icon buttons (Settings, Controls, Credits, Quit).
   The update box stays bottom-right.
+- **Pause menu:** a drawer down the left side (`PAGE_BG`, its right edge
+  slanted 0.06) with the paused world visible on the right: the TURBO TOWN
+  plate, PAUSED with stripes, your ride, then `MenuItem`s in groups (RESUME
+  / END RACE, the pages, MAIN MENU / QUIT GAME) and a hint row. The order
+  is fixed (the D-pad walks it; tests count on it).
+- **Settings:** a page with two columns of row buttons. Each row is one
+  focusable control: its name on the left, "‹ value ›" with a pip per
+  option on the right (`UiKit.CycleButton`; long values shrink to fit), or
+  a slanted ten-segment bar and percentage for the volume
+  (`UiKit.LevelButton`). A line under the rows says what the focused
+  setting does; BACK and a hint row sit at the bottom.
 - **Garage:** one page (`PAGE_BG`): MY GARAGE with a line under it and a
   "01 / 09" chip, a full-width tab strip between its LB / RB prompts, the
   preview card (a rounded showroom backdrop with a soft spotlight, clipped
   with `clip_children`, chevrons either side), the info column (name, blurb,
   stats as five long segments, slot rows as faint cards) and a yellow
   DRIVE THIS CAR / FLY THIS PLANE tile, then the prompt bar.
-- **Prompts match the device in use** (`UiKit.prompt`, §22): the garage
-  swaps between gamepad buttons and keyboard keys on the last input.
+- **Prompts match the device in use** (`UiKit.prompt`, `UiKit.fill_hints`,
+  §22): the garage, pause menu and settings swap between gamepad buttons
+  and keyboard keys on the last input.
 
 **Direction:** keep the structure and colours; they already match Ref 3's
 layout. Refine toward a clean automotive instrument rather than a cartoon.
@@ -1530,8 +1555,11 @@ New menu screens follow the card style above.
   over 180 ms). Numbers ease smoothly (the speedometer already lerps). No
   bouncing or wobble, except one scale punch on stunt popups. Tiles don't
   move or scale on focus (scaled text blurs); the ring and colour show it.
-- **Gamepad first:** everything focusable, the yellow focus ring always visible,
-  button prompts that match the device in use. The mouse works too.
+  The "go" chevrons light up in turn: on PLAY NOW while it has focus, on the
+  garage's DRIVE button always.
+- **Gamepad first:** everything focusable, the focus always plain to see
+  (yellow fill on buttons and rows, a yellow ring on tiles), button prompts
+  that match the device in use. The mouse works too (hover = focus).
 - **For a young player:** short words, big text, icon plus text for actions,
   text contrast ≥ 4.5:1 against its panel.
 - **Split-screen** (two players, `SplitScreen`): each player's HUD lives in
@@ -1552,11 +1580,14 @@ New menu screens follow the card style above.
 
 ## 21. Typography
 
-**Today:** Godot's built-in default font everywhere (`ThemeDB.fallback_font`),
-sizes 14–64, with outlines over the world. Headings, buttons, tabs and tile
-titles use `UiKit.bold_font()`: the same font emboldened (0.75) with +1 px
-letter spacing, a stand-in for the condensed bold below until the owner
-picks a font file.
+**Today:** menus use **Barlow Condensed ExtraBold Italic**
+(`assets/fonts/`, SIL OFL, added on the owner's yes 2026-11-07, MSDF import)
+through `UiKit.display_font()` (+1 px tracking) for headings, buttons, tabs,
+tile titles, settings rows and garage slot names. It's condensed, so keep it
+**≥ 20 px** (22+ for labels). Body text, hints and the HUD still use Godot's
+built-in default font (`ThemeDB.fallback_font`), with outlines over the
+world. A regular-width Barlow for body text would make it one family; that
+needs the owner's OK (it's another download).
 
 **Target**
 
@@ -1601,8 +1632,9 @@ picks a font file.
   (`scripts/ui/ui_icon.gd`) draws the menu icons from lines, arcs and dots
   on a 24-unit grid with 2-unit strokes and round ends (play, players,
   wrench, flag, trophy, gear, gamepad, exit, info, star, dice, chevrons and
-  the D-pad). Add a shape there before reaching for files. The garage
-  arrows are chevrons drawn the same way.
+  the D-pad, home, close). Add a shape there before reaching for files. The
+  garage arrows, the settings rows' arrows and pips, `UiKit.Stripes` and
+  `UiKit.Chevrons` are drawn the same way.
 - **Never use font glyphs or emoji** for icons or arrows.
 - **Gamepad prompts:** Steam Deck/Xbox layout. A/B/X/Y as white letters in dark
   circles (monochrome, like the Deck's own buttons). LB/RB/LT/RT as rounded

@@ -81,7 +81,7 @@ func _ready() -> void:
 	root.add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UiKit.box(UiKit.PAGE_BG, 20, 22))
+	panel.add_theme_stylebox_override("panel", UiKit.box(UiKit.PAGE_BG, 20, 18))
 	panel.resized.connect(func() -> void: panel.pivot_offset = panel.size * 0.5)
 	center.add_child(panel)
 	_panel = panel
@@ -97,16 +97,16 @@ func _ready() -> void:
 	titles.add_theme_constant_override("separation", 0)
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(titles)
-	titles.add_child(UiKit.heading("MY GARAGE", 32))
+	titles.add_child(UiKit.page_title("MY GARAGE", 38))
 	titles.add_child(UiKit.text("Build your perfect ride", 20))
 	var count := PanelContainer.new()
-	var chip := UiKit.box(UiKit.CARD, 12, 8)
-	chip.content_margin_left = 16
-	chip.content_margin_right = 16
+	var chip := UiKit.slant(UiKit.box(UiKit.CARD, 8, 6))
+	chip.content_margin_left = 20
+	chip.content_margin_right = 20
 	count.add_theme_stylebox_override("panel", chip)
 	count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(count)
-	_count_label = UiKit.heading("", 24, ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
+	_count_label = UiKit.heading("", 30, ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
 	count.add_child(_count_label)
 
 	# Tabs, the full width, between their LB / RB (Q / E) prompts.
@@ -120,8 +120,8 @@ func _ready() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 42)
-		b.add_theme_font_override("font", UiKit.bold_font())
-		b.add_theme_font_size_override("font_size", 18)
+		b.add_theme_font_override("font", UiKit.display_font())
+		b.add_theme_font_size_override("font_size", 24)
 		b.pressed.connect(func() -> void: _set_tab(t))
 		tabs.add_child(b)
 		_tab_buttons.append(b)
@@ -169,7 +169,7 @@ func _make_preview() -> Control:
 	stage.add_theme_stylebox_override("panel", UiKit.box(Color(0.12, 0.15, 0.22), 12, 0))
 	stage.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
 	# As tall as the longest tab, so the panel keeps its size between tabs.
-	stage.custom_minimum_size = Vector2(580, 500)
+	stage.custom_minimum_size = Vector2(580, 470)
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var glow := TextureRect.new()
 	var grad := GradientTexture2D.new()
@@ -260,7 +260,7 @@ func _make_info() -> Control:
 	var info := VBoxContainer.new()
 	info.custom_minimum_size = Vector2(460, 0)
 	info.add_theme_constant_override("separation", 8)
-	_name_label = UiKit.heading("", 36)
+	_name_label = UiKit.heading("", 40)
 	info.add_child(_name_label)
 
 	for t in PartsCatalog.TABS.size():
@@ -283,13 +283,16 @@ func _make_info() -> Control:
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	info.add_child(spacer)
-	var drive := UiKit.Tile.new("primary", false, Vector2(18, 12), 12)
+	var drive := UiKit.Tile.new("primary", false, Vector2(18, 8), 12)
 	drive.button.focus_mode = Control.FOCUS_NONE
 	drive.box.alignment = BoxContainer.ALIGNMENT_CENTER
 	drive.box.add_theme_constant_override("separation", 12)
-	drive.box.add_child(UiIcon.new("play", 30, UiKit.DARK_TEXT))
-	_drive_label = UiKit.heading("DRIVE!", 26, UiKit.DARK_TEXT)
+	_drive_label = UiKit.heading("DRIVE!", 32, UiKit.DARK_TEXT)
 	drive.box.add_child(_drive_label)
+	# The "go" chevrons light up in turn (the garage's one way forward).
+	var go := UiKit.Chevrons.new(30)
+	go.animate = true
+	drive.box.add_child(go)
 	drive.pressed.connect(_confirm)
 	info.add_child(drive)
 	return info
@@ -311,7 +314,7 @@ func _fill_car_page(page: VBoxContainer) -> void:
 	grid.add_theme_constant_override("v_separation", 14)
 	page.add_child(grid)
 	for stat: Array in VehicleCatalog.STATS:
-		grid.add_child(UiKit.heading(stat[1], 18, UiKit.MUTED))
+		grid.add_child(UiKit.heading(stat[1], 22, UiKit.MUTED))
 		var bar := HBoxContainer.new()
 		bar.add_theme_constant_override("separation", 5)
 		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -456,7 +459,7 @@ func _set_tab(t: int) -> void:
 		var b := _tab_buttons[i]
 		for st in ["normal", "hover", "pressed"]:
 			var bg := ACCENT if on else (UiKit.CARD if st == "normal" else UiKit.CARD_HOVER)
-			b.add_theme_stylebox_override(st, UiKit.box(bg, 10, 4))
+			b.add_theme_stylebox_override(st, UiKit.slant(UiKit.box(bg, 8, 4)))
 		for c in ["font_color", "font_hover_color", "font_pressed_color"]:
 			b.add_theme_color_override(c, UiKit.DARK_TEXT if on else Color.WHITE)
 	for i in _pages.size():
@@ -820,7 +823,7 @@ class SlotRow extends PanelContainer:
 		var line := HBoxContainer.new()
 		line.add_theme_constant_override("separation", 6)
 		col.add_child(line)
-		var title := UiKit.heading(PartsCatalog.slot_name(slot), 18, UiKit.MUTED)
+		var title := UiKit.heading(PartsCatalog.slot_name(slot), 22, UiKit.MUTED)
 		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(title)
 		_stock = UiKit.label("STOCK", 16, Color(1, 1, 1, 0.6))
@@ -833,7 +836,7 @@ class SlotRow extends PanelContainer:
 		match _kind:
 			"choice":
 				line.add_child(_small_arrow(-1))
-				_value = UiKit.panel_label("", 20, Color.WHITE)
+				_value = UiKit.heading("", 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 				_value.custom_minimum_size = Vector2(150, 0)
 				line.add_child(_value)
 				line.add_child(_small_arrow(1))
@@ -841,8 +844,8 @@ class SlotRow extends PanelContainer:
 				_toggle = Button.new()
 				_toggle.focus_mode = Control.FOCUS_NONE
 				_toggle.custom_minimum_size = Vector2(96, 34)
-				_toggle.add_theme_font_size_override("font_size", 18)
-				_toggle.add_theme_font_override("font", UiKit.bold_font())
+				_toggle.add_theme_font_size_override("font_size", 22)
+				_toggle.add_theme_font_override("font", UiKit.display_font())
 				_toggle.pressed.connect(func() -> void:
 					clicked.emit(self)
 					changed.emit(slot, 0 if _toggle.text == "ON" else 1))
@@ -851,7 +854,7 @@ class SlotRow extends PanelContainer:
 				_value.visible = false
 				col.add_child(_value)
 			"swatch":
-				_value = UiKit.panel_label("", 18, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+				_value = UiKit.heading("", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
 				line.add_child(_value)
 				line.move_child(_value, 1)
 				var grid := GridContainer.new()
@@ -915,7 +918,7 @@ class SlotRow extends PanelContainer:
 				_toggle.text = "ON" if v else "OFF"
 				var on: bool = v
 				for st in ["normal", "hover", "pressed", "disabled"]:
-					_toggle.add_theme_stylebox_override(st, UiKit.box(UiKit.ACCENT if on else Color(1, 1, 1, 0.12), 10, 4))
+					_toggle.add_theme_stylebox_override(st, UiKit.slant(UiKit.box(UiKit.ACCENT if on else Color(1, 1, 1, 0.12), 8, 4)))
 				for c in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
 					_toggle.add_theme_color_override(c, UiKit.DARK_TEXT if on else Color.WHITE)
 				_toggle.disabled = not enabled
