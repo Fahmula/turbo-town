@@ -448,6 +448,9 @@ Keep the existing `UiKit` values. They already fit.
 | Panel | `(0.05, 0.08, 0.15, 0.72–0.88)` | `UiKit.PANEL_BG`, HUD panels |
 | Text outline | `(0.05, 0.08, 0.2)` | `UiKit.OUTLINE` |
 | Text on accent | `(0.08, 0.1, 0.18)` | `UiKit.DARK_TEXT` |
+| Page (garage) | `(0.05, 0.07, 0.12, 0.95)` | `UiKit.PAGE_BG` |
+| Card / tile, hover | `(0.15, 0.19, 0.27, 0.95)`, `(0.21, 0.26, 0.36, 0.97)` | `UiKit.CARD`, `CARD_HOVER`: title tiles, menu buttons, garage tabs and preview card |
+| Secondary text | `(0.78, 0.82, 0.9)` | `UiKit.MUTED`: subtitles, stat names, slot names |
 | Info / speed | `(0.25, 0.8, 1.0)` | speedometer band |
 | Danger / redline / needle | `(1.0, 0.3, 0.2)` | speedometer |
 | Go / success | `(0.3, 1.0, 0.45)` | race start circle, "GO!" |
@@ -926,6 +929,82 @@ along its length so it never dips under curved panels.
 - The garage shows the toggle (X / gamepad Y) only for vehicles that have
   stripes.
 
+**Garage body parts (player option, `BodyKit`):** each drivable vehicle has a
+kit, `assets/models/kits/<vehicle>_kit.glb` from `tools/blender/make_kits.py`,
+with one mesh per part named `<slot>_<id>` (`PartsCatalog.BODY_PARTS`; `on`
+lists the vehicles a part fits). The rules:
+- **Modelled in the vehicle's own space** (origin at wheel-centre height
+  between the axles), so `BodyKit` puts every part on with an identity
+  transform under `Body/Kit`. All body models have their meshes at the
+  origin; keep it that way, or kits and the paint measurements break.
+- **Placed on the committed body model:** the generator imports the body
+  glb and ray-casts onto it (stands reach the deck, scoops follow the
+  bonnet, arches follow the side), so regenerating a body means
+  regenerating its kit.
+- **Bumpers come from the vehicle's own BodySpec** with a deeper lower edge
+  that fades in from `bumper_split`: rows above the bumper's top edge are
+  untouched, so a kit bumper meets the stock shell exactly. Thickened like
+  the stock ones (they fall off and tumble).
+- **Damage contract:** `BodyKit` hides the stock `FrontBumper` / `RearBumper`
+  / `Spoiler` and renames the kit part to that name, then `VehicleDamage`
+  rescans the body (hidden meshes are left out). Kit parts dent with the
+  shell. "None" on the spoiler row only exists where there is a stock wing.
+- **Wide arches** (`flares`) push the wheel models out by `track` (3.5 and
+  4.5 cm, `VehicleWheel.track_offset`); the physics wheel never moves.
+- Materials are the usual contract names (`Paint`, `Trim`, `Chrome`,
+  `Headlight` with UV kind `AUX` for light-bar lamps, so they light at night).
+- Full kits (bumpers, skirts, arches) are on the sports car and sedan;
+  spoilers fit every road vehicle, bonnets the cars and trucks with a
+  bonnet, roof parts where the roof is free (the monster truck keeps its own
+  light bar). Kits add 0.25–4.7k Blender vertices per vehicle, but only the
+  parts picked are ever loaded onto the car.
+- Garage parts are cosmetic, like the wheels: collision shapes, mass and
+  handling never change.
+
+**Garage paint (player option):** finishes, two-tone, side decals and race
+numbers. `VehicleBodyVisual.set_paint_style` swaps the player's own paint
+material to `car_paint_custom.gdshader` (the shared `car_paint.gdshaderinc`
+with `PAINT_CUSTOM`) only when one of them is on; traffic and parked cars
+keep the plain `car_paint.gdshader` and pay nothing.
+- Finishes (`PartsCatalog.FINISHES`): gloss and metallic follow the paint
+  rules above; pearl tints grazing angles toward a lighter colour a little
+  round the hue wheel; matte is roughness 0.62 with no clear coat; chrome is
+  metallic 1 at roughness 0.14 with the paint colour lightened 55% (metal
+  reflects its albedo) and no flakes. "Stock" is the colour's own finish.
+- Two-tone and decals are placed from **body lines measured from the stock
+  model** (once per vehicle): belt = bottom of the side windows (normals
+  facing sideways; windscreens dip lower), but never below 42% of the way
+  from the underbody to the roof (glass doors on the bus and truck cab
+  reach much lower), roof = top of the glass,
+  windscreen and rear-window bases = the glass's front and rear ends,
+  underbody, nose and tail. Roof and bonnet tone only on upward-facing
+  paint; "lower half" is below halfway from the underbody to the belt.
+- Side decals are single-channel masks in `assets/textures/vehicle/decals.png`
+  (`tools/textures/make_decals.py`), one 4:1 strip per graphic, as tall as
+  the side from sill to belt, anchored at the nose, the tail or stretched
+  nose to tail (`mode`). Made-up shapes only: no real liveries or logos.
+- Race numbers: a white roundel with digits (`digits.png`, Fira Sans
+  ExtraBold, OFL) on both doors, read the right way round from each side,
+  and on the bonnet when it's longer than 0.9 m, read from in front. The
+  door roundel sits 30% along the side windows, halfway up the painted side
+  (sill to belt); one that would overlap a wheel slides toward the middle
+  of the car, or, where the door is right over the wheel (the cab-over
+  truck), shrinks to fit between the arch and the end of the body. Side
+  graphics also start at the painted body's bottom (the monster truck's
+  chassis hangs far below it). Digits
+  take the decal colour, or near-black on a light decal colour.
+- Decals are painted on: grime, scrapes and primer go over them.
+- Decal and underglow colours are saturated on purpose (player accents,
+  §0 rule 2), like racing stripes.
+
+**Underglow (player option, `Underglow`):** two thin unshaded tubes under
+the sills and a soft pool of colour on the ground under the car: an
+additive quad (`underglow.gdshader`) that follows the ground the wheels
+stand on and fades out in the air, like the contact shadow. Energy 0.55 by
+day, 1.2 at night (the `night_lights` group). No real light and **no
+Decal**: a ground `Decal` measured ~1 ms on the iGPU at Medium, the quad
+nothing measurable. Same on every quality level.
+
 **Reference dimensions (metres).** The vehicle scenes (`scenes/vehicles/*.tscn`)
 are the authority for wheel positions and radii.
 
@@ -981,7 +1060,8 @@ light), 6 `GRILLE_MESH` (honeycomb), 7 `GRILLE_SLATS`.
 
 **Detachable meshes are matched by exact name:** `FrontBumper`, `RearBumper`,
 `Spoiler`. A wing exported as "Wing" silently never falls off (it happened once;
-the legacy pipeline renamed it on export, `body_kit` does not).
+the legacy pipeline renamed it on export, `body_kit` does not). Garage kit parts
+are exported as `<slot>_<id>` and renamed to these names when fitted (§12).
 
 New names are fine for fixed materials. Add them to this table.
 
@@ -1023,7 +1103,11 @@ Nodes: `Propeller` (spins about its local Z), `PropDisc`, `AileronL/R`,
 - **The paint look is defined in one place:** `VehicleBodyVisual.paint_material()`
   makes the per-car `car_paint` material. Vehicles and parked-car props both
   use it, so every car changes together. The finish (solid or metallic)
-  belongs with the palette entry, not with each model.
+  belongs with the palette entry, not with each model. One exception:
+  parked cars beyond 40 m switch to a merged stand-in (`ParkedCarLod`,
+  `parked_far.gdshader`, §27), which copies car_paint's gloss, clear coat,
+  metallic flop and ground-reflection toning but not its flakes or grime.
+  Change it too when the paint, glass, lamp, trim or tyre looks change.
 
 **Other vehicle materials**
 
@@ -1426,13 +1510,67 @@ meshes beyond (with fades), and tints each tree ±6% by instance colour.
 ## 20. UI visual language
 
 **Today:** all UI is built in code. `UiKit` (`scripts/ui/ui_kit.gd`) holds the
-shared look: yellow accent, navy panels at 88%, rounded panels (radius 18),
-buttons (radius 12), a 3 px yellow focus ring. `hud.gd` duplicates the panel
-and label helpers with 72% panels. The speedometer and minimap are drawn with
-`_draw()`.
+shared look: yellow accent, navy panels at 88%, slate cards (`CARD`),
+rounded panels (radius 18), buttons (radius 12), a 3 px yellow focus ring,
+and progress bars in the slider's track and fill. `UiKit.label` is outlined
+text for over the 3D world; `UiKit.panel_label` is the same without the
+outline, for text inside panels; `UiKit.heading` (heavy, §21) and
+`UiKit.text` (muted) are the heading and secondary lines inside panels and
+cards. Older pages still use `label` for their rows. `hud.gd` duplicates the
+panel and label helpers with 72% panels. The speedometer and minimap are
+drawn with `_draw()`.
+
+**Menus (the owner's arcade-racing mockups, 2026-11-07):** cards, not lists.
+
+- **Arcade flair** (owner's ask, 2026-11-07): the display font (§21) for
+  every heading, button, tab and tile title; **slanted shapes**
+  (`StyleBoxFlat.skew`, `UiKit.SKEW` = 0.2, about the font's italic) on
+  buttons, tabs, chips and the TURBO TOWN plate (`UiKit.badge`), never on
+  cards that hold several lines; **speed stripes** (`UiKit.Stripes`, four
+  or five slanted bars fading right) after page titles (`UiKit.page_title`)
+  and in the title header; **"go" chevrons** (`UiKit.Chevrons`) on the
+  yellow buttons.
+- **`UiKit.Tile`** is a big button made of other controls: a plain Button
+  underneath (focus, clicks, look from `UiKit.style_tile`) with icons and
+  text over it. Styles: `"tile"` (slate card; focused: lighter with a
+  yellow ring), `"primary"` (yellow card, dark text, a white ring 4 px
+  outside), `"flat"` (no fill until hovered), `"list"` (a slanted slate bar
+  that turns yellow with dark text when focused: `UiKit.MenuItem`, icon +
+  word). One primary per screen.
+- **Menu buttons** (the theme, `UiKit.menu_theme`): slanted slate bars that
+  turn yellow with dark text when focused or hovered. Hovering moves the
+  focus, so only one thing is ever lit.
+- **Title screen:** a column of cards on the left (64 px in, 46% of the
+  width, 560–720 px) over a dark fade, with the world and your car on the
+  right: a header card (TURBO TOWN in yellow, READY TO RIDE?, a tagline), a
+  yellow PLAY NOW tile (play icon, subtitle, chevron), a 2 × 2 grid of tiles
+  (icon in yellow, title, a line under it; GARAGE's line names your ride)
+  and a bottom bar of flat icon buttons (Settings, Controls, Credits, Quit).
+  The update box stays bottom-right.
+- **Pause menu:** a drawer down the left side (`PAGE_BG`, its right edge
+  slanted 0.06) with the paused world visible on the right: the TURBO TOWN
+  plate, PAUSED with stripes, your ride, then `MenuItem`s in groups (RESUME
+  / END RACE, the pages, MAIN MENU / QUIT GAME) and a hint row. The order
+  is fixed (the D-pad walks it; tests count on it).
+- **Settings:** a page with two columns of row buttons. Each row is one
+  focusable control: its name on the left, "‹ value ›" with a pip per
+  option on the right (`UiKit.CycleButton`; long values shrink to fit), or
+  a slanted ten-segment bar and percentage for the volume
+  (`UiKit.LevelButton`). A line under the rows says what the focused
+  setting does; BACK and a hint row sit at the bottom.
+- **Garage:** one page (`PAGE_BG`): MY GARAGE with a line under it and a
+  "01 / 09" chip, a full-width tab strip between its LB / RB prompts, the
+  preview card (a rounded showroom backdrop with a soft spotlight, clipped
+  with `clip_children`, chevrons either side), the info column (name, blurb,
+  stats as five long segments, slot rows as faint cards) and a yellow
+  DRIVE THIS CAR / FLY THIS PLANE tile, then the prompt bar.
+- **Prompts match the device in use** (`UiKit.prompt`, `UiKit.fill_hints`,
+  §22): the garage, pause menu and settings swap between gamepad buttons
+  and keyboard keys on the last input.
 
 **Direction:** keep the structure and colours; they already match Ref 3's
 layout. Refine toward a clean automotive instrument rather than a cartoon.
+New menu screens follow the card style above.
 
 **Rules**
 
@@ -1451,11 +1589,16 @@ layout. Refine toward a clean automotive instrument rather than a cartoon.
   redline; violet-pink = drift mode; gold/silver/bronze = medals.
 - **Text over the 3D world:** thinner outlines than today (2–3 px) or a soft
   drop shadow. No outline on text inside panels.
-- **Motion:** 150–250 ms ease-out for panels and popups. Numbers ease smoothly
-  (the speedometer already lerps). No bouncing or wobble, except one scale
-  punch on stunt popups.
-- **Gamepad first:** everything focusable, the yellow focus ring always visible,
-  button prompts that match the device in use. The mouse works too.
+- **Motion:** 150–250 ms ease-out for panels and popups (the title cards
+  slide in 32 px and fade over 220 ms; the garage fades and grows from 97%
+  over 180 ms). Numbers ease smoothly (the speedometer already lerps). No
+  bouncing or wobble, except one scale punch on stunt popups. Tiles don't
+  move or scale on focus (scaled text blurs); the ring and colour show it.
+  The "go" chevrons light up in turn: on PLAY NOW while it has focus, on the
+  garage's DRIVE button always.
+- **Gamepad first:** everything focusable, the focus always plain to see
+  (yellow fill on buttons and rows, a yellow ring on tiles), button prompts
+  that match the device in use. The mouse works too (hover = focus).
 - **For a young player:** short words, big text, icon plus text for actions,
   text contrast ≥ 4.5:1 against its panel.
 - **Split-screen** (two players, `SplitScreen`): each player's HUD lives in
@@ -1476,8 +1619,14 @@ layout. Refine toward a clean automotive instrument rather than a cartoon.
 
 ## 21. Typography
 
-**Today:** Godot's built-in default font everywhere (`ThemeDB.fallback_font`),
-sizes 14–64, with outlines.
+**Today:** menus use **Barlow Condensed ExtraBold Italic**
+(`assets/fonts/`, SIL OFL, added on the owner's yes 2026-11-07, MSDF import)
+through `UiKit.display_font()` (+1 px tracking) for headings, buttons, tabs,
+tile titles, settings rows and garage slot names. It's condensed, so keep it
+**≥ 20 px** (22+ for labels). Body text, hints and the HUD still use Godot's
+built-in default font (`ThemeDB.fallback_font`), with outlines over the
+world. A regular-width Barlow for body text would make it one family; that
+needs the owner's OK (it's another download).
 
 **Target**
 
@@ -1518,13 +1667,19 @@ sizes 14–64, with outlines.
   strokes at 32 px. One colour: white on dark, yellow when focused or active.
   A consistent 24/32/48 px grid with 2 px padding.
 - **Format:** SVG in `assets/ui/icons/` (set the import scale for crispness), or
-  drawn in `_draw()` for simple shapes. Today the garage arrows are triangles
-  drawn in code because the default font has no arrow glyphs.
+  drawn in `_draw()` for simple shapes. **Today:** `UiIcon`
+  (`scripts/ui/ui_icon.gd`) draws the menu icons from lines, arcs and dots
+  on a 24-unit grid with 2-unit strokes and round ends (play, players,
+  wrench, flag, trophy, gear, gamepad, exit, info, star, dice, chevrons and
+  the D-pad, home, close). Add a shape there before reaching for files. The
+  garage arrows, the settings rows' arrows and pips, `UiKit.Stripes` and
+  `UiKit.Chevrons` are drawn the same way.
 - **Never use font glyphs or emoji** for icons or arrows.
 - **Gamepad prompts:** Steam Deck/Xbox layout. A/B/X/Y as white letters in dark
   circles (monochrome, like the Deck's own buttons). LB/RB/LT/RT as rounded
   shapes. The D-pad as a cross with the active direction highlighted. Keyboard
-  keys as light rounded rectangles with dark text.
+  keys as light rounded rectangles with dark text (arrow keys show chevrons).
+  `UiKit.prompt(key, pad)` builds all of these; the garage uses it.
 - **Map icons:** the player is a red-orange arrow (in split-screen each
   player's arrow is in their colour, §5, and the other player is an arrow in
   theirs, pinned to the minimap's edge when far away), traffic is small white dots,
@@ -1824,6 +1979,61 @@ window):
     voices, traffic loops for at most 6 cars.
   - Deformable vertices: +18 to +68 per body (indicator patches), max 5,953.
 
+- **Garage parts** (2026-11-07, `--partsbench` on the iGPU at Medium, city
+  centre, traffic off, three A/B runs): a fully kitted player car (race
+  bumpers, skirts, wide body, Mega Wing, supercharger, light bar, pearl paint,
+  two-tone, flames, number, underglow) adds 10–17 draw calls and ~4.6k
+  primitives; GPU time is within the run-to-run noise (±0.5 ms) for body
+  parts, the custom paint shader and the underglow quad alike. Traffic and
+  parked cars are untouched (plain paint shader, no kits).
+
+- **Where the draw calls go** (2026-11-07, `--drawcalls` on the iGPU at
+  Medium, 1280×800, 22 traffic cars, world paused while measuring, what-ifs as
+  the median of five back-to-back A/B pairs):
+  - Totals: downtown street 834 calls (332 camera + 502 shadow), 1.6 M
+    primitives (over the 1.5 M budget), 17.7 ms GPU; aerial 827 (407 + 420);
+    avenue chase 323 (174 + 149), ~18 ms GPU. The shadow passes are 45–60% of
+    all calls. City drive at 80 km/h: ~770–880 calls on average, peaks ~2,070
+    (~880 of them shadow). Desktop render CPU is 1.3–2.8 ms per frame.
+  - **Parked cars are the biggest item:** 102 on the map, 25–26 surfaces each,
+    all casting shadows, visible to 200 m. Hiding them saves 507 calls
+    downtown (158 camera, 349 shadow), 1.1 ms render CPU and 0.9 ms GPU;
+    338 calls in the aerial view. Traffic cars are 25–31 surfaces each, and
+    the van, box truck, bus and pickup have no visibility ranges at all.
+  - What-ifs (GPU / render CPU): Medium's 4 shadow splits → 2: −0.5 to
+    −0.9 ms GPU, −48 to −219 calls. Parked cars not casting shadows: −350 calls
+    downtown, −0.35 ms GPU, −0.5 ms CPU. Road decks not casting shadows:
+    −0.45 to −0.65 ms GPU, but the ground-level ones (city, country, trails)
+    give ~0: the cost is the highway and bridge decks, each one whole-map
+    mesh (~250k primitives in nearly every view). Shadow distance 120 m and
+    small props without shadows: ~0 GPU. MSAA 2× off: −1.2 to −2.6 ms GPU,
+    the largest single GPU item tested.
+  - Draw calls cost the CPU far more than the GPU here (as the earlier
+    far-car visibility-range test found): their win on the Deck is CPU time,
+    which this proxy can't show. The dev CPU is several times faster than the
+    Deck's 4-core Zen 2.
+
+- **Cheap parked cars** (2026-11-07, `ParkedCarLod`; `--drawcalls` with the
+  "parked old way" A/B, iGPU at Medium, 1280×800): each parked-car prop
+  gets its parts merged into one mesh with one shared material (looks baked
+  into the vertices, paint per car by instance uniform), shown beyond 40 m
+  (a clean swap with 4 m of hysteresis: the dithered crossfade doubled the
+  car), and the same merge minus the see-through glass casts its shadow at
+  every distance. The real parts follow the merged mesh as HLOD children
+  (`visibility_parent`) and cast no shadow. A far car is 1 draw call per
+  pass instead of 25–26; a near one costs 1 per shadow split instead of ~25.
+  - Downtown street 816 → 314 draw calls (camera −160, shadow −342), render
+    CPU −1.0 ms on the dev CPU; aerial 816 → 489; city drive 809 → 469 on
+    average and **peak 1,979 → 635**. On High (`--scenery`): aerial 728 →
+    332, downtown_up 588 → 251. Primitives downtown 1.6 M → 1.34 M (under the
+    1.5 M budget again). GPU: −0.6 to −0.7 ms (median, noisy).
+  - Look: long-lens near/far pairs (`--parkedlod`) match by day and night,
+    from the road and from above. From afar the windows read as dark tinted
+    glass (the cabin isn't drawn); the parked DRL and tail glows are baked in.
+  - Cost: the merges are built once per car type at world build (three
+    types, two meshes each, LODs generated): ~90 ms on the dev CPU in a
+    normal run, 5% of the world build. **Check load time on the Deck.**
+
 - **After the player character** (2026-10-03, `--onfootbench`, city centre,
   22 cars): the character adds ~10–13 draw calls and no measurable GPU time
   (iGPU at Medium ≈ +0.2 ms in alternating A/B runs, inside the noise), and
@@ -2043,10 +2253,10 @@ window):
 7. Run the existing tests for the area: damage → `--damage`; vehicles →
    `--garage`, `--showcase`, plus the physics autotests if collision or wheels
    changed; menus → `--menus`.
-8. Add a line under `## [Unreleased]` in CHANGELOG.md for anything a player
-   would notice. Update this bible if you set a new rule or value.
-9. Commit with a clear message. Releases happen only when the owner asks
-   (RELEASING.md).
+8. Note anything a player would notice as a `feat:`/`fix:` line for the PR's
+   release notes (RELEASING.md). Update this bible if you set a new rule or value.
+9. Commit with a clear message. Releases happen only when the owner merges the
+   release PR (RELEASING.md).
 
 ---
 
@@ -2186,6 +2396,12 @@ readable, kid-friendly (crashes are big and fun, never scary).
   build).
 - **Kid safety:** no screams, sirens of panic or injury sounds. Horns are
   friendly, crashes are metal and glass.
+- **Garage horns** (`PartsCatalog.HORNS`, the player's car only): the three
+  recorded horns (also a higher "Little Toot" pitch) plus four synthesised
+  ones (`build_audio.py horns`: an old-timer klaxon, a made-up fanfare, a
+  rubber-bulb honk, a three-chime train horn). They loop while held like
+  every horn; patterned ones end in a short gap. Levels −7 to −9 dB, like
+  the stock horns.
 - **Planes:** the engine is the flat-four set (aero engines are air-cooled
   flat fours and sixes) at 950–2750 rpm, 2 dB under the cars, plus a
   synthesised propeller loop (`synth.propeller`: the blade-pass tone at

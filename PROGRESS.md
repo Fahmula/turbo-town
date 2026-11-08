@@ -280,7 +280,38 @@ The owner's son wants player 2 to ride as a passenger in any vehicle, the plane 
 - [ ] Passenger fun: honk the horn, a camera to take photos, a parachute jump from the plane
 - [ ] More seats (the bus) for three or four players or NPC passengers
 
-## v0.12 — Weather (branch `feature/weather`, not released)
+## Car parts — body kits, paint and extras (`feature/car-parts`)
+
+The owner's son wants more customization: spoilers, body kits and more (owner, 2026-11-07). Owner
+picked: full body kits on the sports car and sedan first (spoilers, bonnet and roof parts on every
+vehicle), underglow, paint finishes, decals and numbers, horn sounds. Not now: window tint, exhaust
+tips + flames (fire needs an owner yes), ride height.
+
+### Done (branch `feature/car-parts`, off `main`)
+- [x] Garage tabs CAR / BODY / PAINT / DECALS / WHEELS / EXTRAS; parts can fit only some vehicles
+      (`on`), rows that don't fit are greyed out with the reason; the camera turns to the part
+- [x] `make_kits.py`: a kit per vehicle placed on its committed body (ray casts): lip, ducktail,
+      GT wing, Mega Wing; bonnet vents, scoop, supercharger; roof scoop, rack, light bar (lit at
+      night), roof box; sports car + sedan: Sport / Race bumpers from their own BodySpec (exact
+      seam), splitter, canards, diffuser fins, side skirts, bolt-on flares and a wide body
+- [x] `BodyKit` fits them; kit bumpers and wings still fall off (damage rescan) and repair; wide
+      arches push the wheel models out
+- [x] Paint: finishes (gloss, metallic, pearl, matte, chrome), two-tone (roof, bonnet, both,
+      lower half), side decals (6) in 12 colours, race numbers on doors and bonnet. A player-only
+      paint shader variant, so traffic costs nothing
+- [x] Underglow in 8 colours (ground decal + tubes, brighter at night)
+- [x] Horns: 8 to pick (3 recorded + a higher one + 4 synthesised), previewed in the garage
+- [x] Tests: `--parts` (all vehicles), `--garage` and `--wheels` updated for the new tabs;
+      `--partsbench` for the cost
+- [ ] Owner review, then the son on the Deck (look of the parts, garage on the small screen)
+
+### Ideas for later
+- [ ] Body kits for the van, pickup, trucks, bus, buggy and monster truck
+- [ ] Exhaust tips (and backfire flames, if the owner says yes), window tint, ride height
+- [ ] Carbon-fibre finish for wings and bonnets; more decals; custom number colours
+- [ ] Part thumbnails in the garage instead of names
+
+## Weather (branch `feature/weather`, not released)
 
 The owner's son wants weather in the game (owner, 2026-10-24): clear, cloudy, rain and
 thunderstorms, picked in Settings or Changing by itself, and wet roads a little slippier.
@@ -332,9 +363,9 @@ thunderstorms, picked in Settings or Changing by itself, and wet roads a little 
 ### Garage customization (ideas; the platform is ready for them)
 - [ ] Tyres that change grip (off-road tyres better on dirt, slicks on tarmac)? Needs an owner
       decision: today every part is cosmetic
-- [ ] Spoilers / wings, exhaust tips, bumpers or body kits (new meshes per vehicle)
+- [x] Spoilers / wings, bumpers and body kits, underglow, decals, horns (`feature/car-parts`)
+- [ ] Exhaust tips, window tint
 - [ ] Ride height and wheel size (touches physics and arch clearance)
-- [ ] Underglow, window tint, liveries / decals, horn sounds
 - [ ] Rim thumbnails in the garage instead of names
 
 ### Vehicles
@@ -406,8 +437,13 @@ thunderstorms, picked in Settings or Changing by itself, and wet roads a little 
       suspension knocks, splashes, tunnel reverb; traffic voice budget and Doppler; ASSET_MANIFEST.md
       and an in-game CREDITS page
 - [ ] Vehicle draw-call trim if the Deck needs it: the fleet costs ~+85 draw calls at the highway
-      spawn (ART_BIBLE.md §27); candidates: merge Interior into Trim (parked cars are now culled
-      beyond 200 m)
+      spawn (ART_BIBLE.md §27); candidates: merge Interior into Trim, or a merged far version of
+      traffic cars like the parked cars' (25–31 surfaces each; van, box truck, bus and pickup have
+      no visibility ranges)
+- [x] Cheap parked cars (2026-11-07, `ParkedCarLod`): one merged mesh beyond 40 m and one
+      merged shadow caster, so a far parked car is 1 draw call per pass instead of ~25; the city
+      drive's draw-call peak went from ~1,980 to ~635 (ART_BIBLE.md §27, `--drawcalls`,
+      `--parkedlod`)
 - [ ] Damage 3.0: crumple stiffness, scrape/primer/bare-metal layer, structure behind lost parts
 - [x] Buildings: facade base/middle/top, districts, roof clutter, chunked meshes
 - [x] Vegetation: card-based trees, palms, chunked MultiMeshes with LOD
@@ -465,4 +501,10 @@ thunderstorms, picked in Settings or Changing by itself, and wet roads a little 
 - 2026-10-08 — v0.10.0: two-player split-screen; released.
 - 2026-10-13 — v0.11 (`ride-along` branch): riding along as a passenger in the other player's vehicle.
 - 2026-10-16 — v0.11.0: riding along as a passenger; released.
-- 2026-10-24 — v0.12 (`feature/weather` branch): weather (clear, cloudy, rain, thunderstorm, changing).
+- 2026-10-24 — Weather (`feature/weather` branch): weather (clear, cloudy, rain, thunderstorm, changing).
+- 2026-11-07 — Car parts (`feature/car-parts` branch): body kits, spoilers, bonnet and roof parts, paint finishes,
+  two-tone, decals and race numbers, underglow, horns.
+- 2026-11-07 — Arcade menus (`feature/arcade-ui` branch): the title screen and garage rebuilt as cards from the owner's
+  mockups (PLAY NOW tile, icon tiles, showroom preview, long stat bars, prompts that match the device), then arcade
+  flair: Barlow Condensed italic, slanted buttons and tabs, speed stripes, "go" chevrons, a pause drawer and a
+  settings page of row buttons with pips and help lines.

@@ -14,7 +14,19 @@ extends Node
 ##                    views and while driving (run it on a weak GPU: --gpu-index 0 = the iGPU)
 ##   --wheels=<dir>   every rim, rim colour, tyre and tyre stripe in the garage's wheel view,
 ##                    plus custom wheels on a few vehicles and on the road (shots for review)
+##   --parts=<dir>    every body part, finish, decal, number and underglow in the garage, then
+##                    fit, crash, repair, save and leak checks (scripts/dev/parts_tests.gd)
+##   --partsbench     a fully kitted player car against a stock one: GPU, draw calls (A/B)
+##   --drawcalls=<dir> where the draw calls go in city views and a city drive: camera vs
+##                    shadow passes, per world family, car surfaces (scripts/dev/drawcall_tests.gd)
+##   --parkedlod=<dir> parked cars' real parts against their merged far mesh (long lens,
+##                    day/night) and a walk-up across the switch; merge build time
 ##   --menus=<dir>    title/pause/settings/controls menus driven by input (checks and shots)
+##   --updater=<dir>  in-game updates against a fake GitHub: checks, a bad download, the
+##                    background download, toast, title box, WHAT'S NEW, restart code 42
+##                    (scripts/dev/updater_tests.gd; run tools/steamdeck/test_updates.sh)
+##   --updatecycle    an exported build started by the launcher: restart into a downloaded
+##                    update, or quit once up to date (tools/steamdeck/test_update_e2e.sh)
 ##   --lanes=<dir>    traffic passing a parked player, horn reactions, highway lane changes
 ##   --junction=<dir> the signalized highway/avenue junction: turns used, crashes, jams
 ##   --stunts=<dir>   air, flips, rolls, spins, drift, near miss, wipeout -> combos and records
@@ -125,6 +137,12 @@ func _ready() -> void:
 		elif arg.begins_with("--menus="):
 			_mode = "menus"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--updater="):
+			_mode = "updater"
+			_dir = arg.split("=")[1]
+		elif arg == "--updatecycle":
+			_mode = "updatecycle"
+			_dir = OS.get_user_data_dir()
 		elif arg.begins_with("--garage="):
 			_mode = "garage"
 			_dir = arg.split("=")[1]
@@ -140,8 +158,20 @@ func _ready() -> void:
 		elif arg.begins_with("--wheels="):
 			_mode = "wheels"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--parts="):
+			_mode = "parts"
+			_dir = arg.split("=")[1]
+		elif arg == "--partsbench":
+			_mode = "partsbench"
+			_dir = OS.get_user_data_dir()
 		elif arg.begins_with("--perfsweep="):
 			_mode = "perfsweep"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--drawcalls="):
+			_mode = "drawcalls"
+			_dir = arg.split("=")[1]
+		elif arg.begins_with("--parkedlod="):
+			_mode = "parkedlod"
 			_dir = arg.split("=")[1]
 		elif arg == "--bench":
 			_mode = "bench"
@@ -258,8 +288,16 @@ func _run() -> void:
 		await _wheels(game)
 	elif _mode == "perfsweep":
 		await _perfsweep(game)
+	elif _mode == "drawcalls":
+		await preload("res://scripts/dev/drawcall_tests.gd").new(self, game, _dir).bench()
+	elif _mode == "parkedlod":
+		await preload("res://scripts/dev/drawcall_tests.gd").new(self, game, _dir).parked_lod_shots()
 	elif _mode == "menus":
 		await _menus(game)
+	elif _mode == "updater":
+		await preload("res://scripts/dev/updater_tests.gd").new(self, game, _dir).run()
+	elif _mode == "updatecycle":
+		await _update_cycle()
 	elif _mode == "lanes":
 		await _lanes(game)
 	elif _mode == "junction":
@@ -306,9 +344,27 @@ func _run() -> void:
 		await preload("res://scripts/dev/ride_tests.gd").new(self, game, _dir).run()
 	elif _mode == "weather":
 		await preload("res://scripts/dev/weather_tests.gd").new(self, game, _dir).run()
+	elif _mode == "parts":
+		await preload("res://scripts/dev/parts_tests.gd").new(self, game, _dir).run()
+	elif _mode == "partsbench":
+		await preload("res://scripts/dev/parts_tests.gd").new(self, game, _dir).bench()
 	else:
 		await _drive(game)
 	VehicleAudio.quit_quietly(get_tree())
+
+
+## --updatecycle: waits for Updates to settle, then restarts into the downloaded
+## update (exit code 42) or, when up to date, lets the run end normally.
+func _update_cycle() -> void:
+	var end := Time.get_ticks_msec() + 180000
+	var settled := [Updates.State.OFF, Updates.State.UP_TO_DATE, Updates.State.READY]
+	while Time.get_ticks_msec() < end and Updates.state not in settled:
+		await get_tree().process_frame
+	print("updatecycle: version %s, state %s, latest %s %s" % [Updates.version, Updates.State.keys()[Updates.state],
+		Updates.latest if Updates.latest != "" else "-", Updates.problem])
+	if Updates.state == Updates.State.READY:
+		Updates.restart_to_update()
+		await get_tree().create_timer(5.0).timeout
 
 
 func _tour(game: Game) -> void:
@@ -976,7 +1032,9 @@ func _garage(game: Game) -> void:
 		await _shot("garage_%d" % (i + 1))
 	_check(p.index == 4, "four steps right reach the bus")
 	await _tap("menu_tab_next")
-	_check(p.tab == 1, "Q/E (LB/RB) switch to the PAINT tab")
+	_check(p.tab == _tab_of("body"), "Q/E (LB/RB) switch to the BODY tab")
+	await _tap("menu_tab_next")
+	_check(p.tab == _tab_of("paint"), "next tab: PAINT")
 	for i in 3:
 		await _tap("menu_right")
 	await _wait(10)
@@ -984,8 +1042,9 @@ func _garage(game: Game) -> void:
 	var want_color: Color = p.loadout().get_value("paint")
 	_check(want_color != Loadout.stock("bus").get_value("paint"), "left/right repaints the bus")
 	await _tap("menu_tab_next")
+	await _tap("menu_tab_next")
 	await _wait(40)
-	_check(p.tab == 2, "next tab: WHEELS")
+	_check(p.tab == _tab_of("wheels"), "two tabs on: WHEELS")
 	await _shot("garage_wheels")
 	await _tap("menu_right")  # rims: the next one after the bus's steelies
 	var want_rims: String = p.loadout().get_value("rims")
@@ -1026,7 +1085,9 @@ func _garage(game: Game) -> void:
 	await _tap("change_vehicle")
 	await _wait(5)
 	await _tap("menu_tab_prev")
-	_check(p.tab == 2, "tabs wrap round (CAR -> WHEELS)")
+	_check(p.tab == PartsCatalog.TABS.size() - 1, "tabs wrap round (CAR -> EXTRAS)")
+	await _tap("menu_tab_prev")
+	_check(p.tab == _tab_of("wheels"), "and back to WHEELS")
 	await _tap("menu_right")
 	var kept: String = p.loadout().get_value("rims")
 	await _tap("menu_back")
@@ -1044,6 +1105,7 @@ func _garage(game: Game) -> void:
 	# Surprise me, on the WHEELS tab.
 	await _tap("change_vehicle")
 	await _wait(5)
+	await _tap("menu_tab_prev")
 	await _tap("menu_tab_prev")
 	var before := p.loadout().values.duplicate()
 	await _tap("menu_extra")
@@ -1169,6 +1231,14 @@ func _garage(game: Game) -> void:
 		"0.6 paint and stripes became the sports car's setup")
 
 
+## Index of the garage tab with this id (PartsCatalog.TABS).
+func _tab_of(id: String) -> int:
+	for t in PartsCatalog.TABS.size():
+		if PartsCatalog.TABS[t]["id"] == id:
+			return t
+	return -1
+
+
 ## A stock setup for catalog entry `index` in paint `c` (snapped to the
 ## garage colours).
 func _painted(index: int, c: Color) -> Loadout:
@@ -1220,7 +1290,7 @@ func _wheels(game: Game) -> void:
 	game.open_garage()
 	await _wait(5)
 	var p := game.picker
-	p._set_tab(2)
+	p._set_tab(_tab_of("wheels"))
 	await _wait(60)
 	for i in PartsCatalog.RIMS.size():
 		p._set_slot("rims", i)
@@ -1249,7 +1319,7 @@ func _wheels(game: Game) -> void:
 		p._set_tab(0)
 		p.index = VehicleCatalog.index_of_id(id)
 		p._show_vehicle()
-		p._set_tab(2)
+		p._set_tab(_tab_of("wheels"))
 		await _wait(50)
 		await _shot("vehicle_%s_stock" % id)
 		var parts: Array = custom[id]
@@ -1265,7 +1335,7 @@ func _wheels(game: Game) -> void:
 	p._set_slot("rims", PartsCatalog.index_of("rims", "star5"))
 	p._set_slot("rim_color", PartsCatalog.index_of("rim_color", "gold"))
 	p._set_slot("tyre_stripe", PartsCatalog.index_of("tyre_stripe", "red"))
-	p._set_tab(2)
+	p._set_tab(_tab_of("wheels"))
 	await _wait(40)
 	await _shot("garage_custom_sports")
 	await _tap("menu_accept")

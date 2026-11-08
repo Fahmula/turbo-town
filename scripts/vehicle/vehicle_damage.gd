@@ -94,6 +94,36 @@ func _ready() -> void:
 	_make_particles()
 
 
+## Forgets the model and registers it again: BodyKit calls this after
+## swapping body parts (after repair(), so nothing is dented or lying
+## around; the swapped-out meshes may already be freed). Hidden meshes
+## (stock parts a kit replaced) are left out.
+func rescan() -> void:
+	_meshes.clear()
+	_sources.clear()
+	_originals.clear()
+	_offsets.clear()
+	_current.clear()
+	_materials.clear()
+	_parts.clear()
+	var body := get_node_or_null(body_path)
+	if body == null:
+		return
+	for mi in body.find_children("*", "MeshInstance3D", true, false):
+		if _shown_under(mi as Node3D, body):
+			_register(mi as MeshInstance3D)
+
+
+## True if `n` and every node above it up to `root` are visible.
+static func _shown_under(n: Node3D, root: Node) -> bool:
+	var at: Node = n
+	while at != null and at != root:
+		if at is Node3D and not (at as Node3D).visible:
+			return false
+		at = at.get_parent()
+	return true
+
+
 func _register(mi: MeshInstance3D) -> void:
 	var src := mi.mesh as ArrayMesh
 	if src == null:

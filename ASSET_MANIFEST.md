@@ -32,6 +32,16 @@ idle loop; heavy crashes have a synthesised low thump mixed in.
 > (PDSounds). Sounds changed for Turbo Town (looped, filtered, mixed,
 > levels). Skies, textures and rock models from Poly Haven and ambientCG (CC0).
 > Character and animations from the Universal Animation Library by Quaternius (CC0).
+> Barlow Condensed font by The Barlow Project Authors (SIL OFL 1.1).
+
+## Fonts
+
+| Asset | Author | Source | Licence | Used for |
+|---|---|---|---|---|
+| Barlow Condensed ExtraBold Italic (`assets/fonts/BarlowCondensed-ExtraBoldItalic.ttf`) | The Barlow Project Authors (Jeremy Tribby) | https://github.com/google/fonts/tree/main/ofl/barlowcondensed (2026-11-07) | SIL OFL 1.1 (`assets/fonts/OFL.txt`) | menu headings, buttons, tabs and tile titles (`UiKit.display_font`) |
+
+The OFL lets the font be bundled and shipped with the game; it can't be sold
+on its own, and a changed version can't use the name "Barlow".
 
 ## Textures, skies and models (realism branch)
 
@@ -177,10 +187,19 @@ Only files listed there as CC BY 4.0 or CC0 are used. Its older VDrift sounds
 Synthesised by `tools/audio/synth.py` (no third-party material): reverse
 beeper, wind, road roar on asphalt, turbo and supercharger whine, blow-off,
 exhaust pops, gear-shift clunk, suspension knocks and landings,
-splashes, the plane's propeller. (Fallbacks kept in the script but not used: tyre squeal, gravel,
-horns, air brakes.) The engine start-ups mix the recorded starter crank with
+splashes, the plane's propeller, and the garage's extra horns (`horn/klaxon.wav`,
+`tune.wav` (a made-up fanfare), `clown.wav`, `train.wav`; `build_audio.py horns`).
+(Fallbacks kept in the script but not used: tyre squeal, gravel, horns, air brakes.) The engine start-ups mix the recorded starter crank with
 each engine's own idle loop; the glass shatters `glass_7-8` and `tinkle_4-5`
 are cascades built from Kenney's glass hits.
+
+Garage parts and decals (no third-party material):
+
+| Asset | Made by | Notes |
+|---|---|---|
+| `assets/models/kits/<vehicle>_kit.glb` | `tools/blender/make_kits.py` | spoilers, bonnets, roof parts and the sports car / sedan body kits, placed on the committed body models |
+| `assets/textures/vehicle/decals.png` | `tools/textures/make_decals.py` | side graphics (flames, lightning, stars, checkers, speed lines, paint splash): made-up shapes |
+| `assets/textures/vehicle/digits.png` | `tools/textures/make_decals.py` | race-number digits set in Fira Sans ExtraBold (SIL OFL 1.1); only the glyph shapes are in the PNG |
 
 ## Sources considered and not used
 

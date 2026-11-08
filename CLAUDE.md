@@ -23,18 +23,25 @@ Art direction: ART_BIBLE.md.
   since 2026-10-13). Commit working, tested states with clear messages. When
   the owner says it's ready, push the branch and open a PR into `main`; the
   owner reviews and merges it themselves. Never merge into `main` yourself.
-- The owner's son plays **stable releases** on a Steam Deck. Releases are made
-  only when the owner explicitly asks: `tools/release.sh X.Y.Z`. Full workflow
-  and versioning rules are in RELEASING.md.
+- The owner's son plays **stable releases** on a Steam Deck. A release happens
+  when the owner merges release-please's release PR (`chore(main): release
+  X.Y.Z`); GitHub Actions then builds, smoke-tests and publishes it. Never
+  merge that PR yourself. Full workflow and versioning rules are in RELEASING.md.
   `tools/release.sh X.Y.Z --dry-run` (export + smoke test, no publishing) is
-  always safe to run.
+  always safe to run. `--publish` is for CI, or only when the owner asks.
 - The Steam Deck auto-updates on launch (tools/steamdeck/turbotown.sh) to
   whatever release GitHub marks as latest. Publishing a release = shipping it
   to the Deck, so never publish drafts or tests as normal releases.
 - Never move, delete or force-push release tags (`v*`), and never rewrite
   pushed history.
-- For user-facing changes, add a line under `## [Unreleased]` in CHANGELOG.md.
-  Those lines become the release notes.
+- **PR titles use Conventional Commits** (`feat(garage): ...`, `fix: ...`,
+  `docs:`, `chore:`), since PRs are squash-merged and release-please reads them.
+  Put the player-facing release notes in the PR description, between
+  `BEGIN_COMMIT_OVERRIDE` and `END_COMMIT_OVERRIDE`: one `feat:`/`fix:` line per
+  change, a blank line between lines. Write those two marker words nowhere
+  else in the description (not even in backticks): release-please reads from
+  the first mention. Don't edit CHANGELOG.md by hand; release-please writes it.
+  Details in RELEASING.md.
 - `.godot/`, `build/`, `dist/` and `reference images/` are gitignored. Don't
   commit caches, builds or secrets.
 

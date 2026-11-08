@@ -1,22 +1,45 @@
 # Changelog
 
-Player-facing changes per stable release. `tools/release.sh X.Y.Z` uses the
-`## [X.Y.Z]` section below as the GitHub Release notes, so write it for the
-player (what's new, what's fixed), not as a commit log.
+Player-facing changes per stable release, newest first. Each version's
+section is also its GitHub Release notes, so it's written for the player
+(what's new, what's fixed), not as a commit log.
 
-Before releasing: rename `[Unreleased]` to the new version, add the date,
-commit, push, then run the release script. Start a fresh `[Unreleased]` after.
+Since 0.12.0, release-please writes the new sections: one bullet per
+`feat:`/`fix:` line in the merged PRs' descriptions (see RELEASING.md). Don't
+add an "Unreleased" heading here; new versions are inserted above the first
+version heading.
 
-## [Unreleased]
+## [1.1.0](https://github.com/Fahmula/turbo-town/compare/v1.0.0...v1.1.0) (2026-11-08)
 
-### Weather
-- Weather! Pick it in Settings: Clear, Cloudy, Rain, Thunderstorm, or
-  Changing, where the sky clouds over, rains and clears up again by itself.
-- Rain soaks the roads: they turn dark and shiny, puddles form, and the
-  street lights reflect in them at night. Wet roads are a little slippery,
-  and cars throw up spray. Once the rain stops, the ground dries off slowly.
-- Thunderstorms bring lightning and rumbling thunder, and they get so dark
-  that the street lamps and headlights come on.
+
+### New stuff
+
+* **garage:** The garage has a new look: a showroom stage for your car, long stat bars, colour palettes on one row and a DRIVE THIS CAR button. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** A new arcade-style main menu: a big PLAY NOW button, picture tiles for 2 PLAYERS, GARAGE, RACES and RECORDS, and your car on show beside them. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** A new pause menu down the side of the screen, so you can still see the game behind it. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** A new settings page: every setting shows its choices as dots, the volume is a bar, and a line says what each setting does. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** Button hints show your controller's buttons or your keyboard keys, whichever you used last. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+* **menus:** Racing-style lettering, slanted buttons and speed stripes all through the menus. ([2dbcbbe](https://github.com/Fahmula/turbo-town/commit/2dbcbbe1569128b4d9cf0074bfa44b9f05bf9044))
+
+## [1.0.0](https://github.com/Fahmula/turbo-town/compare/v0.12.0...v1.0.0) (2026-11-07)
+
+
+### New stuff
+
+* New versions now download by themselves while you play. When one is ready, the main menu shows RESTART TO UPDATE, and WHAT'S NEW? tells you what changed. ([f9f6912](https://github.com/Fahmula/turbo-town/commit/f9f69126c69f20976d59c228847ac1ba3dc4cdb4))
+* On the Steam Deck the game starts straight away, without waiting for an update to download first. ([f9f6912](https://github.com/Fahmula/turbo-town/commit/f9f69126c69f20976d59c228847ac1ba3dc4cdb4))
+
+## [0.12.0](https://github.com/Fahmula/turbo-town/compare/v0.11.0...v0.12.0) (2026-11-07)
+
+
+### New stuff
+
+* **garage:** New BODY tab: spoilers on every vehicle (lip, ducktail, GT wing and a huge Mega Wing), bonnet vents, scoops and a supercharger sticking out of the bonnet, roof scoops, racks, light bars (they light up at night) and roof boxes. ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** New DECALS tab: flames, lightning, stars, checkers, speed lines or a paint splash in any of 12 colours, plus a race number on the doors and bonnet. ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** New EXTRAS tab: underglow neon in eight colours (brightest at night) and eight horns to pick from, including an old-timer "ah-oo-gah", a little tune, a clown honk and a train horn. You hear each one as you pick it. ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** PAINT: finishes (gloss, metallic, pearl, matte, chrome) and two-tone paint (roof, bonnet, both, or the lower half in a second colour). ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** The garage camera turns to show the part you're changing. ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
+* **garage:** The sports car and sedan also get Sport and Race bumpers, side skirts and wheel arches (bolt-on flares or a wide body that pushes the wheels out). New bumpers and wings still fall off when you crash! ([2b53c74](https://github.com/Fahmula/turbo-town/commit/2b53c74f3169a71335f37fe2ca3ba0b34cf3c9c6))
 
 ## [0.11.0] - 2026-10-16
 
