@@ -10,6 +10,8 @@ extends Node
 ##                    hidden, physics time with and without it, walking (window)
 ##   --charsheet=<dir> the character from fixed cameras (front, 3/4, side, game camera,
 ##                    face) in day / sunset / night, plus each animation sampled over time
+##   --spawnbench     frame hitches while traffic fills in: game start, teleports far apart
+##                    (what a respawn does), the same with traffic off, then steady traffic
 ##   --perfsweep=<dir> GPU cost of each High-only effect, Medium/Low, grass and trees, in heavy
 ##                    views and while driving (run it on a weak GPU: --gpu-index 0 = the iGPU)
 ##   --wheels=<dir>   every rim, rim colour, tyre and tyre stripe in the garage's wheel view,
@@ -187,6 +189,9 @@ func _ready() -> void:
 		elif arg == "--bench":
 			_mode = "bench"
 			_dir = OS.get_user_data_dir()
+		elif arg == "--spawnbench":
+			_mode = "spawnbench"
+			_dir = OS.get_user_data_dir()
 		elif arg.begins_with("--fx="):
 			_mode = "fx"
 			_dir = arg.split("=")[1]
@@ -289,6 +294,8 @@ func _run() -> void:
 		await _traffic(game)
 	elif _mode == "bench":
 		await _bench(game)
+	elif _mode == "spawnbench":
+		await _bench_refill(game)
 	elif _mode == "rampage":
 		await _rampage(game)
 	elif _mode == "showcase":
@@ -751,7 +758,6 @@ func _bench_render(game: Game) -> void:
 	if DisplayServer.get_name() == "headless":
 		return  # nothing is drawn
 	var tm := game.traffic
-	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	for on in [false, true]:
 		tm.set_enabled(on)
 		game.teleport_to(1)
@@ -768,6 +774,53 @@ func _bench_render(game: Game) -> void:
 			cpu += RenderingServer.viewport_get_measured_render_time_cpu(get_viewport().get_viewport_rid()) + RenderingServer.get_frame_setup_time_cpu()
 		print("BENCH render traffic %-5s %d cars: %d draw calls, %d objects, gpu %.2f ms, cpu %.2f ms" % [
 			str(on), tm.drivers.size(), calls / 120, objs / 120, gpu / 120.0, cpu / 120.0])
+
+
+## Frame hitches while traffic fills in: right after the game starts, then
+## after teleports between two spots far apart (what a respawn does), with
+## traffic off for comparison, and steady traffic last. Prints the worst
+## frame, frames over 20 ms, time to a full road and new cars built.
+func _bench_refill(game: Game) -> void:
+	var tm := game.traffic
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	var spots := [Vector3(40, 0.8, 330), Vector3(290, 0.8, -60)]
+	await _refill_window(tm, "start")
+	# The same teleports with no traffic: what the jump itself costs.
+	tm.set_enabled(false)
+	for i in 2:
+		game.vehicle.teleport(Transform3D(Basis.IDENTITY, spots[i % 2]))
+		await _refill_window(tm, "no traffic %d" % (i + 1))
+	tm.set_enabled(true)
+	await _wait_real(3.0)
+	for i in 6:
+		game.vehicle.teleport(Transform3D(Basis.IDENTITY, spots[i % 2]))
+		await _refill_window(tm, "teleport %d" % (i + 1))
+	await _wait_real(8.0)
+	await _refill_window(tm, "steady")
+	print("BENCH refill: %d spare cars in the pool, %d cars built in total" % [tm.pooled_count(), tm.cars_created])
+
+
+func _refill_window(tm: TrafficManager, label: String) -> void:
+	var built0 := tm.cars_created
+	var worst := 0.0
+	var over := 0
+	var full_at := -1.0
+	var emptied := false
+	var t0 := Time.get_ticks_usec()
+	var last := t0
+	while Time.get_ticks_usec() - t0 < 3_000_000:
+		await get_tree().process_frame
+		var now := Time.get_ticks_usec()
+		var ms := (now - last) / 1000.0
+		last = now
+		worst = maxf(worst, ms)
+		if ms > 20.0:
+			over += 1
+		emptied = emptied or tm.drivers.size() < tm.max_cars
+		if emptied and full_at < 0.0 and tm.drivers.size() >= tm.max_cars:
+			full_at = (now - t0) / 1e6
+	print("BENCH refill %-11s worst frame %6.1f ms, %d frames > 20 ms, full road after %s, %d new cars built" % [
+		label, worst, over, ("%.2f s" % full_at) if full_at >= 0.0 else "never", tm.cars_created - built0])
 
 
 ## Wall-clock cost of putting one traffic car on the road (and removing it).

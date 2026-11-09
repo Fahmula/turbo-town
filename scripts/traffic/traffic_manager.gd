@@ -10,7 +10,10 @@ extends Node3D
 ## Traffic cars are ordinary Vehicles with a TrafficDriver instead of a player
 ## controller, so they crash, dent and flip just like the player's car.
 ## Removed cars wait in a small pool per type and are reused (repaired and
-## repainted): setting up a new vehicle takes several milliseconds.
+## repainted): setting up a new vehicle takes several milliseconds. The pool
+## is filled while the game loads, and a fill (game start, a respawn or
+## teleport) puts cars on the road over a few frames, at most SPAWN_BUDGET_MS
+## of work per frame, instead of all at once.
 
 signal traffic_toggled(on: bool)
 
@@ -41,8 +44,13 @@ var others: Array[LocalPlayer] = []
 @export var spawn_min_distance := 60.0
 @export var spawn_max_distance := 260.0
 @export var despawn_distance := 330.0
-## Spare cars kept per vehicle type for reuse.
+## Spare cars kept per vehicle type for reuse, at least. Common types keep
+## more (see _pool_cap()), so a full refill comes from the pool.
 @export var pool_per_type := 4
+
+## Most milliseconds per frame spent putting cars on the road during a fill;
+## the rest wait for the next frame (one car always goes, however slow).
+const SPAWN_BUDGET_MS := 2.0
 
 var network: TrafficNetwork
 var drivers: Array[TrafficDriver] = []
@@ -73,8 +81,15 @@ var _foci := PackedVector3Array()
 var _manage_timer := 0.0
 var _light_timer := 0.0
 var _initial_fill := true
+## Spawn attempts left in the fill under way (0 = no fill).
+var _fill_tries := 0
+## The frame the spawn budget belongs to, and how much of it is spent (usec).
+var _budget_frame := -1
+var _budget_used := 0
 ## scene path -> Array of spare Vehicles (outside the tree)
 var _pool := {}
+## Traffic cars built from scratch so far (not reused from the pool).
+var cars_created := 0
 
 
 func _ready() -> void:
@@ -92,6 +107,11 @@ func _ready() -> void:
 	var t0 := Time.get_ticks_msec()
 	CarLod.prebuild(car_scenes)
 	print("Traffic far meshes built in %d ms" % (Time.get_ticks_msec() - t0))
+	# And the cars themselves, so the first fill and mid-drive spawns reuse
+	# them instead of setting new ones up.
+	t0 = Time.get_ticks_msec()
+	var n := _warm_pool()
+	print("Traffic: %d spare cars set up in %d ms" % [n, Time.get_ticks_msec() - t0])
 	if player:
 		var p := player
 		player = null
@@ -111,6 +131,7 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 	if key != "traffic_density":
 		return
 	max_cars = Settings.TRAFFIC_CARS[value]
+	_fill_tries = 0
 	# Fewer cars: drop the ones furthest from the players.
 	if drivers.size() > max_cars and _focus_node():
 		_foci = focus_positions()
@@ -291,6 +312,7 @@ func set_enabled(on: bool) -> void:
 	if not on:
 		for d: TrafficDriver in drivers.duplicate():
 			_despawn(d)
+		_fill_tries = 0
 	else:
 		_initial_fill = true
 	traffic_toggled.emit(on)
@@ -307,6 +329,10 @@ func _physics_process(dt: float) -> void:
 	if _light_timer <= 0.0:
 		_light_timer = 0.2
 		_update_lights()
+	# Before the management pass: a fill starts on the tick after the pass
+	# that removed the far cars, once they're back in the pool for reuse.
+	if _fill_tries > 0:
+		_fill_step()
 	_manage_timer -= dt
 	if _manage_timer > 0.0:
 		return
@@ -315,16 +341,34 @@ func _physics_process(dt: float) -> void:
 	if not enabled or _focus_node() == null:
 		return
 	if _initial_fill:
-		# First fill: spawn a batch at once (visible spawns allowed, not too close).
+		# A fill: a batch of cars over the next few frames (visible spawns
+		# allowed, not too close).
 		_initial_fill = false
-		for k in max_cars * 4:
-			if drivers.size() >= max_cars:
-				break
-			_try_spawn(true)
-	elif drivers.size() < max_cars:
+		_fill_tries = max_cars * 4
+	elif _fill_tries <= 0 and drivers.size() < max_cars:
 		for k in 6:
 			if _try_spawn(false):
 				break
+
+
+## One frame's share of a fill: spawn attempts until the road is full, the
+## attempts run out or this frame's SPAWN_BUDGET_MS is spent (shared by the
+## frame's physics ticks).
+func _fill_step() -> void:
+	if not enabled or _focus_node() == null:
+		_fill_tries = 0
+		return
+	var frame := Engine.get_process_frames()
+	if frame != _budget_frame:
+		_budget_frame = frame
+		_budget_used = 0
+	while _fill_tries > 0 and drivers.size() < max_cars and _budget_used < SPAWN_BUDGET_MS * 1000.0:
+		var t0 := Time.get_ticks_usec()
+		_fill_tries -= 1
+		_try_spawn(true)
+		_budget_used += Time.get_ticks_usec() - t0
+	if drivers.size() >= max_cars:
+		_fill_tries = 0
 
 
 ## Drivers near a honking player react (pull over, move right, hurry up).
@@ -421,7 +465,7 @@ func _despawn(d: TrafficDriver) -> void:
 	if not is_instance_valid(car) or car.is_queued_for_deletion():
 		return
 	var spares: Array = _pool.get(car.scene_file_path, [])
-	if spares.size() >= pool_per_type:
+	if spares.size() >= _pool_cap(car.scene_file_path):
 		car.queue_free()
 		return
 	d.release()
@@ -442,7 +486,7 @@ func _to_pool(car: Vehicle) -> void:
 ## Keeps an unused car (outside the tree) for later, or frees it.
 func _put_back(car: Vehicle) -> void:
 	var spares: Array = _pool.get_or_add(car.scene_file_path, [])
-	if spares.size() < pool_per_type:
+	if spares.size() < _pool_cap(car.scene_file_path):
 		spares.append(car)
 	else:
 		car.free()
@@ -453,13 +497,60 @@ func _take(scene: PackedScene) -> Vehicle:
 	var spares: Array = _pool.get(scene.resource_path, [])
 	if not spares.is_empty():
 		return spares.pop_back()
+	return _new_car(scene)
+
+
+## A traffic car set up from scratch (the slow path).
+func _new_car(scene: PackedScene) -> Vehicle:
 	var car := scene.instantiate() as Vehicle
+	cars_created += 1
 	# Traffic gets the cheaper sound (AudioDirector gives voices to the
 	# nearest few) and keeps its own damage/effects.
 	var audio := car.get_node_or_null("Audio") as VehicleAudio
 	if audio:
 		audio.set_detail(VehicleAudio.Detail.LITE)
 	return car
+
+
+## How many cars of the type at `path` a road of `max_cars` holds on
+## average (by car_weights).
+func _expected(path: String) -> int:
+	var total := 0.0
+	var w := 0.0
+	for i in car_scenes.size():
+		var wi := car_weights[i] if i < car_weights.size() else 1.0
+		total += wi
+		if car_scenes[i].resource_path == path:
+			w = wi
+	return ceili(max_cars * w / total) if total > 0.0 else 0
+
+
+## Spare cars kept for the type at `path`: enough to refill the road after
+## a teleport (every car goes to the pool, then comes back out).
+func _pool_cap(path: String) -> int:
+	return maxi(pool_per_type, _expected(path) + 1)
+
+
+## Sets up a road's worth of spare cars while the game loads: each enters
+## the tree once (that's where most of a new car's cost is: _ready of the
+## body, wheels, sound, damage) and leaves straight away for the pool.
+## Returns how many were made.
+func _warm_pool() -> int:
+	var n := 0
+	for scene: PackedScene in car_scenes:
+		var spares: Array = _pool.get_or_add(scene.resource_path, [])
+		for k in _expected(scene.resource_path) - spares.size():
+			var car := _new_car(scene)
+			car.visible = false
+			# Out of the physics world and its scripts asleep while it's in.
+			car.process_mode = Node.PROCESS_MODE_DISABLED
+			car.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, -1000.0, 0.0))
+			add_child(car)
+			remove_child(car)
+			car.process_mode = Node.PROCESS_MODE_INHERIT
+			spares.append(car)
+			n += 1
+	return n
 
 
 ## Spare cars waiting in the pool (for tests).
