@@ -9,6 +9,20 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.4.0](https://github.com/Fahmula/turbo-town/compare/v1.3.0...v1.4.0) (2026-11-09)
+
+
+### New stuff
+
+* **helicopter:** A helicopter! Pick it in the garage and it lands beside you. Hold RT to take off, let go to hover, push the stick to fly, and land softly anywhere flat, rooftops too. A + stick flips or rolls it, and player 2 can ride along. ([4be803e](https://github.com/Fahmula/turbo-town/commit/4be803ed71f915edaac04bf883fe7bcea9692a68))
+* **helicopter:** Two helipads at the airfield, with a helicopter parked on one that you can walk up to and fly (teleport 7). ([4be803e](https://github.com/Fahmula/turbo-town/commit/4be803ed71f915edaac04bf883fe7bcea9692a68))
+
+
+### Runs smoother
+
+* **traffic:** Busy city traffic costs about half the CPU it did, so fewer dropped frames while driving through town. ([af87127](https://github.com/Fahmula/turbo-town/commit/af87127a0989ed10b811fee5ae826339739270e5))
+* **traffic:** No more stutter when traffic fills back in after a respawn, a teleport or the game starting. ([af87127](https://github.com/Fahmula/turbo-town/commit/af87127a0989ed10b811fee5ae826339739270e5))
+
 ## [1.3.0](https://github.com/Fahmula/turbo-town/compare/v1.2.0...v1.3.0) (2026-11-08)
 
 
