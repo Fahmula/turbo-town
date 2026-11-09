@@ -9,6 +9,14 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.3.0](https://github.com/Fahmula/turbo-town/compare/v1.2.0...v1.3.0) (2026-11-08)
+
+
+### New stuff
+
+* **characters:** In split-screen, a player riding along sits in the passenger seat beside the driver, in their own T-shirt. ([0e7ff43](https://github.com/Fahmula/turbo-town/commit/0e7ff4366b7c01dcb7fa19f0e652e451228534af))
+* **characters:** You can see your character in the driver's seat now, through the glass, with their hands on the wheel. In the plane, the pilot holds the stick. ([0e7ff43](https://github.com/Fahmula/turbo-town/commit/0e7ff4366b7c01dcb7fa19f0e652e451228534af))
+
 ## [1.2.0](https://github.com/Fahmula/turbo-town/compare/v1.1.0...v1.2.0) (2026-11-08)
 
 
