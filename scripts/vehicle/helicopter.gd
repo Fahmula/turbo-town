@@ -37,6 +37,9 @@ const TILT_GAIN := 5.0
 const RATE_GAIN := 9.0
 ## Most angular acceleration the rotor can give (rad/s²).
 const MAX_ANGULAR_ACCEL := 12.0
+## How fast the nose may go down or up (the forward / back push it leans
+## for, m/s per second): about 0.7 s to 20°, not a snap.
+const LEAN_RATE := 8.0
 ## Flips and rolls (assists on): rate (rad/s), the height they need (m).
 const TRICK_RATE := 5.2
 const TRICK_HEIGHT := 10.0
@@ -90,6 +93,8 @@ var heading := 0.0
 var trick_left := 0.0
 
 var _trick_axis := Vector3.ZERO
+## The forward (+) / back push the nose leans for (m/s²), eased by LEAN_RATE.
+var _lean := 0.0
 var _main_rotor: Node3D
 var _main_rest := Basis.IDENTITY
 var _tail_rotor: Node3D
@@ -241,13 +246,15 @@ func _fly(dt: float) -> void:
 		if resting:
 			a_f = 0.0
 			a_s = 0.0
-		want_up = (hd * a_f + hr * a_s + Vector3.UP * (g + a_up)).normalized()
+		_lean = move_toward(_lean, a_f, LEAN_RATE * dt)
+		want_up = (hd * _lean + hr * a_s + Vector3.UP * (g + a_up)).normalized()
 		thrust = mass * (g + a_up) / maxf(up.y, 0.35)
 	else:
 		# The stick leans it; turns bank by themselves so they stay tidy.
 		var lean := -clampf(pitch_input, -1.0, 1.0) * tan(deg_to_rad(PRO_TILT))
 		var turn_bank := clampf(v_fwd * -yaw_w / g, -1.0, 1.0)
-		want_up = (Vector3.UP + hd * lean + hr * turn_bank).normalized()
+		_lean = move_toward(_lean, lean * g, LEAN_RATE * dt)
+		want_up = (Vector3.UP + hd * (_lean / g) + hr * turn_bank).normalized()
 		thrust = weight * (1.0 + 0.85 * lift)
 
 	# Flips and rolls.
@@ -328,6 +335,7 @@ func teleport(xform: Transform3D) -> void:
 	super.teleport(xform)
 	lift_input = 0.0
 	trick_left = 0.0
+	_lean = 0.0
 	heading = _yaw_of(xform.basis)
 
 
@@ -344,13 +352,16 @@ func _process(dt: float) -> void:
 
 
 ## The blades turn at their real speed while slow; fast, they turn at a rate
-## the eye can follow and the blur discs fade in over them.
+## the eye can follow and the blur discs fade in over them. Two blades look
+## like they spin backward past a quarter turn a frame, so at full speed the
+## main rotor shows ~22 rad/s (215 rpm) and the tail ~38 rad/s: both safe
+## at 30 fps too.
 func _spin_rotors(dt: float) -> void:
 	var w := rotor * rotor_rpm * TAU / 60.0
-	var shown := w if w < 9.0 else 9.0 + (w - 9.0) * 0.12
+	var shown := w if w < 12.0 else 12.0 + (w - 12.0) * 0.35
 	_main_angle = wrapf(_main_angle + shown * dt, 0.0, TAU)
 	var wt := rotor * tail_rotor_rpm * TAU / 60.0
-	var shown_t := wt if wt < 20.0 else 20.0 + (wt - 20.0) * 0.05
+	var shown_t := wt if wt < 20.0 else 20.0 + (wt - 20.0) * 0.08
 	_tail_angle = wrapf(_tail_angle + shown_t * dt, 0.0, TAU)
 	_ghost = wrapf(_ghost + minf(w, 30.0) * 0.03 * dt, 0.0, TAU)
 	if _main_rotor:

@@ -2502,7 +2502,9 @@ readable, kid-friendly (crashes are big and fun, never scary).
 - **The helicopter:** a synthesised turboshaft (`synth.turbine` at 1,500 /
   3,000 / 6,000 rpm: compressor whine at rpm × 0.55 Hz, gearbox tone,
   combustion roar growing with rpm, a high hiss; `synth.turbine_start`, a
-  3.2 s starter wind-up, igniter ticks and light-off) 7 dB under the cars,
+  3.2 s starter wind-up and light-off; no igniter ticks: on speakers they
+  were the loudest thing in it, a "tap tap tap" that read as a glitch) 7 dB
+  under the cars,
   and the rotors in the `propeller` slot (`synth.rotor`: the main rotor's
   blade slap at 13.3 Hz built from harmonics up to 1.8 kHz plus a band of air
   noise pulsing with each pass, the tail rotor's 77 Hz buzz and rotor wash),
@@ -2661,3 +2663,4 @@ is hidden.
   class and dimensions, §13 its materials and node names (and the blur
   shader's new axis / inner / tip_strength), §14 its per-pass split, §24
   its origin, §33 its sound, §34 its seat fit.
+  Owner feedback the same day: §33 the start-up loses its igniter ticks.

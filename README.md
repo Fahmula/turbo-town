@@ -591,7 +591,8 @@ The helicopter (`helicopter.gd`) is an `Aircraft` too, with its own rig
   rate, the triggers for a climb rate. A controller works out the lean that
   gets there (and holds the speed against drag), and the rotor's pull for
   the climb; turns are limited to what a banked turn at that speed can
-  follow, so it goes where the nose points. Below 14 m a descent slows
+  follow, so it goes where the nose points. The nose goes down or up at a
+  limited rate (about 0.7 s to 20°), not in a snap. Below 14 m a descent slows
   toward 1.4 m/s; lower than 0.6 m with nothing pressed it settles onto its
   skids. Flips and rolls spin it once round, then it levels itself.
 - With assists off the stick sets the lean and the triggers the rotor's pull

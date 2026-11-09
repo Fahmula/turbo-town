@@ -204,11 +204,14 @@ func _forward(h: Helicopter) -> void:
 	var t := 0.0
 	stick(0.0, 0.0, 1.0, 0.0)
 	var to100 := -1.0
+	var leaned := -1.0
 	while t < 16.0:
 		await tick()
 		t += dt()
 		var tilt := rad_to_deg(acos(clampf(h.global_basis.y.y, -1.0, 1.0)))
 		max_tilt = maxf(max_tilt, tilt)
+		if leaned < 0.0 and tilt > 20.0:
+			leaned = t
 		if to100 < 0.0 and h.speed_kmh > 100.0:
 			to100 = t
 		if is_equal_approx(t, 6.0) or (t > 6.0 and t < 6.01):
@@ -217,23 +220,32 @@ func _forward(h: Helicopter) -> void:
 	var nose_down := h.global_basis.z.y   # +: the nose (-z) points down
 	check(h.speed_kmh > 170.0 and h.speed_kmh < 215.0, "full stick: %.0f km/h" % h.speed_kmh)
 	check(to100 > 3.0 and to100 < 10.0, "0-100 km/h in %.1f s" % to100)
+	# Not a snap: the nose goes down over most of a second (owner, 2026-11-09).
+	check(leaned > 0.5 and leaned < 1.5, "leans in smoothly (20° after %.2f s)" % leaned)
 	check(nose_down > 0.25 and max_tilt < 34.0, "nose down while flying fast (lean %.0f°, most %.0f°)" % [rad_to_deg(asin(nose_down)), max_tilt])
 	check(absf(h.global_position.y - alt0) < 6.0, "kept its height (%.1f m)" % (h.global_position.y - alt0))
 	print("-- let go: stops")
 	t = 0.0
 	var stopped := -1.0
 	var max_back := 0.0
+	var level := -1.0
+	var flared := -1.0
 	stick(0.0, 0.0, 0.0, 0.0)
 	while t < 20.0:
 		await tick()
 		t += dt()
 		max_back = maxf(max_back, -h.global_basis.z.y)
+		if level < 0.0 and h.global_basis.z.y < 0.0:
+			level = t
+		if flared < 0.0 and -h.global_basis.z.y > sin(deg_to_rad(20.0)):
+			flared = t
 		if stopped < 0.0 and h.airspeed < 1.0:
 			stopped = t
 			break
 	telemetry("stopped", h)
 	check(stopped > 0.0 and stopped < 16.0, "slows to a hover by itself (%.1f s)" % stopped)
 	check(max_back > 0.2, "flares nose-up to stop (%.0f°)" % rad_to_deg(asin(max_back)))
+	check(level > 0.4 and flared > level + 0.4, "and the nose comes up smoothly (level after %.2f s, 20° up after %.2f s)" % [level, flared])
 	check(absf(h.global_position.y - alt0) < 8.0, "still at its height (%.1f m)" % (h.global_position.y - alt0))
 
 
@@ -309,7 +321,8 @@ func _tricks(h: Helicopter) -> void:
 			if t > 0.3:
 				Input.action_release("fly_trick")
 		release()
-		await fly(3.0, 0.0, 0.0, 0.0, 0.0)
+		# The stick stayed forward after the flip: it flares to a stop first.
+		await fly(5.0, 0.0, 0.0, 0.0, 0.0)
 		telemetry("after the %s" % kind, h)
 		check(spun > TAU * 0.95, "%s: all the way round (%.0f°)" % [kind, rad_to_deg(spun)])
 		check(h.global_basis.y.y > 0.97, "%s: upright again" % kind)

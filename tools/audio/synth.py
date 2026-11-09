@@ -204,25 +204,20 @@ def turbine(rpm, seconds=1.0, seed=111):
 
 
 def turbine_start(seed=121):
-    """Starting the turboshaft (3.2 s): the starter's whine winding up, the
-    igniters ticking, light-off (a soft whoomp of roar), then the whine
-    climbing toward the 1,500 rpm loop it hands over to."""
+    """Starting the turboshaft (3.2 s): the starter's whine winding up,
+    light-off (a soft whoomp of roar), then the whine climbing toward the
+    1,500 rpm loop it hands over to. (It had igniter ticks too: on speakers
+    they were the loudest thing in it, a "tap tap tap" the owner took for a
+    glitch, 2026-11-09.)"""
     s = 3.2
     n = int(s * R)
-    t = _t(s)
-    f = np.interp(t, [0.0, 1.1, 1.4, 3.2], [60.0, 380.0, 430.0, 1500 * 0.55])
     starter = _sweep(lambda tt: np.interp(tt, [0.0, 1.1, 1.4, 3.2], [60.0, 380.0, 430.0, 1500 * 0.55]), s, harmonics=6)
     starter = starter * dsp.envelope(n, [(0, 0), (0.15, 0.7), (1.2, 1.0), (3.2, 0.8)])
-    ticks = np.zeros(n)
-    for tk in np.arange(0.35, 1.55, 0.16):
-        i = int(tk * R)
-        m = min(int(0.006 * R), n - i)
-        ticks[i:i + m] += np.exp(-np.arange(m) / (0.0012 * R))
-    ticks = dsp.highpass(ticks.astype(np.float32), 2000, 2)
     roar = dsp.lowpass(dsp.noise(n, seed, "pink"), 1400, 2) * dsp.envelope(n, [(0, 0), (1.3, 0), (1.6, 1.2), (2.0, 0.8), (3.2, 0.9)])
-    x = dsp.normalize_rms(starter, -24) + dsp.normalize_rms(ticks, -34) + dsp.normalize_rms(roar, -22)
-    del f
-    return dsp.fade(dsp.normalize_peak(x, -3.0), 0.01, 0.15)
+    x = dsp.normalize_rms(starter, -24) + dsp.normalize_rms(roar, -22)
+    # The level it had beside the ticks: VehicleAudio plays it at -7 dB to
+    # hand over to the idle loop.
+    return dsp.fade(dsp.normalize_peak(x, -11.65), 0.01, 0.15)
 
 
 def horn(freqs, seconds=1.0, formants=((1600, 2.0, 1.0), (3100, 3.0, 0.6)), brass=0.0, seed=71):
