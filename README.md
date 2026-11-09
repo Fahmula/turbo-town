@@ -421,9 +421,12 @@ flip like your car.
   Honk and the car ahead pulls over or moves a lane right. Park in a lane and
   traffic drives around you through the oncoming lane when it's clear (trucks
   and buses wait instead).
-- **Cost:** removed cars wait in a small pool per type and are reused
-  (repaired and repainted), and drivers more than 140 m from the player update
-  at half rate. `--bench` (with a window) prints spawn and render costs.
+- **Cost:** removed cars wait in a pool per type (set up while the game
+  loads) and are reused (repaired and repainted); a refill after a respawn
+  spreads its spawns over a few frames. Far from the players a car's physics
+  updates at half rate (beyond 70 m) or a quarter (beyond 150 m), and its
+  driver thinks only on those ticks. `--bench` (with a window) prints spawn
+  and render costs, `--framebench` where each frame's time goes.
 - **Tuning:** `max_cars`, spawn distances and the vehicle mix (`car_scenes` +
   `car_weights`) are on the `Traffic` node in `main.tscn`. Traffic is a mix of
   sports cars, sedans, vans, delivery trucks and buses. Each vehicle scene sets
@@ -678,6 +681,7 @@ The commands are what goes after `godot --path .`.
 | `-- --lanes=<dir>` | Passing a parked player, horn reactions, highway lane changes |
 | `-- --junction=<dir>` | The highway / avenue junction for 150 s: turns used, crashes, jams |
 | `--headless --fixed-fps 120 -- --spawncheck` | 60 traffic spawns; none may crash |
+| `-- --simlod` | A traffic car at full, half and quarter physics rate drives the same route alike |
 | `--headless --fixed-fps 120 -- --corner=/tmp` | Each vehicle laps the highway with lane changes (roll check) |
 | `--headless --fixed-fps 120 -- --uturn=/tmp` | A car U-turns at a dead end |
 | `--headless -s res://scripts/dev/traffic_graph_check.gd` | Lane graph sanity |
@@ -703,6 +707,8 @@ the Steam Deck on a PC.
 |---|---|
 | `--headless --fixed-fps 120 -- --bench` | Physics cost with and without traffic, spawn cost |
 | `--fixed-fps 120 -- --bench` | The same, plus real spawn and render costs |
+| `-- --framebench` | Each frame split into physics scripts, physics step, process and render, city traffic off and on (`scripts/dev/frame_probe.gd`) |
+| `-- --spawnbench` | Frame hitches while traffic fills in: game start, teleports (with traffic off for comparison), steady traffic |
 | `--gpu-index 0 -- --perfsweep=<dir>` | GPU cost of each graphics effect, Medium / Low, trees and grass, standing and driving |
 | `--gpu-index 0 --resolution 1280x800 -- --splitbench=<dir>` | One view vs split-screen: GPU and frame time, draw calls at Low / Medium / High (`--levels=0,1 --views=city_city`) |
 | `--gpu-index 0 -- --flightbench=<dir>` | GPU cost flying over the city at 60, 150 and 300 m, Medium / Low / High |

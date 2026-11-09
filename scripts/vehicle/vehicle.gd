@@ -156,6 +156,18 @@ var scrape_point := Vector3.ZERO
 ## The hardest bodywork contact this tick (impulse, N s), for knocks that are
 ## too soft to count as an impact.
 var contact_impulse := 0.0
+## Physics level of detail, for traffic far from every player: the wheels and
+## forces are worked out every `sim_every` physics ticks (with that many
+## ticks' dt), and the engine keeps applying the result as a constant force
+## and torque in between, so the car still moves smoothly at the full tick
+## rate. 1 = every tick (the players' vehicles always). See set_sim_every().
+var sim_every := 1
+var _sim_phase := 0
+var _held_force := Vector3.ZERO
+var _held_torque := Vector3.ZERO
+## Centre of mass relative to the body's origin, in global axes (from the
+## physics engine, for the held torque).
+var _com_offset := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -265,6 +277,14 @@ func _find_pair(front: bool) -> Array[VehicleWheel]:
 
 
 func _physics_process(dt: float) -> void:
+	if sim_every > 1:
+		_sim_phase += 1
+		if _sim_phase < sim_every:
+			return  # the held force and torque carry on
+		_sim_phase = 0
+		dt *= sim_every
+		_held_force = Vector3.ZERO
+		_held_torque = Vector3.ZERO
 	forward_speed = linear_velocity.dot(-global_basis.z)
 	speed_kmh = linear_velocity.length() * 3.6
 
@@ -293,10 +313,57 @@ func _physics_process(dt: float) -> void:
 	if _pending_impact > 0.0:
 		impact.emit(_pending_impact, _pending_impact_pos, _pending_impact_normal)
 		_pending_impact = 0.0
+	if sim_every > 1:
+		constant_force = _held_force
+		constant_torque = _held_torque
+
+
+## True if the physics update runs this tick (for scripts that run before
+## the vehicle's, like a TrafficDriver: inputs set on other ticks wait).
+func updates_this_tick() -> bool:
+	return sim_every == 1 or _sim_phase + 1 >= sim_every
+
+
+## Sets the physics level of detail (see sim_every): 1 = every tick.
+func set_sim_every(n: int) -> void:
+	n = maxi(n, 1)
+	if n == sim_every:
+		return
+	sim_every = n
+	# Spread the cars over the ticks.
+	_sim_phase = randi() % n
+	if n == 1:
+		constant_force = Vector3.ZERO
+		constant_torque = Vector3.ZERO
+
+
+## Pushes the car with `force` at `offset` (from the body's origin, global
+## axes) for this tick, or holds it until the next update (sim_every > 1).
+func push(force: Vector3, offset: Vector3) -> void:
+	if sim_every == 1:
+		apply_force(force, offset)
+		return
+	_held_force += force
+	_held_torque += (offset - _com_offset).cross(force)
+
+
+func push_central(force: Vector3) -> void:
+	if sim_every == 1:
+		apply_central_force(force)
+	else:
+		_held_force += force
+
+
+func push_torque(torque: Vector3) -> void:
+	if sim_every == 1:
+		apply_torque(torque)
+	else:
+		_held_torque += torque
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	# Only gathers collision info; forces are applied in _physics_process.
+	_com_offset = state.center_of_mass
 	_body_touching = state.get_contact_count() > 0
 	scrape_speed = 0.0
 	contact_impulse = 0.0
@@ -439,9 +506,9 @@ func _apply_anti_roll(pair: Array[VehicleWheel], stiffness: float) -> void:
 	var f := diff * stiffness
 	var up := global_basis.y
 	if l.grounded:
-		apply_force(up * f, l.global_position - global_position)
+		push(up * f, l.global_position - global_position)
 	if r.grounded:
-		apply_force(-up * f, r.global_position - global_position)
+		push(-up * f, r.global_position - global_position)
 
 
 ## Simple ESC: damps yaw beyond what the steering asks for, so the car doesn't
@@ -464,14 +531,14 @@ func _apply_stability(dt: float) -> void:
 	var margin := 0.12
 	if absf(err) > margin:
 		var correction := (absf(err) - margin) * signf(err)
-		apply_torque(-up * correction * inertia.y * stability_control)
+		push_torque(-up * correction * inertia.y * stability_control)
 
 
 func _apply_aero() -> void:
 	var v := linear_velocity
-	apply_central_force(-v * v.length() * drag_coefficient)
+	push_central(-v * v.length() * drag_coefficient)
 	if grounded_wheels > 0:
-		apply_central_force(-global_basis.y * downforce_coefficient * forward_speed * forward_speed)
+		push_central(-global_basis.y * downforce_coefficient * forward_speed * forward_speed)
 
 
 func _update_air(dt: float, was_airborne: bool) -> void:
@@ -490,7 +557,7 @@ func _update_air(dt: float, was_airborne: bool) -> void:
 			var strength := air_stabilization * air_assist_scale * smoothstep(0.35, 0.75, up.y) * (1.0 - smoothstep(2.5, 5.0, ang.length()))
 			# Tuned on the 1.3 t sports car; scale so heavy vehicles feel the same.
 			var inertia_scale := inertia.x / 2100.0 if inertia.x > 0.0 else 1.0
-			apply_torque((axis * 2500.0 - ang * 900.0) * strength * inertia_scale)
+			push_torque((axis * 2500.0 - ang * 900.0) * strength * inertia_scale)
 	else:
 		if was_airborne and airtime > 0.35:
 			landed.emit(airtime)
@@ -546,6 +613,7 @@ func teleport(xform: Transform3D) -> void:
 	engine_rpm = idle_rpm
 	airtime = 0.0
 	upside_down_time = 0.0
+	set_sim_every(1)
 	for w in wheels:
 		w.reset_state()
 	reset_physics_interpolation()

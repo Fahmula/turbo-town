@@ -438,6 +438,21 @@ driver in the seat" from the on-foot milestone and "a visible passenger" from ri
 - [x] Traffic car pooling and far-car LOD (performance): spawns went from 8-10 ms to under
       1 ms (pooled) / ~2.7 ms (new); drivers over 140 m away think at half rate. Visibility
       ranges measured as not worth it (all traffic = +100 draw calls, no GPU time change)
+- [x] Smoother traffic fills (2026-11-08): a respawn or teleport used to put up to 22 cars on the
+      road in one physics tick (14-66 ms on the dev machine, also at game start), and the 4-per-type
+      pool was too small for a refill, so 3-15 cars per teleport were built from scratch. Now the
+      pool is set up while loading (24 cars, ~90 ms) and sized by car_weights, and a fill spends at
+      most 2 ms per frame: worst traffic tick 2.5-6.4 ms, ~0-2 new cars per teleport
+      (`--spawnbench`)
+- [x] Traffic's steady CPU cost (2026-11-08): GDScript at 120 ticks a second, ~3.4 ms per tick with
+      ~20 cars (car physics ~1.7, drivers ~1.0). Car physics LOD by distance (`Vehicle.sim_every`:
+      half rate beyond 70 m, quarter beyond 150 m), drivers think on their car's update ticks, a
+      cheaper `_plan_speed` path walk: traffic ~2.9 -> ~1.45 ms per tick, frames over 20 ms
+      21-27 -> 0 per 5 s (`--framebench`, `--simlod`; ART_BIBLE.md §27 "Traffic CPU")
+- [ ] `--junction`'s "5 kinds of moves" check is flaky (fails ~half the runs before and after the
+      traffic LOD: highway left turns are rare); one `--lanes` run in six had a bus give up stuck at
+      a signal (none in five runs of the old code): watch for it
+- [ ] Measure traffic on the Deck (CPU): physics scripts per tick with 22 cars (`--framebench`)
 - [x] Export presets (Linux x86_64 / Steam Deck; Windows preset added — needs the
       Windows export templates installed to build)
 - [x] Test on a real gamepad; add rumble (owner verified the gamepad 2026-10-01)
