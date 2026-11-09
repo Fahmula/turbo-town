@@ -228,6 +228,8 @@ func _fly(dt: float) -> void:
 
 	var want_up := Vector3.UP
 	var thrust := 0.0
+	# Assists on: climbing and sinking push straight up / down (see below).
+	var push := 0.0
 	var resting := on_ground and lift < 0.1 and trick_left <= 0.0
 	if assists:
 		var vs_want := lift * (climb_rate if lift > 0.0 else sink_rate)
@@ -247,8 +249,15 @@ func _fly(dt: float) -> void:
 			a_f = 0.0
 			a_s = 0.0
 		_lean = move_toward(_lean, a_f, LEAN_RATE * dt)
-		want_up = (hd * _lean + hr * a_s + Vector3.UP * (g + a_up)).normalized()
-		thrust = mass * (g + a_up) / maxf(up.y, 0.35)
+		# The lean comes from the stick alone: the rotor's pull along it holds
+		# the weight (so it goes the way it leans), and the triggers' climb or
+		# sink is a push straight up or down on top. Leaning along the whole
+		# push instead tipped it toward flat for a moment whenever a trigger
+		# was pressed or let go while moving (the "yo-yo", owner 2026-11-09).
+		want_up = (hd * _lean + hr * a_s + Vector3.UP * g).normalized()
+		thrust = weight / maxf(up.y, 0.35)
+		# Not upside down: the push fades out past ~70° of tilt.
+		push = mass * a_up * clampf((up.y - 0.2) / 0.3, 0.0, 1.0)
 	else:
 		# The stick leans it; turns bank by themselves so they stay tidy.
 		var lean := -clampf(pitch_input, -1.0, 1.0) * tan(deg_to_rad(PRO_TILT))
@@ -275,19 +284,23 @@ func _fly(dt: float) -> void:
 		trick_w = axis * TRICK_RATE
 		trick_left -= absf(angular_velocity.dot(axis)) * dt
 		thrust = weight * 0.6
+		push = 0.0
 		if on_ground:
 			trick_left = 0.0
 
 	if resting:
 		thrust = minf(thrust, weight * 0.25)
+		push = 0.0
+	# What the rotor can give covers the weight first, then the climb.
 	thrust = clampf(thrust, 0.0, t_max)
-	throttle = move_toward(throttle, minf(thrust / maxf(max_thrust * weight, 1.0) * 1.6, 1.0), dt * 3.0)
+	push = clampf(push, -thrust * maxf(up.y, 0.0), t_max - thrust)
+	throttle = move_toward(throttle, clampf((thrust + push) / maxf(max_thrust * weight, 1.0) * 1.6, 0.0, 1.0), dt * 3.0)
 
-	# Forces: rotor thrust along the body's up axis, drag (much more against
-	# moving up and down through the rotor).
+	# Forces: rotor thrust along the body's up axis, the climb / sink push,
+	# drag (much more against moving up and down through the rotor).
 	var drag := -v_h * (0.5 * AIR_DENSITY * drag_area * v_h.length())
 	drag += Vector3.DOWN * signf(v.y) * 0.5 * AIR_DENSITY * vertical_drag_area * v.y * v.y
-	apply_central_force(up * thrust + drag)
+	apply_central_force(up * thrust + Vector3.UP * push + drag)
 
 	# Torque: turn the up axis toward want_up and the nose at yaw_w (or spin
 	# for a trick), as hard as the rotor can at its speed. Standing on the

@@ -589,8 +589,10 @@ The helicopter (`helicopter.gd`) is an `Aircraft` too, with its own rig
   slowly when it stops. Drag is much stronger moving up and down than along.
 - With assists on, the stick asks for a speed along the nose and a turn
   rate, the triggers for a climb rate. A controller works out the lean that
-  gets there (and holds the speed against drag), and the rotor's pull for
-  the climb; turns are limited to what a banked turn at that speed can
+  gets there (and holds the speed against drag); the rotor's pull along
+  that lean holds the weight, and the climb or sink is a push straight up
+  or down on top, so the triggers never change the lean or the speed.
+  Turns are limited to what a banked turn at that speed can
   follow, so it goes where the nose points. The nose goes down or up at a
   limited rate (about 0.7 s to 20°), not in a snap. Below 14 m a descent slows
   toward 1.4 m/s; lower than 0.6 m with nothing pressed it settles onto its

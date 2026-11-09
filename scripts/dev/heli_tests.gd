@@ -132,6 +132,7 @@ func run() -> void:
 	await _forward(h)
 	await _turns(h)
 	await _back_and_vertical(h)
+	await _up_down_while_moving(h)
 	await _tricks(h)
 	await _help_button(h)
 	await _teleports(h)
@@ -298,6 +299,67 @@ func _back_and_vertical(h: Helicopter) -> void:
 	check(h.vertical_speed < -5.0, "full down sinks at %.1f m/s" % h.vertical_speed)
 	await fly(3.0, 0.0, 0.0, 0.0, 0.0)
 	check(absf(h.vertical_speed) < 0.5, "let go: holds its height again (%.2f m/s)" % h.vertical_speed)
+
+
+## Flies `seconds` with the stick and triggers held and records the nose
+## (degrees, + = down), the speed along the heading and its change (m/s²).
+func _trace(h: Helicopter, seconds: float, up: float, down: float, fwd: float, label: String) -> Dictionary:
+	var r := {"pmin": 999.0, "pmax": -999.0, "vmin": 999.0, "vmax": -999.0, "amax": 0.0}
+	var t := 0.0
+	var next := 0.0
+	var v_last := h.linear_velocity.dot(h.heading_dir())
+	stick(up, down, fwd, 0.0)
+	while t < seconds:
+		await tick()
+		t += dt()
+		var pitch := rad_to_deg(asin(clampf(h.global_basis.z.y, -1.0, 1.0)))
+		var v := h.linear_velocity.dot(h.heading_dir())
+		r.pmin = minf(r.pmin, pitch)
+		r.pmax = maxf(r.pmax, pitch)
+		r.vmin = minf(r.vmin, v)
+		r.vmax = maxf(r.vmax, v)
+		r.amax = maxf(r.amax, absf(v - v_last) / dt())
+		v_last = v
+		if t >= next:
+			next += 0.25
+			print("    %s t=%.2f  nose %+.0f°  fwd %.1f m/s  vs %+.1f" % [label, t, pitch, v, h.vertical_speed])
+	r["end_v"] = v_last
+	return r
+
+
+## Up or down (the triggers) while flying forward or back: the nose keeps
+## the lean the stick asked for, the speed doesn't surge (owner: "a little
+## yo-yo", 2026-11-09).
+func _up_down_while_moving(h: Helicopter) -> void:
+	print("-- up and down while moving")
+	await reposition(h, 160.0)
+	var r := await _trace(h, 4.0, 0.98, 0.0, 1.0, "fwd+up")
+	check(r.pmax < 32.0 and r.pmin > -3.0, "forward and up from a hover: the nose leans in, no fling (%.0f..%.0f°)" % [r.pmin, r.pmax])
+	await reposition(h, 160.0)
+	r = await _trace(h, 4.0, 0.0, 0.98, 1.0, "fwd+down")
+	check(r.pmax < 32.0 and r.pmin > -3.0, "forward and down from a hover: the nose leans in, no fling (%.0f..%.0f°)" % [r.pmin, r.pmax])
+	await reposition(h, 160.0)
+	r = await _trace(h, 3.0, 0.0, 0.98, -1.0, "back+down")
+	check(r.pmin > -32.0 and r.pmax < 3.0, "back and down: the nose comes up, no fling (%.0f..%.0f°)" % [r.pmin, r.pmax])
+	check(r.vmin > -h.max_back_speed - 1.5, "and backward speed doesn't overshoot (%.1f m/s)" % r.vmin)
+	await reposition(h, 160.0)
+	r = await _trace(h, 3.0, 0.98, 0.0, -1.0, "back+up")
+	check(r.pmin > -32.0 and r.pmax < 3.0, "back and up: the nose comes up, no fling (%.0f..%.0f°)" % [r.pmin, r.pmax])
+	# At full speed, then down, let go of down, up, let go of up.
+	# From the south coast, so 24 s of full speed and the four steps stay
+	# inside the island's edge (beyond it the helicopter turns itself back).
+	h.place_in_flight(Vector3(0.0, 200.0, 900.0), Vector3.FORWARD)
+	await fly(24.0, 0.0, 0.0, 1.0, 0.0)
+	var v0 := h.linear_velocity.dot(h.heading_dir())
+	var p0 := rad_to_deg(asin(h.global_basis.z.y))
+	print("    full speed: %.1f m/s, nose %.0f°" % [v0, p0])
+	for step: Array in [["down", 0.0, 0.98], ["let go", 0.0, 0.0], ["up", 0.98, 0.0], ["let go", 0.0, 0.0]]:
+		r = await _trace(h, 2.5, step[1], step[2], 1.0, "fast+" + step[0])
+		check(r.pmax - p0 < 4.0 and p0 - r.pmin < 6.0, "full speed, %s: the nose stays put (%.0f..%.0f°, was %.0f°)" % [step[0], r.pmin, r.pmax, p0])
+		check(r.vmax - v0 < 2.5 and v0 - r.vmin < 2.5 and r.amax < 4.0,
+			"full speed, %s: no surge (%.1f..%.1f m/s, was %.1f; most %.1f m/s²)" % [step[0], r.vmin, r.vmax, v0, r.amax])
+	check(not game.heli_controller.turning_back, "(still inside the island's edge: z %.0f)" % h.global_position.z)
+	release()
 
 
 func _tricks(h: Helicopter) -> void:

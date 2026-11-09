@@ -410,12 +410,17 @@ The owner's son wants a helicopter (owner, 2026-11-08).
       the slap's beat carries above 220 Hz for the Deck's speakers)
 - [x] Seated pilot fitted (`--seatsheet`: hands 1 cm short / 3 cm to spare, feet 4 cm to spare,
       13 cm headroom)
-- [x] Tests: `--heli` (85 checks), a helicopter section in `--ride`; `--flight`, `--garage`,
+- [x] Tests: `--heli` (99 checks), a helicopter section in `--ride`; `--flight`, `--garage`,
       `--onfoot`, `--seats` still pass
 - [x] Owner's first flight (2026-11-09, PC): "flies good". Fixed from it: a "tap tap tap" when
       getting in (the start-up's igniter ticks, the loudest thing in it: removed), the nose
       snapping down / up (now eased: 20° after 0.66 s instead of 0.29 s, a stop takes 9.4 s instead
       of 8.8 s), the blades shown spinning faster (main rotor ~215 rpm on screen, was ~124)
+- [x] Owner's second flight: a "yo-yo" when pressing or letting go of up / down while moving (the
+      nose flung to 74-80° at full speed, then swung back; the assist leaned along the whole push,
+      climb included). Now the lean comes from the stick only and the climb / sink is a push
+      straight up: the nose and speed hold steady through the triggers (`--heli` "up and down
+      while moving")
 - [ ] Owner review, then the son on the Deck: feel, sound through the Deck's speakers, landing on
       rooftops
 
@@ -610,3 +615,4 @@ The owner's son wants a helicopter (owner, 2026-11-08).
   airfield's new helipads.
 - 2026-11-09 — Helicopter, owner feedback: no more "tap tap tap" on getting in, a gentler nose lean, faster
   blades.
+- 2026-11-09 — Helicopter: no "yo-yo" when going up or down while flying forward or back.
