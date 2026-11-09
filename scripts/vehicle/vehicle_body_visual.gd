@@ -194,12 +194,15 @@ static func _swap_for(mat: Material, paint: Color, parked: bool, dirt_top: float
 				nm.shader = NAV_SHADER
 				made["nav"] = nm
 			return made["nav"]
-		"PropBlur":
-			if not made.has("prop"):
+		"PropBlur", "RotorBlur", "TailBlur":
+			# A propeller's or rotor's blur disc (Aircraft / Helicopter set its
+			# size and fade it in).
+			var role: String = {"PropBlur": "prop", "RotorBlur": "rotor", "TailBlur": "tail_rotor"}[String(mat.resource_name)]
+			if not made.has(role):
 				var pm := ShaderMaterial.new()
 				pm.shader = PROP_SHADER
-				made["prop"] = pm
-			return made["prop"]
+				made[role] = pm
+			return made[role]
 	return null
 
 

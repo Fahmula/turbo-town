@@ -187,7 +187,8 @@ Only files listed there as CC BY 4.0 or CC0 are used. Its older VDrift sounds
 Synthesised by `tools/audio/synth.py` (no third-party material): reverse
 beeper, wind, road roar on asphalt, turbo and supercharger whine, blow-off,
 exhaust pops, gear-shift clunk, suspension knocks and landings,
-splashes, the plane's propeller, and the garage's extra horns (`horn/klaxon.wav`,
+splashes, the plane's propeller, the helicopter's turboshaft, start-up and
+rotors (`engine/turbine/`, `engine/rotor.wav`), and the garage's extra horns (`horn/klaxon.wav`,
 `tune.wav` (a made-up fanfare), `clown.wav`, `train.wav`; `build_audio.py horns`).
 (Fallbacks kept in the script but not used: tyre squeal, gravel, horns, air brakes.) The engine start-ups mix the recorded starter crank with
 each engine's own idle loop; the glass shatters `glass_7-8` and `tinkle_4-5`

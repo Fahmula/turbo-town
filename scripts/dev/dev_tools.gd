@@ -49,6 +49,10 @@ extends Node
 ##   --flight=<dir>   the plane: take-off, cruise, turns, loop, roll, stall, help button,
 ##                    teleports, the island's edge, landing, getting out and in, crash,
 ##                    garage swaps (checks and shots; scripts/dev/flight_tests.gd)
+##   --heli=<dir>     the helicopter: garage, rotor start, take-off, hover, forward flight,
+##                    turns, tricks, help button, teleports, the island's edge, landing,
+##                    getting out and in, the parked one, crash, garage swaps, assists off
+##                    (checks and shots; scripts/dev/heli_tests.gd)
 ##   --flightbench=<dir> GPU time / draw calls flying over the city at 60, 150 and 300 m,
 ##                    Medium / Low / High (use --gpu-index 0, the iGPU, as a Deck stand-in)
 ##   --split=<dir>    two players in split-screen: joining with a second gamepad, each
@@ -216,6 +220,9 @@ func _ready() -> void:
 		elif arg.begins_with("--flightbench="):
 			_mode = "flightbench"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--heli="):
+			_mode = "heli"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--split="):
 			_mode = "split"
 			_dir = arg.split("=")[1]
@@ -377,6 +384,8 @@ func _run() -> void:
 		await preload("res://scripts/dev/flight_tests.gd").new(self, game, _dir).run()
 	elif _mode == "flightbench":
 		await preload("res://scripts/dev/flight_tests.gd").new(self, game, _dir).bench()
+	elif _mode == "heli":
+		await preload("res://scripts/dev/heli_tests.gd").new(self, game, _dir).run()
 	elif _mode == "split":
 		await preload("res://scripts/dev/split_tests.gd").new(self, game, _dir).run()
 	elif _mode == "splitbench":
@@ -1130,9 +1139,10 @@ func _check_wiring(game: Game, label: String) -> void:
 			players += 1
 	_check(players == 1, "%s: one player vehicle in the scene (%d)" % [label, players])
 	if v is Aircraft:
-		# Planes have their own rig: flight controls and the flight camera.
-		_check(game.flight_controller.vehicle == v and game.flight_camera.target == v and game.hud.vehicle == v
-			and game.controller.vehicle == null, "%s: flight controls, camera and HUD follow the new plane" % label)
+		# Planes and the helicopter have rigs of their own (controls and camera).
+		var rig: Dictionary = game.possession.rigs[game.possession.kind_of(v)]
+		_check(rig["controller"].vehicle == v and rig["camera"].target == v and game.hud.vehicle == v
+			and game.controller.vehicle == null, "%s: flight controls, camera and HUD follow the new aircraft" % label)
 	else:
 		_check(game.controller.vehicle == v and game.camera.target == v and game.hud.vehicle == v,
 			"%s: controller, camera and HUD follow the new vehicle" % label)

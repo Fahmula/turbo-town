@@ -43,6 +43,9 @@ var foot_controller: PlayerCharacterController
 ## the plane when the player sits in one).
 var flight_controller: PlayerAircraftController
 var flight_camera: FlightCamera
+## The helicopter rig: its controls and camera.
+var heli_controller: PlayerHelicopterController
+var heli_camera: HeliCamera
 var camera_blend: CameraBlend
 var stunts: StuntTracker
 ## Vehicles the player got out of earlier (not `vehicle`), oldest first.
@@ -130,6 +133,15 @@ func _make_character() -> void:
 	flight_controller.name = "FlightController" + sfx
 	flight_controller.process_mode = Node.PROCESS_MODE_PAUSABLE
 	game.add_child(flight_controller)
+	heli_camera = HeliCamera.new()
+	heli_camera.name = "HeliCamera" + sfx
+	heli_camera.far = camera.far
+	heli_camera.process_mode = Node.PROCESS_MODE_PAUSABLE
+	game.add_child(heli_camera)
+	heli_controller = PlayerHelicopterController.new()
+	heli_controller.name = "HeliController" + sfx
+	heli_controller.process_mode = Node.PROCESS_MODE_PAUSABLE
+	game.add_child(heli_controller)
 	possession = Possession.new()
 	possession.name = "Possession" + sfx
 	possession.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -139,6 +151,7 @@ func _make_character() -> void:
 		{"controller": foot_controller, "camera": foot_camera},
 		{"controller": controller, "camera": camera}, camera_blend)
 	possession.add_rig(Controllable.PLANE, {"controller": flight_controller, "camera": flight_camera})
+	possession.add_rig(Controllable.HELI, {"controller": heli_controller, "camera": heli_camera})
 	possession.changed.connect(_on_pawn_changed)
 
 
@@ -184,7 +197,7 @@ func _on_combo_banked(points: int, _place: int) -> void:
 ## Gives every controller and camera of this player `inp` (their devices).
 func set_input(inp: PlayerInput) -> void:
 	input = inp
-	for n: Object in [controller, flight_controller, foot_controller, camera, foot_camera, flight_camera]:
+	for n: Object in [controller, flight_controller, heli_controller, foot_controller, camera, foot_camera, flight_camera, heli_camera]:
 		if n:
 			n.set("input", inp)
 	if hud:
@@ -196,11 +209,12 @@ func set_controls(on: bool) -> void:
 	controller.enabled = on
 	foot_controller.enabled = on
 	flight_controller.enabled = on
+	heli_controller.enabled = on
 
 
 ## The rig nodes that render this player's view: the cameras and the HUD.
 func _view_nodes() -> Array[Node]:
-	return [camera, foot_camera, flight_camera, camera_blend, hud]
+	return [camera, foot_camera, flight_camera, heli_camera, camera_blend, hud]
 
 
 ## Split-screen: this player now sees the world through `v` (their half of
@@ -218,7 +232,7 @@ func enter_view(v: SubViewport) -> void:
 	if v:
 		mask &= ~Views.ALL_VIEW_LAYERS
 		mask |= Views.VIEW_LAYERS[index]
-	for cam: Camera3D in [camera, foot_camera, flight_camera, camera_blend]:
+	for cam: Camera3D in [camera, foot_camera, flight_camera, heli_camera, camera_blend]:
 		cam.cull_mask = mask
 	if v:
 		active.current = true
@@ -329,7 +343,7 @@ func _with_anyone() -> bool:
 func free_rig() -> void:
 	set_input(PlayerInput.shared())
 	for n: Node in [character, foot_camera, foot_controller, camera_blend, flight_camera, flight_controller,
-			possession, stunts, _tag, controller, camera, hud]:
+			heli_camera, heli_controller, possession, stunts, _tag, controller, camera, hud]:
 		if n and is_instance_valid(n):
 			n.process_mode = Node.PROCESS_MODE_DISABLED
 			n.queue_free()
@@ -367,7 +381,7 @@ func _on_pawn_changed(pawn: Node3D) -> void:
 	if hud.vehicle != shown:
 		hud.set_vehicle(shown)
 	hud.passenger = ride != null
-	hud.set_flying(plane != null)
+	hud.set_flying(plane != null, pawn is Helicopter)
 	hud.set_on_foot(foot, character, foot_camera)
 	controller.riding = ride
 	stunts.enabled = stunts_wanted()
@@ -405,6 +419,9 @@ func _note_ride(ride: Vehicle) -> void:
 
 ## How to take off, for the controller in use.
 func _take_off_tip() -> void:
+	if vehicle is Helicopter:
+		hud.show_toast("Hold %s to take off!" % ("RT" if hud.using_pad else "Shift"), 5.0)
+		return
 	if hud.using_pad:
 		hud.show_toast("Hold RT for power, pull the stick back at 80 km/h!", 5.0)
 	else:
@@ -476,14 +493,18 @@ func _teleport_plane(plane: Aircraft, sp: Dictionary) -> void:
 		foot_camera.snap()
 		return
 	if sp["name"] == "Airfield":
-		plane.teleport(game.runway_start(plane, _runway_lane()))
+		plane.teleport(game.helipad_start(plane, _runway_lane()) if plane is Helicopter else game.runway_start(plane, _runway_lane()))
 	else:
 		var xf: Transform3D = sp["xform"]
 		var heading := -xf.basis.z
 		heading.y = 0.0
 		# Side by side when both players fly to the same place.
 		var side := heading.cross(Vector3.UP).normalized() * _runway_lane() if heading.length() > 0.1 else Vector3.ZERO
-		plane.place_in_flight(xf.origin + Vector3.UP * 90.0 + side * 2.0, heading.normalized() if heading.length() > 0.1 else Vector3.FORWARD)
+		# (A helicopter hovers lower, over the place, side by side well apart.)
+		var up := 35.0 if plane is Helicopter else 90.0
+		if plane is Helicopter:
+			side *= 2.0
+		plane.place_in_flight(xf.origin + Vector3.UP * up + side * 2.0, heading.normalized() if heading.length() > 0.1 else Vector3.FORWARD)
 	snap_camera()
 
 
@@ -495,10 +516,11 @@ func _runway_lane() -> float:
 	return -7.0 if index == 0 else 7.0
 
 
-## Puts the player's plane on the runway, ready for take-off (a vehicle
-## someone left standing there is cleared away first).
+## Puts the player's plane on the runway, ready for take-off, or their
+## helicopter on the airfield's helipad (a vehicle someone left standing
+## there is cleared away first).
 func _put_on_runway(plane: Aircraft) -> void:
-	var start := game.runway_start(plane, _runway_lane())
+	var start := game.helipad_start(plane, _runway_lane()) if plane is Helicopter else game.runway_start(plane, _runway_lane())
 	for p in game.players:
 		for v: Vehicle in p.left_vehicles.duplicate():
 			if is_instance_valid(v) and v != plane and v.global_position.distance_to(start.origin) < 12.0 \
@@ -519,6 +541,8 @@ func snap_camera() -> void:
 	camera.snap()
 	if flight_camera:
 		flight_camera.snap()
+	if heli_camera:
+		heli_camera.snap()
 
 
 ## Back to the spawn point, or during a race to the last gate passed.
@@ -563,8 +587,9 @@ func regroup(other: LocalPlayer) -> void:
 	if flying_there:
 		# They're in the air: meet them at the nearest place on the ground.
 		near = null
-	if plane:
+	if plane and not (plane is Helicopter):
 		# A plane stays where it is: walk over on foot (or wait at the runway).
+		# (A helicopter comes along like a car.)
 		if not possession.on_foot():
 			hud.show_toast("Land and get out first!")
 			return
@@ -633,7 +658,7 @@ func physics_tick(dt: float) -> void:
 	var p := pawn.global_position
 	var edge := 2600.0 if pawn is Aircraft else 1500.0
 	var lost := p.y < MapLayout.SEA_LEVEL - 0.8 or p.y < -60.0 or absf(p.x) > edge or absf(p.z) > edge
-	hud.turning_back = flight_controller.turning_back
+	hud.turning_back = flight_controller.turning_back or heli_controller.turning_back
 	if lost:
 		if _lost_timer == 0.0:
 			hud.show_popup("SPLASH!" if p.y > -60.0 else "WHOOPS!")
@@ -664,7 +689,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if game.state != Game.State.DRIVING:
 		return
-	for cam: Node in [camera, foot_camera, flight_camera]:
+	for cam: Node in [camera, foot_camera, flight_camera, heli_camera]:
 		cam.handle_input(event)
 
 
@@ -689,10 +714,14 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 	loadout.apply(car)
 	var on_foot := possession != null and not possession.driving()
 	var plane := car as Aircraft
+	var heli := car as Helicopter
+	var old_flying := old is Aircraft and not (old as Aircraft).on_ground
+	var old_xform := old.global_transform
 	var spot := {}
-	if place_here and plane == null and not (old is Aircraft and not (old as Aircraft).on_ground):
-		# (Planes go to the runway; a car never appears in the sky under a
-		# flying plane: it goes to the spawn point.)
+	if place_here and (plane == null or heli != null) and not old_flying:
+		# (Planes go to the runway, helicopters stand where a car would; a
+		# car never appears in the sky under a flying aircraft: it goes to
+		# the spawn point.)
 		if on_foot:
 			spot = _room_beside_character(car, old)
 			if spot.is_empty():
@@ -724,7 +753,13 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 		r.possession.start_riding(car)
 	if not place_here:
 		return
-	if plane:
+	if heli and old_flying:
+		# Swapped in the air: the helicopter hovers where the old one flew.
+		var dir := -old_xform.basis.z
+		dir.y = 0.0
+		heli.place_in_flight(old_xform.origin, dir.normalized() if dir.length() > 0.1 else Vector3.FORWARD)
+		snap_camera()
+	elif plane and (heli == null or spot.is_empty()):
 		_put_on_runway(plane)
 	elif spot.is_empty():
 		teleport_to(spawn_index)
@@ -737,14 +772,18 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 ## (the garage, picking the vehicle you already have while on foot).
 func _drive_up(v: Vehicle) -> void:
 	possession.leave_ride_now()
-	if v is Aircraft:
+	var spot := {}
+	if not (v is Aircraft) or v is Helicopter:
+		spot = _room_beside_character(v, v)
+		if spot.is_empty():
+			spot = spot_near(character, v)
+	if spot.is_empty() and v is Aircraft:
+		# Planes take off from the runway (a helicopter with no room here
+		# from the helipad).
 		_put_on_runway(v as Aircraft)
 		adopt_vehicle(v)
 		possession.start_in_vehicle(v)
 		return
-	var spot := _room_beside_character(v, v)
-	if spot.is_empty():
-		spot = spot_near(character, v)
 	if not spot.is_empty():
 		v.teleport(spot["xform"])
 	adopt_vehicle(v)

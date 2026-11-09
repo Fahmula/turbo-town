@@ -11,7 +11,7 @@ var _fails := 0
 
 
 func _init() -> void:
-	for id in ["sports_car", "sedan", "van", "box_truck", "bus", "pickup", "buggy", "monster_truck", "plane"]:
+	for id in ["sports_car", "sedan", "van", "box_truck", "bus", "pickup", "buggy", "monster_truck", "plane", "helicopter"]:
 		var car := (load("res://scenes/vehicles/%s.tscn" % id) as PackedScene).instantiate() as Vehicle
 		var audio := car.get_node_or_null("Audio") as VehicleAudio
 		_check(audio != null and audio.profile != null, "%s: Audio node with a profile" % id)

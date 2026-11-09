@@ -865,6 +865,7 @@ docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
 | City bus (`make_bus.py`) | Modern low-floor bus: huge windscreen, continuous dark window band, glass doors, roof air-con, opaque tinted glass. |
 | Buggy (`make_buggy.py`) | Classic desert sand-rail: small open tub with a cockpit dip, full tube roll cage and light bar, exposed engine, rear wing. |
 | Monster truck (`make_monster.py`) | Retro 80s/90s show truck: boxy regular-cab pickup high on a tube chassis, chrome coil-overs, roll bar, exhaust stacks. |
+| Helicopter (`make_heli.py`) | Generic light utility helicopter: rounded teardrop cabin with a big wrap-round windscreen sweeping up into roof windows, chin windows, two doors a side; turbine cowling and exhaust stack on the roof, short mast, two-blade teetering main rotor; slim tail boom with a stabiliser and endplates, swept fin with the tail rotor on the left; tubular skids on two arched cross tubes. A cheat-line livery (`Stripes`, on by default). |
 | Sport plane (`make_plane.py`) | Generic two-seat aerobatic light plane: low tapered wing with dihedral, side-by-side cockpit under a big bubble canopy, cowled flat four with a two-blade propeller (yellow tips) and spinner, tricycle gear in wheel fairings, swept fin with a dorsal strake. A cheat-line livery (the `Stripes` mesh, on by default for planes). |
 
 **Must-have details (as geometry)**
@@ -1023,6 +1024,7 @@ are the authority for wheel positions and radii.
 | Buggy | fictional | | | 3.85 × 1.82 h (cage); r 0.42, x ±0.92, axles ±1.25 |
 | Monster truck | fictional | | | 4.72 × 3.30 h; r 0.95, x ±1.32, axles ±1.65 |
 | Sport plane | 6.0–7.0 | span 7.5–8.5 | 2.2–2.5 | 6.35 long, 8.12 span, 2.3 h; mains r 0.20 at x ±1.02 (0.32 behind the CG), nose r 0.17 at 1.78 ahead |
+| Light helicopter | 9.5–10 (no rotor) | rotor 10–10.5 | 2.9–3.2 | 9.2 long (nose to fin), rotor 10.1, 3.0 h to the hub; skids at x ±1.12, contacts r 0.045 at ±1.05 |
 
 Lengths and heights are measured from the models (height from the ground);
 widths are left out because the mirrors dominate them.
@@ -1077,6 +1079,15 @@ moving parts by name under `Body`):
 | `NavLight` | `VehicleBodyVisual` swaps it for `nav_light.gdshader` (per plane; dark when parked or the engine is off) | UV kind 1 red position light (left tip), 2 green (right tip), 3 white strobe (tips, tail; double flash ~1 s), 4 red beacon (fin); steady lights brighter at night; all timed in the shader |
 | `PropTip` | fixed | the yellow blade tips |
 | `PropBlur` | swapped for `prop_blur.gdshader` (per plane) | the propeller's blur disc: a faint veil, two slow "ghost" blades and a yellow tip ring, faded in with rpm (`amount`, `spin`) |
+
+**The helicopter** uses `NavLight` and `PropTip` the same way, and adds
+`RotorBlur` and `TailBlur` (both swapped for `prop_blur.gdshader`, per
+helicopter, set by `Helicopter`: `axis` 1 = the disc in the XZ plane, 2 = YZ,
+`radius`, `inner`, `tip_strength` 0.3 on the main rotor so its tip ring stays
+faint) and `Frame` (fixed: the skids' painted aluminium tubes). Nodes:
+`MainRotor` (spins about its local Y), `RotorDisc`, `TailRotor` (local X),
+`TailDisc`; `CabinFront`, `HeliBody`, `TailBoom` and `Skids` are deformable.
+The search light under the nose uses `Headlight`.
 
 Nodes: `Propeller` (spins about its local Z), `PropDisc`, `AileronL/R`,
 `FlapL/R`, `Elevator` (local X = hinge line, + = trailing edge down),
@@ -1231,7 +1242,12 @@ explosions unless the owner asks.
   so the plane is split into `PlaneBody` (fuselage, tail, gear, cockpit:
   4.5k exported vertices), `WingL`/`WingR` (0.6–0.7k each), four control
   surfaces, the propeller and the stripes. Total 7.4k; a hit anywhere
-  processes at most ~5.5k (a fuselage hit near a wing root).
+  processes at most ~5.5k (a fuselage hit near a wing root). The
+  helicopter is split the same way: `CabinFront` (2.6k: nose, windscreen,
+  front doors, pilots' seats and panel), `HeliBody` (2.4k: rear cabin,
+  cowling, mast, rear bench; split at the B-pillar shut line, which hides
+  the crease), `TailBoom` (1.5k) and `Skids` (0.7k); at most ~5.7k per pass
+  (a hit at the B-pillar).
 - **Topology:** deformable panels need evenly spaced vertices, about 8–15 cm
   apart on large panels (doors, bonnet, roof, sides), quads where possible.
   **No big n-gons or triangle fans.** (The legacy `extrude_profile` closed
@@ -1782,7 +1798,10 @@ Output goes to `assets/models/`.
   match the vehicle scene. **Planes:** the origin is at the centre of
   gravity on the centre line (y = 0, about the wing's quarter chord), z = 0
   at the main wheels' centre height; moving parts are objects of their own
-  whose local axes are their hinges (see §13).
+  whose local axes are their hinges (see §13). **The helicopter:** the
+  origin is on the centre line under the rotor mast, z = 0 at the skid
+  tubes' centre height (the ground is z = −0.045); each rotor is an object
+  whose origin is its hub.
 - **Lamps and grilles are tagged** with `kind=` on `patch()`/`box()`/`tube()`
   (§13, UV kind tags); every `Part` has a UV layer for it.
 - **Material names follow the contract** (§13). Detachable parts are their own
@@ -2115,7 +2134,12 @@ window):
   parked cars cull, LODs drop). So flying over the city is cheaper than
   driving through it (35–44 ms there at Medium); about 13 ms at Medium on a
   Deck by the 1.6× rule. The plane's reflection probe is off (it would
-  re-capture several times a second).
+  re-capture several times a second). The helicopter (2026-11-09, `--flightbench
+  --vehicle=helicopter`, same line and heights, its camera a little further
+  back) measured within 0.7 ms of the plane on the same run: Medium 21.3 /
+  21.0 / 18.2 ms (plane 20.9 / 20.3 / 17.5), Low 10.7 / 10.5 / 9.5, High
+  29.7 / 28.7 / 24.3; the same draw calls. Its model is 27 surfaces and 12k
+  triangles (the plane 25 and 10k).
 
 - **Split-screen** (2026-10-07, branch `split-screen`, `--splitbench` on the
   iGPU at 1280×800, traffic on, two views of 1280×398; GPU = both views plus
@@ -2475,6 +2499,16 @@ readable, kid-friendly (crashes are big and fun, never scary).
   and air noise pulsing per blade), pitched with rpm and louder with revs
   and power (profile fields `propeller`, `propeller_rpm`,
   `propeller_volume_db`). Wind is the shared speed-driven loop. No horn.
+- **The helicopter:** a synthesised turboshaft (`synth.turbine` at 1,500 /
+  3,000 / 6,000 rpm: compressor whine at rpm × 0.55 Hz, gearbox tone,
+  combustion roar growing with rpm, a high hiss; `synth.turbine_start`, a
+  3.2 s starter wind-up, igniter ticks and light-off) 7 dB under the cars,
+  and the rotors in the `propeller` slot (`synth.rotor`: the main rotor's
+  blade slap at 13.3 Hz built from harmonics up to 1.8 kHz plus a band of air
+  noise pulsing with each pass, the tail rotor's 77 Hz buzz and rotor wash),
+  the loudest part, louder with the collective. 78% of the rotor loop's
+  level is above 220 Hz and its beat survives there, so the Deck's speakers
+  keep the "whop". No horn.
 
 ## 34. Characters
 
@@ -2562,7 +2596,10 @@ is hidden.
   plane slices the door, roof or dash); `--try=` tries other numbers.
 - **Measured fit** (2026-11-08): headroom 5–10 cm in the closed cars (sports
   car 6, monster truck 5, sedan 10), 6–7 cm under the plane's canopy, 20–40 cm
-  in the van, pickup and box truck; hands 1–7 cm to spare everywhere.
+  in the van, pickup and box truck; hands 1–7 cm to spare everywhere. The
+  helicopter (2026-11-09): 13 cm headroom, the stick hand 3 cm to spare, the
+  resting hand 1 cm short, feet 4 cm to spare (`seat_recline` 5°: it sits
+  upright).
 - **Look:** no shadow of its own (the cabin is in the vehicle's shadow; one
   less pass per cascade), same layer as the vehicle. Its owner's hood and
   cockpit views leave it out (the camera sits in its head); in split-screen
@@ -2620,3 +2657,7 @@ is hidden.
 - 2026-11-08: visible drivers (branch `feature/visible-drivers`): §12
   interiors laid out round the seated character, §27 seated-character
   cost, §34 "Seated in vehicles".
+- 2026-11-09: the helicopter (branch `feat/helicopter`): §12 helicopter
+  class and dimensions, §13 its materials and node names (and the blur
+  shader's new axis / inner / tip_strength), §14 its per-pass split, §24
+  its origin, §33 its sound, §34 its seat fit.

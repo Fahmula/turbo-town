@@ -51,6 +51,8 @@ func _init() -> void:
 	grass_exclusions.append(Rect2(MapLayout.BRIDGE_WEST_X - 3.0, -MapLayout.BRIDGE_WIDTH * 0.5 - 1.5, MapLayout.BRIDGE_EAST_X - MapLayout.BRIDGE_WEST_X + 6.0, MapLayout.BRIDGE_WIDTH + 3.0))
 	var ac := MapLayout.APRON_CENTER
 	grass_exclusions.append(Rect2(ac.x - 45.0, ac.z - MapLayout.APRON_SIZE.y * 0.5 - 24.0, 100.0, 24.0))
+	var hs := MapLayout.HELIPAD_SIZE * 0.5
+	grass_exclusions.append(Rect2(MapLayout.HELIPAD_A.x - hs, MapLayout.HELIPAD_A.z - hs, MapLayout.HELIPAD_B.x - MapLayout.HELIPAD_A.x + hs * 2.0, hs * 2.0))
 
 
 # ---------------------------------------------------------------- heights ---

@@ -50,6 +50,18 @@ const CONTROLS_FLYING := [
 	["Camera view / cockpit", "C", "RB"],
 	["Flying assists on/off", "T", ""],
 ]
+const CONTROLS_HELI := [
+	["Go up (hold)", "Shift", "RT"],
+	["Go down / land", "Ctrl", "LT"],
+	["Fly forward / back", "W / S", "Left stick forward / back"],
+	["Turn left / right", "A / D", "Left stick"],
+	["Flip", "Space + W / S", "A + stick forward / back"],
+	["Roll", "Space + A / D", "A + stick left / right"],
+	["Help! Stop and level out", "R", "Y"],
+	["Get out (after landing)", "F", "B"],
+	["Camera view / cockpit", "C", "RB"],
+	["Flying assists on/off", "T", ""],
+]
 const CONTROLS_ANYWHERE := [
 	["Look around", "Mouse", "Right stick"],
 	["Garage: vehicle, paint, wheels", "V", "D-pad down"],
@@ -128,6 +140,7 @@ func _ready() -> void:
 	_add_page(root, "settings", _build_settings())
 	_add_page(root, "controls", _build_controls())
 	_add_page(root, "controls_flying", _build_controls_flying())
+	_add_page(root, "controls_heli", _build_controls_heli())
 	_add_page(root, "records", _build_records())
 	_add_page(root, "races", _build_races())
 	_add_page(root, "credits", _build_credits())
@@ -824,6 +837,8 @@ func _build_controls() -> Control:
 	back.custom_minimum_size = Vector2(200, 0)
 	var fly := _button(buttons, "FLYING", func() -> void: show_page("controls_flying", true))
 	fly.custom_minimum_size = Vector2(200, 0)
+	var heli := _button(buttons, "HELICOPTER", func() -> void: show_page("controls_heli", true))
+	heli.custom_minimum_size = Vector2(200, 0)
 	_first_focus["controls"] = back
 	return center
 
@@ -845,6 +860,26 @@ func _build_controls_flying() -> Control:
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.custom_minimum_size = Vector2(200, 0)
 	_first_focus["controls_flying"] = back
+	return center
+
+
+## The helicopter's controls (a page of their own, like the plane's).
+func _build_controls_heli() -> Control:
+	var center := _centered()
+	var p := UiKit.panel(30)
+	center.add_child(p)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	p.add_child(col)
+	col.add_child(UiKit.page_title("HELICOPTER", 44, UiKit.ACCENT, true))
+	_controls_grid(col, "HELICOPTER (in the garage, or at the Airfield's helipad, 7)", CONTROLS_HELI)
+	var tip := UiKit.label("Take off: wait for the rotor, then hold up.\nLand anywhere flat: go down gently and it settles on its skids.", 20,
+		Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
+	col.add_child(tip)
+	var back := _button(col, "BACK", _back)
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.custom_minimum_size = Vector2(200, 0)
+	_first_focus["controls_heli"] = back
 	return center
 
 

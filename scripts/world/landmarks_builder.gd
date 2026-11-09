@@ -425,10 +425,53 @@ func _build_airport(root: Node3D) -> void:
 	mb.add_lathe(Transform3D(Basis.IDENTITY, ws + Vector3(0, 5.6, 0)), PackedVector2Array([Vector2(0.19, 0.0), Vector2(0.19, 0.06), Vector2(0.14, 0.06), Vector2(0.14, 0.0)]), 12,
 		PackedColorArray([Color(StreetKit.GALV, StreetKit.METAL)]), 40.0)
 	# The planes parked on the apron are props you can fly (parked_plane.tscn,
-	# placed by WorldBuilder._extra_props).
+	# placed by WorldBuilder._extra_props), and so is the helicopter on the
+	# second helipad (parked_helicopter.tscn).
+	for pad: Vector3 in [MapLayout.HELIPAD_A, MapLayout.HELIPAD_B]:
+		_helipad(body, mb, ground, pad)
 	_mesh(body, mb, _props_mat)
 	_mesh(body, ground, _paving_mat)
 	root.add_child(body)
+
+
+## A helipad: a concrete square with a yellow touchdown ring and a white H
+## (read from the south, the runway side), and green lights round its edge
+## that glow after dark.
+func _helipad(body: StaticBody3D, mb: MeshBuilder, ground: MeshBuilder, c: Vector3) -> void:
+	var hs := MapLayout.HELIPAD_SIZE * 0.5
+	var y := c.y + 0.03
+	_ground_quad(ground, c.x - hs, c.z - hs, c.x + hs, c.z + hs, y, Color(ArtPalette.CONCRETE, 0.5))
+	_collider(body, Transform3D(Basis.IDENTITY, c + Vector3(0, -0.5, 0)), Vector3(hs * 2.0, 1.0, hs * 2.0))
+	var ly := y + 0.01
+	var yellow := Color(ArtPalette.ROAD_YELLOW, 0.0)
+	var white := Color(ArtPalette.ROAD_WHITE, 0.0)
+	var n := 40
+	for k in n:
+		var a0 := TAU * k / n
+		var a1 := TAU * (k + 1) / n
+		var r0 := 8.4
+		var r1 := 9.0
+		ground.add_quad(c + Vector3(cos(a0) * r0, ly - c.y, sin(a0) * r0), c + Vector3(cos(a1) * r0, ly - c.y, sin(a1) * r0),
+			c + Vector3(cos(a1) * r1, ly - c.y, sin(a1) * r1), c + Vector3(cos(a0) * r1, ly - c.y, sin(a0) * r1), yellow)
+	# The H: two bars along z and the crossbar.
+	for sx: float in [-1.0, 1.0]:
+		_ground_quad(ground, c.x + sx * 2.0 - 0.45, c.z - 3.0, c.x + sx * 2.0 + 0.45, c.z + 3.0, ly, white)
+	_ground_quad(ground, c.x - 1.55, c.z - 0.45, c.x + 1.55, c.z + 0.45, ly, white)
+	# Edge lights.
+	for k in 12:
+		var t := float(k) / 12.0 * 4.0
+		var side := int(t)
+		var f := t - side
+		var p: Vector3
+		match side:
+			0: p = Vector3(-hs + f * hs * 2.0, 0, -hs)
+			1: p = Vector3(hs, 0, -hs + f * hs * 2.0)
+			2: p = Vector3(hs - f * hs * 2.0, 0, hs)
+			_: p = Vector3(-hs, 0, hs - f * hs * 2.0)
+		var lp := c + p * 0.97
+		StreetKit.rod(mb, lp, lp + Vector3.UP * 0.22, 0.06, 0.05, 8, Color(0.85, 0.7, 0.15, StreetKit.PLASTIC))
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, lp + Vector3(0, 0.26, 0)), Vector3(0.13, 0.08, 0.13), 0.015,
+			Color(0.35, 1.0, 0.45, StreetKit.LAMP_COOL), Color(0, 0, 0, -1), false)
 
 
 # ------------------------------------------------------------------- tunnel --

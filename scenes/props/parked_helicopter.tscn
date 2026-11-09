@@ -1,0 +1,73 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/prop.gd" id="1_prop"]
+[ext_resource type="PackedScene" path="res://assets/models/heli_body.glb" id="2_body"]
+
+[sub_resource type="BoxShape3D" id="Box_cabin"]
+size = Vector3(1.38, 1.42, 3.3)
+
+[sub_resource type="BoxShape3D" id="Box_rear"]
+size = Vector3(0.9, 1.0, 1.1)
+
+[sub_resource type="BoxShape3D" id="Box_cowl"]
+size = Vector3(0.88, 0.44, 2.9)
+
+[sub_resource type="BoxShape3D" id="Box_boom"]
+size = Vector3(0.42, 0.36, 3.9)
+
+[sub_resource type="BoxShape3D" id="Box_fin"]
+size = Vector3(0.12, 1.6, 0.9)
+
+[sub_resource type="BoxShape3D" id="Box_stab"]
+size = Vector3(2.1, 0.08, 0.42)
+
+[sub_resource type="BoxShape3D" id="Box_skid"]
+size = Vector3(0.09, 0.09, 3.0)
+
+[node name="ParkedHelicopter" type="RigidBody3D"]
+collision_layer = 4
+collision_mask = 7
+mass = 1200.0
+sleeping = true
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 1.0, 0)
+script = ExtResource("1_prop")
+random_colors = Array[Color]([Color(0.72, 0.13, 0.1, 1), Color(0.92, 0.92, 0.9, 1), Color(0.13, 0.3, 0.62, 1), Color(0.86, 0.66, 0.12, 1), Color(0.16, 0.17, 0.19, 1)])
+vehicle_look = true
+show_stripes = true
+drive_scene = "res://scenes/vehicles/helicopter.tscn"
+
+[node name="CabinShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.38, -0.4)
+shape = SubResource("Box_cabin")
+
+[node name="RearShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.495, 1.85)
+shape = SubResource("Box_rear")
+
+[node name="CowlShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.265, 1.05)
+shape = SubResource("Box_cowl")
+
+[node name="BoomShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.505, 4.5)
+shape = SubResource("Box_boom")
+
+[node name="FinShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.895, 6.15)
+shape = SubResource("Box_fin")
+
+[node name="StabShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.505, 4.66)
+shape = SubResource("Box_stab")
+
+[node name="SkidLShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.12, 0.045, 0.05)
+shape = SubResource("Box_skid")
+
+[node name="SkidRShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.12, 0.045, 0.05)
+shape = SubResource("Box_skid")
+
+[node name="Model" parent="." instance=ExtResource("2_body")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.045, 0)
