@@ -2065,6 +2065,35 @@ window):
     world build. Built on first spawn instead, a type appearing mid-drive
     would stall a frame. **Check load time on the Deck.**
 
+- **Traffic CPU** (2026-11-08, `--framebench` and `--spawnbench`, dev CPU
+  i9-13900HX, release export and editor alike, ~20 cars in the city):
+  traffic's cost is GDScript in `_physics_process` at 120 ticks a second,
+  not rendering or the physics engine. Traffic off: 0.4 ms of physics
+  scripts per frame; on: ~3.4 ms per tick, of which the car physics
+  (`Vehicle`, wheels: raycast, suspension and tyre maths) ~1.7 ms and the
+  drivers ~1.0 ms (`_plan_speed` half of it). One heavy tick made the next
+  frame run 3 ticks to catch up: ~5 frames a second over 20 ms.
+  - Fixes: car physics level of detail by distance to the nearest player
+    (`Vehicle.sim_every`: full rate within 55 m, half beyond 70 m, a quarter
+    beyond 150 m; the forces are held as constant force and torque between
+    updates, so the bodies still move at 120 Hz), drivers think on their
+    car's update ticks only, and `_plan_speed` skips lane offsets when there
+    are none. Physics scripts ~3.4 → ~2.0 ms per tick (traffic's share
+    ~2.9 → ~1.45: car physics 1.9 → 0.6, drivers 1.0 → 0.5; 14–17 cars in
+    the window against ~20 before, so ~0.15 → ~0.09 ms per car); frames over
+    20 ms in 5 s of city traffic 21–27 → 0, p99 22–27 → 14–16 ms.
+  - `--simlod`: the same car and route at full, half and quarter rate: same
+    speed and body motion; lane keeping loosens ~0.05 m (half) and ~0.15 m
+    (quarter) on average; pull-aways from a standstill within ~4%. `--lanes`
+    five runs each, old and new: the same lane changes (3–11 against 1–15),
+    no crashes; `--junction` no crashes either way (its "5 kinds of moves"
+    check fails about half the time on both: highway left turns are rare).
+  - Fills (game start, respawn, teleport): the spare-car pool is set up at
+    load (24 cars, ~90 ms) and a fill spends at most 2 ms a frame; the worst
+    traffic tick went from 14–66 ms to 2.5–6.4 ms.
+  - The Deck's CPU is slower per core and runs 2 ticks per 60 fps frame:
+    **measure traffic on the Deck** before raising `max_cars`.
+
 - **After the player character** (2026-10-03, `--onfootbench`, city centre,
   22 cars): the character adds ~10–13 draw calls and no measurable GPU time
   (iGPU at Medium ≈ +0.2 ms in alternating A/B runs, inside the noise), and

@@ -51,6 +51,16 @@ var others: Array[LocalPlayer] = []
 ## Most milliseconds per frame spent putting cars on the road during a fill;
 ## the rest wait for the next frame (one car always goes, however slow).
 const SPAWN_BUDGET_MS := 2.0
+## Car physics level of detail (Vehicle.sim_every), by distance to the
+## nearest player: full rate inside PHYS_LOD_NEAR, half rate beyond
+## PHYS_LOD_FAR, a quarter beyond PHYS_LOD_FAR2 (out of sight, mostly), and
+## 15 m of hysteresis on the way back. Car physics is about half of what traffic
+## costs (~0.09 ms per car per tick at full rate on the dev machine).
+const PHYS_LOD_NEAR := 55.0
+const PHYS_LOD_FAR := 70.0
+const PHYS_LOD_FAR2 := 150.0
+## Off: TrafficManager leaves Vehicle.sim_every alone (dev tests set it).
+var physics_lod := true
 
 var network: TrafficNetwork
 var drivers: Array[TrafficDriver] = []
@@ -246,6 +256,7 @@ func claim(v: Vehicle) -> bool:
 	v.remove_child(d)
 	d.queue_free()
 	v.handbrake_input = true
+	v.set_sim_every(1)
 	CarLod.unfit_vehicle(v)
 	return true
 
@@ -338,6 +349,7 @@ func _physics_process(dt: float) -> void:
 		return
 	_manage_timer = 0.25
 	_despawn_pass()
+	_update_physics_lod()
 	if not enabled or _focus_node() == null:
 		return
 	if _initial_fill:
@@ -349,6 +361,27 @@ func _physics_process(dt: float) -> void:
 		for k in 6:
 			if _try_spawn(false):
 				break
+
+
+## Half-rate physics for traffic far from every player (see PHYS_LOD_FAR).
+func _update_physics_lod() -> void:
+	if not physics_lod:
+		return
+	for d in drivers:
+		var car := d.vehicle
+		if not is_instance_valid(car):
+			continue
+		var dist := sqrt(nearest_focus_sq(car.global_position))
+		var n := car.sim_every
+		if dist < PHYS_LOD_NEAR:
+			n = 1
+		elif dist > PHYS_LOD_FAR2:
+			n = 4
+		elif n == 1 and dist > PHYS_LOD_FAR:
+			n = 2
+		elif n == 4 and dist < PHYS_LOD_FAR2 - 15.0:
+			n = 2
+		car.set_sim_every(n)
 
 
 ## One frame's share of a fill: spawn attempts until the road is full, the

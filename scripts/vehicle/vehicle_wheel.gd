@@ -222,7 +222,7 @@ func update_physics(dt: float, mass_share: float, traction_control: bool, tire_f
 		bump = (compression - bump_start) * bump_stop_stiffness
 	var susp_force := maxf(spring + damper + bump, 0.0)
 	var body_offset := contact_point - body.global_position
-	body.apply_force(up * susp_force, body_offset)
+	body.push(up * susp_force, body_offset)
 
 	# --- Tire ---
 	var n := contact_normal
@@ -286,11 +286,12 @@ func update_physics(dt: float, mass_share: float, traction_control: bool, tire_f
 	f_lat = clampf(f_lat, -lat_limit, lat_limit)
 
 	var tire_force := fwd * f_long + right * f_lat
-	body.apply_force(tire_force, contact_point + up * tire_force_height - body.global_position)
+	body.push(tire_force, contact_point + up * tire_force_height - body.global_position)
 
 	# Newton's third law for dynamic things we're standing on (crates, parked cars...).
 	if ground_body and not ground_body.freeze:
-		ground_body.apply_force(-(up * susp_force + tire_force) * 0.5, contact_point - ground_body.global_position)
+		# (Once per update: as much push in total when the car updates less often.)
+		ground_body.apply_force(-(up * susp_force + tire_force) * 0.5 * body.sim_every, contact_point - ground_body.global_position)
 
 	# --- Effects state ---
 	var lat_skid := clampf((x - 1.3) / 1.5, 0.0, 1.0) * clampf((absf(v_lat) - 1.0) / 2.0, 0.0, 1.0)

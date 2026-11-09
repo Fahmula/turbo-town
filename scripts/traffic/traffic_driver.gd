@@ -79,11 +79,11 @@ var _bypass_stalled := 0.0
 var _bypass := {}
 ## Counters for the dev tests.
 var age := 0.0
-## Beyond this distance from the player the driver thinks at half rate
-## (pedals and steering are held in between). Saves CPU; at that distance
-## nobody can tell.
-const LOD_DISTANCE := 140.0
-var _lod_skip := false
+## Far from the players the driver thinks only on the ticks its car's
+## physics updates (Vehicle.sim_every, set by TrafficManager by distance;
+## pedals and steering are held in between), and plans its speed (_plan_speed)
+## every PLAN_EVERY[sim_every] of those: 30 times a second near, 15 far.
+const PLAN_EVERY := {1: 4, 2: 2, 4: 2}
 var _lod_carry := 0.0
 var _body: VehicleBodyVisual
 var _indicator_timer := 0.0
@@ -96,8 +96,7 @@ func setup(mgr: TrafficManager, lane: TrafficNetwork.Lane, s: float) -> void:
 	_net = mgr.network
 	vehicle = get_parent() as Vehicle
 	_rng.randomize()
-	_tick = _rng.randi() % 3
-	_lod_skip = _rng.randi() % 2 == 0  # half the far cars think on odd ticks
+	_tick = _rng.randi() % 4  # spread _plan_speed() over the ticks
 	cruise_factor = _rng.randf_range(0.85, 1.05) * vehicle.ai_speed_factor
 	_front = vehicle.body_front
 	_half_width = vehicle.body_half_width
@@ -294,11 +293,9 @@ func _path_point(ahead: float) -> Vector3:
 func _physics_process(dt: float) -> void:
 	if vehicle == null or _plan.is_empty():
 		return
-	if manager.nearest_focus_sq(vehicle.global_position) > LOD_DISTANCE * LOD_DISTANCE:
-		_lod_skip = not _lod_skip
-		if _lod_skip:
-			_lod_carry += dt
-			return
+	if not vehicle.updates_this_tick():
+		_lod_carry += dt
+		return
 	dt += _lod_carry
 	_lod_carry = 0.0
 	state_time += dt
@@ -333,7 +330,7 @@ func _physics_process(dt: float) -> void:
 
 	_lane_logic(dt)
 	_tick += 1
-	if _tick % 4 == 0:
+	if _tick % int(PLAN_EVERY.get(vehicle.sim_every, 1)) == 0:
 		_accel_cmd = _plan_speed()
 
 	# Pure pursuit steering from the rear axle.
@@ -459,6 +456,9 @@ func _plan_speed() -> float:
 		v0 = CREEP_SPEED
 	var s := _s
 	var d := 0.0
+	# Off the lane's centre line only while changing lanes, pulling over or
+	# passing something (else _offset_at() is 0 and the walk below skips it).
+	var offsets := _lc_offset != 0.0 or _pull_offset != 0.0 or _pull_time > 0.0 or not _bypass.is_empty()
 	for i in _plan.size():
 		if d >= horizon:
 			break
@@ -511,32 +511,39 @@ func _plan_speed() -> float:
 				blocker = "dead end"
 
 		# Sample the lane's own points for curvature and obstacle checks.
-		var n := lane.points.size()
+		var points := lane.points
+		var dists := lane.dist
+		var dirs := lane.dirs
+		var curvs := lane.curv
+		var closed := lane.closed
+		var length := lane.length
+		var n := points.size()
 		var ws := lane.wrap_s(s)
 		var idx := lane._segment(ws) + 1
 		var steps := 0
 		while d < horizon and steps < 200:
 			steps += 1
 			if idx >= n:
-				if not lane.closed:
+				if not closed:
 					break
 				idx = 0
-			var rel := lane.dist[idx] - ws
+			var rel := dists[idx] - ws
 			if rel < 0.0:
-				rel += lane.length
+				rel += length
 			if s + rel > leg_to:
 				break
 			var sd := d + rel
 			if sd > horizon:
 				break
-			var sp := lane.points[idx]
-			var off := _offset_at(sd, s + rel, lane)
-			if off != 0.0:
-				sp += lane.dirs[idx].cross(Vector3.UP).normalized() * off
+			var sp := points[idx]
+			if offsets:
+				var off := _offset_at(sd, s + rel, lane)
+				if off != 0.0:
+					sp += dirs[idx].cross(Vector3.UP).normalized() * off
 			_samples_p.append(sp)
 			_samples_d.append(sd)
-			_samples_dir.append(lane.dirs[idx])
-			var k := lane.curv[idx]
+			_samples_dir.append(dirs[idx])
+			var k := curvs[idx]
 			if k > 0.004:
 				var vc := minf(sqrt(LAT_ACCEL / k), _speed_for_curvature(k))
 				v0 = minf(v0, sqrt(vc * vc + 2.0 * COMFORT_DECEL * sd))

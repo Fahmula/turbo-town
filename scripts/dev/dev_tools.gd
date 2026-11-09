@@ -10,6 +10,10 @@ extends Node
 ##                    hidden, physics time with and without it, walking (window)
 ##   --charsheet=<dir> the character from fixed cameras (front, 3/4, side, game camera,
 ##                    face) in day / sunset / night, plus each animation sampled over time
+##   --framebench     each frame split into physics scripts / physics step / process / render
+##                    (scripts/dev/frame_probe.gd), steady city driving with traffic off and on
+##   --simlod         traffic car physics at full / half / quarter rate (Vehicle.sim_every)
+##                    drive the same route alike: speed, lane keeping, body motion (checks)
 ##   --spawnbench     frame hitches while traffic fills in: game start, teleports far apart
 ##                    (what a respawn does), the same with traffic off, then steady traffic
 ##   --perfsweep=<dir> GPU cost of each High-only effect, Medium/Low, grass and trees, in heavy
@@ -105,6 +109,8 @@ func _ready() -> void:
 		elif arg.begins_with("--uturn="):
 			_mode = "uturn"
 			_dir = arg.split("=")[1]
+		elif arg == "--simlod":
+			_mode = "simlod"
 		elif arg == "--spawncheck":
 			_mode = "spawncheck"
 			_dir = OS.get_user_data_dir()
@@ -188,6 +194,9 @@ func _ready() -> void:
 			_dir = arg.split("=")[1]
 		elif arg == "--bench":
 			_mode = "bench"
+			_dir = OS.get_user_data_dir()
+		elif arg == "--framebench":
+			_mode = "framebench"
 			_dir = OS.get_user_data_dir()
 		elif arg == "--spawnbench":
 			_mode = "spawnbench"
@@ -294,6 +303,8 @@ func _run() -> void:
 		await _traffic(game)
 	elif _mode == "bench":
 		await _bench(game)
+	elif _mode == "framebench":
+		await _bench_frames(game)
 	elif _mode == "spawnbench":
 		await _bench_refill(game)
 	elif _mode == "rampage":
@@ -350,6 +361,8 @@ func _run() -> void:
 		await _damage(game)
 	elif _mode == "replay":
 		await _replay(game)
+	elif _mode == "simlod":
+		await _simlodcheck(game)
 	elif _mode == "spawncheck":
 		await _spawncheck(game)
 	elif _mode == "scenery":
@@ -774,6 +787,39 @@ func _bench_render(game: Game) -> void:
 			cpu += RenderingServer.viewport_get_measured_render_time_cpu(get_viewport().get_viewport_rid()) + RenderingServer.get_frame_setup_time_cpu()
 		print("BENCH render traffic %-5s %d cars: %d draw calls, %d objects, gpu %.2f ms, cpu %.2f ms" % [
 			str(on), tm.drivers.size(), calls / 120, objs / 120, gpu / 120.0, cpu / 120.0])
+
+
+## Steady frames in the city, traffic off then on, split into their phases.
+## FRAMEBENCH=<what> also times variants (see the end).
+func _bench_frames(game: Game) -> void:
+	var tm := game.traffic
+	var probe := FrameProbe.new()
+	add_child(probe)
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(40, 0.8, 330)))
+	tm.set_enabled(false)
+	await _wait_real(4.0)
+	await _probe_window(probe, "traffic off", 5.0)
+	tm.set_enabled(true)
+	await _wait_real(6.0)
+	await _probe_window(probe, "traffic on (%d cars)" % tm.drivers.size(), 5.0)
+	await _probe_window(probe, "traffic on again", 5.0)
+	var bands := [0, 0, 0, 0]
+	var half := 0
+	for d in tm.drivers:
+		var dist := sqrt(tm.nearest_focus_sq(d.vehicle.global_position))
+		bands[0 if dist < 55.0 else (1 if dist < 70.0 else (2 if dist < 140.0 else 3))] += 1
+		half += 1 if d.vehicle.sim_every > 1 else 0
+	print("FRAMES traffic distances: <55 m %d, 55-70 m %d, 70-140 m %d, >140 m %d; %d cars at half-rate physics" % [
+		bands[0], bands[1], bands[2], bands[3], half])
+
+
+func _probe_window(probe: FrameProbe, label: String, seconds: float) -> void:
+	probe.start()
+	await _wait_real(seconds)
+	probe.stop()
+	print("FRAMES " + FrameProbe.report(label, probe.finished()))
+	if not FrameProbe.sections.is_empty():
+		print(FrameProbe.section_report())
 
 
 ## Frame hitches while traffic fills in: right after the game starts, then
@@ -2375,6 +2421,93 @@ func _log_crash(tm: TrafficManager, d: TrafficDriver, st: float, p: Vector3) -> 
 
 
 ## Spawns traffic cars one by one and reports any impact in their first second.
+## The same traffic car on the same route at sim_every 1 (twice, for the run
+## to run noise: traffic lights), 2 and 4: speed, lane keeping and body
+## motion must match. Lane keeping loosens a little: half rate ~0.05 m more
+## off the lane line on average, quarter ~0.15 m (worst moments up to ~0.7 m
+## more; it's only used beyond 150 m, out of sight).
+func _simlodcheck(game: Game) -> void:
+	var tm := game.traffic
+	tm.set_enabled(false)
+	tm.physics_lod = false
+	game.vehicle.teleport(Transform3D(Basis.IDENTITY, Vector3(0, 0.8, 0)))
+	await _wait_s(0.5)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var bad := 0
+	var tested := 0
+	for k in 60:
+		if tested == 6:
+			break
+		var pick := tm.network.random_spawn(rng)
+		# Close enough to the player not to be tidied away mid-run.
+		if pick.is_empty() or (pick["lane"] as TrafficNetwork.Lane).point_at(pick["s"]).length() > 200.0:
+			continue
+		var scene: PackedScene = tm.car_scenes[tested % tm.car_scenes.size()]
+		tested += 1
+		var rows: Array[Dictionary] = []
+		for n in [1, 1, 2, 4]:
+			var d := tm._spawn(pick["lane"], pick["s"], scene)
+			var v := d.vehicle
+			v.set_sim_every(n)
+			# From a standstill, like pulling away at a green light.
+			v.linear_velocity = Vector3.ZERO
+			# Same route and temperament every run.
+			d.cruise_factor = v.ai_speed_factor
+			d._rng.seed = 77
+			d._plan = [d._make_leg(pick["lane"], pick["s"])]
+			d._extend_plan()
+			var hits := [0]
+			v.impact.connect(func(_st: float, _p: Vector3, _n: Vector3) -> void: hits[0] += 1)
+			var r := {"n": n, "speed": 0.0, "lat": 0.0, "lat_max": 0.0, "bounce": 0.0, "tilt": 0.0, "dist": 0.0, "lost": false, "t5": INF}
+			var start := v.global_position
+			var ticks := 0
+			for f in 120 * 10:
+				await get_tree().physics_frame
+				if not is_instance_valid(d) or d.state == TrafficDriver.State.LOST:
+					r["lost"] = true
+					r["why"] = d.lost_reason if is_instance_valid(d) else "freed"
+					break
+				ticks += 1
+				if r["t5"] == INF and v.linear_velocity.length() > 5.0:
+					r["t5"] = ticks / 120.0
+				var on := d.current_lane().point_at(d.lane_s())
+				var lat := Vector2(on.x - v.global_position.x, on.z - v.global_position.z).length()
+				r["speed"] += v.linear_velocity.length()
+				r["lat"] += lat
+				r["lat_max"] = maxf(r["lat_max"], lat)
+				r["bounce"] += absf(v.linear_velocity.dot(v.global_basis.y))
+				r["tilt"] += 1.0 - v.global_basis.y.y
+			for key in ["speed", "lat", "bounce", "tilt"]:
+				r[key] /= maxf(ticks, 1)
+			r["hits"] = hits[0]
+			if is_instance_valid(d):
+				r["dist"] = v.global_position.distance_to(start)
+				tm._despawn(d)
+			rows.append(r)
+			await _wait_s(0.3)
+		for r in rows:
+			print("  %-10s sim %d: 0-5 m/s in %.2f s, %.1f m/s, lane %.2f m (max %.2f), bounce %.3f m/s, tilt %.4f, %.0f m, %d hits%s" % [
+				scene.resource_path.get_file().get_basename(), r["n"], r["t5"], r["speed"], r["lat"], r["lat_max"], r["bounce"],
+				r["tilt"], r["dist"], r["hits"], (" LOST: " + r["why"]) if r["lost"] else ""])
+		for r in rows.slice(2):
+			# Against whichever full-rate run it's closer to (one may have
+			# caught a red light the other didn't).
+			var ref: Dictionary = rows[0]
+			if absf(rows[1]["speed"] - r["speed"]) < absf(ref["speed"] - r["speed"]):
+				ref = rows[1]
+			var ok: bool = not r["lost"] and r["hits"] <= ref["hits"] \
+				and absf(r["speed"] - ref["speed"]) < maxf(ref["speed"] * 0.1, 0.5) \
+				and r["lat"] < ref["lat"] + (0.1 if r["n"] == 2 else 0.2) \
+				and r["lat_max"] < ref["lat_max"] + (0.4 if r["n"] == 2 else 0.8) \
+				and r["bounce"] < ref["bounce"] * 1.5 + 0.02 \
+				and r["t5"] < ref["t5"] * 1.15 + 0.1
+			bad += 0 if ok else 1
+	_check(tested == 6, "six routes tested (%d)" % tested)
+	_check(bad == 0, "half and quarter rate drive like full rate (%d differ)" % bad)
+	tm.physics_lod = true
+
+
 func _spawncheck(game: Game) -> void:
 	var tm := game.traffic
 	tm.set_enabled(false)
