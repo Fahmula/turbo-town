@@ -4,8 +4,8 @@
 [![Latest release](https://img.shields.io/github/v/release/Fahmula/turbo-town?label=latest)](https://github.com/Fahmula/turbo-town/releases/latest)
 
 A stylized driving sandbox for the Steam Deck and Linux, made in Godot 4.7.
-Explore a small island on foot, in any car, truck or bus you find, or in a
-plane from the airfield. It has a city, a ring highway with overpasses, a
+Explore a small island on foot, in any car, truck or bus you find, in a
+plane from the airfield or in a helicopter. It has a city, a ring highway with overpasses, a
 mountain road, dirt fields, a beach, a harbour and a stunt park full of
 ramps. Crash, jump, race and customize your ride.
 
@@ -94,7 +94,7 @@ map, help and pause all work on foot too.
 ### Garage
 
 Press **V** (D-pad down). Pick the sports car, sedan, van, delivery truck, bus,
-pickup, buggy, monster truck or plane, and set it up. Switch tabs with Q / E
+pickup, buggy, monster truck, plane or helicopter, and set it up. Switch tabs with Q / E
 (LB / RB):
 
 | Tab | What you can change |
@@ -109,7 +109,8 @@ pickup, buggy, monster truck or plane, and set it up. Switch tabs with Q / E
 - On every tab but CAR, up / down picks a row and left / right changes it. The
   camera turns to the part being changed.
 - Rows that don't fit the shown vehicle are greyed out with the reason. Full
-  body kits are on the sports car and sedan, and planes keep their own shape.
+  body kits are on the sports car and sedan, and planes and the helicopter
+  keep their own shape (paint colour and stripes only).
 - **X / Y**: surprise me (a random vehicle, or random choices on the tab).
   **Enter / A**: drive (on foot, the vehicle is brought to you and you get
   in). **Esc / B**: back.
@@ -155,6 +156,30 @@ pickup, buggy, monster truck or plane, and set it up. Switch tabs with Q / E
   the runway), and far out over the sea the plane turns back by itself.
 - Races are for cars.
 
+### Helicopter
+
+- Pick the Helicopter in the garage: it lands beside you, wherever there's
+  room for its rotor (otherwise on the airfield's helipad). Another one is
+  parked on the second helipad at the airfield (teleport 7); walk up and get
+  in like a car. Like the plane, it isn't remembered as the vehicle you
+  start with.
+- The rotor needs a few seconds to spin up ("Starting the rotor..."), then
+  hold RT (Shift) to take off.
+- With the assists on:
+  - RT / LT (Shift / Ctrl) go up and down; let go of both and it holds its
+    height.
+  - The stick flies forward and back (push forward to go forward) and turns.
+    Let go and it slows to a hover. It leans into turns by itself.
+  - Coming down near the ground it slows for a soft landing, and it settles
+    onto its skids. Land anywhere flat: roads, fields, rooftops.
+  - A / Space + stick does a flip or a roll (at least 10 m up).
+- With the assists off (T) the stick tilts it and it keeps drifting the way
+  it leans; up and down set the rotor's pull, so leaning over sinks it.
+- R / Y in the air stops it and levels it out, hovering.
+- You can't get out in the air. Once you're out the rotor winds down.
+- Teleports while flying hover over the place (the Airfield puts it on the
+  helipad); far out over the sea it turns back by itself. Races are for cars.
+
 ### Two players (split-screen)
 
 - **Join:** pick 2 PLAYERS on the title screen (or ADD PLAYER 2 in the pause
@@ -174,7 +199,7 @@ pickup, buggy, monster truck or plane, and set it up. Switch tabs with Q / E
 - **Ride along:** you can't take the other player's car (you can flip it back
   over), but you can walk up to it and press B (F) to sit in the passenger
   seat, parked or with the other player at the wheel, in any vehicle, the
-  plane too.
+  plane and helicopter too.
   - The passenger watches through their own camera (the right stick looks
     around, RB / C cycles the views, and the close-up is from the passenger
     seat), sees the speed on their gauges and feels the bumps.
@@ -270,6 +295,20 @@ They're saved to `user://settings.cfg`. What is and isn't saved: see
 "Flying controls" in Settings swaps the nose: push up to climb instead of
 pulling back.
 
+### Flying (helicopter)
+
+| Action | Keyboard | Gamepad |
+|---|---|---|
+| Go up (hold; let go and it holds its height) | Shift | Right trigger |
+| Go down / land | Ctrl | Left trigger |
+| Fly forward / back (let go: it stops) | W / S | Left stick forward / back |
+| Turn left / right | A / D | Left stick |
+| Flip / roll | Space + W S / A D | A + left stick |
+| Help! Stop and level out | R | Y (Triangle) |
+| Get out (landed) | F | B (Circle) |
+| Camera (chase / far / cockpit) | C | RB |
+| Flying assists on/off | T | |
+
 ### Anywhere
 
 | Action | Keyboard | Gamepad |
@@ -309,6 +348,7 @@ generated files are committed, so you only need those tools to change them.
 | `scenes/vehicles/buggy.tscn`, `monster_truck.tscn` | Garage only (AWD, long-travel suspension) |
 | `scenes/vehicles/plane.tscn` | The sport plane (`Aircraft`), in the garage and parked at the airfield |
 | `scenes/props/parked_plane.tscn` | A parked plane: a cheap prop, swapped for `plane.tscn` when you get in |
+| `scenes/vehicles/helicopter.tscn` | The helicopter (`Helicopter`), in the garage and parked on the airfield's helipad (`scenes/props/parked_helicopter.tscn`) |
 | `scenes/world/world.tscn` | Environment, sun, and the WorldBuilder that generates the map |
 | `scenes/props/` | Cone, barrel, crate, bowling pin, lamp, traffic light, parked cars (drivable: `drive_scene`), and the parametric Ramp |
 | `scenes/dev/physics_test.tscn` | A flat test track for tuning the car |
@@ -318,11 +358,11 @@ generated files are committed, so you only need those tools to change them.
 | Folder | What's in it |
 |---|---|
 | `scripts/player/` | `local_player.gd` (one player on this machine: character, vehicle, rigs, HUD, input; two in split-screen), `player_input.gd` (one player's devices and actions), `possession.gd` (what the player controls; getting in and out), `controllable.gd` (component: who drives a pawn, which rig controls it), `player_character.gd` (walk / run / sprint / jump, kerbs, animation, footsteps, being bumped), `seat_figure.gd` (the character sitting in a vehicle, seen through the glass), `limb_ik.gd` (two-bone IK: hands on the wheel, feet in the footwell), `player_character_controller.gd` (input), `interactable.gd` (things you use with F / B), `vehicle_entry.gd` (a vehicle's doors and safe exit spots), `parked_car_entry.gd` (parked car props you can drive) |
-| `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
+| `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `helicopter.gd` (an Aircraft: rotor thrust, hover and speed hold, banked turns, flips, skids, spinning rotors), `player_helicopter_controller.gd` (its input), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
 | `scripts/vehicle/custom/` | `parts_catalog.gd` (everything the garage can change: tabs, slots, options, which vehicles a part fits), `loadout.gd` (one vehicle's setup: saved per vehicle, put on the car), `wheel_kit.gd` (fits rim + tyre parts to a vehicle's wheels), `body_kit.gd` (fits bumpers, skirts, arches, spoilers, bonnet and roof parts from the vehicle's kit), `underglow.gd` |
 | `scripts/vehicle/audio/` | `vehicle_sound_profile.gd` (what a vehicle class sounds like), `vehicle_sound_bank.gd` (shared tyre / crash / glass sounds), `audio_director.gd` (traffic voice budget, Doppler) |
 | `scripts/traffic/` | `traffic_network.gd` (lane graph built from the roads, turn curves, junctions, U-turns), `traffic_manager.gd` (spawning, signal timing), `traffic_driver.gd` (AI driver, turn signals), `traffic_light_prop.gd` |
-| `scripts/camera/` | `chase_camera.gd` (driving), `flight_camera.gd` (flying), `on_foot_camera.gd` (walking), `camera_blend.gd` (glides between them), `menu_camera.gd` (title screen), `views.gd` (the cameras the players see through: one, or one per split-screen view) |
+| `scripts/camera/` | `chase_camera.gd` (driving), `flight_camera.gd` (flying), `heli_camera.gd` (the helicopter: level, along its heading), `on_foot_camera.gd` (walking), `camera_blend.gd` (glides between them), `menu_camera.gd` (title screen), `views.gd` (the cameras the players see through: one, or one per split-screen view) |
 | `scripts/world/` | `map_layout.gd` (**all** the map's numbers); the terrain, road, city, nature, stunt park and landmark builders; `building_kit.gd`, `street_kit.gd`, `tree_kit.gd` (buildings, street furniture and trees, built in code); `mesh_builder.gd` (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs); `art_palette.gd` (world colours); `day_night.gd` (sun, real skies through the day, lights after dark); `sky_catalog.gd` (generated: each sky photo's sun and colours); `weather.gd` (clouds, rain, wet ground, wet grip), `rain_fx.gd` (rain round each camera), `lightning.gd` (bolts in a storm); `grass_field.gd` (3D grass tufts round the camera); `tree_scatter.gd`, `tree_lod.gd`, `tree_colliders.gd` (where trees grow, their LOD quadtree, trunk colliders); `night_light.gd`, `lighthouse_beam.gd` |
 | `scripts/props/` | `prop.gd`, `kit_prop.gd` (props whose mesh comes from StreetKit), `ramp.gd` (`@tool`, editable in the editor) |
 | `scripts/ui/` | `hud.gd`, `speedometer.gd`, `world_map.gd` (top-down island picture drawn at startup), `minimap.gd` (round heading-up minimap), `big_map.gd` (M), `vehicle_picker.gd` (the garage), `game_menu.gd` (title, pause, settings, controls pages), `ui_kit.gd` (the shared menu look) |
@@ -339,7 +379,7 @@ generated files are committed, so you only need those tools to change them.
 | `assets/materials/` | `env/` has the world's materials |
 | `assets/textures/` | Generated textures |
 | `assets/audio/` | Built by `tools/audio/`; `profiles/` has one VehicleSoundProfile per vehicle |
-| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
+| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
 | `tools/textures/` | `make_textures.py` (ground detail, cloud and leaf textures), `make_decals.py` (garage decals), and `fetch_*.py`: download CC0 scans (Poly Haven, ambientCG) and make the game textures (`fetch_sky.py` real skies, `fetch_road.py`, `fetch_terrain.py`, `fetch_building.py`, `fetch_foliage.py`, `fetch_props.py`; shared helpers in `fetch_common.py`). Run them from the project root with `python3`, then import in Godot |
 | `tools/audio/build_audio.py` | Every sound in `assets/audio/`: downloads the licensed recordings, makes loops, synthesizes the rest, writes the profiles (`python3 tools/audio/build_audio.py`) |
 | `tools/release.sh`, `tools/steamdeck/` | The release build and the Steam Deck installer / launcher ([RELEASING.md](RELEASING.md)) |
@@ -490,8 +530,9 @@ The player controls a *pawn*: the character or a vehicle (`scripts/player/`).
   player's `Possession`, a `TrafficDriver`, or nobody) and its `kind`.
 - **Rigs:** the `kind` picks a *rig*, the input controller and camera for that
   kind: `PlayerCharacterController` + `OnFootCamera`,
-  `PlayerVehicleController` + `ChaseCamera`, and `PlayerAircraftController` +
-  `FlightCamera` for planes. Only one rig has a pawn at a time, so the
+  `PlayerVehicleController` + `ChaseCamera`, `PlayerAircraftController` +
+  `FlightCamera` for planes, and `PlayerHelicopterController` + `HeliCamera`
+  for the helicopter. Only one rig has a pawn at a time, so the
   character and a vehicle can never both take input, and a traffic car is
   first taken off its driver (`TrafficManager.claim`). A boat later would be a
   new kind with its own controller and camera (`Possession.add_rig`).
@@ -539,6 +580,29 @@ the HUD, maps and replays work as for a car. Its engine turns a propeller.
   rudder) are found by name.
 - The `FlightCamera` lags behind the plane, leans with part of the bank, and
   follows fully when steep or upside down.
+
+The helicopter (`helicopter.gd`) is an `Aircraft` too, with its own rig
+(`Controllable.HELI`):
+
+- Its rotor thrust points along the body's up axis, so it moves the way it
+  leans; it spools up over 4.5 s after the engine starts and winds down
+  slowly when it stops. Drag is much stronger moving up and down than along.
+- With assists on, the stick asks for a speed along the nose and a turn
+  rate, the triggers for a climb rate. A controller works out the lean that
+  gets there (and holds the speed against drag); the rotor's pull along
+  that lean holds the weight, and the climb or sink is a push straight up
+  or down on top, so the triggers never change the lean or the speed.
+  Turns are limited to what a banked turn at that speed can
+  follow, so it goes where the nose points. The nose goes down or up at a
+  limited rate (about 0.7 s to 20°), not in a snap. Below 14 m a descent slows
+  toward 1.4 m/s; lower than 0.6 m with nothing pressed it settles onto its
+  skids. Flips and rolls spin it once round, then it levels itself.
+- With assists off the stick sets the lean and the triggers the rotor's pull
+  directly (no speed or height hold).
+- Four raycast "wheels" on the skids, always braked. The model's rotors
+  (`MainRotor`, `TailRotor`) and blur discs are found by name.
+- The `HeliCamera` stays level behind the nose (it doesn't pitch with the
+  helicopter) and leans a little with its bank.
 
 #### Saving
 
@@ -642,9 +706,10 @@ godot --path . -- --garage=/tmp/shots
 | `--wheels` | Every rim, rim colour, tyre and tyre stripe in the garage and on the road (shots for review) |
 | `--onfoot` | The character: walk / run / sprint / jump, in and out of every vehicle type (keyboard + gamepad), traffic and parked cars, exits by walls, overturned and damaged vehicles, being bumped, garage / teleport / race / sea on foot, leak check |
 | `--split` | Two players: joining with a second gamepad, each player's own controls (simulated pads 0 and 1), views, cars, teleports, X to the other player, garage, planes, traffic around both, pause, leaving and rejoining |
-| `--ride` | Two players, one riding along with the other: getting in and out, cameras, no controls, teleports, the sea, garage swaps, the plane, leaving |
+| `--ride` | Two players, one riding along with the other: getting in and out, cameras, no controls, teleports, the sea, garage swaps, the plane, the helicopter, leaving |
 | `--seats` | The players sitting in vehicles: getting in and out, the hood / cockpit view leaves your own character out, replays, teleports, garage swaps, the bus, the plane, a split-screen passenger in player 2's T-shirt, player 2 leaving |
 | `--flight` | The plane: take-off, cruise, turns, loop, roll, stall, the help button, teleports, the island's edge, landing, getting out and in, replay, parked planes, taxiing, crash, garage. Run with `--fixed-fps 60` |
+| `--heli` | The helicopter: picked in the garage, the rotor starting, take-off, hovering, forward flight and stopping, turns, backward, climbing, flip and roll, the help button, teleports, the island's edge, a soft landing, getting out and in, replay, the parked one, crash, garage swaps (in the air too), assists off. Run with `--fixed-fps 60` |
 | `--menus` | Title, pause, settings and controls menus driven by input |
 | `--stunts` | Air, flips, rolls, spins, drift, near miss, wipeout → combos and records |
 | `--races` | The race flow, plus an autopilot drives every race (medal reference times) |
@@ -711,7 +776,7 @@ the Steam Deck on a PC.
 | `-- --spawnbench` | Frame hitches while traffic fills in: game start, teleports (with traffic off for comparison), steady traffic |
 | `--gpu-index 0 -- --perfsweep=<dir>` | GPU cost of each graphics effect, Medium / Low, trees and grass, standing and driving |
 | `--gpu-index 0 --resolution 1280x800 -- --splitbench=<dir>` | One view vs split-screen: GPU and frame time, draw calls at Low / Medium / High (`--levels=0,1 --views=city_city`) |
-| `--gpu-index 0 -- --flightbench=<dir>` | GPU cost flying over the city at 60, 150 and 300 m, Medium / Low / High |
+| `--gpu-index 0 -- --flightbench=<dir>` | GPU cost flying over the city at 60, 150 and 300 m, Medium / Low / High (add `--vehicle=helicopter` for the helicopter) |
 | `-- --onfootbench` | The character's cost: draw calls, CPU and GPU with it shown and hidden, physics time |
 | `-- --seatbench` | A seated character's cost while driving: draw calls, CPU and GPU with it shown and hidden, animation and IK time |
 | `-- --partsbench` | A fully kitted player car against a stock one: GPU and draw calls |

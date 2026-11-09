@@ -1,0 +1,177 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/helicopter.gd" id="1_heli"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_wheel.gd" id="2_wheel"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_body_visual.gd" id="3_visual"]
+[ext_resource type="PackedScene" path="res://assets/models/heli_body.glb" id="4_body"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_audio.gd" id="6_audio"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_effects.gd" id="7_fx"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_damage.gd" id="8_damage"]
+[ext_resource type="Resource" path="res://assets/audio/profiles/heli.tres" id="9_sound"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_body"]
+friction = 0.6
+bounce = 0.05
+
+[sub_resource type="BoxShape3D" id="Box_cabin"]
+size = Vector3(1.38, 1.42, 3.3)
+
+[sub_resource type="BoxShape3D" id="Box_rear"]
+size = Vector3(0.9, 1.0, 1.1)
+
+[sub_resource type="BoxShape3D" id="Box_cowl"]
+size = Vector3(0.88, 0.44, 2.9)
+
+[sub_resource type="BoxShape3D" id="Box_boom"]
+size = Vector3(0.42, 0.36, 3.9)
+
+[sub_resource type="BoxShape3D" id="Box_fin"]
+size = Vector3(0.12, 1.6, 0.9)
+
+[sub_resource type="BoxShape3D" id="Box_stab"]
+size = Vector3(2.1, 0.08, 0.42)
+
+[sub_resource type="BoxShape3D" id="Box_skid"]
+size = Vector3(0.08, 0.08, 3.0)
+
+[sub_resource type="CylinderShape3D" id="Cylinder_rotor"]
+height = 0.12
+radius = 4.6
+
+[node name="Helicopter" type="RigidBody3D"]
+collision_layer = 2
+collision_mask = 7
+mass = 1200.0
+physics_material_override = SubResource("PhysicsMaterial_body")
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 0.95, 0)
+inertia = Vector3(3600, 3400, 1400)
+script = ExtResource("1_heli")
+display_name = "Helicopter"
+seat_hip = Vector3(-0.33, 1.0, -0.3)
+seat_recline = 5.0
+seat_feet = Vector3(0, -0.28, -0.8)
+steering_wheel = Vector3(-0.33, 1.2, -0.57)
+steering_wheel_radius = 0.0
+driver_eye = Vector3(-0.33, 1.72, -0.22)
+idle_rpm = 1500.0
+redline_rpm = 6000.0
+max_brake_torque = 3000.0
+max_steer_angle = 0.0
+air_stabilization = 0.0
+impact_threshold = 3500.0
+ceiling = 600.0
+fuselage_half_width = 0.72
+landing_light = Vector3(0, 0.62, -1.7)
+landing_light_pitch = -28.0
+
+[node name="CabinShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.335, -0.4)
+shape = SubResource("Box_cabin")
+
+[node name="RearShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 1.85)
+shape = SubResource("Box_rear")
+
+[node name="CowlShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.22, 1.05)
+shape = SubResource("Box_cowl")
+
+[node name="BoomShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.46, 4.5)
+shape = SubResource("Box_boom")
+
+[node name="FinShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.85, 6.15)
+shape = SubResource("Box_fin")
+
+[node name="StabShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.46, 4.66)
+shape = SubResource("Box_stab")
+
+[node name="SkidLShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.12, 0, 0.05)
+shape = SubResource("Box_skid")
+
+[node name="SkidRShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.12, 0, 0.05)
+shape = SubResource("Box_skid")
+
+[node name="RotorShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.95, 0)
+shape = SubResource("Cylinder_rotor")
+
+[node name="Body" type="Node3D" parent="."]
+script = ExtResource("3_visual")
+paint_color = Color(0.72, 0.13, 0.1, 1)
+stripes = true
+dirt_top = 0.9
+roll_per_g = 0.0
+pitch_per_g = 0.0
+
+[node name="Model" parent="Body" instance=ExtResource("4_body")]
+
+[node name="DriverDoor" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.72, 0, -0.55)
+
+[node name="SkidFL" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.12, 0.063, -1.05)
+script = ExtResource("2_wheel")
+radius = 0.045
+suspension_travel = 0.1
+spring_stiffness = 80000.0
+compression_damping = 6000.0
+rebound_damping = 7000.0
+bump_stop_stiffness = 250000.0
+grip = 1.0
+peak_slip = 0.15
+slide_grip = 0.7
+
+[node name="SkidFR" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.12, 0.063, -1.05)
+script = ExtResource("2_wheel")
+radius = 0.045
+suspension_travel = 0.1
+spring_stiffness = 80000.0
+compression_damping = 6000.0
+rebound_damping = 7000.0
+bump_stop_stiffness = 250000.0
+grip = 1.0
+peak_slip = 0.15
+slide_grip = 0.7
+
+[node name="SkidRL" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.12, 0.063, 1.05)
+script = ExtResource("2_wheel")
+radius = 0.045
+suspension_travel = 0.1
+spring_stiffness = 80000.0
+compression_damping = 6000.0
+rebound_damping = 7000.0
+bump_stop_stiffness = 250000.0
+grip = 1.0
+peak_slip = 0.15
+slide_grip = 0.7
+
+[node name="SkidRR" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.12, 0.063, 1.05)
+script = ExtResource("2_wheel")
+radius = 0.045
+suspension_travel = 0.1
+spring_stiffness = 80000.0
+compression_damping = 6000.0
+rebound_damping = 7000.0
+bump_stop_stiffness = 250000.0
+grip = 1.0
+peak_slip = 0.15
+slide_grip = 0.7
+
+[node name="Audio" type="Node3D" parent="."]
+script = ExtResource("6_audio")
+profile = ExtResource("9_sound")
+
+[node name="Effects" type="Node" parent="."]
+script = ExtResource("7_fx")
+
+[node name="Damage" type="Node" parent="."]
+script = ExtResource("8_damage")

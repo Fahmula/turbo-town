@@ -88,8 +88,10 @@ const FLAP_THROW := 0.6
 @export var max_ground_pitch := 12.0
 ## The fuselage's half width: doors and exits go by it, not by the wings.
 @export var fuselage_half_width := 0.58
-## The landing light, in the left wing's leading edge (local).
+## The landing light, in the left wing's leading edge (local), and how far
+## it points down (degrees).
 @export var landing_light := Vector3(-1.45, 0.62, -0.6)
+@export var landing_light_pitch := -3.0
 
 # --- Inputs besides Vehicle's (written by a controller) ---
 var pitch_input := 0.0
@@ -178,7 +180,7 @@ func make_landing_light() -> Node3D:
 	add_child(lights)
 	var spot := SpotLight3D.new()
 	spot.position = landing_light
-	spot.rotation = Vector3(deg_to_rad(-3.0), 0.0, 0.0)
+	spot.rotation = Vector3(deg_to_rad(landing_light_pitch), 0.0, 0.0)
 	spot.spot_range = 110.0
 	spot.spot_angle = 20.0
 	spot.light_energy = 7.0

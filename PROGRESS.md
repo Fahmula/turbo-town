@@ -199,7 +199,7 @@ The owner's son wants to fly planes (owner, 2026-10-05).
 ### Ideas for later (not started)
 - [ ] Rings to fly through / an air race; a trick score for loops and rolls
 - [ ] Smoke trails for airshow tricks; a parachute jump out of the plane
-- [ ] More aircraft: a helicopter, a seaplane landing on the sea, a small jet
+- [~] More aircraft: a helicopter (done, `feat/helicopter`), a seaplane landing on the sea, a small jet
 - [ ] Parts that fall off in crashes (propeller, wheel fairings)
 - [ ] A longer runway (it's 240 m: fine for this plane, short for a beginner's landing)
 
@@ -374,6 +374,62 @@ driver in the seat" from the on-foot milestone and "a visible passenger" from ri
 - [ ] Steering wheels as separate meshes that turn with the steering, the hands going with them
 - [ ] Head turns toward the steering direction; a lean into hard corners; a jolt on big landings
 - [ ] Getting in and out animations (`Sitting_Enter` / `Sitting_Exit` are in the model) and doors
+
+---
+
+## Helicopter (branch `feat/helicopter`, not released)
+
+The owner's son wants a helicopter (owner, 2026-11-08).
+
+### Done (branch `feat/helicopter`, off `main`)
+- [x] Model: `tools/blender/make_heli.py`, a generic light utility helicopter (teardrop cabin with a
+      wrap-round windscreen into the roof, chin windows, two doors a side, turbine cowling and
+      exhaust, two-blade main rotor 10.1 m across, slim boom, stabiliser with endplates, swept fin,
+      tail rotor on the left, skids on arched cross tubes, nav lights, strobes, beacons, a search
+      light, a cheat-line livery). See-through cabin: two pilot seats, a rear bench, sticks,
+      collectives, pedals, panel. Cabin split at the B-pillar so a dent pass touches at most ~5.7k
+      vertices
+- [x] `Helicopter` (an `Aircraft`, its own rig `Controllable.HELI`: `PlayerHelicopterController` +
+      `HeliCamera`): rotor thrust along the body's up axis, a rotor that spools up (4.5 s) and winds
+      down (14 s), skids as four always-braked raycast wheels
+- [x] Kid assists: stick = speed along the nose and turn rate, triggers = climb rate; let go and it
+      hovers at its height; leans into turns (limited to what the turn can follow at that speed);
+      soft landings (slows toward 1.4 m/s near the ground, settles on its skids); trick + stick flips
+      or rolls it once (10 m up or more); R / Y in the air stops and levels it. Assists off: the
+      stick leans it, the triggers set the rotor's pull
+- [x] Same buttons as the plane; push forward always flies forward (the "Flying controls" setting
+      is for the plane's climb). HUD: speed, HEIGHT, power arc, "Starting the rotor...", warnings,
+      its own help on H and a HELICOPTER controls page
+- [x] Garage: the Helicopter stands beside you like a car (on the helipad when there's no room for
+      the rotor); swapped in from a flying aircraft it hovers where that one was; not remembered as
+      the starting vehicle. Two helipads east of the airfield's apron, one with a parked helicopter
+      you can fly. Teleports while flying hover 35 m over the place (Airfield = helipad); turned back
+      beyond 950 m; no getting out in the air; ride-along works
+- [x] Sound: a synthesised turboshaft (whine, roar; three loops + a start-up) under the rotors'
+      blade slap and the tail rotor's buzz (`synth.turbine`, `synth.turbine_start`, `synth.rotor`;
+      the slap's beat carries above 220 Hz for the Deck's speakers)
+- [x] Seated pilot fitted (`--seatsheet`: hands 1 cm short / 3 cm to spare, feet 4 cm to spare,
+      13 cm headroom)
+- [x] Tests: `--heli` (99 checks), a helicopter section in `--ride`; `--flight`, `--garage`,
+      `--onfoot`, `--seats` still pass
+- [x] Owner's first flight (2026-11-09, PC): "flies good". Fixed from it: a "tap tap tap" when
+      getting in (the start-up's igniter ticks, the loudest thing in it: removed), the nose
+      snapping down / up (now eased: 20° after 0.66 s instead of 0.29 s, a stop takes 9.4 s instead
+      of 8.8 s), the blades shown spinning faster (main rotor ~215 rpm on screen, was ~124)
+- [x] Owner's second flight: a "yo-yo" when pressing or letting go of up / down while moving (the
+      nose flung to 74-80° at full speed, then swung back; the assist leaned along the whole push,
+      climb included). Now the lean comes from the stick only and the climb / sink is a push
+      straight up: the nose and speed hold steady through the triggers (`--heli` "up and down
+      while moving")
+- [ ] Owner review, then the son on the Deck: feel, sound through the Deck's speakers, landing on
+      rooftops
+
+### Ideas for later (not started)
+- [ ] A rooftop helipad in the city (the flat roofs already work for landing)
+- [ ] Rotor downwash: dust and grass blown about, ripples on the sea
+- [ ] The rotor sound winding down with the blades after you get out (it fades with the engine now)
+- [ ] Rotors that keep turning in replays (they freeze, like the plane's propeller)
+- [ ] Rescue missions: winch, searchlight you can aim
 
 ---
 
@@ -555,3 +611,8 @@ driver in the seat" from the on-foot milestone and "a visible passenger" from ri
   settings page of row buttons with pips and help lines.
 - 2026-11-08 — Visible drivers (`feature/visible-drivers` branch): the players sit in their vehicles, hands on the
   wheel, seen through the glass; cabins laid out round the seated driver.
+- 2026-11-09 — Helicopter (`feat/helicopter` branch): a flyable helicopter with kid assists, from the garage or the
+  airfield's new helipads.
+- 2026-11-09 — Helicopter, owner feedback: no more "tap tap tap" on getting in, a gentler nose lean, faster
+  blades.
+- 2026-11-09 — Helicopter: no "yo-yo" when going up or down while flying forward or back.

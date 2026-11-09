@@ -642,7 +642,7 @@ func _show_vehicle() -> void:
 	_weight_label.text = "Weight: %.1f tonnes" % (car.mass / 1000.0)
 	_count_label.text = "%02d / %02d" % [index + 1, VehicleCatalog.count()]
 	var noun: String = String(e["name"]).split(" ")[-1].to_upper()
-	_drive_label.text = "FLY THIS PLANE" if e.get("air", false) else "DRIVE THIS %s" % noun
+	_drive_label.text = ("FLY THIS %s" % noun) if e.get("air", false) else "DRIVE THIS %s" % noun
 	for s in VehicleCatalog.STATS.size():
 		var value: int = e[VehicleCatalog.STATS[s][0]]
 		var cells: Array = _stat_cells[s]
@@ -752,10 +752,11 @@ func _refresh_rows() -> void:
 static func why_not(slot: String, l: Loadout, car: Vehicle) -> String:
 	var body := car.get_node_or_null("Body") as VehicleBodyVisual if car else null
 	if car is Aircraft:
+		var what := "helicopters" if car is Helicopter else "planes"
 		if slot in Loadout.WHEEL_SLOTS:
-			return "Planes keep their own wheels"
+			return "Helicopters have skids" if car is Helicopter else "Planes keep their own wheels"
 		if PartsCatalog.is_body_slot(slot) or slot in ["two_tone", "tone_color", "decal", "decal_color", "number", "underglow", "horn"]:
-			return "Not on planes"
+			return "Not on %s" % what
 	match slot:
 		"stripes":
 			if body == null or not body.has_stripes():

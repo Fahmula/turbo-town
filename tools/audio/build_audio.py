@@ -84,6 +84,12 @@ def build_synth():
     write("engine/turbo_whine.wav", synth.whine(3000, harmonics=((2, 0.2),), noise_db=-20, seed=61), loop=True)
     write("engine/supercharger_whine.wav", synth.whine(1800, harmonics=((2, 0.4), (3, 0.2), (4, 0.1)), noise_db=-30, seed=62), loop=True)
     write("engine/propeller.wav", synth.propeller(), loop=True, rate=32000)
+    # The helicopter: its turboshaft (an engine set like the recorded ones,
+    # on-load loops only), its start-up and the rotors.
+    for rpm in (1500, 3000, 6000):
+        write("engine/turbine/on_%d.wav" % rpm, synth.turbine(rpm), loop=True)
+    write("engine/turbine/startup.wav", synth.turbine_start())
+    write("engine/rotor.wav", synth.rotor(), loop=True, rate=32000)
     write("engine/blowoff.wav", synth.blowoff())
     for k in range(4):
         write("engine/pop_%d.wav" % (k + 1), synth.exhaust_pop(200 + k))
@@ -113,7 +119,8 @@ def build_horns():
 # --------------------------------------------------------- Godot imports --
 
 # Which files loop (every run marks them, whatever it rebuilt).
-LOOP_PATTERNS = ["engine/*/on_*.wav", "engine/*/off_*.wav", "engine/*_whine.wav", "engine/propeller.wav", "tyre/*.wav", "horn/*.wav",
+LOOP_PATTERNS = ["engine/*/on_*.wav", "engine/*/off_*.wav", "engine/*_whine.wav", "engine/propeller.wav", "engine/rotor.wav",
+                 "tyre/*.wav", "horn/*.wav",
                  "body/wind.wav", "body/scrape.wav", "body/reverse_beeper.wav", "weather/rain*.wav"]
 
 

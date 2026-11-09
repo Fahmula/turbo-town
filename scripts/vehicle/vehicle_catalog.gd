@@ -64,6 +64,15 @@ const ENTRIES := [
 		"speed": 5, "accel": 3, "handling": 4, "smash": 1,
 		"air": true, "stripes": true,
 	},
+	{
+		# A helicopter (Helicopter, also "air"): it takes off anywhere, so
+		# picking it puts it beside you like a car (on the Airfield's helipad
+		# when there's no room for the rotor).
+		"id": "helicopter", "scene": "res://scenes/vehicles/helicopter.tscn",
+		"name": "Helicopter", "blurb": "Take off anywhere, hover, and land on the rooftops!",
+		"speed": 4, "accel": 4, "handling": 5, "smash": 1,
+		"air": true, "stripes": true,
+	},
 ]
 
 ## Stat keys and the labels shown for them.

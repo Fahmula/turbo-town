@@ -512,12 +512,17 @@ func _garage_swap() -> void:
 ## (60 m/s at 60 fps) with the flight camera behind it, at three heights, on
 ## Medium, Low and High. Traffic is off so runs compare. Run it on the iGPU
 ## (--gpu-index 0) as a Steam Deck stand-in; results also go to perf.txt.
+## --vehicle=helicopter flies the helicopter instead (its rotor spinning).
 func bench() -> void:
 	game.traffic.set_enabled(false)
 	game.hud.visible = false
-	game.change_vehicle(VehicleCatalog.index_of_id("plane"))
+	var id := "helicopter" if OS.get_cmdline_user_args().has("--vehicle=helicopter") else "plane"
+	game.change_vehicle(VehicleCatalog.index_of_id(id))
 	await tools._wait(30)
 	var a := plane()
+	var cam: FlightCamera = game.heli_camera if a is Helicopter else game.flight_camera
+	if a is Helicopter:
+		(a as Helicopter).rotor = 1.0
 	a.freeze = true
 	var vp := tools.get_viewport()
 	RenderingServer.viewport_set_measure_render_time(vp.get_viewport_rid(), true)
@@ -528,7 +533,7 @@ func bench() -> void:
 			var basis := Basis.looking_at(Vector3.FORWARD, Vector3.UP)
 			a.global_transform = Transform3D(basis, Vector3(-20.0, h, 420.0))
 			a.reset_physics_interpolation()
-			game.flight_camera.snap()
+			cam.snap()
 			await tools._wait(40)
 			var times: Array[float] = []
 			var calls := 0
@@ -545,7 +550,7 @@ func bench() -> void:
 			for t in times:
 				avg += t
 			avg /= times.size()
-			var line := "FLIGHTBENCH %-6s %3.0f m  gpu avg %6.2f ms  p95 %6.2f  max %6.2f   %5d calls %8d prims" % [
+			var line := ("HELI " if a is Helicopter else "") + "FLIGHTBENCH %-6s %3.0f m  gpu avg %6.2f ms  p95 %6.2f  max %6.2f   %5d calls %8d prims" % [
 				Settings.GRAPHICS_LABELS[q], h, avg, times[int(times.size() * 0.95)], times[times.size() - 1],
 				calls / frames, prims / frames]
 			print(line)

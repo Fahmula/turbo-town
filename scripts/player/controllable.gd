@@ -6,9 +6,10 @@ extends Node
 ## nobody), so two controllers never drive the same pawn, and `kind` tells the
 ## Possession which input controller and camera to use for it.
 ##
-## The kinds are "character", "vehicle" (cars, trucks, buses...) and "plane"
-## (Aircraft). A new kind (a boat...) gets its own controller and camera
-## (Possession.add_rig); the rest of the hand-over stays the same.
+## The kinds are "character", "vehicle" (cars, trucks, buses...), "plane"
+## (Aircraft) and "heli" (Helicopter). A new kind (a boat...) gets its own
+## controller and camera (Possession.add_rig); the rest of the hand-over stays
+## the same.
 
 signal taken(by: Object)
 signal dropped(by: Object)
@@ -16,6 +17,7 @@ signal dropped(by: Object)
 const CHARACTER := &"character"
 const VEHICLE := &"vehicle"
 const PLANE := &"plane"
+const HELI := &"heli"
 ## Meta on a split-screen player's own vehicle and their character: which
 ## player (0, 1) it belongs to (LocalPlayer sets it, VehicleEntry reads it).
 const OWNER_META := &"player"

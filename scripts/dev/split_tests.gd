@@ -193,7 +193,7 @@ func run() -> void:
 	check(views.size() == 2 and Views.is_split(), "two views")
 	check(tools.get_viewport().disable_3d, "the main viewport stops drawing the world")
 	var in_view := func(p: LocalPlayer, v: SubViewport) -> bool:
-		for n: Node in [p.camera, p.foot_camera, p.flight_camera, p.camera_blend, p.hud]:
+		for n: Node in [p.camera, p.foot_camera, p.flight_camera, p.heli_camera, p.camera_blend, p.hud]:
 			if n.get_parent() != v:
 				return false
 		return true
@@ -508,7 +508,7 @@ func _scenarios() -> Array:
 
 func _cams_off() -> void:
 	for p in game.players:
-		for c: Camera3D in [p.camera, p.foot_camera, p.flight_camera, p.camera_blend]:
+		for c: Camera3D in [p.camera, p.foot_camera, p.flight_camera, p.heli_camera, p.camera_blend]:
 			c.set_process(false)
 
 
@@ -622,7 +622,7 @@ func bench() -> void:
 				if level == GraphicsQuality.MEDIUM:
 					await shot("bench_%s_%s" % [s[0], "split" if split else "single"])
 				for p in g.players:
-					for c: Camera3D in [p.camera, p.foot_camera, p.flight_camera]:
+					for c: Camera3D in [p.camera, p.foot_camera, p.flight_camera, p.heli_camera]:
 						c.set_process(true)
 			# A drive: player 1 up the avenue, player 2 along the highway.
 			var st2: Array = await _drive(split)
@@ -717,7 +717,7 @@ func _drive(split: bool) -> Array:
 	if car2:
 		car2.freeze = false
 	for p in g.players:
-		for c: Camera3D in [p.camera, p.foot_camera, p.flight_camera]:
+		for c: Camera3D in [p.camera, p.foot_camera, p.flight_camera, p.heli_camera]:
 			c.set_process(true)
 	frame_times.sort()
 	var ft := 0.0

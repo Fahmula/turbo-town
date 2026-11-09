@@ -153,6 +153,73 @@ def propeller(rpm=2400.0, blades=2, seconds=1.6, seed=65):
     return dsp.normalize_rms(x, -18.0)
 
 
+def rotor(rpm=400.0, blades=2, tail_rpm=2300.0, tail_blades=2, seconds=3.0, seed=67):
+    """A light helicopter's rotors at flying speed: the main rotor's blade
+    slap ("whop-whop", 13 a second for two blades at 400 rpm) and the tail
+    rotor's buzz on top, plus the rotor wash. The slap's beat sits in the
+    100-1500 Hz harmonics and a pulsing band of air noise, so the Steam
+    Deck's speakers (nothing much below ~200 Hz) still carry the rhythm.
+    Whole cycles over the loop (and FFT-filtered noise, which is periodic):
+    seamless."""
+    n = int(seconds * R)
+    t = _t(seconds)
+    bpf = round(rpm / 60.0 * blades * seconds) / seconds
+    rng = np.random.default_rng(seed)
+    # The slap: a sharp pulse once per blade pass as harmonics of the beat.
+    slap = np.zeros(n)
+    k = 1
+    while bpf * k < 1800.0:
+        slap += np.sin(2 * np.pi * bpf * k * t + rng.uniform(-0.2, 0.2)) / k ** 0.55
+        k += 1
+    phase = (t * bpf) % 1.0
+    env = np.exp(-phase / 0.09)
+    swish = dsp.bandpass(dsp.noise(n, seed + 1, "pink"), 250, 2600, 2) * (0.25 + 0.75 * env)
+    whoosh = dsp.lowpass(dsp.noise(n, seed + 2, "pink"), 900, 2) * (0.6 + 0.4 * np.exp(-((phase - 0.5) % 1.0) / 0.25))
+    tbpf = round(tail_rpm / 60.0 * tail_blades * seconds) / seconds
+    tail = np.zeros(n)
+    for j in range(1, 22):
+        tail += np.sin(2 * np.pi * tbpf * j * t + 0.37 * j) / j ** 0.9
+    tail = dsp.peaks(tail.astype(np.float32), [(tbpf * 4, 2.0, 0.6), (tbpf * 8, 2.0, 0.4)])
+    x = (dsp.normalize_rms(slap.astype(np.float32), -21) + dsp.normalize_rms(swish, -21)
+         + dsp.normalize_rms(whoosh, -25) + dsp.normalize_rms(tail, -29))
+    return dsp.normalize_rms(x, -18.0)
+
+
+def turbine(rpm, seconds=1.0, seed=111):
+    """A helicopter's turboshaft at `rpm` (Helicopter.engine_rpm: about 1,500
+    starting up, 5,600-6,000 flying): the compressor's whine (rpm x 0.55 Hz),
+    the gearbox's tone, combustion roar and a high hiss, the roar growing
+    with rpm."""
+    n = int(seconds * R)
+    f = rpm * 0.55
+    whine = _loop_sine(f, seconds) + 0.3 * _loop_sine(f * 2, seconds, 0.7) + 0.1 * _loop_sine(f * 3, seconds, 1.9)
+    air = dsp.peaks(dsp.noise(n, seed), [(f, 10.0, 1.0), (f * 2, 12.0, 0.4)])
+    gear = _loop_sine(rpm * 0.075, seconds) + 0.5 * _loop_sine(rpm * 0.15, seconds, 0.4)
+    roar = dsp.peaks(dsp.lowpass(dsp.noise(n, seed + 1, "pink"), 1600, 2), [(420, 1.2, 0.6)])
+    hiss = dsp.bandpass(dsp.noise(n, seed + 2), 4500, 9000, 2)
+    loud = min(rpm / 6000.0, 1.0)
+    x = (dsp.normalize_rms(whine, -24) + dsp.normalize_rms(air, -32) + dsp.normalize_rms(gear, -30)
+         + dsp.normalize_rms(roar, -19 - 9 * (1 - loud)) + dsp.normalize_rms(hiss, -31))
+    return dsp.normalize_rms(x, -18.0)
+
+
+def turbine_start(seed=121):
+    """Starting the turboshaft (3.2 s): the starter's whine winding up,
+    light-off (a soft whoomp of roar), then the whine climbing toward the
+    1,500 rpm loop it hands over to. (It had igniter ticks too: on speakers
+    they were the loudest thing in it, a "tap tap tap" the owner took for a
+    glitch, 2026-11-09.)"""
+    s = 3.2
+    n = int(s * R)
+    starter = _sweep(lambda tt: np.interp(tt, [0.0, 1.1, 1.4, 3.2], [60.0, 380.0, 430.0, 1500 * 0.55]), s, harmonics=6)
+    starter = starter * dsp.envelope(n, [(0, 0), (0.15, 0.7), (1.2, 1.0), (3.2, 0.8)])
+    roar = dsp.lowpass(dsp.noise(n, seed, "pink"), 1400, 2) * dsp.envelope(n, [(0, 0), (1.3, 0), (1.6, 1.2), (2.0, 0.8), (3.2, 0.9)])
+    x = dsp.normalize_rms(starter, -24) + dsp.normalize_rms(roar, -22)
+    # The level it had beside the ticks: VehicleAudio plays it at -7 dB to
+    # hand over to the idle loop.
+    return dsp.fade(dsp.normalize_peak(x, -11.65), 0.01, 0.15)
+
+
 def horn(freqs, seconds=1.0, formants=((1600, 2.0, 1.0), (3100, 3.0, 0.6)), brass=0.0, seed=71):
     """Horn loop: buzzy (sawtooth-like, band-limited) tones through the
     diaphragm/trumpet formants. Electric car horns are two tones a third or

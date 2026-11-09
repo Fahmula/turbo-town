@@ -68,6 +68,17 @@ PROFILES = {
     # family), a little quieter, with the propeller's buzz on top. No horn.
     "plane": dict(engine="flat4", rpm_scale=1.0, engine_volume_db=-2.0, rpm_gain_db=4.0, load_gain_db=2.5,
                   propeller="engine/propeller.wav", propeller_rpm=2400.0, propeller_volume_db=-4.0, size=1.3),
+    # Light helicopter: a synthesised turboshaft (whine and roar) under the
+    # rotors' blade slap, which is the loudest part and grows with the
+    # collective (engine load). No horn.
+    "heli": dict(engine="turbine", rpm_scale=1.0, engine_volume_db=-7.0, rpm_gain_db=5.0, load_gain_db=2.0,
+                 startup_catch=2.4,
+                 propeller="engine/rotor.wav", propeller_rpm=5580.0, propeller_volume_db=-1.0, size=1.8),
+}
+
+## Engine sets made by synth.py rather than recorded (on-load loops only).
+SYNTH_SETS = {
+    "turbine": {"on": [(r, "engine/turbine/on_%d.wav" % r) for r in (1500, 3000, 6000)], "off": []},
 }
 
 SCRIPT = "res://scripts/vehicle/audio/vehicle_sound_profile.gd"
@@ -78,7 +89,7 @@ def write_profiles(out_dir: Path, engine_sets: dict):
     pdir = out_dir / "profiles"
     pdir.mkdir(parents=True, exist_ok=True)
     for vid, p in PROFILES.items():
-        es = engine_sets[p["engine"]]
+        es = engine_sets[p["engine"]] if p["engine"] in engine_sets else SYNTH_SETS[p["engine"]]
         ext = []
 
         def ref(rel):
@@ -103,7 +114,8 @@ def write_profiles(out_dir: Path, engine_sets: dict):
                 lines.append("%s = %s" % (key, float(p[key])))
         lines.append("startup = %s" % ref("engine/%s/startup.wav" % p["engine"]))
         import recorded
-        lines.append("startup_catch = %s" % recorded.handover(p["engine"]))
+        if "startup_catch" not in p:
+            lines.append("startup_catch = %s" % recorded.handover(p["engine"]))
         for key in ("whine", "blowoff", "shift", "air_brake", "horn", "propeller"):
             if key in p:
                 lines.append("%s = %s" % (key, ref(p[key])))

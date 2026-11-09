@@ -447,7 +447,7 @@ func exit() -> bool:
 	if plane and (not plane.on_ground or plane.airspeed > 12.0):
 		# No getting out of a flying plane: land it first.
 		if player:
-			player.hud.show_toast("Land the plane first!" if not plane.on_ground else "Slow down first!", 2.0)
+			player.hud.show_toast(("Land the %s first!" % plane.display_name.to_lower()) if not plane.on_ground else "Slow down first!", 2.0)
 		return true
 	mode = Mode.EXITING
 	_exit_time = 0.0

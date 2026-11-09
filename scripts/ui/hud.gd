@@ -4,8 +4,9 @@ extends CanvasLayer
 ## the "flip your car" hint and the interaction prompt ("F  Get in the van").
 ## Built in code so it has no layout files. On foot the speedometer and damage
 ## readout hide and the maps follow the character (set_on_foot); in a plane
-## the speedometer shows the height and engine power, the help shows the
-## flying controls and warnings come up (too slow, pull up, turning back).
+## or helicopter the speedometer shows the height and engine power, the help
+## shows the flying controls and warnings come up (too slow, pull up,
+## turning back).
 ## In split-screen each player has their own HUD in their half of the screen,
 ## in a compact layout (set_compact) with a "P1" / "P2" chip and the other
 ## player marked on the maps.
@@ -62,6 +63,23 @@ const FLIGHT_HELP_TEXT := """[b]FLYING[/b]
 [color=#ffd54a]M[/color]   map     [color=#ffd54a]U[/color]   km/h / mph
 [color=#ffd54a]H / F1[/color]   hide this help     [color=#ffd54a]Esc[/color]   menu"""
 
+const HELI_HELP_TEXT := """[b]HELICOPTER[/b]
+[color=#ffd54a]Shift[/color]   go up (hold)
+[color=#ffd54a]Ctrl[/color]   go down (land: down onto the ground)
+      let go of both and it stays at that height
+[color=#ffd54a]W / S[/color]   fly forward / back
+      let go and it stops in the air
+[color=#ffd54a]A / D[/color]   turn left / right
+[color=#ffd54a]Space + W / S[/color]   flip!   [color=#ffd54a]Space + A / D[/color]   roll!
+[color=#ffd54a]R[/color]   help! stop and level out in the air
+[color=#ffd54a]F[/color]   get out (land first)
+[color=#ffd54a]V[/color]   garage     [color=#ffd54a]P[/color]   replay
+[color=#ffd54a]1 - 9 / Tab[/color]   fly to a place (7 = helipad)
+[color=#ffd54a]C[/color]   camera     [color=#ffd54a]Q[/color]   look back
+[color=#ffd54a]T[/color]   flying assists on/off
+[color=#ffd54a]M[/color]   map     [color=#ffd54a]U[/color]   km/h / mph
+[color=#ffd54a]H / F1[/color]   hide this help     [color=#ffd54a]Esc[/color]   menu"""
+
 var speedometer: Speedometer
 var minimap: Minimap
 var big_map: BigMap
@@ -98,8 +116,11 @@ var input: PlayerInput
 ## Split-screen layout: smaller gauges, smaller (still >= 18 px) text.
 var compact := false
 var on_foot := false
-## Flying a plane (set_flying): flight readouts, help and warnings.
+## Flying a plane or helicopter (set_flying): flight readouts, help and
+## warnings.
 var flying := false
+## ... and it's a helicopter (its own help and warnings).
+var heli := false
 ## Riding along in the other player's vehicle: its gauges, but no "press R"
 ## hint (the driver does that).
 var passenger := false
@@ -299,8 +320,11 @@ func _flight_readouts(plane: Aircraft) -> void:
 	speedometer.assists_on = true
 	var r := "Y" if using_pad else "R"
 	var warn := ""
+	var h := plane as Helicopter
 	if plane.upside_down_time > 1.5:
 		warn = "Upside down? Press %s to flip it over!" % r
+	elif h and h.on_ground and h.engine_running and h.rotor < 0.85 and not passenger:
+		warn = "Starting the rotor..."
 	elif plane.stall_warning > 0.6:
 		warn = "TOO SLOW! Push the nose down"
 	elif not plane.on_ground and plane.vertical_speed < -6.0 and plane.altitude < -plane.vertical_speed * 3.0:
@@ -349,20 +373,27 @@ func set_on_foot(foot: bool, character: Node3D = null, camera: Camera3D = null) 
 	big_map.target = character if foot else vehicle
 	minimap.car = vehicle if foot else null
 	big_map.car = vehicle if foot else null
-	_help_text.text = FOOT_HELP_TEXT if foot else (FLIGHT_HELP_TEXT if flying else HELP_TEXT)
+	_help_text.text = FOOT_HELP_TEXT if foot else _vehicle_help()
 	_temp_prompt = ""
 	_refresh_prompt()
 
 
-## In a plane (or not): the speedometer shows the height and the power, the
-## help shows the flying controls.
-func set_flying(on: bool) -> void:
+## In a plane or helicopter (`is_heli`), or not: the speedometer shows the
+## height and the power, the help shows the flying controls.
+func set_flying(on: bool, is_heli := false) -> void:
 	flying = on
+	heli = on and is_heli
 	speedometer.flying = on
 	_height_label.visible = on and not on_foot
 	_place_readouts()
 	if not on_foot:
-		_help_text.text = FLIGHT_HELP_TEXT if on else HELP_TEXT
+		_help_text.text = _vehicle_help()
+
+
+func _vehicle_help() -> String:
+	if heli:
+		return HELI_HELP_TEXT
+	return FLIGHT_HELP_TEXT if flying else HELP_TEXT
 
 
 ## The interaction prompt ("Get in the van"); "" hides it.

@@ -91,6 +91,12 @@ const RUNWAY_B := Vector3(525, 1.0, 300)
 const RUNWAY_WIDTH := 28.0
 const APRON_CENTER := Vector3(335, 1.0, 258)
 const APRON_SIZE := Vector2(100, 36)
+## Two helipads east of the apron (centre, on the ground). The garage's
+## helicopter starts on the first (in split-screen the players 14 m apart);
+## a parked one stands on the second.
+const HELIPAD_A := Vector3(402, 1.0, 254)
+const HELIPAD_B := Vector3(430, 1.0, 254)
+const HELIPAD_SIZE := 24.0
 
 # --- Tunnel through a hill on the south avenue ---
 const TUNNEL_Z0 := 180.0

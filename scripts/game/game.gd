@@ -97,6 +97,12 @@ var flight_controller: PlayerAircraftController:
 var flight_camera: FlightCamera:
 	get:
 		return p1.flight_camera if p1 else null
+var heli_controller: PlayerHelicopterController:
+	get:
+		return p1.heli_controller if p1 else null
+var heli_camera: HeliCamera:
+	get:
+		return p1.heli_camera if p1 else null
 var camera_blend: CameraBlend:
 	get:
 		return p1.camera_blend if p1 else null
@@ -354,6 +360,16 @@ func runway_start(plane: Vehicle, lane := 0.0) -> Transform3D:
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	var y: float = (hit["position"] as Vector3).y if not hit.is_empty() else p.y
 	return Transform3D(Basis.looking_at(Vector3.RIGHT, Vector3.UP), Vector3(p.x, y + plane.ride_height() + 0.05, p.z))
+
+
+## Where a helicopter starts on the ground: on the airfield's first helipad,
+## facing the runway, `lane` m along the pads (split-screen: one each side).
+func helipad_start(heli: Vehicle, lane := 0.0) -> Transform3D:
+	var p := MapLayout.HELIPAD_A + Vector3(lane, 0.0, 0.0)
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 5.0, p + Vector3.DOWN * 10.0, 1)
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	var y: float = (hit["position"] as Vector3).y if not hit.is_empty() else p.y
+	return Transform3D(Basis.looking_at(Vector3.BACK, Vector3.UP), Vector3(p.x, y + heli.ride_height() + 0.05, p.z))
 
 
 ## The teleport spot nearest to `pos` (its index in world.spawn_points).

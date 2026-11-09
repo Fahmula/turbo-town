@@ -194,6 +194,36 @@ func run() -> void:
 	await wait_s(1.2)
 	check(p2.possession.on_foot(), "player 2 gets out of the plane on the ground")
 
+	# --- The helicopter -----------------------------------------------------------------------
+	p1.change_vehicle(VehicleCatalog.index_of_id("helicopter"))
+	await wait_s(1.0)
+	var heli := p1.vehicle as Helicopter
+	check(heli != null and p1.possession.driving() and p1.view_camera() == p1.heli_camera, "player 1 takes the helicopter")
+	await _stand_by(p2, heli, 1.0)
+	await pad(1, JOY_BUTTON_B)
+	await wait_s(1.5)
+	check(p2.possession.ride == heli and p2.view_camera() == p2.heli_camera and p2.heli_camera.target == heli,
+		"player 2 rides in the helicopter, helicopter camera")
+	check(p2.heli_controller.heli == null and p1.heli_controller.heli == heli, "only player 1 flies it")
+	heli.place_in_flight(heli.global_position + Vector3.UP * 40.0, -heli.global_basis.z)
+	await wait_s(1.5)
+	check(p2.possession.riding() and not heli.on_ground, "hovering with player 1")
+	await shot("ride_heli")
+	await pad(1, JOY_BUTTON_B)
+	await wait_s(0.2)
+	check(p2.possession.riding() and p2.hud._toast.text == "Wait until Player 1 lands!", "no getting out in the air (%s)" % p2.hud._toast.text)
+	p2.heli_camera.mode = FlightCamera.Mode.COCKPIT
+	await wait(5)
+	cam_local = heli.global_transform.affine_inverse() * p2.heli_camera.global_position
+	check(cam_local.x > 0.15, "player 2's cockpit view is from the right seat (x %.2f)" % cam_local.x)
+	p2.heli_camera.mode = FlightCamera.Mode.CHASE
+	p1.teleport_to(airfield)
+	await wait_s(2.0)
+	check(heli.on_ground and p2.possession.ride == heli, "down on the helipad, together")
+	await pad(1, JOY_BUTTON_B)
+	await wait_s(1.2)
+	check(p2.possession.on_foot(), "player 2 gets out of the helicopter on the ground")
+
 	# --- The passenger's own garage -------------------------------------------------------
 	p1.change_vehicle(VehicleCatalog.index_of_id("sports_car"))
 	p1.teleport_to(4)

@@ -392,6 +392,7 @@ func raster_into_terrain() -> void:
 	var ac := MapLayout.APRON_CENTER
 	var asz := MapLayout.APRON_SIZE
 	_terrain.raster_segment(ac - Vector3(asz.x * 0.5, 0, 0), ac + Vector3(asz.x * 0.5, 0, 0), asz.y * 0.5 + 3.0, 12.0)
+	_terrain.raster_segment(MapLayout.HELIPAD_A, MapLayout.HELIPAD_B, MapLayout.HELIPAD_SIZE * 0.5 + 2.0, 12.0)
 	_terrain.raster_segment(MapLayout.HARBOR_QUAY_A, MapLayout.HARBOR_QUAY_B, 18.0, 8.0)
 
 

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="VehicleSoundProfile" format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/audio/vehicle_sound_profile.gd" id="1"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/turbine/on_1500.wav" id="2"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/turbine/on_3000.wav" id="3"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/turbine/on_6000.wav" id="4"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/turbine/startup.wav" id="5"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/rotor.wav" id="6"]
+
+[resource]
+script = ExtResource("1")
+engine_on = Array[AudioStream]([ExtResource("2"), ExtResource("3"), ExtResource("4")])
+engine_on_rpm = PackedFloat32Array(1500, 3000, 6000)
+engine_off = Array[AudioStream]([])
+engine_off_rpm = PackedFloat32Array()
+rpm_scale = 1.0
+engine_volume_db = -7.0
+rpm_gain_db = 5.0
+load_gain_db = 2.0
+startup_catch = 2.4
+size = 1.8
+propeller_rpm = 5580.0
+propeller_volume_db = -1.0
+startup = ExtResource("5")
+propeller = ExtResource("6")
