@@ -69,8 +69,9 @@ var _tidy_timer := 0.0
 var _fuel_told := 0
 var _fuel_vehicle: Vehicle
 var _fuel_scan := 0.0
-## "Get out to fill up" was shown for this stop at a pump.
+## "Get out to fill up" was shown for this stop at a pump (where).
 var _pump_hint_shown := false
+var _pump_hint_at := Vector3.ZERO
 
 
 func _init(g: Game, i: int) -> void:
@@ -728,13 +729,14 @@ func _fuel_tick(dt: float) -> void:
 		near_site = null  # there already
 	fuel_guide.vehicle = vehicle if near_site else null
 	fuel_guide.site = near_site
-	# Sitting still by a pump that fits: get out to use it.
-	var still := vehicle.linear_velocity.length() < 0.5
-	if not still:
+	# Sitting still by a pump that fits: get out to use it (once per stop:
+	# again after moving off, or at another pump).
+	if _pump_hint_shown and vehicle.global_position.distance_to(_pump_hint_at) > 8.0:
 		_pump_hint_shown = false
-	elif not _pump_hint_shown and fuel.level < 0.95 and game.state == Game.State.DRIVING \
+	if not _pump_hint_shown and vehicle.linear_velocity.length() < 0.5 and fuel.level < 0.95 \
 			and FuelSite.pump_near(get_tree(), vehicle, vehicle.global_position):
 		_pump_hint_shown = true
+		_pump_hint_at = vehicle.global_position
 		hud.show_prompt_for("Get out to fill up" if not fuel.is_battery() else "Get out to charge", 4.0)
 
 

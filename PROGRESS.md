@@ -611,13 +611,14 @@ your own, and the town feels alive around you.
       `build_audio.py fuel`, credited in ASSET_MANIFEST.md), the FULL popup
 - [x] Empty: sputter (`VehicleAudio.sputter_cut`), crawl power, the slow
       electric mode, the aircraft rules above
-- [x] Tests: `--fuel` (91 checks: drains, low warning, the arrow, empty
+- [x] Tests: `--fuel` (92 checks: drains, low warning, the arrow, empty
       crawl and sputter, an empty bus climbing, "Get out to fill up", grab,
       the lead, fill, readout, FULL!, take out, hang up, getting in / driving
       off / teleporting with it, the setting, a parked car's tank, electric,
-      the plane, the helicopter, split-screen); `--garage`, `--flight`,
-      `--heli`, `--split`, `--ride`, `--seats`, `--onfoot`, `--menus`,
-      `--races` still pass (802 checks in all); `--fuelbench` on the iGPU:
+      a car park's chargers, the plane, the helicopter, split-screen);
+      `--garage`, `--flight`, `--heli`, `--split`, `--ride`, `--seats`,
+      `--onfoot`, `--menus`, `--races` still pass (807 checks in all);
+      `--fuelbench` on the iGPU:
       +2 to +4 draw calls near a site, GPU within the noise (ART_BIBLE §27).
       Not tried on a Deck yet
 - [x] Docs: README (fuel, settings, controls, how it works, tests),

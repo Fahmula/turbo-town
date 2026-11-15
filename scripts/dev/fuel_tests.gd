@@ -477,6 +477,17 @@ func _electric() -> void:
 	g.ensure_driving()
 	await wait(5)
 
+	# A city car park's chargers: nose into a green bay.
+	var park_site := _site("ParkingChargers1")
+	var corner := MapLayout.ev_parking_corner(MapLayout.EV_PARKING[0])
+	var stall := Vector3(corner.x + MapLayout.STALL_X_INSET + MapLayout.STALL_WIDTH * 1.5, MapLayout.CURB_HEIGHT,
+		corner.y + MapLayout.STALL_ROW_INSET + MapLayout.STALL_DEPTH * 0.5)
+	f.set_level(0.5)
+	park(car, stall, Vector3.FORWARD)
+	await wait_s(1.0)
+	check(park_site != null and prompt() == "Get out to charge", "in a car park's green bay: %s" % prompt())
+	await shot("16_car_park_chargers")
+
 
 # --- Aircraft ----------------------------------------------------------------------
 

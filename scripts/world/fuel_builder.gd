@@ -47,7 +47,7 @@ func _site(root: Node3D, site_name: String, kind: VehicleFuel.Kind, title: Strin
 	return s
 
 
-func _props(root: Node3D, body_name: String, mb: MeshBuilder, ground: MeshBuilder, body: StaticBody3D) -> void:
+func _props(root: Node3D, body_name: String, mb: MeshBuilder, body: StaticBody3D) -> void:
 	body.name = body_name
 	var mi := MeshInstance3D.new()
 	mi.name = "Props"
@@ -55,22 +55,15 @@ func _props(root: Node3D, body_name: String, mb: MeshBuilder, ground: MeshBuilde
 	mi.visibility_range_end = 250.0
 	mi.visibility_range_end_margin = 10.0
 	body.add_child(mi)
-	if not ground.is_empty():
-		var gi := MeshInstance3D.new()
-		gi.name = "Paint"
-		gi.mesh = ground.build_mesh(load("res://assets/materials/env/paving.tres"))
-		gi.visibility_range_end = 250.0
-		body.add_child(gi)
 	root.add_child(body)
 
 
-## A green bay (2.7 x 5 m) painted in front of a charger at `xf` (its -Z).
-static func _bay(ground: MeshBuilder, xf: Transform3D, y: float) -> void:
-	var b := xf.basis
-	var o := Vector3(xf.origin.x, y, xf.origin.z)
-	# (Corners counter-clockwise seen from above.)
-	ground.add_quad(o + b * Vector3(-1.35, 0, -0.45), o + b * Vector3(1.35, 0, -0.45), o + b * Vector3(1.35, 0, -5.45),
-		o + b * Vector3(-1.35, 0, -5.45), Color(ArtPalette.EV_GREEN, 0.0))
+## A green painted bay (`size` x, z) centred at `center` (on the ground),
+## turned by `basis`: a thin painted slab on the props material (on the
+## paving material green reads as lawn).
+static func _bay(mb: MeshBuilder, basis: Basis, center: Vector3, size: Vector2) -> void:
+	mb.add_bevel_box(Transform3D(basis, center + Vector3.UP * 0.006), Vector3(size.x, 0.008, size.y), 0.002,
+		Color(ArtPalette.EV_GREEN, StreetKit.PAINTED))
 
 
 # ----------------------------------------------------------- TURBO FUEL --
@@ -96,16 +89,15 @@ func _gas_station(root: Node3D) -> void:
 func _station_chargers(root: Node3D) -> void:
 	var c := MapLayout.GAS_STATION
 	var mb := MeshBuilder.new()
-	var ground := MeshBuilder.new()
 	var body := StaticBody3D.new()
 	var s := _site(root, "StationChargers", VehicleFuel.Kind.BATTERY, "Chargers")
 	for dz: float in [-9.5, -3.5]:
 		var xf := Transform3D(Basis(Vector3.UP, PI * 0.5), c + Vector3(23.0, 0.02, dz))
 		var parts := FuelKit.add_charger(mb, body, xf)
-		_bay(ground, xf, c.y + 0.03)
+		_bay(mb, xf.basis, xf.origin + xf.basis * Vector3(0.0, 0.0, -2.95), Vector2(2.7, 5.0))
 		if s:
 			s.add_pump(parts[0], parts[1], CHARGER_LEAD, c.y + 0.02, _screen(xf))
-	_props(root, "StationChargerProps", mb, ground, body)
+	_props(root, "StationChargerProps", mb, body)
 
 
 ## Where a charger's screen shows the charge (its front, just proud of it).
@@ -129,7 +121,14 @@ func _parking_chargers(root: Node3D, block: Vector2i, k: int) -> void:
 		var parts := FuelKit.add_charger(mb, body, xf)
 		if s:
 			s.add_pump(parts[0], parts[1], CHARGER_LEAD, y, _screen(xf))
-	_props(root, "ParkingChargerProps%d" % (k + 1), mb, MeshBuilder.new(), body)
+	# The green bays: the first stalls of the row (CityBuilder keeps them free),
+	# inside their white lines.
+	for bay in MapLayout.EV_BAYS:
+		var x0 := corner.x + MapLayout.STALL_X_INSET + MapLayout.STALL_WIDTH * bay
+		var z0 := corner.y + MapLayout.STALL_ROW_INSET
+		_bay(mb, Basis.IDENTITY, Vector3(x0 + MapLayout.STALL_WIDTH * 0.5, y + 0.004, z0 + MapLayout.STALL_DEPTH * 0.5),
+			Vector2(MapLayout.STALL_WIDTH - 0.24, MapLayout.STALL_DEPTH - 0.2))
+	_props(root, "ParkingChargerProps%d" % (k + 1), mb, body)
 
 
 # ------------------------------------------------------------- aircraft --
@@ -147,7 +146,7 @@ func _airfield(root: Node3D) -> void:
 		s.for_cars = true
 		s.for_planes = true
 		s.add_pump(parts[0], parts[1], AIR_LEAD, ac.y + 0.02, _cabinet_screen(xf))
-	_props(root, "AirfieldFuelProps", mb, MeshBuilder.new(), body)
+	_props(root, "AirfieldFuelProps", mb, body)
 
 
 ## A helipad's fuel cabinet on its south side, inside the pad but clear of
@@ -164,7 +163,7 @@ func _helipad(root: Node3D, pad: Vector3) -> void:
 		s.for_cars = true
 		s.for_planes = true
 		s.add_pump(parts[0], parts[1], HELIPAD_LEAD, pad.y + 0.03, _cabinet_screen(xf))
-	_props(root, "HelipadFuelProps%s" % ("A" if pad == MapLayout.HELIPAD_A else "B"), mb, MeshBuilder.new(), body)
+	_props(root, "HelipadFuelProps%s" % ("A" if pad == MapLayout.HELIPAD_A else "B"), mb, body)
 
 
 static func _cabinet_screen(xf: Transform3D) -> Transform3D:

@@ -1505,7 +1505,9 @@ nozzles, and everything below, are the fuel sites' own.
   the end of the lead), never through the ground.
 - **EV charger** (1.7 m): a slim white pedestal on a concrete plinth, a green
   band near the top, a dark screen with a lit green status bar, the plug's
-  holster on its side. Green bays (`EV_GREEN`) in front of each charger.
+  holster on its side. Green bays (`EV_GREEN`) in front of each charger: a
+  thin painted slab on the props material (on the paving material a green
+  "plain" piece is drawn as lawn).
 - **Fuel cabinet** (airfield, helipads; 1.45 m): a red steel cabinet on a
   concrete pad, a meter window, a galvanised hose reel, a nozzle holster.
 - **Cost:** per site, the resting hoses and handles are one merged mesh (one

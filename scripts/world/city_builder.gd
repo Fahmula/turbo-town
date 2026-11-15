@@ -336,8 +336,8 @@ func _add_parking(paint: MeshBuilder, x0: float, z0: float, x1: float, z1: float
 	var y := MapLayout.CURB_HEIGHT + 0.012
 	var stall_w := MapLayout.STALL_WIDTH
 	var stall_d := MapLayout.STALL_DEPTH
-	# Car parks with EV chargers (FuelBuilder) keep their first bays free and
-	# paint them green.
+	# Car parks with EV chargers keep their first bays free (FuelBuilder puts
+	# the chargers there and paints the bays green).
 	var ev := MapLayout.is_ev_parking(x0, z0)
 	# Rows of stalls facing each other, with aisles between.
 	var r0 := z0 + MapLayout.STALL_ROW_INSET
@@ -353,8 +353,6 @@ func _add_parking(paint: MeshBuilder, x0: float, z0: float, x1: float, z1: float
 				var sz: float = row_z + side * stall_d
 				_flat_quad(paint, x - 0.06, sz, x + 0.06, sz + stall_d, y, white)
 				var bay := ev and row_i == 0 and side == 0 and stall < MapLayout.EV_BAYS
-				if bay:
-					_flat_quad(paint, x + 0.12, sz + 0.1, x + stall_w - 0.12, sz + stall_d - 0.1, y - 0.002, Color(ArtPalette.EV_GREEN, 0.0))
 				if _rng.randf() < 0.35:
 					var rot := 0.0 if side == 0 else PI
 					var pos := Vector3(x + stall_w * 0.5, MapLayout.CURB_HEIGHT, sz + stall_d * 0.5)
