@@ -94,7 +94,7 @@ map, help and pause all work on foot too.
 ### Garage
 
 Press **V** (D-pad down). Pick the sports car, sedan, van, delivery truck, bus,
-pickup, buggy, monster truck, electric SUV, plane or helicopter, and set it up. Switch tabs with Q / E
+pickup, buggy, monster truck, electric SUV, electric pickup, plane or helicopter, and set it up. Switch tabs with Q / E
 (LB / RB):
 
 | Tab | What you can change |
@@ -116,6 +116,12 @@ pickup, buggy, monster truck, electric SUV, plane or helicopter, and set it up. 
   it's standing still and they swing up; they shut when someone drives off
   or everyone walks away. Its roof opens with them, so it takes no roof
   parts.
+- The **electric pickup** is a steel wedge on big all-terrain tyres: flat
+  stainless steel panels, light bars across the front and back, chunky black
+  arch flares and bumpers, a ribbed bed cover. It pulls hard and quietly like
+  the SUV, with a deeper whine. Its
+  "Stainless" colour (bare brushed steel) is on the PAINT tab for every
+  vehicle, and its "Facet" aero covers are on the WHEELS tab.
 - **X / Y**: surprise me (a random vehicle, or random choices on the tab).
   **Enter / A**: drive (on foot, the vehicle is brought to you and you get
   in). **Esc / B**: back.
@@ -352,6 +358,7 @@ generated files are committed, so you only need those tools to change them.
 | `scenes/vehicles/sedan.tscn`, `van.tscn`, `box_truck.tscn`, `bus.tscn`, `pickup.tscn` | Used by traffic and drivable from the garage (every vehicle scene is both) |
 | `scenes/vehicles/buggy.tscn`, `monster_truck.tscn` | Garage only (AWD, long-travel suspension) |
 | `scenes/vehicles/suv.tscn` | The electric SUV, in the garage and in traffic: AWD, one gear (`electric`), gull-wing rear doors (`WingDoors`) |
+| `scenes/vehicles/electric_pickup.tscn` | The electric pickup, in the garage and in traffic: AWD, one gear (`electric`), stainless steel |
 | `scenes/vehicles/plane.tscn` | The sport plane (`Aircraft`), in the garage and parked at the airfield |
 | `scenes/props/parked_plane.tscn` | A parked plane: a cheap prop, swapped for `plane.tscn` when you get in |
 | `scenes/vehicles/helicopter.tscn` | The helicopter (`Helicopter`), in the garage and parked on the airfield's helipad (`scenes/props/parked_helicopter.tscn`) |
@@ -385,7 +392,7 @@ generated files are committed, so you only need those tools to change them.
 | `assets/materials/` | `env/` has the world's materials |
 | `assets/textures/` | Generated textures |
 | `assets/audio/` | Built by `tools/audio/`; `profiles/` has one VehicleSoundProfile per vehicle |
-| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_suv.py` (electric SUV), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
+| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_suv.py` (electric SUV), `make_electric_pickup.py` (electric pickup), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
 | `tools/textures/` | `make_textures.py` (ground detail, cloud and leaf textures), `make_decals.py` (garage decals), and `fetch_*.py`: download CC0 scans (Poly Haven, ambientCG) and make the game textures (`fetch_sky.py` real skies, `fetch_road.py`, `fetch_terrain.py`, `fetch_building.py`, `fetch_foliage.py`, `fetch_props.py`; shared helpers in `fetch_common.py`). Run them from the project root with `python3`, then import in Godot |
 | `tools/audio/build_audio.py` | Every sound in `assets/audio/`: downloads the licensed recordings, makes loops, synthesizes the rest, writes the profiles (`python3 tools/audio/build_audio.py`) |
 | `tools/release.sh`, `tools/steamdeck/` | The release build and the Steam Deck installer / launcher ([RELEASING.md](RELEASING.md)) |
@@ -400,9 +407,9 @@ does spring / damper suspension and a slip-based tyre model with a friction
 circle. `vehicle.gd` adds an automatic 5-speed gearbox, speed-sensitive
 steering, anti-roll bars, drag and downforce, and kid-friendly assists
 (traction control + stability control, gentle mid-air levelling) that can be
-switched off with **T**. The electric SUV has a motor instead
-(`electric`): full pull from a standstill, one gear, no clutch, and
-regenerative braking when you lift off.
+switched off with **T**. The electric SUV and the electric pickup have a
+motor instead (`electric`): full pull from a standstill, one gear, no
+clutch, and regenerative braking when you lift off.
 
 #### The map
 
@@ -477,8 +484,8 @@ flip like your car.
   and render costs, `--framebench` where each frame's time goes.
 - **Tuning:** `max_cars`, spawn distances and the vehicle mix (`car_scenes` +
   `car_weights`) are on the `Traffic` node in `main.tscn`. Traffic is a mix of
-  sports cars, sedans, vans, delivery trucks, buses, pickups and electric
-  SUVs. Each vehicle scene sets
+  sports cars, sedans, vans, delivery trucks, buses, pickups, electric SUVs
+  and electric pickups. Each vehicle scene sets
   its own paint palette (`paint_palette` on its `Body` node) and AI speed
   (`ai_speed_factor`, `ai_max_accel` on the root).
 
@@ -515,7 +522,7 @@ engine loops recorded at known rpm, on and off load. The two either side of
 the current rpm play pitched to it and crossfade, blended by throttle load,
 plus start-up, turbo, pops, shifts, air brakes, beepers and a horn. The
 electric SUV's set is a synthesised motor: a soft hum when slow, rising into
-a whine.
+a whine. The electric pickup uses it pitched down.
 
 Shared sounds (`VehicleSoundBank`): tyre roll per surface, squeal, gravel,
 wind, scraping, crash tiers by strength and what was hit, glass, suspension
@@ -701,7 +708,7 @@ godot --path . -- --garage=/tmp/shots
 - "Pass / fail" tests print an `ok` or `FAIL` line per check and a summary.
 - Add `--graphics=0..3` (Low / Medium / High / Ultra) to run any of them at
   that quality.
-- Add `--vehicle=<id>` (`sedan`, `suv`, `van`, `box_truck`, `bus`, `pickup`, `buggy`,
+- Add `--vehicle=<id>` (`sedan`, `suv`, `electric_pickup`, `van`, `box_truck`, `bus`, `pickup`, `buggy`,
   `monster_truck`) to run a main-game test in another vehicle.
 - Add `--weather=<clear|cloudy|rain|storm|changing>` to start any of them in
   that weather.

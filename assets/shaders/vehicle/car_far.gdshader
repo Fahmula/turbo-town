@@ -73,8 +73,10 @@ void fragment() {
 	vec3 col = paint_color.rgb;
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	col *= mix(1.0, mix(0.6, 1.12, smoothstep(0.05, 0.85, ndv)), clamp(metal * 1.6, 0.0, 1.0));
-	float rough = mix(0.13, 0.2, step(0.01, metal));
-	float coat = 0.6;
+	// Bare metal (metallic 1, PaintPalette.is_bare_metal): brushed, no clear coat.
+	float bare = step(0.99, metal);
+	float rough = mix(mix(0.13, 0.2, step(0.01, metal)), 0.34, bare);
+	float coat = 0.6 * (1.0 - bare);
 	// Grime: car_paint's splash noise averages out at this distance.
 	float grime = clamp(dirt * (UV.y + 0.06), 0.0, 1.0);
 	col = mix(col, DIRT, grime * 0.85);

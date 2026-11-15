@@ -6,7 +6,8 @@ extends RefCounted
 ## colour, so a saved colour keeps its finish.
 
 ## Garage colours: believable car paints, with a few fun brighter ones.
-## Swatches show in this order, six per row.
+## Swatches show in this order, in one row. New colours go on the end (saved
+## loadouts keep second colours by index).
 const GARAGE: Array[Color] = [
 	Color(0.784, 0.137, 0.106),  # red
 	Color(0.878, 0.4, 0.106),    # sunset orange
@@ -20,14 +21,19 @@ const GARAGE: Array[Color] = [
 	Color(0.902, 0.902, 0.882),  # white
 	Color(0.663, 0.678, 0.698),  # silver
 	Color(0.165, 0.173, 0.188),  # graphite
+	Color(0.72, 0.73, 0.75),     # stainless (bare brushed steel: the electric pickup)
 ]
 ## Finish for each GARAGE entry: 0 = solid paint, more = metallic.
-const GARAGE_METALLIC: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.4, 0.35, 0.4, 0.45, 0.0, 0.0, 0.6, 0.5]
+## 1 = bare metal: brushed, no clear coat, no flakes (is_bare_metal()).
+const GARAGE_METALLIC: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.4, 0.35, 0.4, 0.45, 0.0, 0.0, 0.6, 0.5, 1.0]
 ## Name shown in the garage for each GARAGE entry.
 const GARAGE_NAMES: Array[String] = [
 	"Red", "Sunset Orange", "Yellow", "Lime", "Racing Green", "Teal",
 	"Bright Blue", "Midnight Purple", "Pink", "White", "Silver", "Graphite",
+	"Stainless",
 ]
+## Roughness of bare metal (brushed stainless steel).
+const BARE_ROUGHNESS := 0.34
 
 ## Traffic: [colour, weight, metallic]. Mostly white, black, grey and silver;
 ## blue and red fairly common; everything else rare.
@@ -61,6 +67,12 @@ static func metallic_of(c: Color) -> float:
 		if (e[0] as Color).is_equal_approx(c):
 			return e[2]
 	return 0.0
+
+
+## Bare metal instead of paint (stainless steel): metallic 1, brushed, with
+## no clear coat and no flakes.
+static func is_bare_metal(c: Color) -> bool:
+	return metallic_of(c) >= 1.0
 
 
 ## A random traffic colour, weighted.

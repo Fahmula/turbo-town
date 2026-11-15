@@ -12,8 +12,9 @@ between the axles), so the game puts it on with an identity transform.
 * Spoilers (every vehicle): a lip and a ducktail that follow the deck's (or
   the roof's) rear edge, a GT wing and a Mega Wing on stands. The stands are
   ray-cast onto the committed body model, so they always reach it.
-* Bonnets (sports car, sedan, electric SUV, pickup, monster truck): vents, a scoop, a
-  supercharger poking out of the bonnet.
+* Bonnets (sports car, sedan, electric SUV, pickup, monster truck, electric
+  pickup): vents, a scoop, a supercharger poking out of the bonnet (tilted
+  to a steep bonnet's slope where the mount says `tilt`).
 * Roofs: a roof scoop, a rack, a light bar (UV kind AUX: lit at night), a
   roof box (not on the electric SUV: its gull-wing doors open the roof).
 * Body kits (sports car and sedan only, ART_BIBLE.md §12): Sport and Race
@@ -79,6 +80,14 @@ VEHICLES = {
         "glb": "suv_body.glb",
         "spoiler": {"edge": -2.50, "lip_hs": 0.66, "wing_y": -2.15, "stand_x": 0.55, "span": 1.66, "height": 0.25},
         "bonnet": {"y": 1.70, "s": 1.0},
+    },
+    "electric_pickup": {
+        # The bonnet slopes up into the windscreen (the supercharger tilts
+        # to it); the light bar sits just ahead of the roof's peak.
+        "glb": "electric_pickup_body.glb",
+        "spoiler": {"edge": -2.84, "lip_hs": 0.80, "wing_y": -2.45, "stand_x": 0.62, "span": 1.9, "height": 0.26},
+        "bonnet": {"y": 2.12, "s": 1.0, "tilt": True},
+        "roof": {"y": -0.30, "len": 0.5, "hw": 0.55, "front": -0.15},
     },
     "box_truck": {
         "glb": "truck_body.glb",
@@ -362,6 +371,12 @@ def blower(body, m, bn):
         bk.tube(part, m["Chrome"], (sx * 0.09 * s, y - l * 0.25, top), (sx * 0.09 * s, y - l * 0.25, top + 0.06 * s), 0.05 * s, 12)
         bk.tube(part, m["Trim"], (sx * 0.09 * s, y - l * 0.25, top + 0.06 * s), (sx * 0.09 * s, y - l * 0.25, top + 0.062 * s),
                 0.04 * s, 12)
+    if bn.get("tilt"):
+        # Lean it with the bonnet's slope, so it sits flush front and back.
+        zf, zr = body.down(0, y + l * 0.5)[0], body.down(0, y - l * 0.5)[0]
+        ang = math.atan2(zf - zr, l)
+        part.bm.transform(mathutils.Matrix.Translation((0, y, z0)) @ mathutils.Matrix.Rotation(ang, 4, "X")
+                          @ mathutils.Matrix.Translation((0, -y, -z0)))
     return finish(part, 35)
 
 

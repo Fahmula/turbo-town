@@ -2,11 +2,6 @@
 // parked cars) and car_paint_custom.gdshader (the player's garage paint:
 // finishes, two-tone, decals, race numbers; defines PAINT_CUSTOM). See
 // car_paint.gdshader for the look.
-#ifdef PAINT_CUSTOM
-#define FLAKES_AMOUNT flakes
-#else
-#define FLAKES_AMOUNT 1.0
-#endif
 
 #include "res://assets/shaders/vehicle/vehicle_common.gdshaderinc"
 
@@ -25,6 +20,8 @@ uniform float dirt_top = 0.3;
 uniform float dirt_bottom = -0.3;
 // Stripes and other flat accents: no flakes or flop.
 uniform bool plain = false;
+// Metallic flakes up close (0 for bare metal and chrome).
+uniform float flakes = 1.0;
 
 varying vec3 obj_pos;
 
@@ -34,7 +31,6 @@ varying vec3 obj_pos;
 // bright metallic mirror without flakes.
 uniform float pearl = 0.0;
 uniform vec4 pearl_color : source_color = vec4(1.0);
-uniform float flakes = 1.0;
 // Two-tone: 0 off, 1 roof, 2 bonnet, 3 bonnet + roof, 4 lower half.
 uniform int tone_mode = 0;
 uniform vec4 tone_color : source_color = vec4(0.165, 0.173, 0.188, 1.0);
@@ -149,7 +145,7 @@ void fragment() {
 		if (near > 0.0) {
 			vec3 cell = floor(obj_pos * 420.0);
 			vec3 jitter = vec3(vh_hash3(cell), vh_hash3(cell + 17.0), vh_hash3(cell + 41.0)) - 0.5;
-			n = normalize(n + (VIEW_MATRIX * vec4(jitter, 0.0)).xyz * 0.22 * near * metal * FLAKES_AMOUNT);
+			n = normalize(n + (VIEW_MATRIX * vec4(jitter, 0.0)).xyz * 0.22 * near * metal * flakes);
 		}
 	}
 #ifdef PAINT_CUSTOM

@@ -230,6 +230,10 @@ static func paint_material(col: Color, plain := false) -> ShaderMaterial:
 	m.set_shader_parameter("paint_color", col)
 	m.set_shader_parameter("metallic_amount", 0.0 if plain else PaintPalette.metallic_of(col))
 	m.set_shader_parameter("plain", plain)
+	if not plain and PaintPalette.is_bare_metal(col):
+		m.set_shader_parameter("metallic_roughness", PaintPalette.BARE_ROUGHNESS)
+		m.set_shader_parameter("clearcoat_amount", 0.0)
+		m.set_shader_parameter("flakes", 0.0)
 	return m
 
 
@@ -408,14 +412,15 @@ func _apply_finish() -> void:
 	var c := paint_color
 	var custom := not _paint_style.is_empty()
 	if f.is_empty() or f["id"] == "stock":
+		var bare := PaintPalette.is_bare_metal(c)
 		m.set_shader_parameter("paint_color", c)
 		m.set_shader_parameter("metallic_amount", PaintPalette.metallic_of(c))
 		m.set_shader_parameter("solid_roughness", 0.13)
-		m.set_shader_parameter("metallic_roughness", 0.2)
-		m.set_shader_parameter("clearcoat_amount", 0.6)
+		m.set_shader_parameter("metallic_roughness", PaintPalette.BARE_ROUGHNESS if bare else 0.2)
+		m.set_shader_parameter("clearcoat_amount", 0.0 if bare else 0.6)
+		m.set_shader_parameter("flakes", 0.0 if bare else 1.0)
 		if custom:
 			m.set_shader_parameter("pearl", 0.0)
-			m.set_shader_parameter("flakes", 1.0)
 		return
 	var chrome: float = f.get("chrome", 0.0)
 	# Chrome is a tinted mirror: metal reflects its albedo, so lighten it.

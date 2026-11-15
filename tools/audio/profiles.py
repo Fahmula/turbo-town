@@ -70,6 +70,11 @@ PROFILES = {
     "suv": dict(engine="electric", rpm_scale=1.0, engine_volume_db=-4.0, rpm_gain_db=7.0, load_gain_db=4.0,
                 startup_catch=1.0,
                 horn="horn/car.wav", horn_volume_db=-7.0, horn_pitch=1.0, size=1.6),
+    # Electric pickup: the SUV's motor, pitched down a little for a bigger,
+    # deeper whine, and a lower horn.
+    "electric_pickup": dict(engine="electric", rpm_scale=0.8, engine_volume_db=-3.0, rpm_gain_db=7.0, load_gain_db=4.0,
+                            startup_catch=1.0,
+                            horn="horn/car.wav", horn_volume_db=-7.0, horn_pitch=0.86, size=1.9),
     # Light sport plane: an air-cooled flat four (aero engines are the same
     # family), a little quieter, with the propeller's buzz on top. No horn.
     "plane": dict(engine="flat4", rpm_scale=1.0, engine_volume_db=-2.0, rpm_gain_db=4.0, load_gain_db=2.5,

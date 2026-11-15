@@ -179,7 +179,7 @@ static func _stock_values(id: String) -> Dictionary:
 		"calipers": PartsCatalog.CALIPER_COLORS[PartsCatalog.closest_color(caliper_colors, caliper)]["id"],
 		"finish": "stock",
 		"two_tone": "off",
-		"tone_color": str(PaintPalette.GARAGE.size() - 1),  # graphite
+		"tone_color": str(PaintPalette.GARAGE_NAMES.find("Graphite")),
 		"decal": "none",
 		"decal_color": "white",
 		"number": "none",
