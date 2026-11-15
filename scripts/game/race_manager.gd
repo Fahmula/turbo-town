@@ -208,7 +208,7 @@ func _finish() -> void:
 
 # --- Visuals -------------------------------------------------------------------
 
-func _glow(c: Color) -> StandardMaterial3D:
+static func _glow(c: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.emission_enabled = true
@@ -356,9 +356,13 @@ func _update_markers() -> void:
 
 
 func _make_arrow() -> MeshInstance3D:
+	return make_arrow(Color(1.0, 0.82, 0.2))
+
+
+## The guide arrow that floats over a vehicle (races; the low-fuel arrow,
+## FuelGuide): a flat glowing arrow pointing along -Z.
+static func make_arrow(col: Color) -> MeshInstance3D:
 	var mb := MeshBuilder.new()
-	# Flat chevron pointing along -Z.
-	var col := Color(1.0, 0.82, 0.2)
 	var pts := [Vector3(0, 0, -1.3), Vector3(0.9, 0, 0.3), Vector3(0.35, 0, 0.3), Vector3(0.35, 0, 1.0),
 		Vector3(-0.35, 0, 1.0), Vector3(-0.35, 0, 0.3), Vector3(-0.9, 0, 0.3)]
 	var c := Vector3(0, 0, 0)

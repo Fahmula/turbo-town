@@ -24,6 +24,35 @@ const BLOCK_TYPES := [
 	["buildings", "park", "parking", "buildings"],
 ]
 
+## City car parks with EV chargers ([column, row] in BLOCK_TYPES): two
+## chargers at the west end of the first row of stalls, each between two
+## green bays (kept free of parked cars).
+const EV_PARKING: Array[Vector2i] = [Vector2i(3, 1), Vector2i(2, 3)]
+const EV_BAYS := 4
+## Car park stalls (CityBuilder._add_parking): width, depth, first row's
+## inset from the block's inner edge, first stall's inset.
+const STALL_WIDTH := 2.9
+const STALL_DEPTH := 5.5
+const STALL_ROW_INSET := 1.0
+const STALL_X_INSET := 3.0
+## The TURBO FUEL station (LandmarksBuilder) by the east avenue.
+const GAS_STATION := Vector3(198, 0, -32)
+
+
+## The inner north-west corner (x, z) of an EV car park block.
+static func ev_parking_corner(block: Vector2i) -> Vector2:
+	var hw := CITY_ROAD_WIDTH * 0.5
+	return Vector2(CITY_GRID[block.x] + hw + SIDEWALK_WIDTH, CITY_GRID[block.y] + hw + SIDEWALK_WIDTH)
+
+
+## Is the car park whose inner corner is (x0, z0) one with chargers?
+static func is_ev_parking(x0: float, z0: float) -> bool:
+	for b in EV_PARKING:
+		if ev_parking_corner(b).distance_to(Vector2(x0, z0)) < 0.5:
+			return true
+	return false
+
+
 # --- Highway ring ---
 const HIGHWAY_HALF_EXTENT := 250.0
 const HIGHWAY_CORNER_RADIUS := 100.0

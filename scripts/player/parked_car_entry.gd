@@ -57,6 +57,8 @@ func prompt(actor: Node3D) -> String:
 		return ""
 	if actor is PlayerCharacter and not (actor as PlayerCharacter).can_act():
 		return ""
+	if FuelPump.held_by(actor):
+		return ""
 	return "Get in the %s" % _name
 
 

@@ -19,6 +19,8 @@ var car: Vehicle
 var traffic: TrafficManager
 ## World positions to mark: [{"pos": Vector3, "color": Color, "big": bool}].
 var markers: Array[Dictionary] = []
+## Where to fill up: [{"pos": Vector3, "battery": bool}] (pump and plug icons).
+var stations: Array = []
 ## Split-screen: the other players, [{"node": Node3D, "color": Color}]: an
 ## arrow in their colour, pinned to the edge when they're off the map.
 var friends: Array[Dictionary] = []
@@ -78,6 +80,14 @@ func _process(dt: float) -> void:
 	_overlay.queue_redraw()
 
 
+## A place to fill up on a map: a dark disc with a white pump, or a green
+## plug for a charger (`r`: the disc's radius).
+static func draw_station(ci: CanvasItem, at: Vector2, battery: bool, r: float) -> void:
+	ci.draw_circle(at, r + 1.5, Color(1, 1, 1, 0.85))
+	ci.draw_circle(at, r, Color(0.05, 0.08, 0.15))
+	UiIcon.paint(ci, "plug" if battery else "fuel", at, r * 1.45, Color(0.3, 1.0, 0.45) if battery else Color.WHITE, 2.4)
+
+
 ## Screen position (in this control) of a world point, and whether it's inside.
 func _to_screen(p: Vector3, origin: Vector3) -> Array:
 	var rel := Vector2(p.x - origin.x, p.z - origin.z) / _range
@@ -100,6 +110,10 @@ func _draw_overlay() -> void:
 			if s[1]:
 				_overlay.draw_circle(s[0], 3.6, Color(0.05, 0.08, 0.15))
 				_overlay.draw_circle(s[0], 2.6, Color(1, 1, 1, 0.9))
+	for st: Dictionary in stations:
+		var s: Array = _to_screen(st["pos"], origin)
+		if s[1]:
+			draw_station(_overlay, s[0], st["battery"], 10.0)
 	for m in markers:
 		var s: Array = _to_screen(m["pos"], origin)
 		var pos: Vector2 = s[0]

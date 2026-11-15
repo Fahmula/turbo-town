@@ -51,6 +51,10 @@ const SAFE_SPEED := 30.0
 ## With assists on, full stick banks this far (degrees) and holds the turn;
 ## trick_input (hold) rolls freely.
 const ASSIST_BANK := 65.0
+## Out of fuel (VehicleFuel; assists on): a released stick glides down at
+## about this sink rate (m/s) on what power is left, so the plane comes
+## down gently and lands itself (the settle above takes over low down).
+const EMPTY_GLIDE_SINK := 2.5
 ## Control surface throws for the visuals (radians).
 const ELEVATOR_THROW := 0.38
 const AILERON_THROW := 0.32
@@ -243,7 +247,8 @@ func _update_ground_controls(dt: float) -> void:
 ## little higher in a fast dive.
 func _update_engine(dt: float) -> void:
 	engine_running = _audio == null or _audio.engine_running
-	var want := clampf(throttle_input, 0.0, 1.0) * damage_power if engine_running else 0.0
+	# (Out of fuel, fuel_power keeps enough to stretch a glide and land.)
+	var want := clampf(throttle_input, 0.0, 1.0) * damage_power * fuel_power if engine_running else 0.0
 	throttle = move_toward(throttle, want, dt * (0.9 if want > throttle else 1.4))
 	engine_load = throttle
 	var target := 0.0
@@ -337,6 +342,9 @@ func _fly(dt: float) -> void:
 				var low := clampf((SAFE_SPEED - speed) / 10.0, 0.0, 1.0)
 				target = -0.3 * low
 				rate = lerpf(LEVEL_RATE, 0.7, low)
+			elif fuel_power < 0.999:
+				target = -asin(clampf(EMPTY_GLIDE_SINK / maxf(speed, 1.0), 0.0, 0.25))
+				rate = 0.5
 			var hold := cos(climb_angle) - rate * (climb_angle - target) * speed / 9.81
 			neutral = clampf(hold / maxf(cos(bank), 0.5), -0.5, 2.0) if absf(bank) < PI * 0.5 else 0.5
 		var g := neutral + (pitch_input * (max_g - neutral) if pitch_input > 0.0 else pitch_input * (neutral - min_g))

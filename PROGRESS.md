@@ -522,6 +522,125 @@ not. In the game it's the "Electric Pickup".
 
 ---
 
+## Fuel and charging (in progress)
+
+The owner's son wants to fuel and charge the vehicles (owner, 2026-11-15). It's
+also the first step toward going inside buildings: the TURBO FUEL shop
+(`LandmarksBuilder._build_gas_station`, already on the map at (198, -32)) can
+become the first one. It fits the game's loose direction (owner,
+2026-11-15): a little town where you can drive, fly or sail anything, make it
+your own, and the town feels alive around you.
+
+### How it plays (kid-friendly: running out is a small moment, never stuck)
+- Every vehicle you drive has a **tank** (petrol and diesel vehicles, plane,
+  helicopter) or a **battery** (`Vehicle.electric`: the Electric SUV and
+  Electric Pickup). A small gauge with a pump or plug icon at the bottom of
+  the speedometer.
+- A full tank lasts about **10 minutes of hard driving** (measured: flat out
+  ~10 min, gently ~18 min, idling ~1.5 h). Races don't use any.
+- **Low (20%)**: the gauge turns red, a toast says "Low fuel! Find a gas
+  station" (or "Low battery! Find a charger", "...at the airfield", "...at a
+  helipad"), and a red guide arrow (the race arrow's shape) points to the
+  nearest place that fills it.
+- **Empty**: cars sputter (the engine sound and power cut out for a moment
+  now and then) and crawl at up to 40 km/h on 40% power, still enough for
+  the bus to climb a 33% slope. Electric cars go slow and quiet. **Aircraft
+  never fall:** the plane glides down at ~2.5 m/s and lands itself, and keeps
+  enough power to taxi to a pump; the helicopter sinks at 2.5 m/s and lands
+  itself, and the climb button lifts it to 3 m to creep along to a pump.
+  (The plan said ~25% power; 40% plus the speed cap was needed to climb.)
+- **Filling up yourself** (owner's choice, 2026-11-15): park by a pump and
+  get out. At the pump, F / B "Grab the nozzle" (a charging plug for
+  electric cars): the character holds it in the right hand (`LimbIK`, as the
+  seated drivers' hands) and the hose follows from the pump. Walk to the
+  vehicle's filler flap and F / B "Fill up" ("Charge it"): the nozzle clicks
+  in, the pump display ticks up (litres, or percent at a charger), a gurgle
+  or hum plays, the gauge fills in ~4 s, "FULL!" ("CHARGED!") and a ding.
+  You can walk away while it fills. F / B at the flap takes the nozzle out
+  again; F / B anywhere else hangs it back on the pump. A nozzle at an
+  electric car: "This one needs a charger".
+- **Never stuck or broken:** the hose is 5 m long (charger cables 5.5 m, the
+  airfield's reel 9 m, the helipads' 9.5 m) and stops you there, like a
+  lead. Getting in or driving off with the nozzle still in pops it out and it
+  reels back to the pump, nothing breaks; so does teleporting or the garage
+  while holding it. Staying in the car at a pump shows "Get out to fill up".
+  In split-screen either player can fill either vehicle (one fills while the
+  other waits at the wheel).
+- **Where:** cars at the gas station's eight hoses (or any fuel pump);
+  electric cars at two chargers on green bays at the station and two in each
+  of two city car parks; the plane at a fuel cabinet on the airfield's apron;
+  the helicopter at a cabinet on each helipad (or any fuel pump). The maps
+  show pump and plug icons.
+- A vehicle from the garage starts full. Reset (R) doesn't refill. Parked and
+  traffic cars you take start 50-100% full. Fuel isn't saved between
+  sessions.
+- **Setting: Fuel On / Off** (on by default). Off = never runs out, no gauge.
+- Split-screen: each driver has their own gauge; passengers have none.
+
+### Build steps
+- [x] `VehicleFuel` component (`scripts/vehicle/vehicle_fuel.gd`): level 0..1,
+      kind (fuel / battery), use from throttle and speed, `Vehicle.fuel_power`
+      (engine torque, plane thrust) and `fuel_max_speed` (the crawl); the
+      helicopter and plane have their own gentle descent. Added only to a
+      vehicle a player drives (`LocalPlayer.adopt_vehicle`), so the 30
+      traffic cars cost nothing. `"fuel"` in `Settings.DEFAULTS` and the
+      settings page
+- [x] HUD: the gauge in the speedometer's bottom gap (also compact in
+      split-screen), `"fuel"` / `"plug"` vector icons in `ui_icon.gd`
+      (`UiIcon.paint` draws them on the speedometer and maps), red when low,
+      the low / empty toasts, the arrow (`FuelGuide`) to the nearest station.
+      The speedometer's small text went up to 18 px (ART_BIBLE §21), and the
+      HUD's panel and label helpers moved into `UiKit` (§20)
+- [x] Pumps and chargers (`FuelBuilder`, `FuelSite`, `FuelKit`): a
+      `FuelPump` `Interactable` per hose: the gas station's eight hoses, two
+      EV chargers beside the station plus two in each of two city car parks
+      (`MapLayout.EV_PARKING`; their bays kept free of parked cars), a fuel
+      cabinet on the airfield apron, one on each helipad. Pump and plug icons
+      on the minimap and the big map. The gas station's forecourt lost the
+      grass that grew through it
+- [x] Filler flaps (`FillerFlap`): rear quarter on the right from the body, or
+      the scene's `filler` / `filler_normal_dir` (plane: on the right wing;
+      helicopter: the cabin's right side). "Fill up" / "Take the nozzle out";
+      `VehicleEntry` offers nothing to someone holding a hose
+- [x] Holding the nozzle: in the right hand (`PlayerCharacter.set_holding`,
+      a `LimbIK` arm), a hose from the pump to the hand (sagging, rebuilt only
+      while it moves), the lead (`PlayerCharacter.leash_*`), hanging it back
+      up, popping out and reeling back; both split-screen players
+- [x] Filling: the nozzle stays in the flap while it fills, the pump readout
+      ticks, sounds (click, gurgle or charger hum, ding; synthesised,
+      `build_audio.py fuel`, credited in ASSET_MANIFEST.md), the FULL popup
+- [x] Empty: sputter (`VehicleAudio.sputter_cut`), crawl power, the slow
+      electric mode, the aircraft rules above
+- [x] Tests: `--fuel` (92 checks: drains, low warning, the arrow, empty
+      crawl and sputter, an empty bus climbing, "Get out to fill up", grab,
+      the lead, fill, readout, FULL!, take out, hang up, getting in / driving
+      off / teleporting with it, the setting, a parked car's tank, electric,
+      a car park's chargers, the plane, the helicopter, split-screen);
+      `--garage`, `--flight`, `--heli`, `--split`, `--ride`, `--seats`,
+      `--onfoot`, `--menus`, `--races` still pass (807 checks in all);
+      `--fuelbench` on the iGPU:
+      +2 to +4 draw calls near a site, GPU within the noise (ART_BIBLE §27).
+      Not tried on a Deck yet
+- [x] Docs: README (fuel, settings, controls, how it works, tests),
+      ART_BIBLE §5, §17, §20-§22, §33, §34, ASSET_MANIFEST.md
+- [ ] Owner review, then the son on the Deck
+
+### Next steps toward going inside buildings (not started)
+- [ ] Walk into the TURBO FUEL shop: the first building with an inside
+      (counter, snack shelves, a fridge), a few special buildings after it
+- [ ] Coins (from jobs like taxi or pizza delivery) that pay for fill-ups
+- [ ] A tow truck when you're empty; a fuel tanker you can drive; boats
+      refuelling at the harbour
+
+### Questions for the owner
+- [x] Fill on its own at the pump, or get out and use the nozzle? The nozzle
+      (owner, 2026-11-15)
+- [x] Fuel on by default? Yes, on (owner, 2026-11-15)
+- [x] About 10 minutes for a full tank: right, or longer or shorter? About
+      10 minutes (owner, 2026-11-15)
+
+---
+
 ## Backlog
 
 ### Realism (owner approved 2026-10-03, released in v0.7.0)

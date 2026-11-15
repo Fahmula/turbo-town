@@ -79,6 +79,28 @@ static func label(text: String, font_size: int, col := Color.WHITE, align := HOR
 	return l
 
 
+## The HUD's panels over the driving view: lighter (72%) than the menus'.
+const HUD_PANEL_BG := Color(0.05, 0.08, 0.15, 0.72)
+
+
+## A HUD panel (help, race status, the interaction prompt).
+static func hud_panel() -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := box(HUD_PANEL_BG, 14, 18)
+	sb.content_margin_top = 14
+	sb.content_margin_bottom = 14
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p
+
+
+## A HUD line over the world: like `label`, with an outline of at least 4 px.
+static func hud_label(font_size: int, col: Color) -> Label:
+	var l := label("", font_size, col)
+	l.add_theme_constant_override("outline_size", maxi(font_size / 6, 4))
+	return l
+
+
 ## A label for text inside a panel: like `label`, without the outline
 ## (ART_BIBLE §20: outlines are for text over the 3D world).
 static func panel_label(text: String, font_size: int, col := Color.WHITE, align := HORIZONTAL_ALIGNMENT_CENTER) -> Label:

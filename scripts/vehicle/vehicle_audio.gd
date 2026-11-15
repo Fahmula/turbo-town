@@ -35,6 +35,9 @@ var audible := true
 ## False after stop_engine() (a vehicle the player got out of): the engine
 ## loops fade out until start_engine().
 var engine_running := true
+## Set by VehicleFuel: out of fuel, the engine coughs (its sound cuts out
+## while this is true).
+var sputter_cut := false
 ## Dev tests: called with (sound path, world position) for every one-shot.
 static var on_shot := Callable()
 ## Dev tests: called with (sound path, "start" / "resume" / "pause") when a
@@ -396,6 +399,8 @@ func _update_engine(dt: float, live: bool) -> void:
 	# electric motor just stops pulling).
 	if rpm >= red * 0.985 and throttle > 0.5 and not vehicle.electric:
 		gain *= 0.65 if fmod(_time * 14.0, 1.0) < 0.5 else 1.0
+	if sputter_cut:
+		gain *= 0.15
 	var on_w := sin(_load * PI * 0.5)
 	var off_w := cos(_load * PI * 0.5)
 	if _off.is_empty():

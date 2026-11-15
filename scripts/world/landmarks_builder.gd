@@ -2,8 +2,9 @@
 class_name LandmarksBuilder
 extends RefCounted
 ## One-off landmarks that make the map easier to read: highway sign
-## gantries, a gas station by the east avenue, the airfield, the tunnel on the
-## south avenue, the harbour and the lighthouse islet with its bridge.
+## gantries, a gas station by the east avenue (its hoses and chargers:
+## FuelBuilder), the airfield, the tunnel on the south avenue, the harbour
+## and the lighthouse islet with its bridge.
 ## ART_BIBLE.md §15-§17: bevelled and smooth parts on the shared
 ## street props, concrete and paving materials. Colliders are the same boxes
 ## as before, so the landmarks drive exactly as they did.
@@ -38,7 +39,7 @@ func build(parent: Node3D) -> void:
 	root.name = "Landmarks"
 	parent.add_child(root)
 	_build_gantries(root)
-	_build_gas_station(root, Vector3(198, 0, -32))
+	_build_gas_station(root, MapLayout.GAS_STATION)
 	_build_airport(root)
 	_build_tunnel(root)
 	_build_harbor(root)
@@ -222,12 +223,10 @@ func _build_gas_station(root: Node3D, c: Vector3) -> void:
 				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px, 1.3, pz + side * 0.336)), Vector3(0.34, 0.1, 0.006), 0.002, Color(0.5, 0.75, 0.35, GLOW), Color(0, 0, 0, -1), false)
 				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px - 0.2, 0.85, pz + side * 0.33)), Vector3(0.14, 0.2, 0.02), 0.004, Color(0.2, 0.4, 0.7, StreetKit.GLOSS), Color(0, 0, 0, -1), false)
 				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px + 0.2, 0.85, pz + side * 0.33)), Vector3(0.14, 0.2, 0.02), 0.004, Color(0.72, 0.16, 0.12, StreetKit.GLOSS), Color(0, 0, 0, -1), false)
-				# Nozzle holster on the end, a hose sagging to a nozzle.
+				# Nozzle holster on the end and the hose's outlet on the side; the
+				# hoses and nozzles themselves are FuelBuilder's (you can use them).
 				mb.add_bevel_box(Transform3D(Basis.IDENTITY, c + Vector3(px + side * 0.45, 0.9, pz)), Vector3(0.08, 0.3, 0.2), 0.012, Color(0.15, 0.15, 0.16, RUBBER))
-				var hose := PackedVector3Array([c + Vector3(px + side * 0.3, 1.15, pz - 0.2), c + Vector3(px + side * 0.55, 1.0, pz - 0.18), c + Vector3(px + side * 0.62, 0.7, pz - 0.1),
-					c + Vector3(px + side * 0.52, 0.45, pz), c + Vector3(px + side * 0.5, 0.78, pz)])
-				StreetKit.tube_path(mb, hose, PackedFloat32Array([0.025]), 6, Color(0.08, 0.08, 0.09, StreetKit.RUBBER), false)
-				StreetKit.rod(mb, c + Vector3(px + side * 0.5, 0.78, pz), c + Vector3(px + side * 0.5, 1.0, pz + 0.04), 0.022, 0.016, 6, gal)
+				StreetKit.rod(mb, c + Vector3(px + side * 0.4, 1.2, pz - 0.18), c + Vector3(px + side * 0.46, 1.2, pz - 0.18), 0.032, 0.03, 8, gal)
 	# Shop: a single-storey building from the building kit.
 	var kit := BuildingKit.new(ground, body)
 	kit.rng.seed = 77

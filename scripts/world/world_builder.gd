@@ -81,6 +81,7 @@ func _build() -> void:
 	var park := StuntParkBuilder.new()
 	park.build(self)
 	LandmarksBuilder.new(roads).build(self)
+	FuelBuilder.new().build(self)
 
 	var props := Node3D.new()
 	props.name = "Props"

@@ -36,6 +36,7 @@ const CONTROLS_FOOT := [
 	["Walk slowly", "Ctrl (hold)", "Push the stick gently"],
 	["Jump", "Space", "A"],
 	["Get in a vehicle / ride along", "F", "B"],
+	["Fill up at a pump", "F", "B"],
 	["Camera distance", "C", "RB"],
 ]
 const CONTROLS_FLYING := [
@@ -698,6 +699,7 @@ const SETTING_HELP := {
 	"speakers": "Louder engines on small speakers. Auto: on for a Steam Deck.",
 	"fullscreen": "Fill the whole screen with the game.",
 	"master_volume": "How loud the whole game is.",
+	"fuel": "On: fill up at gas stations and charge at chargers. Off: never runs out.",
 }
 
 
@@ -745,6 +747,7 @@ func _build_settings() -> Control:
 	_setting_widgets["master_volume"] = volume
 	right.append(volume)
 	left.append(_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"]))
+	right.append(_cycle_row(grid, "Fuel", "fuel", ["Off", "On"]))
 
 	# What the focused setting does.
 	var help := PanelContainer.new()

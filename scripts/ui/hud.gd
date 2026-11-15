@@ -1,7 +1,8 @@
 class_name Hud
 extends CanvasLayer
-## In-game overlay: speedometer, controls help, location toasts, stunt popups,
-## the "flip your car" hint and the interaction prompt ("F  Get in the van").
+## In-game overlay: speedometer (with the fuel gauge), controls help,
+## location toasts, stunt popups, the "flip your car" hint and the
+## interaction prompt ("F  Get in the van").
 ## Built in code so it has no layout files. On foot the speedometer and damage
 ## readout hide and the maps follow the character (set_on_foot); in a plane
 ## or helicopter the speedometer shows the height and engine power, the help
@@ -19,6 +20,7 @@ const FOOT_HELP_TEXT := """[b]ON FOOT[/b]
 [color=#ffd54a]Space[/color]   jump
 [color=#ffd54a]F[/color]   get in a vehicle (walk up to it)
       or flip one back onto its wheels
+      at a pump: grab the nozzle, fill up
 [color=#ffd54a]V[/color]   garage: pick a vehicle to drive
 [color=#ffd54a]1 - 9 / Tab[/color]   teleport (your vehicle comes too)
 [color=#ffd54a]Mouse[/color]   look around     [color=#ffd54a]C[/color]   camera distance
@@ -287,29 +289,11 @@ func _ready() -> void:
 
 
 func _make_panel() -> PanelContainer:
-	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.08, 0.15, 0.72)
-	sb.set_corner_radius_all(14)
-	sb.content_margin_left = 18
-	sb.content_margin_right = 18
-	sb.content_margin_top = 14
-	sb.content_margin_bottom = 14
-	p.add_theme_stylebox_override("panel", sb)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return p
+	return UiKit.hud_panel()
 
 
 func _make_label(font_size: int, col: Color) -> Label:
-	var l := Label.new()
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", col)
-	l.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.2))
-	l.add_theme_constant_override("outline_size", maxi(font_size / 6, 4))
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
+	return UiKit.hud_label(font_size, col)
 
 
 ## Flying: height and power on the speedometer, and the warning line.
@@ -335,13 +319,16 @@ func _flight_readouts(plane: Aircraft) -> void:
 	_hint.visible = warn != ""
 
 
-## Gives the minimap and big map their picture and what to show on it.
-func setup_map(map: WorldMap, traffic: TrafficManager, spots: Array) -> void:
+## Gives the minimap and big map their picture and what to show on it
+## (`stations`: the places to fill up, see Game._fuel_stations).
+func setup_map(map: WorldMap, traffic: TrafficManager, spots: Array, stations: Array = []) -> void:
 	minimap.set_map(map)
 	minimap.traffic = traffic
+	minimap.stations = stations
 	big_map.set_map(map)
 	big_map.traffic = traffic
 	big_map.spots = spots
+	big_map.stations = stations
 
 
 func toggle_big_map() -> void:
@@ -534,6 +521,10 @@ func _process(dt: float) -> void:
 	speedometer.rpm_fraction = vehicle.engine_rpm / vehicle.redline_rpm
 	speedometer.gear_text = "R" if vehicle.gear < 0 else str(vehicle.gear)
 	speedometer.assists_on = vehicle.traction_control
+	# The fuel gauge: the driver's (a passenger has none).
+	var fuel := VehicleFuel.of(vehicle)
+	speedometer.fuel_level = fuel.level if fuel and fuel.enabled and not passenger else -1.0
+	speedometer.fuel_battery = fuel != null and fuel.is_battery()
 	var plane := vehicle as Aircraft
 	if flying and plane:
 		_flight_readouts(plane)

@@ -1,8 +1,9 @@
 class_name BigMap
 extends Control
 ## Full-screen island map (M / D-pad left), north up: where you are, the
-## traffic, race markers and the numbered teleport spots (keys 1-9). On foot
-## it also marks the player's vehicle.
+## traffic, race markers, the places to fill up and charge (pump and plug
+## icons) and the numbered teleport spots (keys 1-9). On foot it also marks
+## the player's vehicle.
 
 var map: WorldMap
 ## The player: their vehicle or character.
@@ -12,6 +13,8 @@ var car: Vehicle
 var traffic: TrafficManager
 ## [{"name": String, "pos": Vector3}] — numbered in order (teleport keys).
 var spots: Array = []
+## Where to fill up: [{"pos": Vector3, "battery": bool}] (Game._fuel_stations).
+var stations: Array = []
 var markers: Array[Dictionary] = []
 ## Split-screen: the other players, [{"node": Node3D, "color": Color, "label": String}].
 var friends: Array[Dictionary] = []
@@ -92,6 +95,8 @@ func _draw_overlay() -> void:
 		var q := _to_px(m["pos"])
 		_overlay.draw_circle(q, 9.0, Color(0.05, 0.08, 0.15))
 		_overlay.draw_circle(q, 7.0, m.get("color", Color(1, 0.85, 0.25)))
+	for st: Dictionary in stations:
+		Minimap.draw_station(_overlay, _to_px(st["pos"]), st["battery"], 12.0)
 	for i in spots.size():
 		var q := _to_px(spots[i]["pos"])
 		var label: String = spots[i]["name"]

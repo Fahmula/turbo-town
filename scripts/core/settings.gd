@@ -25,6 +25,7 @@ const DEFAULTS := {
 	"time_of_day": 0,  # 0 day, 1 sunset, 2 night, 3 cycle
 	"weather": 0,  # 0 clear, 1 cloudy, 2 rain, 3 thunderstorm, 4 changing (Weather)
 	"assists": true,
+	"fuel": true,  # vehicles use fuel / charge (VehicleFuel); off = never run out, no gauge
 	"flight_invert": false,  # planes: false = pull back to climb, true = push up to climb
 	"vehicle": "sports_car",
 	"vehicle_p2": "sedan",  # split-screen player 2's vehicle

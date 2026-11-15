@@ -87,6 +87,8 @@ func use_for(actor: Node3D) -> Use:
 		return Use.FLIP
 	if actor is PlayerCharacter and not (actor as PlayerCharacter).can_act():
 		return Use.NONE
+	if FuelPump.held_by(actor):
+		return Use.NONE  # hands full: fill up or hang the hose up first
 	if taken or _belongs_to_other(actor):
 		# Someone (the other player) drives it, or it's theirs: ride along.
 		return Use.RIDE if _can_ride(actor) else Use.NONE

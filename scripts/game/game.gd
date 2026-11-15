@@ -193,7 +193,7 @@ func _ready() -> void:
 	world_map.name = "WorldMap"
 	add_child(world_map)
 	print("World map drawn in %d ms" % (Time.get_ticks_msec() - t0))
-	hud.setup_map(world_map, traffic, _map_spots())
+	hud.setup_map(world_map, traffic, _map_spots(), _fuel_stations())
 	hud.minimap.visible = Settings.get_value("minimap")
 	race = RaceManager.new()
 	race.name = "Races"
@@ -244,6 +244,21 @@ static func _has_arg(prefix: String) -> bool:
 		if arg.begins_with(prefix):
 			return true
 	return false
+
+
+## The places to fill up and charge, for the maps: [{"pos", "battery"}]
+## (one icon for sites of a kind close together: the two helipads).
+func _fuel_stations() -> Array:
+	var out: Array = []
+	for node in get_tree().get_nodes_in_group(FuelSite.GROUP):
+		var s := node as FuelSite
+		var battery := s.kind == VehicleFuel.Kind.BATTERY
+		var near := false
+		for o: Dictionary in out:
+			near = near or (o["battery"] == battery and (o["pos"] as Vector3).distance_to(s.center()) < 40.0)
+		if not near:
+			out.append({"pos": s.center(), "battery": battery})
+	return out
 
 
 ## The teleport spots for the maps: [{"name", "pos"}].
@@ -832,7 +847,7 @@ func add_player(p1_device: int, p2_device: int) -> void:
 	p2.setup(car, ctrl, cam, h)
 	p2.set_input(PlayerInput.for_player("p2_", p2_device, p2_keys))
 	p2.spawn_index = nearest_spawn_index(car.global_position)
-	h.setup_map(world_map, traffic, _map_spots())
+	h.setup_map(world_map, traffic, _map_spots(), _fuel_stations())
 	h.minimap.visible = Settings.get_value("minimap")
 	h.speedometer.use_mph = Settings.get_value("units_mph")
 	p2.vehicle = null

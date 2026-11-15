@@ -13,6 +13,8 @@ const ASPHALT := Color(0.275, 0.278, 0.29)
 const ASPHALT_DARK := Color(0.25, 0.253, 0.265)
 const ROAD_WHITE := Color(0.894, 0.886, 0.855)
 const ROAD_YELLOW := Color(0.851, 0.643, 0.129)
+## EV charging bays (a gameplay marker: the green of the chargers).
+const EV_GREEN := Color(0.2, 0.5, 0.3)
 const CONCRETE := Color(0.706, 0.69, 0.655)
 const CONCRETE_TOP := Color(0.74, 0.725, 0.69)
 const CONCRETE_STAINED := Color(0.557, 0.541, 0.51)
