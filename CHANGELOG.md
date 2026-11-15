@@ -9,6 +9,18 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.6.0](https://github.com/Fahmula/turbo-town/compare/v1.5.0...v1.6.0) (2026-11-15)
+
+
+### New stuff
+
+* **fuel:** vehicles use fuel or charge; fill up by hand at pumps and chargers ([ee7686c](https://github.com/Fahmula/turbo-town/commit/ee7686c984de843d78bb3d3867b46c789f355c13))
+
+
+### Fixes
+
+* no grass growing through the gas station forecourt ([ee7686c](https://github.com/Fahmula/turbo-town/commit/ee7686c984de843d78bb3d3867b46c789f355c13))
+
 ## [1.5.0](https://github.com/Fahmula/turbo-town/compare/v1.4.0...v1.5.0) (2026-11-15)
 
 
