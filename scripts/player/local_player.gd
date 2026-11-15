@@ -56,12 +56,21 @@ var spawn_index := 0
 ## The SplitScreen view this player sees (null with one player).
 var view: SubViewport
 
+## The low-fuel arrow over the player's vehicle.
+var fuel_guide: FuelGuide
+
 ## Split-screen: the marker over this player, shown in the other's view.
 var _tag: Label3D
 ## The vehicle this player rode in last (to notice getting in and out).
 var _last_ride: Vehicle
 var _lost_timer := 0.0
 var _tidy_timer := 0.0
+## Fuel warnings given for the vehicle being driven: 0 none, 1 low, 2 empty.
+var _fuel_told := 0
+var _fuel_vehicle: Vehicle
+var _fuel_scan := 0.0
+## "Get out to fill up" was shown for this stop at a pump.
+var _pump_hint_shown := false
 
 
 func _init(g: Game, i: int) -> void:
@@ -92,8 +101,14 @@ func setup(car: Vehicle, ctrl: PlayerVehicleController, cam: ChaseCamera, h: Hud
 	hud = h
 	if car:
 		car.set_meta(OWNER_META, index)
+		VehicleFuel.ensure(car)
 	_make_character()
 	_make_stunts()
+	fuel_guide = FuelGuide.new()
+	fuel_guide.name = "FuelGuide" + suffix()
+	fuel_guide.player_index = index
+	fuel_guide.process_mode = Node.PROCESS_MODE_PAUSABLE
+	game.add_child(fuel_guide)
 	set_input(input)
 
 
@@ -343,7 +358,7 @@ func _with_anyone() -> bool:
 func free_rig() -> void:
 	set_input(PlayerInput.shared())
 	for n: Node in [character, foot_camera, foot_controller, camera_blend, flight_camera, flight_controller,
-			heli_camera, heli_controller, possession, stunts, _tag, controller, camera, hud]:
+			heli_camera, heli_controller, possession, stunts, _tag, controller, camera, hud, fuel_guide]:
 		if n and is_instance_valid(n):
 			n.process_mode = Node.PROCESS_MODE_DISABLED
 			n.queue_free()
@@ -675,6 +690,63 @@ func physics_tick(dt: float) -> void:
 	if _tidy_timer <= 0.0:
 		_tidy_timer = 2.0
 		_tidy_left_vehicles()
+	_fuel_tick(dt)
+
+
+# --- Fuel ------------------------------------------------------------------------
+
+## The vehicle being driven uses fuel (not during a race: they're short, and
+## running dry mid-race would spoil it); low or empty, a toast says where to
+## go and the arrow points there; stopped by a pump, "Get out to fill up".
+func _fuel_tick(dt: float) -> void:
+	var fuel := VehicleFuel.of(vehicle) if driving() and game.state == Game.State.DRIVING else null
+	if fuel == null or not fuel.enabled:
+		_fuel_told = 0
+		fuel_guide.vehicle = null
+		return
+	var racing := game.race != null and game.race.is_active() and index == 0
+	fuel.burn(dt, 0.0 if racing else 1.0)
+	if vehicle != _fuel_vehicle:
+		# A different vehicle: remind about its tank once.
+		_fuel_vehicle = vehicle
+		_fuel_told = 0
+		_pump_hint_shown = false
+	var level := 2 if fuel.is_empty() else (1 if fuel.is_low() else 0)
+	if level == 0:
+		_fuel_told = 0
+	elif level > _fuel_told and game.state == Game.State.DRIVING:
+		_fuel_told = level
+		hud.show_toast(fuel_message(vehicle, level == 2), 3.5)
+	_fuel_scan -= dt
+	if _fuel_scan > 0.0:
+		return
+	_fuel_scan = 0.25
+	var near_site: FuelSite = null
+	if level > 0 and not racing:
+		near_site = FuelSite.nearest_for(get_tree(), vehicle, vehicle.global_position)
+	if near_site and near_site.center().distance_to(vehicle.global_position) < 25.0:
+		near_site = null  # there already
+	fuel_guide.vehicle = vehicle if near_site else null
+	fuel_guide.site = near_site
+	# Sitting still by a pump that fits: get out to use it.
+	var still := vehicle.linear_velocity.length() < 0.5
+	if not still:
+		_pump_hint_shown = false
+	elif not _pump_hint_shown and fuel.level < 0.95 and game.state == Game.State.DRIVING \
+			and FuelSite.pump_near(get_tree(), vehicle, vehicle.global_position):
+		_pump_hint_shown = true
+		hud.show_prompt_for("Get out to fill up" if not fuel.is_battery() else "Get out to charge", 4.0)
+
+
+## What the low (or empty) toast says for `v`.
+static func fuel_message(v: Vehicle, empty: bool) -> String:
+	if v.electric:
+		return "Battery empty! Find a charger" if empty else "Low battery! Find a charger"
+	if v is Helicopter:
+		return "Out of fuel! Landing..." if empty else "Low fuel! Fill up at a helipad"
+	if v is Aircraft:
+		return "Out of fuel! Land at the airfield" if empty else "Low fuel! Fill up at the airfield"
+	return "Out of fuel! Find a gas station" if empty else "Low fuel! Find a gas station"
 
 
 func _input(event: InputEvent) -> void:
@@ -848,6 +920,10 @@ func adopt_vehicle(car: Vehicle, fresh := false) -> void:
 		game.traffic.untrack(car)
 	vehicle = car
 	car.set_meta(OWNER_META, index)
+	# Its tank: a new one from the garage is full, one taken from traffic or
+	# a car park somewhere between half and full (one of the player's own
+	# keeps what it had).
+	VehicleFuel.ensure(car, 1.0 if fresh else randf_range(0.5, 1.0))
 	car.traction_control = Settings.get_value("assists")
 	car.auto_reverse = true
 	camera.set_target(car)

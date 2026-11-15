@@ -32,6 +32,13 @@ signal vehicle_reset
 @export var steering_wheel_radius := 0.18
 @export var steering_wheel_tilt := 25.0
 
+@export_group("Fuel")
+## Where the fuel nozzle (or charging plug) goes in (local), and which way
+## the filler faces out of the body. ZERO = the right rear quarter, worked
+## out from the body (filler_point()).
+@export var filler := Vector3.ZERO
+@export var filler_normal_dir := Vector3.ZERO
+
 @export_group("Engine")
 @export var max_engine_torque := 430.0
 @export var idle_rpm := 900.0
@@ -120,6 +127,10 @@ var air_assist_scale := 1.0
 ## lock, + = right) and loses engine power (1 = healthy).
 var damage_steer_bias := 0.0
 var damage_power := 1.0
+## Set by VehicleFuel: an empty tank leaves only some of the power (1 = full)
+## and a crawl speed (m/s; 0 = no limit).
+var fuel_power := 1.0
+var fuel_max_speed := 0.0
 
 # --- Read-only state ---
 var wheels: Array[VehicleWheel] = []
@@ -429,6 +440,9 @@ func _update_drivetrain(dt: float) -> void:
 		accel = 0.0
 	if gear == -1 and forward_speed < -max_reverse_speed:
 		accel = 0.0
+	if fuel_max_speed > 0.0:
+		# Out of fuel: it crawls (the power fades out toward the crawl speed).
+		accel *= clampf((fuel_max_speed - absf(forward_speed)) / 3.0, 0.0, 1.0)
 
 	var ratio := _current_ratio()
 	var driven_count := 0
@@ -459,7 +473,7 @@ func _update_drivetrain(dt: float) -> void:
 	if _shift_timer > 0.0:
 		_shift_timer -= dt
 	elif engine_rpm < redline_rpm:
-		torque = _torque_curve(engine_rpm / redline_rpm) * max_engine_torque * accel * damage_power
+		torque = _torque_curve(engine_rpm / redline_rpm) * max_engine_torque * accel * damage_power * fuel_power
 	engine_load = accel if _shift_timer <= 0.0 else 0.0
 
 	var wheel_torque := torque * ratio * drivetrain_efficiency
@@ -598,6 +612,23 @@ func upright_ground_transform() -> Transform3D:
 	if not hit.is_empty():
 		pos = hit.position
 	return Transform3D(Basis.looking_at(fwd.normalized(), Vector3.UP), pos)
+
+
+## The filler flap (local): `filler`, or on the right side (+X) toward the
+## back, about 0.95 m off the ground (below the top of the body).
+func filler_point() -> Vector3:
+	if filler != Vector3.ZERO:
+		return filler
+	var ground := -ride_height()
+	var z := body_rear - clampf(body_length() * 0.22, 0.6, 1.2)
+	return Vector3(body_half_width + 0.01, minf(ground + 0.95, body_top - 0.2), z)
+
+
+## Which way the filler faces, out of the body (local, unit).
+func filler_normal() -> Vector3:
+	if filler_normal_dir != Vector3.ZERO:
+		return filler_normal_dir.normalized()
+	return Vector3.RIGHT
 
 
 ## Do the people in it show in the seats (SeatFigure)?

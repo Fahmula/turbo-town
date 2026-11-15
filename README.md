@@ -191,6 +191,40 @@ pickup, buggy, monster truck, electric SUV, electric pickup, plane or helicopter
 - Teleports while flying hover over the place (the Airfield puts it on the
   helipad); far out over the sea it turns back by itself. Races are for cars.
 
+### Fuel and charging
+
+- Every vehicle you drive has a tank, or a battery for the electric SUV and
+  the electric pickup. The gauge sits at the bottom of the speedometer with a
+  pump (or plug) icon. A full tank lasts about 10 minutes of hard driving;
+  idling hardly uses any.
+- **Low** (a fifth left): the gauge turns red, a message says where to go,
+  and a red arrow over your vehicle points to the nearest place that fills
+  it. The maps mark them all with pump and plug icons.
+- **Empty:** you're never stuck. A car coughs and crawls along at up to
+  40 km/h, still enough to climb a hill to a pump; an electric car goes slow
+  and quiet. A plane glides down gently and lands itself, and can still taxi.
+  A helicopter sinks slowly and lands; the climb button lifts it a few metres
+  so it can creep along low to a pump.
+- **Where:** TURBO FUEL by the east avenue (eight hoses) with two EV chargers
+  on green bays; chargers in two city car parks; a fuel cabinet on the
+  airfield's apron; one on each helipad. Planes fill up at the airfield;
+  helicopters anywhere with fuel.
+- **Filling up yourself:** stop by a pump ("Get out to fill up"), get out,
+  and press F / B at the pump to grab the nozzle (or the charging plug). Walk
+  to the vehicle's filler (right side at the back; on a plane, the right wing;
+  on the helicopter, its right side behind the cabin) and press F / B: "Fill
+  up". The pump counts the litres (a charger the percent) and it's full in a
+  few seconds: FULL! and a ding. You can walk away while it fills. F / B at
+  the filler takes the nozzle out again; F / B anywhere else hangs it back up.
+- **Nothing breaks:** the hose holds you back at its end like a lead. Getting
+  in or driving off with the nozzle still in pops it out and it reels back to
+  the pump, and so does teleporting or opening the garage while holding it.
+- A vehicle from the garage starts full; one taken from a car park or from
+  traffic has half to a full tank. R doesn't refill. In split-screen either
+  player can fill either vehicle (one fills while the other waits at the
+  wheel); each driver has their own gauge.
+- Races don't use fuel. Settings > Fuel turns it all off (on by default).
+
 ### Two players (split-screen)
 
 - **Join:** pick 2 PLAYERS on the title screen (or ADD PLAYER 2 in the pause
@@ -249,7 +283,7 @@ On the title screen or in the pause menu:
 - time of day (day / sunset / night / day & night cycle);
 - weather (clear / cloudy / rain / thunderstorm / changing);
 - speed units, driving assists, gamepad vibration, minimap, crash cam, speaker
-  boost, flying controls, fullscreen and volume.
+  boost, flying controls, fullscreen, volume and fuel (on / off).
 
 They're saved to `user://settings.cfg`. What is and isn't saved: see
 [Saving](#saving).
@@ -265,6 +299,7 @@ They're saved to `user://settings.cfg`. What is and isn't saved: see
 | Walk slowly | Ctrl (hold) | |
 | Jump | Space | A (Cross) |
 | Get in a vehicle / flip one back over | F | B (Circle) |
+| Grab a fuel nozzle, fill up, hang it up | F | B (Circle) |
 | Look around | Mouse | Right stick |
 | Camera distance | C | RB |
 
@@ -370,16 +405,16 @@ generated files are committed, so you only need those tools to change them.
 
 | Folder | What's in it |
 |---|---|
-| `scripts/player/` | `local_player.gd` (one player on this machine: character, vehicle, rigs, HUD, input; two in split-screen), `player_input.gd` (one player's devices and actions), `possession.gd` (what the player controls; getting in and out), `controllable.gd` (component: who drives a pawn, which rig controls it), `player_character.gd` (walk / run / sprint / jump, kerbs, animation, footsteps, being bumped), `seat_figure.gd` (the character sitting in a vehicle, seen through the glass), `limb_ik.gd` (two-bone IK: hands on the wheel, feet in the footwell), `player_character_controller.gd` (input), `interactable.gd` (things you use with F / B), `vehicle_entry.gd` (a vehicle's doors and safe exit spots), `parked_car_entry.gd` (parked car props you can drive) |
-| `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `helicopter.gd` (an Aircraft: rotor thrust, hover and speed hold, banked turns, flips, skids, spinning rotors), `player_helicopter_controller.gd` (its input), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `wing_doors.gd` (the electric SUV's gull-wing doors), `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
+| `scripts/player/` | `local_player.gd` (one player on this machine: character, vehicle, rigs, HUD, input; two in split-screen), `player_input.gd` (one player's devices and actions), `possession.gd` (what the player controls; getting in and out), `controllable.gd` (component: who drives a pawn, which rig controls it), `player_character.gd` (walk / run / sprint / jump, kerbs, animation, footsteps, being bumped), `seat_figure.gd` (the character sitting in a vehicle, seen through the glass), `limb_ik.gd` (two-bone IK: hands on the wheel, feet in the footwell), `player_character_controller.gd` (input), `interactable.gd` (things you use with F / B), `vehicle_entry.gd` (a vehicle's doors and safe exit spots), `parked_car_entry.gd` (parked car props you can drive), `fuel_pump.gd` (one hose or charging cable: grab, carry on a lead, fill, reel back), `filler_flap.gd` (where a vehicle takes the nozzle) |
+| `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `helicopter.gd` (an Aircraft: rotor thrust, hover and speed hold, banked turns, flips, skids, spinning rotors), `player_helicopter_controller.gd` (its input), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `wing_doors.gd` (the electric SUV's gull-wing doors), `vehicle_fuel.gd` (a player vehicle's tank or battery: use, low / empty rules), `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
 | `scripts/vehicle/custom/` | `parts_catalog.gd` (everything the garage can change: tabs, slots, options, which vehicles a part fits), `loadout.gd` (one vehicle's setup: saved per vehicle, put on the car), `wheel_kit.gd` (fits rim + tyre parts to a vehicle's wheels), `body_kit.gd` (fits bumpers, skirts, arches, spoilers, bonnet and roof parts from the vehicle's kit), `underglow.gd` |
 | `scripts/vehicle/audio/` | `vehicle_sound_profile.gd` (what a vehicle class sounds like), `vehicle_sound_bank.gd` (shared tyre / crash / glass sounds), `audio_director.gd` (traffic voice budget, Doppler) |
 | `scripts/traffic/` | `traffic_network.gd` (lane graph built from the roads, turn curves, junctions, U-turns), `traffic_manager.gd` (spawning, signal timing), `traffic_driver.gd` (AI driver, turn signals), `traffic_light_prop.gd` |
 | `scripts/camera/` | `chase_camera.gd` (driving), `flight_camera.gd` (flying), `heli_camera.gd` (the helicopter: level, along its heading), `on_foot_camera.gd` (walking), `camera_blend.gd` (glides between them), `menu_camera.gd` (title screen), `views.gd` (the cameras the players see through: one, or one per split-screen view) |
-| `scripts/world/` | `map_layout.gd` (**all** the map's numbers); the terrain, road, city, nature, stunt park and landmark builders; `building_kit.gd`, `street_kit.gd`, `tree_kit.gd` (buildings, street furniture and trees, built in code); `mesh_builder.gd` (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs); `art_palette.gd` (world colours); `day_night.gd` (sun, real skies through the day, lights after dark); `sky_catalog.gd` (generated: each sky photo's sun and colours); `weather.gd` (clouds, rain, wet ground, wet grip), `rain_fx.gd` (rain round each camera), `lightning.gd` (bolts in a storm); `grass_field.gd` (3D grass tufts round the camera); `tree_scatter.gd`, `tree_lod.gd`, `tree_colliders.gd` (where trees grow, their LOD quadtree, trunk colliders); `night_light.gd`, `lighthouse_beam.gd` |
+| `scripts/world/` | `map_layout.gd` (**all** the map's numbers); the terrain, road, city, nature, stunt park and landmark builders; `building_kit.gd`, `street_kit.gd`, `tree_kit.gd` (buildings, street furniture and trees, built in code); `mesh_builder.gd` (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs); `art_palette.gd` (world colours); `day_night.gd` (sun, real skies through the day, lights after dark); `sky_catalog.gd` (generated: each sky photo's sun and colours); `weather.gd` (clouds, rain, wet ground, wet grip), `rain_fx.gd` (rain round each camera), `lightning.gd` (bolts in a storm); `grass_field.gd` (3D grass tufts round the camera); `tree_scatter.gd`, `tree_lod.gd`, `tree_colliders.gd` (where trees grow, their LOD quadtree, trunk colliders); `night_light.gd`, `lighthouse_beam.gd`; `fuel_builder.gd` (where to fill up and charge), `fuel_site.gd` (one such place and its hoses), `fuel_kit.gd` (nozzle, plug, hoses, chargers and fuel cabinets) |
 | `scripts/props/` | `prop.gd`, `kit_prop.gd` (props whose mesh comes from StreetKit), `ramp.gd` (`@tool`, editable in the editor) |
 | `scripts/ui/` | `hud.gd`, `speedometer.gd`, `world_map.gd` (top-down island picture drawn at startup), `minimap.gd` (round heading-up minimap), `big_map.gd` (M), `vehicle_picker.gd` (the garage), `game_menu.gd` (title, pause, settings, controls pages), `ui_kit.gd` (the shared menu look) |
-| `scripts/game/` | `game.gd` (title / driving / pause / garage states, spawning, teleports, respawn, changing vehicle), `graphics_quality.gd` (Low / Medium / High / Ultra), `stunt_tracker.gd` (tricks, combos, near misses, drifts), `race_catalog.gd` (race routes + medal times), `race_manager.gd` (gates, countdown, timing), `replay.gd` |
+| `scripts/game/` | `game.gd` (title / driving / pause / garage states, spawning, teleports, respawn, changing vehicle), `graphics_quality.gd` (Low / Medium / High / Ultra), `stunt_tracker.gd` (tricks, combos, near misses, drifts), `race_catalog.gd` (race routes + medal times), `race_manager.gd` (gates, countdown, timing), `replay.gd`, `fuel_guide.gd` (the low-fuel arrow) |
 | `scripts/core/` | `input_setup.gd` (all key and gamepad bindings), `settings.gd` (the Settings autoload: saved player settings), `records.gd` (the Records autoload: best combos, biggest air...) |
 | `scripts/dev/` | `dev_tools.gd` and the test scripts (see [Testing](#testing)) |
 
@@ -622,6 +657,32 @@ The helicopter (`helicopter.gd`) is an `Aircraft` too, with its own rig
 - The `HeliCamera` stays level behind the nose (it doesn't pitch with the
   helicopter) and leans a little with its bank.
 
+#### Fuel
+
+- **The tank:** `VehicleFuel` (a child named "Fuel") on every vehicle a player
+  has driven (`LocalPlayer.adopt_vehicle`), so traffic carries none. The
+  player driving it calls `burn()` each tick (not during a race): ordinary
+  use is about `NORMAL_USE` units a second (`0.08 + 0.55 x load + 0.35 x
+  speed / 25 m/s`), and a full tank holds `FULL_TANK_SECONDS` (600) of that.
+- **Empty:** it sets `Vehicle.fuel_power` (the engine's torque, a plane's
+  thrust) and `fuel_max_speed` (a car's crawl). A petrol engine sputters
+  (power and `VehicleAudio.sputter_cut` drop out at random for a moment).
+  `Aircraft` glides down at `EMPTY_GLIDE_SINK` with assists on;
+  `Helicopter` turns its assists on, sinks at `EMPTY_SINK` and only climbs to
+  `EMPTY_HOVER`.
+- **The places:** `FuelBuilder` builds the props (`FuelKit`) and a `FuelSite`
+  per place (group `fuel_sites`: kind, who it serves, the maps and the arrow
+  read it). Each hose is a `FuelPump` (`Interactable`): resting hoses are one
+  merged mesh per site; one in use draws its handle and a sagging tube
+  (rebuilt only while it moves). Holding one sets the character's
+  `leash_point` / `leash_length` and `set_holding` (a right-arm `LimbIK`);
+  `VehicleEntry` offers nothing to someone holding a hose.
+- **The filler:** `FillerFlap` (`Interactable`, priority 2) sits at
+  `Vehicle.filler_point()`: the right rear quarter from the body, or the
+  scene's `filler` / `filler_normal_dir` (the plane's wing, the helicopter).
+- **Sounds:** `tools/audio/build_audio.py fuel` synthesizes the click, the
+  ding, fuel flowing and a charger's hum (`assets/audio/fuel/`).
+
 #### Saving
 
 There are two files in `user://` (on Linux and the Deck,
@@ -638,8 +699,8 @@ save on every change, type-check what they read, and migrate older formats in
 or write them.
 
 Not saved: where you are, on foot or in a vehicle (every session starts at the
-City Center beside your vehicle), damage, traffic, parked vehicles you left,
-and the session's stunt score.
+City Center beside your vehicle), damage, fuel (you start full), traffic,
+parked vehicles you left, and the session's stunt score.
 
 New saved state goes in the same places. An option or a choice about the
 player's things is a key in `Settings.DEFAULTS` (typed, with a default).
@@ -727,6 +788,7 @@ godot --path . -- --garage=/tmp/shots
 | `--ride` | Two players, one riding along with the other: getting in and out, cameras, no controls, teleports, the sea, garage swaps, the plane, the helicopter, leaving |
 | `--seats` | The players sitting in vehicles: getting in and out, the hood / cockpit view leaves your own character out, replays, teleports, garage swaps, the bus, the plane, a split-screen passenger in player 2's T-shirt, player 2 leaving |
 | `--flight` | The plane: take-off, cruise, turns, loop, roll, stall, the help button, teleports, the island's edge, landing, getting out and in, replay, parked planes, taxiing, crash, garage. Run with `--fixed-fps 60` |
+| `--fuel` | Fuel and charging: how fast it drains, low (toast, red gauge, the arrow) and empty (crawl, sputter, an empty bus still climbs), filling by hand (grab, the hose's lead, fill, readout, FULL!, take out, hang up, pop-outs on getting in and driving off, teleporting while holding), the setting, a parked car's tank, the electric SUV (a nozzle doesn't fit; charging), the plane (glides home, fills at the airfield), the helicopter (lands itself, creeps low, fills at a helipad), split-screen. Run with `--fixed-fps 60` |
 | `--heli` | The helicopter: picked in the garage, the rotor starting, take-off, hovering, forward flight and stopping, turns, backward, climbing, flip and roll, the help button, teleports, the island's edge, a soft landing, getting out and in, replay, the parked one, crash, garage swaps (in the air too), assists off. Run with `--fixed-fps 60` |
 | `--menus` | Title, pause, settings and controls menus driven by input |
 | `--stunts` | Air, flips, rolls, spins, drift, near miss, wipeout → combos and records |
@@ -798,6 +860,7 @@ the Steam Deck on a PC.
 | `-- --onfootbench` | The character's cost: draw calls, CPU and GPU with it shown and hidden, physics time |
 | `-- --seatbench` | A seated character's cost while driving: draw calls, CPU and GPU with it shown and hidden, animation and IK time |
 | `-- --partsbench` | A fully kitted player car against a stock one: GPU and draw calls |
+| `--gpu-index 0 -- --fuelbench --graphics=1` | The fuel places shown and hidden (gas station, a car park's chargers, the helipads): draw calls, render CPU, GPU; the fuel tick and a carried hose's CPU |
 
 #### Sound
 

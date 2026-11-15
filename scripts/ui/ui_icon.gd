@@ -5,8 +5,12 @@ extends Control
 ## 2-unit strokes and round ends, and scale to the control's size.
 ##
 ## Shapes: play, players, wrench, flag, trophy, gear, gamepad, exit, info,
-## home, close, star, dice, chevron_left / _right / _up / _down, dpad_h, dpad_v (a D-pad
-## with left/right or up/down lit).
+## home, close, star, dice, fuel (a pump), plug (a charging plug),
+## chevron_left / _right / _up / _down, dpad_h, dpad_v (a D-pad with
+## left/right or up/down lit).
+##
+## paint() draws a shape straight onto another control while it draws (the
+## speedometer, the maps), without a UiIcon node.
 
 var shape := ""
 var color := Color.WHITE:
@@ -17,6 +21,11 @@ var color := Color.WHITE:
 var stroke := 2.0
 
 var _k := 1.0
+## What the drawing goes onto (itself, or the control paint() draws on) and
+## where the 24-unit grid's corner is on it.
+var _ci: CanvasItem
+var _o := Vector2.ZERO
+
 
 
 func _init(shape_name := "", px := 32.0, col := Color.WHITE) -> void:
@@ -31,8 +40,27 @@ func _init(shape_name := "", px := 32.0, col := Color.WHITE) -> void:
 func _draw() -> void:
 	var side := minf(size.x, size.y)
 	_k = side / 24.0
+	_ci = self
 	# Centre the 24-unit grid in the control.
-	draw_set_transform(Vector2((size.x - side) * 0.5, (size.y - side) * 0.5))
+	_o = Vector2((size.x - side) * 0.5, (size.y - side) * 0.5)
+	_shape()
+
+
+## Draws `shape_name` onto `target` (call it from the target's drawing),
+## `px` big, centred on `center`.
+static func paint(target: CanvasItem, shape_name: String, center: Vector2, px: float, col: Color, stroke_units := 2.0) -> void:
+	# (A throwaway painter: a few icons a frame cost nothing, and a kept
+	# one would outlive the game.)
+	var p := UiIcon.new(shape_name, px, col)
+	p.stroke = stroke_units
+	p._k = px / 24.0
+	p._ci = target
+	p._o = center - Vector2(px, px) * 0.5
+	p._shape()
+	p.free()
+
+
+func _shape() -> void:
 	match shape:
 		"play":
 			_circle(Vector2(12, 12), 10.0)
@@ -109,6 +137,18 @@ func _draw() -> void:
 			_line([Vector2(15, 5.5), Vector2(8.5, 12), Vector2(15, 18.5)])
 		"chevron_right":
 			_line([Vector2(9, 5.5), Vector2(15.5, 12), Vector2(9, 18.5)])
+		"fuel":
+			# A pump: body with its display, the hose round to the nozzle.
+			_line(_round_rect(Rect2(4, 3.5, 10, 17), 2.0), true)
+			_line(_round_rect(Rect2(6.5, 6.5, 5, 4), 0.8), true)
+			_line([Vector2(2.5, 20.5), Vector2(15.5, 20.5)])
+			_line([Vector2(14, 9), Vector2(17.5, 9), Vector2(20, 11.5), Vector2(20, 17), Vector2(18.2, 18.6), Vector2(16.6, 17), Vector2(16.6, 13.5)])
+		"plug":
+			# A plug: two pins, the head, the cable.
+			_line([Vector2(9.5, 2.5), Vector2(9.5, 7)])
+			_line([Vector2(14.5, 2.5), Vector2(14.5, 7)])
+			_line(_round_rect(Rect2(6, 7, 12, 8.5), 3.0), true)
+			_line([Vector2(12, 15.5), Vector2(12, 18.5), Vector2(15, 21.5)])
 		"dpad_h", "dpad_v":
 			_dpad(shape == "dpad_h")
 
@@ -121,27 +161,27 @@ func _dpad(horizontal: bool) -> void:
 		"left": Rect2(2, 12 - w * 0.5, 8, w), "right": Rect2(14, 12 - w * 0.5, 8, w),
 		"up": Rect2(12 - w * 0.5, 2, w, 8), "down": Rect2(12 - w * 0.5, 14, w, 8),
 	}
-	draw_rect(_r(Rect2(12 - w * 0.5, 12 - w * 0.5, w, w)), dim)
+	_ci.draw_rect(_r(Rect2(12 - w * 0.5, 12 - w * 0.5, w, w)), dim)
 	for k: String in arms:
 		var lit := (k in ["left", "right"]) == horizontal
-		draw_rect(_r(arms[k]), color if lit else dim)
+		_ci.draw_rect(_r(arms[k]), color if lit else dim)
 
 
 func _r(r: Rect2) -> Rect2:
-	return Rect2(r.position * _k, r.size * _k)
+	return Rect2(_o + r.position * _k, r.size * _k)
 
 
 func _line(pts: PackedVector2Array, closed := false) -> void:
 	var p := PackedVector2Array()
 	for v in pts:
-		p.append(v * _k)
+		p.append(_o + v * _k)
 	if closed:
 		p.append(p[0])
 	var w := stroke * _k
-	draw_polyline(p, color, w, true)
+	_ci.draw_polyline(p, color, w, true)
 	# Round joins and ends.
 	for v in p:
-		draw_circle(v, w * 0.5, color, true, -1.0, true)
+		_ci.draw_circle(v, w * 0.5, color, true, -1.0, true)
 
 
 func _arc_points(c: Vector2, r: float, a0: float, a1: float) -> PackedVector2Array:
@@ -157,11 +197,11 @@ func _arc(c: Vector2, r: float, a0: float, a1: float) -> void:
 
 
 func _circle(c: Vector2, r: float) -> void:
-	draw_arc(c * _k, r * _k, 0.0, TAU, 48, color, stroke * _k, true)
+	_ci.draw_arc(_o + c * _k, r * _k, 0.0, TAU, 48, color, stroke * _k, true)
 
 
 func _dot(c: Vector2, r: float) -> void:
-	draw_circle(c * _k, r * _k, color, true, -1.0, true)
+	_ci.draw_circle(_o + c * _k, r * _k, color, true, -1.0, true)
 
 
 ## The outline of a rounded rectangle, clockwise from the top left.

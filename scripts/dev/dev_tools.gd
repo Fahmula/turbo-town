@@ -49,6 +49,11 @@ extends Node
 ##   --flight=<dir>   the plane: take-off, cruise, turns, loop, roll, stall, help button,
 ##                    teleports, the island's edge, landing, getting out and in, crash,
 ##                    garage swaps (checks and shots; scripts/dev/flight_tests.gd)
+##   --fuel=<dir>     fuel and charging: draining, low and empty (crawl, sputter, the arrow),
+##                    filling up by hand (grab, the hose's lead, fill, hang up, pop-outs),
+##                    the setting, the electric SUV, the plane, the helicopter, split-screen
+##                    (checks and shots; scripts/dev/fuel_tests.gd)
+##   --fuelbench      what the fuel places and a carried hose cost (draw calls, CPU, GPU)
 ##   --heli=<dir>     the helicopter: garage, rotor start, take-off, hover, forward flight,
 ##                    turns, tricks, help button, teleports, the island's edge, landing,
 ##                    getting out and in, the parked one, crash, garage swaps, assists off
@@ -223,6 +228,11 @@ func _ready() -> void:
 		elif arg.begins_with("--heli="):
 			_mode = "heli"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--fuel="):
+			_mode = "fuel"
+			_dir = arg.split("=")[1]
+		elif arg == "--fuelbench":
+			_mode = "fuelbench"
 		elif arg.begins_with("--split="):
 			_mode = "split"
 			_dir = arg.split("=")[1]
@@ -386,6 +396,10 @@ func _run() -> void:
 		await preload("res://scripts/dev/flight_tests.gd").new(self, game, _dir).bench()
 	elif _mode == "heli":
 		await preload("res://scripts/dev/heli_tests.gd").new(self, game, _dir).run()
+	elif _mode == "fuel":
+		await preload("res://scripts/dev/fuel_tests.gd").new(self, game, _dir).run()
+	elif _mode == "fuelbench":
+		await preload("res://scripts/dev/fuel_tests.gd").new(self, game, _dir).bench()
 	elif _mode == "split":
 		await preload("res://scripts/dev/split_tests.gd").new(self, game, _dir).run()
 	elif _mode == "splitbench":

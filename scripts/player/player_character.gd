@@ -133,6 +133,20 @@ var _tick := 0
 static var _step_streams := {}
 ## The character sitting in a vehicle (sit_in); waits under the character.
 var _figure: SeatFigure
+## Held on a lead (a fuel hose, FuelPump): it can't walk further than
+## `leash_length` m (flat) from `leash_point`. 0 = free.
+var leash_point := Vector3.ZERO
+var leash_length := 0.0
+## Holding something in the right hand (set_holding): the arm reaches for
+## HOLD_HAND by LimbIK, after the walk animation.
+var _hold_ik: LimbIK
+
+## Where the right wrist holds a fuel nozzle, from the feet (x = right,
+## z = forward), and where its elbow points.
+const HOLD_HAND := Vector3(0.21, 0.98, 0.3)
+const HOLD_POLE := Vector3(0.5, 0.95, -0.35)
+## How far the held thing points down from straight ahead (radians).
+const HOLD_TILT := 0.5
 
 
 func _enter_tree() -> void:
@@ -353,6 +367,7 @@ func _move(dt: float) -> void:
 		horiz = horiz.move_toward(want, accel * dt)
 	elif on_floor:
 		horiz = horiz.move_toward(Vector3.ZERO, 9.0 * dt)
+	horiz = _hold_on_leash(horiz, dt)
 	velocity.x = horiz.x
 	velocity.z = horiz.z
 
@@ -391,6 +406,78 @@ func _move(dt: float) -> void:
 			rate *= 0.4
 		facing = lerp_angle(facing, atan2(-face_dir.x, -face_dir.z), 1.0 - exp(-rate * dt))
 		_apply_facing()
+
+
+## On a lead: walking away stops at its end (gently, over the last 30 cm),
+## and past it the character is drawn back. Sideways and back is free.
+func _hold_on_leash(horiz: Vector3, dt: float) -> Vector3:
+	if leash_length <= 0.0:
+		return horiz
+	var off := global_position - leash_point
+	off.y = 0.0
+	var d := off.length()
+	if d < leash_length - 0.3 or d < 0.01:
+		return horiz
+	var out := off / d
+	var away := horiz.dot(out)
+	if away > 0.0:
+		horiz -= out * away * clampf((d - (leash_length - 0.3)) / 0.3, 0.0, 1.0)
+	if d > leash_length:
+		horiz -= out * minf((d - leash_length) / maxf(dt, 0.001), 3.0)
+	return horiz
+
+
+# --- Holding things --------------------------------------------------------
+
+## Starts or stops holding something in the right hand (a fuel nozzle): the
+## arm comes forward to HOLD_HAND (LimbIK on the walking character).
+func set_holding(on: bool) -> void:
+	if on and _hold_ik == null and _skeleton:
+		_hold_ik = LimbIK.new()
+		_hold_ik.name = "HoldIK"
+		var arm: Array = SeatFigure.ARMS[1]
+		if not _hold_ik.add_chain(_skeleton, arm, Vector3.ZERO, Vector3.ZERO):
+			_hold_ik.free()
+			_hold_ik = null
+			return
+		_skeleton.add_child(_hold_ik)
+	if _hold_ik:
+		_hold_ik.active = on
+		if on:
+			_aim_hold()
+
+
+func is_holding() -> bool:
+	return _hold_ik != null and _hold_ik.active
+
+
+## The right hand's grip (world, as drawn this frame): forward is where the
+## held thing points (ahead and down), up is the back of the hand.
+func hold_transform() -> Transform3D:
+	var t := get_global_transform_interpolated()
+	var fwd := Vector3(-sin(facing), 0.0, -cos(facing))
+	var right := fwd.cross(Vector3.UP)
+	var wrist := t.origin + right * HOLD_HAND.x + Vector3.UP * HOLD_HAND.y + fwd * HOLD_HAND.z
+	var dir := (fwd * cos(HOLD_TILT) + Vector3.DOWN * sin(HOLD_TILT)).normalized()
+	return Transform3D(Basis.looking_at(dir, Vector3.UP), wrist + dir * 0.07 + Vector3.UP * 0.02)
+
+
+func _process(_dt: float) -> void:
+	if _hold_ik and _hold_ik.active:
+		_aim_hold()
+
+
+## Points the arm's IK at the hold spot (skeleton space).
+func _aim_hold() -> void:
+	if _skeleton == null or _hold_ik.chains.is_empty():
+		return
+	var fwd := Vector3(-sin(facing), 0.0, -cos(facing))
+	var right := fwd.cross(Vector3.UP)
+	var o := global_position
+	var to_sk := _skeleton.global_transform.affine_inverse()
+	var ch: Dictionary = _hold_ik.chains[0]
+	ch["target"] = to_sk * (o + right * HOLD_HAND.x + Vector3.UP * HOLD_HAND.y + fwd * HOLD_HAND.z)
+	ch["pole"] = to_sk * (o + right * HOLD_POLE.x + Vector3.UP * HOLD_POLE.y + fwd * HOLD_POLE.z)
 
 
 ## Climbs kerbs and steps: if the way ahead is blocked at the feet but clear

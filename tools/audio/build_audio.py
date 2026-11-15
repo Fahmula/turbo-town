@@ -9,6 +9,7 @@ Run from the project root:
     python3 tools/audio/build_audio.py footsteps  # only the character's footsteps
     python3 tools/audio/build_audio.py weather    # only the rain and thunder
     python3 tools/audio/build_audio.py horns      # only the garage's fun horns
+    python3 tools/audio/build_audio.py fuel       # only the fuel pumps and chargers
 
 Needs NumPy and ffmpeg. Third-party recordings are downloaded once into
 build/audio_sources/ (gitignored) from the URLs in sources.py and checked
@@ -112,6 +113,16 @@ def build_synth():
     write("tyre/roll_asphalt.wav", synth.road_roar(), loop=True, rate=32000)
 
 
+def build_fuel():
+    """The fuel pumps and chargers (FuelPump): nozzle click, the "full" ding,
+    fuel flowing in, a charger humming."""
+    print("fuelling:")
+    write("fuel/nozzle_click.wav", synth.nozzle_click())
+    write("fuel/fill_ding.wav", synth.fill_ding())
+    write("fuel/fuel_flow.wav", synth.fuel_flow(), loop=True, rate=32000)
+    write("fuel/charger_hum.wav", synth.charger_hum(), loop=True, rate=32000)
+
+
 def build_horns():
     """The garage's extra horns (PartsCatalog.HORNS); the car, truck and big
     rig horns are recordings (recorded.py)."""
@@ -127,7 +138,8 @@ def build_horns():
 # Which files loop (every run marks them, whatever it rebuilt).
 LOOP_PATTERNS = ["engine/*/on_*.wav", "engine/*/off_*.wav", "engine/*_whine.wav", "engine/propeller.wav", "engine/rotor.wav",
                  "tyre/*.wav", "horn/*.wav",
-                 "body/wind.wav", "body/scrape.wav", "body/reverse_beeper.wav", "weather/rain*.wav"]
+                 "body/wind.wav", "body/scrape.wav", "body/reverse_beeper.wav", "weather/rain*.wav",
+                 "fuel/fuel_flow.wav", "fuel/charger_hum.wav"]
 
 
 def import_settings():
@@ -164,6 +176,8 @@ def main(args):
         build_synth()
     if "horns" in parts or "synth" in parts:
         build_horns()
+    if "fuel" in parts or "synth" in parts:
+        build_fuel()
     if "recorded" in parts:
         import recorded
         recorded.build(write, fetch)

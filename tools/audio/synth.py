@@ -471,3 +471,70 @@ def shift_clunk(seed=101):
         x[i0:] += dsp.peaks(dsp.noise(m, seed + k), [(f, 6, 1.0), (f * 2.3, 8, 0.5)]) * np.exp(-tt * 140)
     x += np.sin(2 * np.pi * 95 * t) * np.exp(-t * 40) * 0.6
     return dsp.fade(dsp.normalize_peak(x, -1.0), 0.0005, 0.02)
+
+
+# --------------------------------------------------------------- fuelling --
+# The fuel pumps and chargers (FuelPump). Mid-range on purpose: the Steam
+# Deck's small speakers lose everything under ~300 Hz.
+
+def nozzle_click(seed=701):
+    """A fuel nozzle clicking into a filler (or out of its holster; the
+    charging plug plays it pitched): a bright metal click and a short hollow
+    knock."""
+    dur = 0.2
+    n = int(dur * R)
+    t = _t(dur)
+    click = dsp.peaks(dsp.noise(n, seed), [(3200, 8.0, 1.0), (5200, 10.0, 0.6)]) * np.exp(-t * 260)
+    knock = np.sin(2 * np.pi * 520 * t) * np.exp(-t * 45) + 0.5 * np.sin(2 * np.pi * 1240 * t) * np.exp(-t * 70)
+    x = dsp.normalize_peak(click, -3) + dsp.normalize_peak(knock, -6)
+    return dsp.fade(dsp.normalize_peak(x, -1.0), 0.0005, 0.03)
+
+
+def fill_ding():
+    """The pump's "full" ding: two soft bell notes going up (E6, A6)."""
+    s = 1.3
+    n = int(s * R)
+    t = _t(s)
+    x = np.zeros(n, dtype=np.float32)
+    for f, at, amp in ((1318.5, 0.0, 1.0), (1760.0, 0.16, 0.85)):
+        tt = np.maximum(t - at, 0.0)
+        env = np.where(t >= at, np.minimum(tt / 0.004, 1.0) * np.exp(-tt / 0.42), 0.0)
+        tone = np.sin(2 * np.pi * f * tt) + 0.3 * np.sin(2 * np.pi * 2 * f * tt) * np.exp(-tt * 6) \
+            + 0.1 * np.sin(2 * np.pi * 2.4 * f * tt) * np.exp(-tt * 9)
+        x += (amp * env * tone).astype(np.float32)
+    return dsp.fade(dsp.normalize_peak(x, -2.0), 0.001, 0.2)
+
+
+def fuel_flow(seconds=3.0, seed=711):
+    """Fuel running into a tank (loop): a liquid rush (band-limited noise
+    with a slow wobble) and bubbles gurgling up the filler neck. The noise is
+    filtered circularly and the bubbles wrap round, so it loops seamlessly."""
+    n = int(seconds * R)
+    rush = dsp.bandpass(dsp.noise(n, seed, "pink"), 350, 2600, 2)
+    rush = rush * (1.0 + 0.2 * _lfo(seconds, 3) + 0.1 * _lfo(seconds, 7, 1.3))
+    rng = np.random.default_rng(seed + 1)
+    bubbles = np.zeros(n)
+    for _ in range(int(seconds * 22)):
+        start = rng.uniform(0.0, seconds)
+        f = rng.uniform(380.0, 1100.0)
+        d = rng.uniform(0.03, 0.08)
+        m = int(d * R)
+        tt = np.arange(m) / R
+        b = np.sin(2 * np.pi * f * tt * (1.0 + 2.5 * tt / d)) * np.sin(np.pi * tt / d) ** 2 * rng.uniform(0.3, 1.0)
+        idx = (int(start * R) + np.arange(m)) % n
+        bubbles[idx] += b
+    x = dsp.normalize_rms(rush, -20) + dsp.normalize_rms(bubbles.astype(np.float32), -22)
+    return dsp.normalize_rms(x, -18.0)
+
+
+def charger_hum(seconds=2.0, seed=721):
+    """An EV charger at work (loop): a soft electronic hum, a faint high
+    whine from the power electronics and its cooling fan."""
+    n = int(seconds * R)
+    hum = _loop_sine(330, seconds) + 0.5 * _loop_sine(660, seconds, 0.4) + 0.25 * _loop_sine(990, seconds, 1.0)
+    hum = hum * (0.85 + 0.15 * _lfo(seconds, 2))
+    whine = _loop_sine(4200, seconds) * (0.7 + 0.3 * _lfo(seconds, 3, 0.5))
+    fan = dsp.bandpass(dsp.noise(n, seed, "pink"), 400, 3000, 2)
+    x = dsp.normalize_rms(hum, -22) + dsp.normalize_rms(whine, -40) + dsp.normalize_rms(fan, -30)
+    return dsp.normalize_rms(x, -18.0)
+

@@ -53,6 +53,13 @@ const LAND_HEIGHT := 0.6
 const PRO_TILT := 35.0
 ## Most bank the assisted turn may use (degrees).
 const TURN_BANK := 55.0
+## Out of fuel (VehicleFuel): it never falls. It sinks at EMPTY_SINK (m/s,
+## slower near the ground: the soft landing) and lands itself; the climb
+## button still lifts it to EMPTY_HOVER (m) to creep along at up to
+## EMPTY_CREEP (m/s) to a pump. The assists are on for it then, tricks off.
+const EMPTY_SINK := 2.5
+const EMPTY_HOVER := 3.0
+const EMPTY_CREEP := 9.0
 
 @export_group("Helicopter")
 ## Full stick forward / back (m/s).
@@ -200,7 +207,8 @@ func _fly(dt: float) -> void:
 	var v := linear_velocity
 	var g := 9.81
 	var weight := mass * g
-	var assists := traction_control
+	var empty := fuel_power < 0.999
+	var assists := traction_control or empty
 	if up.y > 0.5 and absf(fwd.y) < 0.85 and trick_left <= 0.0:
 		heading = _yaw_of(b)
 	bank = atan2(-right.y, up.y)
@@ -233,6 +241,8 @@ func _fly(dt: float) -> void:
 	var resting := on_ground and lift < 0.1 and trick_left <= 0.0
 	if assists:
 		var vs_want := lift * (climb_rate if lift > 0.0 else sink_rate)
+		if empty:
+			vs_want = minf(lift * climb_rate if lift > 0.0 else -EMPTY_SINK, maxf((EMPTY_HOVER - altitude) * 0.8, -EMPTY_SINK))
 		if altitude < SOFT_HEIGHT and lift <= 0.0:
 			vs_want = maxf(vs_want, -lerpf(SOFT_SINK, sink_rate, altitude / SOFT_HEIGHT))
 			if altitude < LAND_HEIGHT and v_h.length() < 3.0 and trick_left <= 0.0:
@@ -241,6 +251,8 @@ func _fly(dt: float) -> void:
 		# The stick asks for a speed along the nose; the lean that gets there
 		# also holds that speed against the drag.
 		var speed_want := -clampf(pitch_input, -1.0, 1.0) * (max_speed if pitch_input < 0.0 else max_back_speed)
+		if empty:
+			speed_want = clampf(speed_want, -EMPTY_CREEP * 0.5, EMPTY_CREEP)
 		var drag_acc := v_h * (0.5 * AIR_DENSITY * drag_area * v_h.length() / mass)
 		var a_h := (hd * speed_want - v_h) * SPEED_GAIN + drag_acc
 		var a_f := clampf(a_h.dot(hd), -g * tan(deg_to_rad(max_tilt)), g * tan(deg_to_rad(max_tilt)))
@@ -269,7 +281,7 @@ func _fly(dt: float) -> void:
 	# Flips and rolls.
 	var trick_w := Vector3.ZERO
 	var free_spin := false
-	if trick_input and not on_ground and rotor > 0.8:
+	if trick_input and not on_ground and rotor > 0.8 and not empty:
 		if not assists:
 			free_spin = true
 			trick_w = b * Vector3(clampf(pitch_input, -1.0, 1.0) * 3.2, 0.0, -clampf(yaw_input, -1.0, 1.0) * 3.2)

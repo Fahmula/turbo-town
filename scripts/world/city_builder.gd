@@ -334,23 +334,37 @@ func _add_box_collider(body: StaticBody3D, xf: Transform3D, size: Vector3) -> vo
 func _add_parking(paint: MeshBuilder, x0: float, z0: float, x1: float, z1: float) -> void:
 	var white := Color(ArtPalette.ROAD_WHITE, 0.0)
 	var y := MapLayout.CURB_HEIGHT + 0.012
-	var stall_w := 2.9
-	var stall_d := 5.5
+	var stall_w := MapLayout.STALL_WIDTH
+	var stall_d := MapLayout.STALL_DEPTH
+	# Car parks with EV chargers (FuelBuilder) keep their first bays free and
+	# paint them green.
+	var ev := MapLayout.is_ev_parking(x0, z0)
 	# Rows of stalls facing each other, with aisles between.
-	var rows := [z0 + 1.0, z0 + 1.0 + stall_d * 2.0 + 7.0, z0 + 1.0 + stall_d * 4.0 + 14.0]
-	for row_z in rows:
+	var r0 := z0 + MapLayout.STALL_ROW_INSET
+	var rows := [r0, r0 + stall_d * 2.0 + 7.0, r0 + stall_d * 4.0 + 14.0]
+	for row_i in rows.size():
+		var row_z: float = rows[row_i]
 		if row_z + stall_d * 2.0 > z1:
 			break
-		var x := x0 + 3.0
+		var x := x0 + MapLayout.STALL_X_INSET
+		var stall := 0
 		while x + stall_w < x1 - 3.0:
 			for side in 2:
 				var sz: float = row_z + side * stall_d
 				_flat_quad(paint, x - 0.06, sz, x + 0.06, sz + stall_d, y, white)
+				var bay := ev and row_i == 0 and side == 0 and stall < MapLayout.EV_BAYS
+				if bay:
+					_flat_quad(paint, x + 0.12, sz + 0.1, x + stall_w - 0.12, sz + stall_d - 0.1, y - 0.002, Color(ArtPalette.EV_GREEN, 0.0))
 				if _rng.randf() < 0.35:
 					var rot := 0.0 if side == 0 else PI
 					var pos := Vector3(x + stall_w * 0.5, MapLayout.CURB_HEIGHT, sz + stall_d * 0.5)
-					prop_spawns.append({"scene": "parked_car", "xform": Transform3D(Basis(Vector3.UP, rot + PI * 0.5 * 0.0 + _rng.randf_range(-0.05, 0.05)), pos)})
+					var xf := Transform3D(Basis(Vector3.UP, rot + PI * 0.5 * 0.0 + _rng.randf_range(-0.05, 0.05)), pos)
+					# (The random picks are made either way, so the rest of the
+					# town's parked cars stay where they were.)
+					if not bay:
+						prop_spawns.append({"scene": "parked_car", "xform": xf})
 			x += stall_w
+			stall += 1
 		_flat_quad(paint, x0 + 3.0, row_z + stall_d - 0.06, x - 0.0, row_z + stall_d + 0.06, y, white)
 
 

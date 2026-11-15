@@ -2,7 +2,9 @@ class_name Speedometer
 extends Control
 ## Round speedometer drawn with _draw(): speed arc + needle, digital readout,
 ## gear and a small RPM arc. Flying, there's no gear and the RPM arc shows
-## the engine power (the HUD shows the height above it).
+## the engine power (the HUD shows the height above it). The fuel gauge sits
+## in the gap at the bottom: an arc that empties from right to left with a
+## pump (or, for a battery, plug) icon, red when low, blinking when empty.
 
 @export var max_speed := 240.0
 @export var use_mph := false
@@ -13,9 +15,20 @@ var gear_text := "1"
 var assists_on := true
 ## Flying a plane: no gear.
 var flying := false
+## Fuel or charge 0..1; below 0 = no gauge (the Fuel setting is off, or a
+## passenger's view).
+var fuel_level := -1.0
+var fuel_battery := false
 
 var _font: Font
 var _shown_speed := 0.0
+var _shown_fuel := -1.0
+var _time := 0.0
+
+## The fuel arc: from FUEL_FROM (empty, lower left) to FUEL_TO (full, lower
+## right), in the gap under the speed band (140°-400°).
+const FUEL_FROM := 128.0
+const FUEL_TO := 52.0
 
 
 func _ready() -> void:
@@ -24,7 +37,12 @@ func _ready() -> void:
 
 
 func _process(dt: float) -> void:
+	_time += dt
 	_shown_speed = lerpf(_shown_speed, speed_kmh, 1.0 - exp(-12.0 * dt))
+	if fuel_level < 0.0 or _shown_fuel < 0.0:
+		_shown_fuel = fuel_level
+	else:
+		_shown_fuel = lerpf(_shown_fuel, fuel_level, 1.0 - exp(-8.0 * dt))
 	queue_redraw()
 
 
@@ -54,8 +72,8 @@ func _draw() -> void:
 		draw_line(c + dir * (r - 30.0), c + dir * (r - (40.0 if major else 35.0)), Color(1, 1, 1, 0.8), 2.0, true)
 		if major:
 			var txt := str(int(v))
-			var ts := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_CENTER, -1, 15)
-			draw_string(_font, c + dir * (r - 56.0) - Vector2(ts.x * 0.5, -5.0), txt, HORIZONTAL_ALIGNMENT_CENTER, -1, 15, Color(1, 1, 1, 0.85))
+			var ts := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_CENTER, -1, 18)
+			draw_string(_font, c + dir * (r - 56.0) - Vector2(ts.x * 0.5, -6.0), txt, HORIZONTAL_ALIGNMENT_CENTER, -1, 18, Color(1, 1, 1, 0.85))
 		v += step
 	# RPM arc (inner).
 	var rpm_col := Color(1.0, 0.8, 0.2) if rpm_fraction < 0.9 else Color(1.0, 0.25, 0.2)
@@ -72,8 +90,8 @@ func _draw() -> void:
 	var ss := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_CENTER, -1, big)
 	draw_string(_font, c + Vector2(-ss.x * 0.5, 80.0), s, HORIZONTAL_ALIGNMENT_CENTER, -1, big, Color.WHITE)
 	var unit := "km/h" if not use_mph else "mph"
-	var us := _font.get_string_size(unit, HORIZONTAL_ALIGNMENT_CENTER, -1, 14)
-	draw_string(_font, c + Vector2(-us.x * 0.5, 98.0), unit, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color(1, 1, 1, 0.7))
+	var us := _font.get_string_size(unit, HORIZONTAL_ALIGNMENT_CENTER, -1, 18)
+	draw_string(_font, c + Vector2(-us.x * 0.5, 100.0), unit, HORIZONTAL_ALIGNMENT_CENTER, -1, 18, Color(1, 1, 1, 0.7))
 	if not flying:
 		# Gear.
 		var gs := _font.get_string_size(gear_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 30)
@@ -81,5 +99,28 @@ func _draw() -> void:
 		draw_string(_font, c + Vector2(-gs.x * 0.5, -33.0), gear_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 30, Color(1.0, 0.85, 0.3))
 	if not assists_on:
 		var t := "DRIFT"
-		var dts := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_CENTER, -1, 14)
-		draw_string(_font, c + Vector2(-dts.x * 0.5, 40.0), t, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color(1.0, 0.5, 0.9))
+		var dts := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_CENTER, -1, 18)
+		draw_string(_font, c + Vector2(-dts.x * 0.5, 42.0), t, HORIZONTAL_ALIGNMENT_CENTER, -1, 18, Color(1.0, 0.5, 0.9))
+	if _shown_fuel >= 0.0:
+		_draw_fuel(c, r)
+
+
+## The fuel gauge in the bottom gap: the track, the level, a tick at half
+## and the pump (or plug) icon inside the arc's empty end.
+func _draw_fuel(c: Vector2, r: float) -> void:
+	var lvl := clampf(_shown_fuel, 0.0, 1.0)
+	var low := fuel_level < VehicleFuel.LOW
+	var full_col := Color(0.3, 1.0, 0.45) if fuel_battery else Color.WHITE
+	var col := Color(1.0, 0.3, 0.2) if low else full_col
+	if fuel_level <= 0.0:
+		# Empty: it blinks (twice a second).
+		col.a = 0.35 + 0.65 * float(fmod(_time * 2.0, 1.0) < 0.5)
+	var a0 := deg_to_rad(FUEL_FROM)
+	var a1 := deg_to_rad(FUEL_TO)
+	var rr := r - 16.0
+	draw_arc(c, rr, a0, a1, 24, Color(1, 1, 1, 0.14), 8.0, true)
+	if lvl > 0.005:
+		draw_arc(c, rr, a0, lerpf(a0, a1, lvl), 24, col, 8.0, true)
+	var mid := Vector2.from_angle((a0 + a1) * 0.5)
+	draw_line(c + mid * (rr - 7.0), c + mid * (rr + 7.0), Color(0.06, 0.08, 0.14, 0.9), 2.0, true)
+	UiIcon.paint(self, "plug" if fuel_battery else "fuel", c + Vector2(-48.0, 76.0), 20.0, col)

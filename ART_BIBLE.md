@@ -336,6 +336,7 @@ inline.
 | asphalt_worn | `#5A5B5D` | `(0.353, 0.357, 0.365)` | worn, sun-bleached patches |
 | paint_white | `#E4E2DA` | `(0.894, 0.886, 0.855)` | lane lines, zebra crossings |
 | paint_yellow | `#D9A421` | `(0.851, 0.643, 0.129)` | centre and edge lines |
+| ev_green | `#33804D` | `(0.2, 0.5, 0.3)` | EV charging bays (a gameplay marker, `ArtPalette.EV_GREEN`) |
 | concrete | `#B4B0A7` | `(0.706, 0.690, 0.655)` | barriers, decks, pillars |
 | concrete_stained | `#8E8A82` | `(0.557, 0.541, 0.510)` | bases, drip streaks, joints |
 | sidewalk | `#BDB8AE` | `(0.741, 0.722, 0.682)` | paving |
@@ -1491,6 +1492,27 @@ m small, 250 m lamps and signals); bollards are static and merged. Landmarks
 - **Placement:** props sit on surfaces (never floating or sunk), aligned to
   roads and kerbs, scattered with fixed seeds.
 
+**Fuel and charging** (2026-11-15, `FuelKit`, `FuelBuilder`): the TURBO FUEL
+pumps keep their landmark mesh (holster and hose outlet); their hoses and
+nozzles, and everything below, are the fuel sites' own.
+
+- **Nozzle** (~0.3 m): brushed aluminium body, black grip and lever guard, a
+  TURBO red boot, a steel spout bent down at the tip. **Charging plug**: a
+  chunky black handle with a green band and a round connector head. Each is
+  one shared mesh (~300 tris).
+- **Hoses and cables:** 6-sided tubes (2.2 cm fuel, 1.7 cm cable) sagging like
+  a rope (`FuelKit.hose_points`: more slack close to the pump, nearly taut at
+  the end of the lead), never through the ground.
+- **EV charger** (1.7 m): a slim white pedestal on a concrete plinth, a green
+  band near the top, a dark screen with a lit green status bar, the plug's
+  holster on its side. Green bays (`EV_GREEN`) in front of each charger.
+- **Fuel cabinet** (airfield, helipads; 1.45 m): a red steel cabinet on a
+  concrete pad, a meter window, a galvanised hose reel, a nozzle holster.
+- **Cost:** per site, the resting hoses and handles are one merged mesh (one
+  draw call, no shadow, culled at 160 m) and the new props one more (250 m).
+  A hose in use is two more (its tube and handle, no shadow) and is only
+  rebuilt while it moves.
+
 ---
 
 ## 18. Vegetation
@@ -1574,9 +1596,9 @@ and progress bars in the slider's track and fill. `UiKit.label` is outlined
 text for over the 3D world; `UiKit.panel_label` is the same without the
 outline, for text inside panels; `UiKit.heading` (heavy, §21) and
 `UiKit.text` (muted) are the heading and secondary lines inside panels and
-cards. Older pages still use `label` for their rows. `hud.gd` duplicates the
-panel and label helpers with 72% panels. The speedometer and minimap are
-drawn with `_draw()`.
+cards. Older pages still use `label` for their rows. The HUD's 72% panels
+and outlined lines are `UiKit.hud_panel` / `hud_label` (moved out of
+`hud.gd`, 2026-11-15). The speedometer and minimap are drawn with `_draw()`.
 
 **Menus (the owner's arcade-racing mockups, 2026-11-07):** cards, not lists.
 
@@ -1625,6 +1647,13 @@ drawn with `_draw()`.
 - **Prompts match the device in use** (`UiKit.prompt`, `UiKit.fill_hints`,
   §22): the garage, pause menu and settings swap between gamepad buttons
   and keyboard keys on the last input.
+- **Fuel gauge** (2026-11-15): an 8 px arc in the speedometer's bottom gap
+  (128° to 52°, under the speed band), emptying from right to left, a dark
+  tick at half, and a pump icon (a plug for a battery) inside its empty end.
+  White (a battery: go green), red below a fifth (§20 colour meaning: danger),
+  blinking twice a second when empty. Hidden with the Fuel setting off and
+  for a passenger. The low-fuel arrow over the vehicle is the race arrow's
+  shape in the same red.
 
 **Direction:** keep the structure and colours; they already match Ref 3's
 layout. Refine toward a clean automotive instrument rather than a cartoon.
@@ -1711,9 +1740,9 @@ needs the owner's OK (it's another download).
   | Body | 22 |
   | Small (hints, gauge ticks), **minimum** | 18 |
 
-  Today these are below the minimum: help text 17, "H = help" 15, speedometer
-  ticks 15, units and "DRIFT" 14, minimap "N" 14. Fix them when touching those
-  screens.
+  Today these are below the minimum: help text 17, "H = help" 15, minimap
+  "N" 14. Fix them when touching those screens. (The speedometer's ticks,
+  units and "DRIFT" went up to 18 with the fuel gauge, 2026-11-15.)
 - Panel line length ≤ 50 characters; line height 1.2–1.35.
 - For a font drawn at many sizes, enable MSDF on the font import.
 
@@ -1728,7 +1757,8 @@ needs the owner's OK (it's another download).
   drawn in `_draw()` for simple shapes. **Today:** `UiIcon`
   (`scripts/ui/ui_icon.gd`) draws the menu icons from lines, arcs and dots
   on a 24-unit grid with 2-unit strokes and round ends (play, players,
-  wrench, flag, trophy, gear, gamepad, exit, info, star, dice, chevrons and
+  wrench, flag, trophy, gear, gamepad, exit, info, star, dice, fuel (a pump),
+  plug, chevrons and
   the D-pad, home, close). Add a shape there before reaching for files. The
   garage arrows, the settings rows' arrows and pips, `UiKit.Stripes` and
   `UiKit.Chevrons` are drawn the same way.
@@ -1743,6 +1773,10 @@ needs the owner's OK (it's another download).
   theirs, pinned to the minimap's edge when far away), traffic is small white dots,
   teleport spots and races are coloured numbered roundels, plus a north marker
   (all as today).
+- **Fuel on the maps:** a dark disc with a white pump (fuel) or a green plug
+  (chargers), one per place (sites of a kind within 40 m share one). Drawn
+  with `UiIcon.paint`, which draws any `UiIcon` shape onto another control
+  while it draws (the speedometer, the maps).
 - **Consistency:** the same stroke weight and corner radius across the set.
   Build icons from simple primitives so a script can generate them.
 
@@ -2167,6 +2201,16 @@ window):
   the run-to-run noise (Medium 19.2–20.5 ms either way, Low 9.3–10.1 ms);
   animation ~0.02 ms and IK ~0.015 ms per frame. No shadow pass (§34).
 
+- **Fuel and charging** (2026-11-15, `--fuelbench` on the iGPU, traffic off,
+  each place shown / hidden, three alternating rounds): +4 draw calls at the
+  gas station (264 vs 260 at Medium, 255 vs 250 at High), +1 to +3 by a car
+  park's chargers and +3 at the helipads; GPU time within the run-to-run
+  noise at Medium and High (Medium 26.7–28.8 ms shown vs 27.6–29.9 hidden at
+  the station). CPU: the driver's fuel tick ~0.01 ms per physics tick; a
+  hose being carried ~0.2 ms per frame while it moves (its tube rebuilt;
+  nothing when still or resting). The station's forecourt lost the grass
+  that grew through it, so it's a little cheaper than before.
+
 - **Flying** (2026-10-05, branch `flight`, `--flightbench` on the iGPU,
   traffic off, a fixed line across the city at 60 m/s): Medium 21.7 / 20.9 /
   17.9 ms average GPU at 60 / 150 / 300 m (p95 24 ms), Low 9.4–10.8 ms, High
@@ -2564,6 +2608,14 @@ readable, kid-friendly (crashes are big and fun, never scary).
   the loudest part, louder with the collective. 78% of the rotor loop's
   level is above 220 Hz and its beat survives there, so the Deck's speakers
   keep the "whop". No horn.
+- **Fuel and charging** (2026-11-15, synthesised, `build_audio.py fuel`, on
+  the Environment bus at the nozzle): a metal click (in, out, pitched up for
+  a pop-out), a two-note "full" ding (E6, A6), fuel gurgling in (a liquid
+  rush and bubbles, 350 Hz to 2.6 kHz) or a charger's hum (330 Hz and its
+  harmonics, a faint high whine, a fan), all mid-range for the Deck's
+  speakers. Out of fuel a petrol engine coughs: `VehicleAudio.sputter_cut`
+  drops its level to 15% for 0.06-0.18 s at random moments; an electric car
+  just goes quiet and slow.
 
 ## 34. Characters
 
@@ -2625,6 +2677,14 @@ everything else: **stylized realism**, believable first.
   can't fall to its death (the sea or the void respawns it).
 - **Look-dev:** `--charsheet=<dir>` shoots it from fixed cameras at day,
   sunset and night plus strips of every locomotion clip.
+
+### Holding a fuel nozzle (2026-11-15)
+
+On foot with a fuel nozzle or charging plug (`FuelPump`), the right arm comes
+forward (`PlayerCharacter.set_holding`: a `LimbIK` chain on the walking
+character, after the walk clip) to hold it at the hip, 0.3 m ahead and
+0.98 m up, its spout pointing ahead and down; the left arm keeps walking.
+Same IK as the seated figures, off (no cost) when not holding.
 
 ### Seated in vehicles (2026-11-08)
 
@@ -2717,3 +2777,8 @@ is hidden.
   shader's new axis / inner / tip_strength), §14 its per-pass split, §24
   its origin, §33 its sound, §34 its seat fit.
   Owner feedback the same day: §33 the start-up loses its igniter ticks.
+- 2026-11-15: fuel and charging (branch `feat/fuel`): §5 EV green, §17 the
+  nozzle, plug, hoses, chargers and fuel cabinets, §20 the fuel gauge and
+  the HUD helpers in UiKit, §21 the speedometer's text at 18 px, §22 the fuel
+  and plug icons and `UiIcon.paint`, §27 the fuel sites' cost, §33 the fuel
+  sounds and the sputter, §34 holding a nozzle.
