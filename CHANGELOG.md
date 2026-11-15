@@ -9,6 +9,17 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.5.0](https://github.com/Fahmula/turbo-town/compare/v1.4.0...v1.5.0) (2026-11-15)
+
+
+### New stuff
+
+* **garage:** New "Stainless" paint (bare brushed steel) and black "Facet" wheel covers, for every vehicle. ([73a6932](https://github.com/Fahmula/turbo-town/commit/73a6932c916080da280b1b3c10c0e5ee434d4463))
+* **traffic:** Electric pickups now drive around town too. ([73a6932](https://github.com/Fahmula/turbo-town/commit/73a6932c916080da280b1b3c10c0e5ee434d4463))
+* **traffic:** Electric SUVs now drive around town too. ([57be884](https://github.com/Fahmula/turbo-town/commit/57be88451d944ab3b8dc90dae2f3aeebab6f34d2))
+* **vehicles:** An Electric Pickup! A steel wedge on big all-terrain tyres, with light bars across the front and back, chunky black arches and bumpers, and a ribbed bed cover. Super quick and super quiet, like the SUV. ([73a6932](https://github.com/Fahmula/turbo-town/commit/73a6932c916080da280b1b3c10c0e5ee434d4463))
+* **vehicles:** An Electric SUV! Pick it in the garage: super quick off the line, super quiet (a soft hum when slow, a whine at speed). Walk up to it and its back doors swing up like wings. ([57be884](https://github.com/Fahmula/turbo-town/commit/57be88451d944ab3b8dc90dae2f3aeebab6f34d2))
+
 ## [1.4.0](https://github.com/Fahmula/turbo-town/compare/v1.3.0...v1.4.0) (2026-11-09)
 
 
