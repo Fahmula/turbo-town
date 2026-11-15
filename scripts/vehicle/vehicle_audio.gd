@@ -392,8 +392,9 @@ func _update_engine(dt: float, live: bool) -> void:
 	gain *= _engine_fade
 	if not live:
 		gain = 0.0
-	# Rev limiter: the engine stutters against the cut at full throttle.
-	if rpm >= red * 0.985 and throttle > 0.5:
+	# Rev limiter: the engine stutters against the cut at full throttle (an
+	# electric motor just stops pulling).
+	if rpm >= red * 0.985 and throttle > 0.5 and not vehicle.electric:
 		gain *= 0.65 if fmod(_time * 14.0, 1.0) < 0.5 else 1.0
 	var on_w := sin(_load * PI * 0.5)
 	var off_w := cos(_load * PI * 0.5)

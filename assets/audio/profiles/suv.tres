@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="VehicleSoundProfile" format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/audio/vehicle_sound_profile.gd" id="1"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/electric/on_300.wav" id="2"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/electric/on_700.wav" id="3"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/electric/on_1600.wav" id="4"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/electric/on_3500.wav" id="5"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/electric/on_7000.wav" id="6"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/electric/on_14000.wav" id="7"]
+[ext_resource type="AudioStream" path="res://assets/audio/engine/electric/startup.wav" id="8"]
+[ext_resource type="AudioStream" path="res://assets/audio/horn/car.wav" id="9"]
+
+[resource]
+script = ExtResource("1")
+engine_on = Array[AudioStream]([ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7")])
+engine_on_rpm = PackedFloat32Array(300, 700, 1600, 3500, 7000, 14000)
+engine_off = Array[AudioStream]([])
+engine_off_rpm = PackedFloat32Array()
+rpm_scale = 1.0
+engine_volume_db = -4.0
+rpm_gain_db = 7.0
+load_gain_db = 4.0
+startup_catch = 1.0
+horn_volume_db = -7.0
+horn_pitch = 1.0
+size = 1.6
+startup = ExtResource("8")
+horn = ExtResource("9")

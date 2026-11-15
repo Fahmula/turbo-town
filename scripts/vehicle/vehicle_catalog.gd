@@ -57,6 +57,14 @@ const ENTRIES := [
 		"rims": "beadlock", "tyres": "offroad",
 	},
 	{
+		# An electric SUV: one gear, instant pull (Vehicle.electric), and
+		# gull-wing rear doors that open when you walk up (WingDoors).
+		"id": "suv", "scene": "res://scenes/vehicles/suv.tscn",
+		"name": "Electric SUV", "blurb": "Super quick and super quiet. Walk up and the back doors fly open!",
+		"speed": 4, "accel": 5, "handling": 4, "smash": 3,
+		"rims": "turbine", "tyres": "sport",
+	},
+	{
 		# "air": a plane (Aircraft). Picking it puts you on the Airfield's
 		# runway; it isn't remembered as the vehicle you start with.
 		"id": "plane", "scene": "res://scenes/vehicles/plane.tscn",

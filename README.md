@@ -94,7 +94,7 @@ map, help and pause all work on foot too.
 ### Garage
 
 Press **V** (D-pad down). Pick the sports car, sedan, van, delivery truck, bus,
-pickup, buggy, monster truck, plane or helicopter, and set it up. Switch tabs with Q / E
+pickup, buggy, monster truck, electric SUV, plane or helicopter, and set it up. Switch tabs with Q / E
 (LB / RB):
 
 | Tab | What you can change |
@@ -111,6 +111,11 @@ pickup, buggy, monster truck, plane or helicopter, and set it up. Switch tabs wi
 - Rows that don't fit the shown vehicle are greyed out with the reason. Full
   body kits are on the sports car and sedan, and planes and the helicopter
   keep their own shape (paint colour and stripes only).
+- The **electric SUV** is quick off the line and quiet (a soft hum when slow,
+  a whine at speed). Its back doors are gull-wing doors: walk up to it while
+  it's standing still and they swing up; they shut when someone drives off
+  or everyone walks away. Its roof opens with them, so it takes no roof
+  parts.
 - **X / Y**: surprise me (a random vehicle, or random choices on the tab).
   **Enter / A**: drive (on foot, the vehicle is brought to you and you get
   in). **Esc / B**: back.
@@ -346,6 +351,7 @@ generated files are committed, so you only need those tools to change them.
 | `scenes/vehicles/sports_car.tscn` | The default player car (physics, wheels, visuals, audio, effects, damage) |
 | `scenes/vehicles/sedan.tscn`, `van.tscn`, `box_truck.tscn`, `bus.tscn`, `pickup.tscn` | Used by traffic and drivable from the garage (every vehicle scene is both) |
 | `scenes/vehicles/buggy.tscn`, `monster_truck.tscn` | Garage only (AWD, long-travel suspension) |
+| `scenes/vehicles/suv.tscn` | The electric SUV, in the garage and in traffic: AWD, one gear (`electric`), gull-wing rear doors (`WingDoors`) |
 | `scenes/vehicles/plane.tscn` | The sport plane (`Aircraft`), in the garage and parked at the airfield |
 | `scenes/props/parked_plane.tscn` | A parked plane: a cheap prop, swapped for `plane.tscn` when you get in |
 | `scenes/vehicles/helicopter.tscn` | The helicopter (`Helicopter`), in the garage and parked on the airfield's helipad (`scenes/props/parked_helicopter.tscn`) |
@@ -358,7 +364,7 @@ generated files are committed, so you only need those tools to change them.
 | Folder | What's in it |
 |---|---|
 | `scripts/player/` | `local_player.gd` (one player on this machine: character, vehicle, rigs, HUD, input; two in split-screen), `player_input.gd` (one player's devices and actions), `possession.gd` (what the player controls; getting in and out), `controllable.gd` (component: who drives a pawn, which rig controls it), `player_character.gd` (walk / run / sprint / jump, kerbs, animation, footsteps, being bumped), `seat_figure.gd` (the character sitting in a vehicle, seen through the glass), `limb_ik.gd` (two-bone IK: hands on the wheel, feet in the footwell), `player_character_controller.gd` (input), `interactable.gd` (things you use with F / B), `vehicle_entry.gd` (a vehicle's doors and safe exit spots), `parked_car_entry.gd` (parked car props you can drive) |
-| `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `helicopter.gd` (an Aircraft: rotor thrust, hover and speed hold, banked turns, flips, skids, spinning rotors), `player_helicopter_controller.gd` (its input), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
+| `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `helicopter.gd` (an Aircraft: rotor thrust, hover and speed hold, banked turns, flips, skids, spinning rotors), `player_helicopter_controller.gd` (its input), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `wing_doors.gd` (the electric SUV's gull-wing doors), `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
 | `scripts/vehicle/custom/` | `parts_catalog.gd` (everything the garage can change: tabs, slots, options, which vehicles a part fits), `loadout.gd` (one vehicle's setup: saved per vehicle, put on the car), `wheel_kit.gd` (fits rim + tyre parts to a vehicle's wheels), `body_kit.gd` (fits bumpers, skirts, arches, spoilers, bonnet and roof parts from the vehicle's kit), `underglow.gd` |
 | `scripts/vehicle/audio/` | `vehicle_sound_profile.gd` (what a vehicle class sounds like), `vehicle_sound_bank.gd` (shared tyre / crash / glass sounds), `audio_director.gd` (traffic voice budget, Doppler) |
 | `scripts/traffic/` | `traffic_network.gd` (lane graph built from the roads, turn curves, junctions, U-turns), `traffic_manager.gd` (spawning, signal timing), `traffic_driver.gd` (AI driver, turn signals), `traffic_light_prop.gd` |
@@ -379,7 +385,7 @@ generated files are committed, so you only need those tools to change them.
 | `assets/materials/` | `env/` has the world's materials |
 | `assets/textures/` | Generated textures |
 | `assets/audio/` | Built by `tools/audio/`; `profiles/` has one VehicleSoundProfile per vehicle |
-| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
+| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_suv.py` (electric SUV), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
 | `tools/textures/` | `make_textures.py` (ground detail, cloud and leaf textures), `make_decals.py` (garage decals), and `fetch_*.py`: download CC0 scans (Poly Haven, ambientCG) and make the game textures (`fetch_sky.py` real skies, `fetch_road.py`, `fetch_terrain.py`, `fetch_building.py`, `fetch_foliage.py`, `fetch_props.py`; shared helpers in `fetch_common.py`). Run them from the project root with `python3`, then import in Godot |
 | `tools/audio/build_audio.py` | Every sound in `assets/audio/`: downloads the licensed recordings, makes loops, synthesizes the rest, writes the profiles (`python3 tools/audio/build_audio.py`) |
 | `tools/release.sh`, `tools/steamdeck/` | The release build and the Steam Deck installer / launcher ([RELEASING.md](RELEASING.md)) |
@@ -394,7 +400,9 @@ does spring / damper suspension and a slip-based tyre model with a friction
 circle. `vehicle.gd` adds an automatic 5-speed gearbox, speed-sensitive
 steering, anti-roll bars, drag and downforce, and kid-friendly assists
 (traction control + stability control, gentle mid-air levelling) that can be
-switched off with **T**.
+switched off with **T**. The electric SUV has a motor instead
+(`electric`): full pull from a standstill, one gear, no clutch, and
+regenerative braking when you lift off.
 
 #### The map
 
@@ -469,7 +477,8 @@ flip like your car.
   and render costs, `--framebench` where each frame's time goes.
 - **Tuning:** `max_cars`, spawn distances and the vehicle mix (`car_scenes` +
   `car_weights`) are on the `Traffic` node in `main.tscn`. Traffic is a mix of
-  sports cars, sedans, vans, delivery trucks and buses. Each vehicle scene sets
+  sports cars, sedans, vans, delivery trucks, buses, pickups and electric
+  SUVs. Each vehicle scene sets
   its own paint palette (`paint_palette` on its `Body` node) and AI speed
   (`ai_speed_factor`, `ai_max_accel` on the root).
 
@@ -504,7 +513,9 @@ and puts its hazards on after a crash.
 In `vehicle_audio.gd`, each vehicle's `VehicleSoundProfile` holds steady
 engine loops recorded at known rpm, on and off load. The two either side of
 the current rpm play pitched to it and crossfade, blended by throttle load,
-plus start-up, turbo, pops, shifts, air brakes, beepers and a horn.
+plus start-up, turbo, pops, shifts, air brakes, beepers and a horn. The
+electric SUV's set is a synthesised motor: a soft hum when slow, rising into
+a whine.
 
 Shared sounds (`VehicleSoundBank`): tyre roll per surface, squeal, gravel,
 wind, scraping, crash tiers by strength and what was hit, glass, suspension
@@ -690,7 +701,7 @@ godot --path . -- --garage=/tmp/shots
 - "Pass / fail" tests print an `ok` or `FAIL` line per check and a summary.
 - Add `--graphics=0..3` (Low / Medium / High / Ultra) to run any of them at
   that quality.
-- Add `--vehicle=<id>` (`sedan`, `van`, `box_truck`, `bus`, `pickup`, `buggy`,
+- Add `--vehicle=<id>` (`sedan`, `suv`, `van`, `box_truck`, `bus`, `pickup`, `buggy`,
   `monster_truck`) to run a main-game test in another vehicle.
 - Add `--weather=<clear|cloudy|rain|storm|changing>` to start any of them in
   that weather.

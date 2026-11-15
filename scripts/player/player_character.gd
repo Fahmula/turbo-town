@@ -23,6 +23,9 @@ signal knocked(strength: float)
 
 enum State { ACTIVE, KNOCKED, SCRIPTED, HIDDEN }
 
+## Every player character is in this group (WingDoors looks for people on
+## foot near a vehicle).
+const GROUP := &"player_characters"
 ## Physics layer of characters ("characters" in the project settings).
 const LAYER := 8
 ## Characters collide with the world, vehicles and props; vehicles don't
@@ -130,6 +133,10 @@ var _tick := 0
 static var _step_streams := {}
 ## The character sitting in a vehicle (sit_in); waits under the character.
 var _figure: SeatFigure
+
+
+func _enter_tree() -> void:
+	add_to_group(GROUP)
 
 
 func _notification(what: int) -> void:

@@ -96,15 +96,25 @@ func use_for(actor: Node3D) -> Use:
 func prompt(actor: Node3D) -> String:
 	match use_for(actor):
 		Use.FLIP:
-			return "Flip the %s back over" % vehicle.display_name.to_lower()
+			return "Flip the %s back over" % in_sentence(vehicle.display_name)
 		Use.DRIVE:
-			return "Get in the %s" % vehicle.display_name.to_lower()
+			return "Get in the %s" % in_sentence(vehicle.display_name)
 		Use.RIDE:
 			var who := "Player %d" % (owner_index() + 1)
 			if Controllable.of(vehicle).is_free():
-				return "Sit in %s's %s" % [who, vehicle.display_name.to_lower()]
+				return "Sit in %s's %s" % [who, in_sentence(vehicle.display_name)]
 			return ("Fly with %s" if vehicle is Aircraft else "Ride with %s") % who
 	return ""
+
+
+## A vehicle's name inside a sentence ("Get in the sports car"): lower case,
+## except words written in capitals ("the electric SUV").
+static func in_sentence(display_name: String) -> String:
+	var words := display_name.split(" ")
+	for i in words.size():
+		if words[i].length() < 2 or words[i] != words[i].to_upper():
+			words[i] = words[i].to_lower()
+	return " ".join(words)
 
 
 func interact(actor: Node3D) -> bool:

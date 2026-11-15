@@ -37,8 +37,9 @@ var others: Array[LocalPlayer] = []
 	preload("res://scenes/vehicles/box_truck.tscn"),
 	preload("res://scenes/vehicles/bus.tscn"),
 	preload("res://scenes/vehicles/pickup.tscn"),
+	preload("res://scenes/vehicles/suv.tscn"),
 ]
-@export var car_weights: Array[float] = [0.18, 0.32, 0.17, 0.11, 0.09, 0.13]
+@export var car_weights: Array[float] = [0.18, 0.32, 0.17, 0.11, 0.09, 0.13, 0.08]
 @export var enabled := true
 @export var max_cars := 22
 @export var spawn_min_distance := 60.0

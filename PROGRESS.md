@@ -433,6 +433,48 @@ The owner's son wants a helicopter (owner, 2026-11-08).
 
 ---
 
+## Electric SUV (branch `feat/electric-suv`, not released)
+
+The owner's son wants a car like a well-known electric SUV, without its name
+(owner, 2026-11-15). Owner exception to ART_BIBLE.md §12's "no single real
+model recognisable": its shape and gull-wing doors are fine, its name,
+badges and logo are not.
+
+### Done (branch `feat/electric-suv`, off `main`)
+- [x] Model: `tools/blender/make_suv.py` (grille-less rounded nose, slim swept headlights, a
+      windscreen running on up into the roof, arched roof to a short tailgate with a lip, slim
+      wrap-round tail lights, flush handles, an invented ring-and-dot badge, no exhaust). 5.2k
+      Blender vertices. Cabin: high floor, dash with a big screen, two rows of seats. Stock wheel
+      `wheel_aero.glb` (the turbine rim on the sport tyre), red calipers, white by default
+- [x] Gull-wing rear doors that fold in two (`WingDoors`): four meshes cut out of the shell, each
+      door with a glass roof panel. They open when the SUV stands still with nobody driving and
+      someone on foot is within 3 m, and shut when it's driven or everyone walks away. Traffic
+      SUVs keep theirs shut
+- [x] Electric drive (`Vehicle.electric`): full torque from a standstill to a third of the
+      redline, then constant power (~410 kW), one gear, no clutch slip, regenerative braking. AWD,
+      2.4 t, low centre of mass. 0-80 km/h 3.0 s, 0-100 4.0 s (sports car 3.5 / 5.0), 190 km/h
+      after 15 s (sports car 198 and still climbing), 100-0 in 34.5 m
+- [x] Sound: a synthesised motor (`synth.electric`, six loops): a soft two-note hum when slow (like
+      a real electric car's pedestrian sound, above 300 Hz for the Deck) rising into a whine; a
+      switch-on chime; no shifts, pops or limiter stutter
+- [x] Garage (after the monster truck: speed 4, acceleration 5, handling 4, smash 3), spoilers and
+      bonnet parts (`suv_kit.glb`), no roof parts. In traffic (weight 0.08); 49 surfaces near
+      (doors), 1 beyond 40 m
+- [x] Prompts keep capitals ("Get in the electric SUV")
+- [x] Tests: `--onfoot` (gull-wing door checks; the SUV in the every-vehicle loop), `--seatsheet`,
+      `--garage`, `--parts --vehicles=suv`, `--trafficlod`, `--corner`, `--spawncheck`, audio check,
+      `--lookdev` (new `doors` view). `--damage --vehicle=suv` fails "engine smoking" at power
+      0.70, like the pickup and van (the check is tuned to the sports car)
+- [ ] Owner review, then the son on the Deck: is it the car he meant? Sound through the Deck's
+      speakers
+
+### Ideas for later (not started)
+- [ ] The front doors open by themselves too (the real thing does), and a door sound
+- [ ] Open the gull-wing doors in the garage (a button), and a parked SUV in town
+- [ ] A third row of seats; a launch mode for the drag strip
+
+---
+
 ## Backlog
 
 ### Realism (owner approved 2026-10-03, released in v0.7.0)

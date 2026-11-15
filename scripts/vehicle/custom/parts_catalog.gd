@@ -90,16 +90,16 @@ const BODY_PARTS := {
 	"spoiler": [
 		{"id": "stock", "name": "Stock"},
 		{"id": "none", "name": "None", "on": ["sports_car", "buggy"]},
-		{"id": "lip", "name": "Lip", "on": ["sports_car", "sedan", "van", "box_truck", "bus"]},
-		{"id": "ducktail", "name": "Ducktail", "on": ["sports_car", "sedan", "van", "box_truck", "bus"]},
+		{"id": "lip", "name": "Lip", "on": ["sports_car", "sedan", "suv", "van", "box_truck", "bus"]},
+		{"id": "ducktail", "name": "Ducktail", "on": ["sports_car", "sedan", "suv", "van", "box_truck", "bus"]},
 		{"id": "wing", "name": "GT Wing"},
 		{"id": "mega", "name": "Mega Wing"},
 	],
 	"bonnet": [
 		{"id": "stock", "name": "Stock"},
-		{"id": "vents", "name": "Vents", "on": ["sports_car", "sedan", "pickup", "monster_truck"]},
-		{"id": "scoop", "name": "Scoop", "on": ["sports_car", "sedan", "pickup", "monster_truck"]},
-		{"id": "blower", "name": "Supercharger", "on": ["sports_car", "sedan", "pickup", "monster_truck"]},
+		{"id": "vents", "name": "Vents", "on": ["sports_car", "sedan", "suv", "pickup", "monster_truck"]},
+		{"id": "scoop", "name": "Scoop", "on": ["sports_car", "sedan", "suv", "pickup", "monster_truck"]},
+		{"id": "blower", "name": "Supercharger", "on": ["sports_car", "sedan", "suv", "pickup", "monster_truck"]},
 	],
 	"roof": [
 		{"id": "stock", "name": "Stock"},
