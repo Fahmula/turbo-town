@@ -12,10 +12,10 @@ between the axles), so the game puts it on with an identity transform.
 * Spoilers (every vehicle): a lip and a ducktail that follow the deck's (or
   the roof's) rear edge, a GT wing and a Mega Wing on stands. The stands are
   ray-cast onto the committed body model, so they always reach it.
-* Bonnets (sports car, sedan, pickup, monster truck): vents, a scoop, a
+* Bonnets (sports car, sedan, electric SUV, pickup, monster truck): vents, a scoop, a
   supercharger poking out of the bonnet.
 * Roofs: a roof scoop, a rack, a light bar (UV kind AUX: lit at night), a
-  roof box.
+  roof box (not on the electric SUV: its gull-wing doors open the roof).
 * Body kits (sports car and sedan only, ART_BIBLE.md §12): Sport and Race
   bumpers built from the vehicle's own BodySpec with a deeper lower edge, so
   they meet the stock shell exactly at the bumper split; a race splitter,
@@ -73,6 +73,12 @@ VEHICLES = {
         "spoiler": {"edge": None, "lip_hs": None, "wing_y": -2.45, "stand_x": 0.98, "span": 2.08, "height": 0.30},
         "bonnet": {"y": 1.62, "s": 1.15},
         "roof": {"y": -0.08, "len": 0.72, "hw": 0.72, "front": 0.30},
+    },
+    "suv": {
+        # No roof parts: the gull-wing doors are half of the roof.
+        "glb": "suv_body.glb",
+        "spoiler": {"edge": -2.50, "lip_hs": 0.66, "wing_y": -2.15, "stand_x": 0.55, "span": 1.66, "height": 0.25},
+        "bonnet": {"y": 1.70, "s": 1.0},
     },
     "box_truck": {
         "glb": "truck_body.glb",

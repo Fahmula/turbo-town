@@ -7,6 +7,8 @@ Every function is deterministic (fixed seeds) and returns mono float32 at
 dsp.RATE. Loops have an exact length, and their periodic parts complete a
 whole number of cycles, so they loop without a seam.
 """
+import math
+
 import numpy as np
 
 import dsp
@@ -218,6 +220,55 @@ def turbine_start(seed=121):
     # The level it had beside the ticks: VehicleAudio plays it at -7 dB to
     # hand over to the idle loop.
     return dsp.fade(dsp.normalize_peak(x, -11.65), 0.01, 0.15)
+
+
+ELECTRIC_HZ_PER_RPM = 0.065
+
+
+def electric(rpm, seconds=1.0, seed=131):
+    """The electric SUV's motor at `rpm` (Vehicle.engine_rpm: 300 standing
+    still, about 7,900 at 100 km/h, 15,000 flat out at 190 km/h). Every
+    partial is a multiple of f0 = rpm x 0.065 Hz, so the loops agree when
+    VehicleAudio pitches one toward the next. Low down it's a soft two-note hum, like a
+    real electric car's pedestrian warning sound (330 and 440 Hz standing
+    still, rising with speed: kept above ~300 Hz so the Steam Deck's small
+    speakers still play it); with speed the motor's whine takes over (its
+    2nd and 3rd orders, a faint inharmonic "singing" partial) over a breath
+    of cooling air."""
+    n = int(seconds * R)
+    f0 = rpm * ELECTRIC_HZ_PER_RPM
+    hum_amount = max(0.0, 1.0 - rpm / 3500.0) ** 1.5
+    whine_amount = min(rpm / 7000.0, 1.0)
+    hum = _loop_sine(17 * f0, seconds) + 0.8 * _loop_sine(22.6 * f0, seconds, 0.9) + 0.25 * _loop_sine(34 * f0, seconds, 0.3)
+    hum = hum * (0.85 + 0.15 * _lfo(seconds, 3))
+    whine = (0.35 * _loop_sine(f0, seconds) + _loop_sine(2 * f0, seconds, 0.4) + 0.55 * _loop_sine(3 * f0, seconds, 1.1)
+             + 0.18 * _loop_sine(6.5 * f0, seconds, 2.0))
+    whine = whine * (0.9 + 0.1 * _lfo(seconds, 7, 0.5))
+    air = dsp.peaks(dsp.noise(n, seed), [(max(4 * f0, 600.0), 3.0, 1.0)])
+    x = dsp.normalize_rms(air, -36)
+    if hum_amount > 0.0:
+        x = x + dsp.normalize_rms(hum, -20 + 20 * math.log10(max(hum_amount, 1e-3)))
+    if whine_amount > 0.05:
+        x = x + dsp.normalize_rms(whine, -20 + 20 * math.log10(whine_amount))
+    return dsp.normalize_rms(x, -18.0)
+
+
+def electric_start(seed=141):
+    """The electric SUV switching on (1.4 s): a soft two-note chime, then the
+    standing-still hum fading in to hand over to its loop."""
+    s = 1.4
+    n = int(s * R)
+    t = _t(s)
+    x = np.zeros(n, dtype=np.float32)
+    for (f, at) in ((660.0, 0.0), (880.0, 0.22)):
+        tt = np.maximum(t - at, 0.0)
+        env = np.where(t >= at, np.minimum(tt / 0.01, 1.0) * np.exp(-tt / 0.35), 0.0)
+        x += (env * (np.sin(2 * np.pi * f * tt) + 0.2 * np.sin(2 * np.pi * 2 * f * tt))).astype(np.float32)
+    f0 = 300 * ELECTRIC_HZ_PER_RPM
+    hum = np.sin(2 * np.pi * 17 * f0 * t) + 0.8 * np.sin(2 * np.pi * 22.6 * f0 * t + 0.9)
+    hum = hum * dsp.envelope(n, [(0, 0), (0.5, 0), (1.2, 0.18), (1.4, 0.18)])
+    x = x + hum.astype(np.float32)
+    return dsp.fade(dsp.normalize_peak(x, -9.0), 0.005, 0.05)
 
 
 def horn(freqs, seconds=1.0, formants=((1600, 2.0, 1.0), (3100, 3.0, 0.6)), brass=0.0, seed=71):

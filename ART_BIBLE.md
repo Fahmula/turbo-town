@@ -839,6 +839,12 @@ exposure, same tonemapper.
   (kidney grilles, famous light signatures, mascots). Mix cues from different
   eras and makers so no single real model is recognisable. Badges are simple
   invented geometric emblems.
+  - **Owner exception (2026-11-15): the electric SUV** may remind you of one
+    well-known electric SUV with gull-wing rear doors, because the owner's
+    son asked for it: its overall shape (grille-less nose, windscreen into
+    the roof, egg-shaped roof) and the doors. Still no maker's name, badge,
+    logo or model name, in the game or anywhere in the repo, and an invented
+    badge (a ring round a dot).
 - **Real proportions.** Arch gap 3–5 cm on road cars (today 8 cm), 8–15 cm on
   off-road vehicles. Wheels sit 5–20 mm inside the body sides. Ride height
   realistic for the class.
@@ -865,6 +871,7 @@ docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
 | City bus (`make_bus.py`) | Modern low-floor bus: huge windscreen, continuous dark window band, glass doors, roof air-con, opaque tinted glass. |
 | Buggy (`make_buggy.py`) | Classic desert sand-rail: small open tub with a cockpit dip, full tube roll cage and light bar, exposed engine, rear wing. |
 | Monster truck (`make_monster.py`) | Retro 80s/90s show truck: boxy regular-cab pickup high on a tube chassis, chrome coil-overs, roll bar, exhaust stacks. |
+| Electric SUV (`make_suv.py`) | Modern electric family SUV (owner exception above): smooth egg-shaped body, no grille (a rounded nose, slim swept headlights, a narrow black intake low down), a windscreen that runs on up into the roof, a high smooth belt, an arched roof falling to a short tailgate with a lip, slim wrap-round tail lights, flush handles, no exhaust. Gull-wing rear doors that fold in two, each with a glass roof panel, meeting on a black spine. Aero "turbine" wheels with red calipers. |
 | Helicopter (`make_heli.py`) | Generic light utility helicopter: rounded teardrop cabin with a big wrap-round windscreen sweeping up into roof windows, chin windows, two doors a side; turbine cowling and exhaust stack on the roof, short mast, two-blade teetering main rotor; slim tail boom with a stabiliser and endplates, swept fin with the tail rotor on the left; tubular skids on two arched cross tubes. A cheat-line livery (`Stripes`, on by default). |
 | Sport plane (`make_plane.py`) | Generic two-seat aerobatic light plane: low tapered wing with dihedral, side-by-side cockpit under a big bubble canopy, cowled flat four with a two-blade propeller (yellow tips) and spinner, tricycle gear in wheel fairings, swept fin with a dorsal strake. A cheat-line livery (the `Stripes` mesh, on by default for planes). |
 
@@ -1019,6 +1026,7 @@ are the authority for wheel positions and radii.
 | Sedan | 4.6–4.9 | 1.80–1.88 | 1.40–1.48 | 4.70 × 1.47 h; r 0.34, x ±0.80, axles ±1.40 |
 | Van | 4.9–5.4 | 1.95–2.05 | 1.9–2.2 | 4.99 × 2.01 h; r 0.36, x ±0.86, axles ±1.50 |
 | Pickup | 5.2–5.8 | 1.9–2.05 | 1.8–1.95 | 5.44 × 1.75 h; r 0.40, x ±0.86, axles ±1.60 |
+| Electric SUV | 4.9–5.1 | 1.95–2.0 | 1.65–1.72 | 4.98 × 1.69 h; r 0.37, x ±0.85, axles ±1.48 |
 | Box truck | 6.5–8.0 | 2.3–2.5 | 3.2–3.6 | 6.96 × 3.33 h; r 0.45, x ±0.95, axles ±1.90 |
 | City bus | 11–12.5 | 2.5–2.55 | 3.0–3.3 | 8.89 × 3.25 h (shortened for the town's streets); r 0.50, x ±1.00, axles ±2.20 |
 | Buggy | fictional | | | 3.85 × 1.82 h (cage); r 0.42, x ±0.92, axles ±1.25 |
@@ -1070,6 +1078,16 @@ the legacy pipeline renamed it on export, `body_kit` does not). Garage kit parts
 are exported as `<slot>_<id>` and renamed to these names when fitted (§12).
 
 New names are fine for fixed materials. Add them to this table.
+
+**The electric SUV's gull-wing doors** are four extra body meshes cut out
+of the shell: `WingDoorUpperL/R` (the roof half, hinged on the roof's
+centre line) and `WingDoorLowerL/R` (the side half with the window and
+handle, hinged on the roof edge). They're modelled shut at the vehicle's
+origin like every body mesh, so shut = identity and the paint lines, kits
+and far LOD see them shut; `WingDoors` (on the scene) turns them about the
+hinge lines `make_suv.py` prints (set on the node). They're deformable and
+never fall off. The doors carry their own inner door cards and headliner,
+so the cabin opens up when they rise.
 
 **Planes** add three materials and a node-name contract (`Aircraft` finds the
 moving parts by name under `Body`):
@@ -2078,6 +2096,9 @@ window):
   - Look: `--trafficlod` pairs (rear and front three-quarters, day and night,
     brakes on, an indicator mid-blink) match for every type; the windows read
     as tinted glass from afar.
+  - The electric SUV (2026-11-15, weight 0.08 of the mix, about one car in
+    14) is 49 surfaces near against 25–31: its gull-wing doors are four
+    meshes of their own. Beyond 40 m it's 1, like the rest.
   - Load: both batches are built at load (`CarLod.prebuild`: the source
     meshes are read on the main thread, the arrays and LODs built on worker
     threads): parked ~35 ms + traffic ~70 ms on the dev CPU, against a 1.5 s
@@ -2499,6 +2520,17 @@ readable, kid-friendly (crashes are big and fun, never scary).
   and air noise pulsing per blade), pitched with rpm and louder with revs
   and power (profile fields `propeller`, `propeller_rpm`,
   `propeller_volume_db`). Wind is the shared speed-driven loop. No horn.
+- **The electric SUV:** no engine, a synthesised motor (`synth.electric`
+  at 300 / 700 / 1,600 / 3,500 / 7,000 / 14,000 rpm, every partial a
+  multiple of rpm × 0.065 Hz so neighbouring loops agree): standing still
+  and at walking pace a soft two-note hum (330 and 440 Hz standing still,
+  like a real electric car's pedestrian warning sound, kept above ~300 Hz
+  for the Deck's speakers) that rises with speed and fades out by ~45 km/h,
+  where the motor's whine (its 2nd and 3rd orders, a faint inharmonic
+  partial) takes over, over a breath of cooling air. On-load loops only,
+  4 dB under the cars, 7 dB quieter standing still than flat out; no gear
+  shifts, no pops, no limiter stutter (`Vehicle.electric`). Switching on
+  is a soft two-note chime (`synth.electric_start`). The car horn.
 - **The helicopter:** a synthesised turboshaft (`synth.turbine` at 1,500 /
   3,000 / 6,000 rpm: compressor whine at rpm × 0.55 Hz, gearbox tone,
   combustion roar growing with rpm, a high hiss; `synth.turbine_start`, a

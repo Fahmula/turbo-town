@@ -2,6 +2,7 @@
 
 Run headless from the project root:
     blender -b -P tools/blender/make_wheels.py
+    blender -b -P tools/blender/make_wheels.py -- aero   (only these builds)
 
 All wheels share one base size (outer radius 0.37 m); the vehicle scenes
 scale them uniformly to their own radius. Axis is X, +X is the outer face.
@@ -13,6 +14,7 @@ Combined wheels (traffic and the stock wheel choice use these as they are):
   wheel_sedan.glb    sedan: 16" six-spoke alloy, taller sidewall
   wheel_steel.glb    van / delivery truck / bus: painted steel, deep dish
   wheel_offroad.glb  pickup / buggy / monster truck: beadlock rim, knobbly tyre
+  wheel_aero.glb     electric SUV: the turbine aero rim on the sport tyre
   brake_caliper.glb  a brake caliper for the wheels with discs (sports, sedan);
                      VehicleWheel mounts it on the hub so it steers and follows
                      the suspension but doesn't spin (material Caliper, coloured
@@ -579,6 +581,12 @@ def build_offroad():
     build_combined("wheel_offroad.glb", tyre_offroad, rim_beadlock, mats_offroad)
 
 
+def build_aero():
+    """Electric SUV: the turbine aero rim on the low-profile sport tyre (both
+    at the standard fit, so they need no scaling)."""
+    build_combined("wheel_aero.glb", tyre_sport, rim_turbine, mats_turbine)
+
+
 def build_caliper():
     """A two-piston caliper at the top of the disc (+Z, Blender), straddling
     its outer edge, biased toward the outer face so it shows between the
@@ -614,14 +622,18 @@ def build_caliper():
     bk.export([part.to_object(math.radians(40))], "brake_caliper.glb")
 
 
+BUILDS = {"caliper": build_caliper, "sports": build_sports, "sedan": build_sedan, "steel": build_steel,
+          "offroad": build_offroad, "aero": build_aero}
+
+
 if __name__ == "__main__":
     os.makedirs(os.path.abspath(os.path.join(bk.OUT_DIR, PARTS_DIR)), exist_ok=True)
-    build_caliper()
-    build_sports()
-    build_sedan()
-    build_steel()
-    build_offroad()
-    for tyre_id in TYRES:
-        export_tyre(tyre_id)
-    for rim_id in RIMS:
-        export_rim(rim_id)
+    only = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    for name, fn in BUILDS.items():
+        if not only or name in only:
+            fn()
+    if not only:
+        for tyre_id in TYRES:
+            export_tyre(tyre_id)
+        for rim_id in RIMS:
+            export_rim(rim_id)

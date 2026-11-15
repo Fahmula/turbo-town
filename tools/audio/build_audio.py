@@ -40,6 +40,8 @@ LOOP_DB = -18.0
 SHOT_PEAK_DB = -1.0
 
 LOOPS = set()      # loops written this run (for the log)
+# The electric motor's loops (profiles.SYNTH_SETS["electric"] lists the same).
+ELECTRIC_RPMS = (300, 700, 1600, 3500, 7000, 14000)
 
 
 def write(rel, x, loop=False, rate=dsp.RATE):
@@ -90,6 +92,10 @@ def build_synth():
         write("engine/turbine/on_%d.wav" % rpm, synth.turbine(rpm), loop=True)
     write("engine/turbine/startup.wav", synth.turbine_start())
     write("engine/rotor.wav", synth.rotor(), loop=True, rate=32000)
+    # The electric SUV's motor (on-load loops only) and its switch-on chime.
+    for rpm in ELECTRIC_RPMS:
+        write("engine/electric/on_%d.wav" % rpm, synth.electric(rpm), loop=True, rate=32000)
+    write("engine/electric/startup.wav", synth.electric_start())
     write("engine/blowoff.wav", synth.blowoff())
     for k in range(4):
         write("engine/pop_%d.wav" % (k + 1), synth.exhaust_pop(200 + k))

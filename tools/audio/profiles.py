@@ -64,6 +64,12 @@ PROFILES = {
                           pops=["engine/pop_%d.wav" % k for k in (1, 2, 3, 4)], pops_volume_db=-8.0,
                           shift="engine/shift.wav", shift_volume_db=-14.0,
                           horn="horn/air_big.wav", horn_volume_db=-8.0, horn_pitch=1.15, size=2.6),
+    # Electric SUV: no engine, a motor (synth.electric): a soft hum standing
+    # still and at walking pace, a whine rising with speed, quieter coasting.
+    # No gear changes, no exhaust.
+    "suv": dict(engine="electric", rpm_scale=1.0, engine_volume_db=-4.0, rpm_gain_db=7.0, load_gain_db=4.0,
+                startup_catch=1.0,
+                horn="horn/car.wav", horn_volume_db=-7.0, horn_pitch=1.0, size=1.6),
     # Light sport plane: an air-cooled flat four (aero engines are the same
     # family), a little quieter, with the propeller's buzz on top. No horn.
     "plane": dict(engine="flat4", rpm_scale=1.0, engine_volume_db=-2.0, rpm_gain_db=4.0, load_gain_db=2.5,
@@ -79,6 +85,7 @@ PROFILES = {
 ## Engine sets made by synth.py rather than recorded (on-load loops only).
 SYNTH_SETS = {
     "turbine": {"on": [(r, "engine/turbine/on_%d.wav" % r) for r in (1500, 3000, 6000)], "off": []},
+    "electric": {"on": [(r, "engine/electric/on_%d.wav" % r) for r in (300, 700, 1600, 3500, 7000, 14000)], "off": []},
 }
 
 SCRIPT = "res://scripts/vehicle/audio/vehicle_sound_profile.gd"

@@ -43,6 +43,12 @@ signal vehicle_reset
 @export var shift_up_rpm := 6600.0
 @export var shift_down_rpm := 3200.0
 @export var shift_time := 0.18
+## An electric motor instead of an engine: full torque from a standstill up
+## to `electric_knee` of the redline, then constant power (torque falls as
+## the revs rise), and no slipping clutch at launch. Give it one gear ratio.
+## Engine braking is then the motor's regenerative braking.
+@export var electric := false
+@export_range(0.1, 1.0) var electric_knee := 0.33
 ## Off-throttle engine braking, as a fraction of max torque.
 @export var engine_braking := 0.15
 @export var max_reverse_speed := 12.0
@@ -441,7 +447,9 @@ func _update_drivetrain(dt: float) -> void:
 
 	# Engine speed follows the wheels; a slipping "clutch" lets it rev at launch.
 	var wheel_rpm := wheel_spin * absf(ratio) * 60.0 / TAU
-	var launch_rpm := idle_rpm + accel * 2600.0 * clampf(1.0 - absf(forward_speed) / 10.0, 0.0, 1.0)
+	var launch_rpm := idle_rpm
+	if not electric:
+		launch_rpm += accel * 2600.0 * clampf(1.0 - absf(forward_speed) / 10.0, 0.0, 1.0)
 	var target_rpm := maxf(wheel_rpm, launch_rpm)
 	if driven_grounded == 0:
 		target_rpm = lerpf(idle_rpm, redline_rpm * 0.97, accel)
@@ -491,6 +499,8 @@ func _current_ratio() -> float:
 
 
 func _torque_curve(t: float) -> float:
+	if electric:
+		return 1.0 if t <= electric_knee else electric_knee / t
 	# Rises from idle, flat-ish mid range, tails off near the redline.
 	if t < 0.6:
 		return lerpf(0.6, 1.0, t / 0.6)

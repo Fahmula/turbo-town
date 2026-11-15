@@ -3257,7 +3257,7 @@ func _lookdev(game: Game) -> void:
 		elif arg.begins_with("--times="):
 			times = Array(arg.split("=")[1].split(","))
 	# A believable paint per vehicle (metallics included).
-	var paints := {"sports_car": 0, "sedan": 10, "van": 9, "box_truck": 9, "bus": 6, "pickup": 11, "buggy": 2, "monster_truck": 7}
+	var paints := {"sports_car": 0, "sedan": 10, "suv": 9, "van": 9, "box_truck": 9, "bus": 6, "pickup": 11, "buggy": 2, "monster_truck": 7}
 	var spot := Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(2.4, 0.6, -38.0))
 	for id: String in ids:
 		var vi := VehicleCatalog.index_of_id(id)
@@ -3327,10 +3327,22 @@ func _lookdev_view(game: Game, v: Vehicle, view: String, shot: String) -> void:
 			# Rear three-quarter with the brake lights on (reverse gear shows reverse lamps).
 			local = Vector3(-w - l * 0.3, h * 0.6 + 0.4, l * 0.85)
 			v.brake_input = 1.0
+		"doors":
+			# Front three-quarter from the left with gull-wing doors open
+			# (WingDoors; other vehicles just get the view).
+			local = Vector3(-w - l * 0.45, h * 0.9 + 0.6, -l * 0.55)
+			at = c + v.global_basis.y * 0.4
+	var doors := v.get_node_or_null("WingDoors") as WingDoors
+	if doors:
+		doors.set_process(view != "doors")
+		doors.set_open(view == "doors", true)
 	cam.global_position = v.global_transform * local
 	cam.look_at(at, Vector3.UP)
 	await _wait(6)
 	await _shot(shot)
+	if doors:
+		doors.set_open(false, true)
+		doors.set_process(true)
 
 
 ## Dents, broken lights and cracked glass without driving into anything.
@@ -4031,12 +4043,16 @@ func _onfoot(game: Game) -> void:
 	_check(not game.start_replay(), "no instant replay on foot")
 
 	# --- Every vehicle type: get in with the gamepad, drive, get out ---
-	# Along the runway (x 285..525, z 300), 35 m apart, facing down it.
+	# Along the runway (x 285..525, z 300), 32 m apart, facing down it.
 	var fwd := Vector3.RIGHT
 	var right := fwd.cross(Vector3.UP)
 	var k := 0
-	for id: String in ["sedan", "van", "pickup", "box_truck", "bus", "buggy", "monster_truck"]:
-		var v := _park_new(game, id, Vector3(292.0 + 35.0 * k, 1.0, 300.0), fwd)
+	for id: String in ["sedan", "suv", "van", "pickup", "box_truck", "bus", "buggy", "monster_truck"]:
+		# The SUV pulls hardest: it gets its own lane (away from the sports
+		# car left near z 300..306) so it doesn't stop where the next one is
+		# parked.
+		var lane := -10.0 if id == "suv" else 0.0
+		var v := _park_new(game, id, Vector3(292.0 + 32.0 * k, 1.0, 300.0 + lane), fwd)
 		k += 1
 		await _wait_s(0.6)
 		var entry := v.get_node("Entry") as VehicleEntry
@@ -4048,6 +4064,32 @@ func _onfoot(game: Game) -> void:
 		await _wait_s(0.3)
 		await _enter_drive_exit(game, v, v.display_name, 2.0, k % 2 == 1)
 	_check(game.left_vehicles.size() <= Game.MAX_LEFT_VEHICLES + 1, "left vehicles kept in check (%d)" % game.left_vehicles.size())
+
+	# --- The electric SUV's gull-wing doors (WingDoors) ---
+	# Beside the runway's centre line, clear of the cars driven above.
+	var suv := _park_new(game, "suv", Vector3(296.0, 1.0, 289.0), fwd)
+	await _wait_s(0.6)
+	var wings := suv.get_node("WingDoors") as WingDoors
+	var suv_entry := suv.get_node("Entry") as VehicleEntry
+	ch.place(Transform3D(Basis.IDENTITY, _ground(game, suv.global_position - right * 10.0)))
+	game.foot_camera.snap()
+	await _wait_s(2.0)
+	_check(wings.amount == 0.0, "SUV: gull-wing doors shut with nobody near")
+	await _foot_walk_to(game, suv_entry.door_spot(suv.global_position - right * 5.0), 0.8)
+	await _wait_s(2.0)
+	_check(wings.amount == 1.0, "SUV: gull-wing doors open when you walk up (%.2f)" % wings.amount)
+	await _shot("onfoot_suv_doors_open")
+	suv_entry.interact(ch)
+	await _wait_mode(game, Possession.Mode.IN_VEHICLE)
+	await _wait_s(2.0)
+	_check(wings.amount == 0.0, "SUV: doors shut once you're in the driver's seat (%.2f)" % wings.amount)
+	await _tap("interact")
+	await _wait_mode(game, Possession.Mode.ON_FOOT)
+	await _wait_s(2.0)
+	_check(wings.amount == 1.0, "SUV: doors open again when you get out (%.2f)" % wings.amount)
+	ch.place(Transform3D(Basis.IDENTITY, _ground(game, suv.global_position - right * 12.0)))
+	await _wait_s(2.0)
+	_check(wings.amount == 0.0, "SUV: doors shut when you walk away (%.2f)" % wings.amount)
 
 	# --- Exits by walls ---
 	var wcar := _park_new(game, "sedan", Vector3(360.0, 1.0, 250.0), fwd)
@@ -4300,8 +4342,9 @@ func _onfoot(game: Game) -> void:
 	for n in game.get_children():
 		if n is PlayerVehicleController or n is PlayerCharacterController:
 			controllers += 1
-	# (PlayerAircraftController is a PlayerVehicleController: the plane rig's.)
-	_check(controllers == 3, "one controller each for vehicles, planes and the character (%d)" % controllers)
+	# (PlayerAircraftController and PlayerHelicopterController are
+	# PlayerVehicleControllers: the plane and helicopter rigs'.)
+	_check(controllers == 4, "one controller each for vehicles, planes, helicopters and the character (%d)" % controllers)
 	var chars := game.find_children("*", "PlayerCharacter", true, false).size()
 	_check(chars == 1, "one character (%d)" % chars)
 

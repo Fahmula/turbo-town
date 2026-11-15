@@ -36,7 +36,7 @@ func _ready() -> void:
 		_center = (hi + lo) * 0.5
 	for e: Dictionary in VehicleCatalog.ENTRIES:
 		if e["scene"] == prop.drive_scene:
-			_name = String(e["name"]).to_lower()
+			_name = VehicleEntry.in_sentence(String(e["name"]))
 
 
 func reach_distance(point: Vector3) -> float:
