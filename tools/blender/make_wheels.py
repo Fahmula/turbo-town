@@ -15,6 +15,7 @@ Combined wheels (traffic and the stock wheel choice use these as they are):
   wheel_steel.glb    van / delivery truck / bus: painted steel, deep dish
   wheel_offroad.glb  pickup / buggy / monster truck: beadlock rim, knobbly tyre
   wheel_aero.glb     electric SUV: the turbine aero rim on the sport tyre
+  wheel_facet.glb    electric pickup: the facet aero cover on the all-terrain tyre
   brake_caliper.glb  a brake caliper for the wheels with discs (sports, sedan);
                      VehicleWheel mounts it on the hub so it steers and follows
                      the suspension but doesn't spin (material Caliper, coloured
@@ -68,6 +69,8 @@ its own tyre reproduces the combined wheel.
                     ten      thin concave ten-spoke (open)
                     twist    seven spiral spokes (open)
                     dish     flat "pepper pot" disc, six holes in Tire (closed)
+                    facet    angular aero cover: six sawtooth wedge facets
+                             on a dark disc, hexagonal cap (closed)
                   Open rims show the brake disc; the game mounts the caliper.
 
 Metallic is binary (ART_BIBLE.md §6): discs, hubs and alloy rims are bare
@@ -289,6 +292,7 @@ mats_turbine = _alloy((0.82, 0.83, 0.85), 0.30)           # light silver
 mats_ten = _alloy((0.74, 0.745, 0.76), 0.32)
 mats_twist = _alloy((0.71, 0.72, 0.74), 0.35)
 mats_dish = _alloy((0.90, 0.91, 0.92), 0.38)              # white-ish silver
+mats_facet = _alloy((0.22, 0.23, 0.24), 0.5, metal=0.0)   # dark grey plastic cover
 
 
 # Tyres: tyre_<id>(part, tire_m) adds the tyre at its native size.
@@ -494,6 +498,48 @@ def rim_dish(part, rim_m, hub_m, dark_m):
     lugs(part, hub_m, 5, 0.045, 0.1165)
 
 
+def rim_facet(part, rim_m, hub_m, dark_m):
+    """Angular aero cover (the electric pickup's): a closed cover of six flat
+    wedge facets, each sloping down round the wheel like a sawtooth so they
+    catch the light one by one, with dark gaps between them (a dark disc
+    behind) and a hexagonal centre cap. Closed."""
+    import bmesh
+    barrel(part, rim_m, [(0.110, 0.243), (0.119, 0.2478), (0.1260, 0.2455), (0.1235, 0.2300), (0.1100, 0.2215)])
+    bk.lathe(part, dark_m, [(0.110, 0.2215), (0.094, 0.2165), (0.093, 0.0)], 24)
+    n, gap, r0, r1, cols = 6, 0.0075, 0.078, 0.2125, 4
+    x_hi, x_lo, x_base = 0.1105, 0.0985, 0.093
+    V = mathutils.Vector
+    for k in range(n):
+        a0 = math.pi / 2 + 2 * math.pi * k / n
+        a1 = a0 + 2 * math.pi / n
+
+        def radial(a, r, side):
+            # A point on the side edge at angle `a`, `gap` in from the gap's centre line.
+            return V((0, r * math.cos(a) - side * gap * math.sin(a), r * math.sin(a) + side * gap * math.cos(a)))
+        in0, in1 = radial(a0, r0, 1), radial(a1, r0, -1)
+        t0, t1 = a0 + math.asin(gap / r1), a1 - math.asin(gap / r1)
+        bm = bmesh.new()
+        cols_v = []
+        for c in range(cols + 1):
+            s = c / cols
+            pin = in0.lerp(in1, s)
+            t = t0 + (t1 - t0) * s
+            pout = V((0, r1 * math.cos(t), r1 * math.sin(t)))
+            x = x_hi + (x_lo - x_hi) * s
+            cols_v.append([bm.verts.new(V((x_base, pin.y, pin.z))), bm.verts.new(V((x, pin.y, pin.z))),
+                           bm.verts.new(V((x, pout.y, pout.z))), bm.verts.new(V((x_base, pout.y, pout.z)))])
+        for c in range(cols):
+            a, b = cols_v[c], cols_v[c + 1]
+            for j in range(3):
+                bm.faces.new([a[j], b[j], b[j + 1], a[j + 1]])
+        bm.faces.new(cols_v[0])
+        bm.faces.new(list(reversed(cols_v[-1])))
+        am = (a0 + a1) / 2
+        _outward(bm, V((x_base, math.cos(am) * (r0 + r1) / 2, math.sin(am) * (r0 + r1) / 2)))
+        bk._append(part, bm, rim_m)
+    bk.lathe(part, hub_m, [(0.093, 0.071), (0.108, 0.071), (0.1155, 0.058), (0.117, 0.0)], 6)
+
+
 # id -> (builder, native width, native bead radius, materials[, uses Tire])
 TYRES = {
     "sport": (tyre_sport, 0.254, 0.243, mats_sport),
@@ -514,6 +560,7 @@ RIMS = {
     "ten": (rim_ten, STD_W, STD_BEAD, mats_ten),
     "twist": (rim_twist, STD_W, STD_BEAD, mats_twist),
     "dish": (rim_dish, STD_W, STD_BEAD, mats_dish, True),
+    "facet": (rim_facet, STD_W, STD_BEAD, mats_facet, True),
 }
 
 
@@ -587,6 +634,22 @@ def build_aero():
     build_combined("wheel_aero.glb", tyre_sport, rim_turbine, mats_turbine)
 
 
+def build_facet():
+    """Electric pickup: the facet aero cover on the all-terrain tyre. The rim
+    is built at the standard fit, so it's scaled to the tyre's bead and width
+    the way WheelKit does it in the game."""
+    bk.reset_scene()
+    tire_m, rim_m, hub_m = mats_facet()
+    part = new_part("Wheel", tire_m, rim_m, hub_m)
+    tyre_allterrain(part, tire_m)
+    rim = new_part("rim", tire_m, rim_m, hub_m)
+    rim_facet(rim, rim_m, hub_m, tire_m)
+    width, bead = TYRES["allterrain"][1:3]
+    rim.bm.transform(mathutils.Matrix.Diagonal((width / STD_W, bead / STD_BEAD, bead / STD_BEAD, 1.0)))
+    bk.merge(part, rim)
+    bk.export([part.to_object(SMOOTH)], "wheel_facet.glb")
+
+
 def build_caliper():
     """A two-piston caliper at the top of the disc (+Z, Blender), straddling
     its outer edge, biased toward the outer face so it shows between the
@@ -623,7 +686,7 @@ def build_caliper():
 
 
 BUILDS = {"caliper": build_caliper, "sports": build_sports, "sedan": build_sedan, "steel": build_steel,
-          "offroad": build_offroad, "aero": build_aero}
+          "offroad": build_offroad, "aero": build_aero, "facet": build_facet}
 
 
 if __name__ == "__main__":

@@ -423,18 +423,24 @@ decision (2026-10-01): garage colours are believable car paints plus a few
 fun brighter ones; traffic is mostly white, black, grey and silver, with blue
 and red fairly common and other colours rare.
 
-- **Garage** (`PaintPalette.GARAGE`, 12 swatches, six per row): red, sunset
+- **Garage** (`PaintPalette.GARAGE`, 13 swatches in one row): red, sunset
   orange, yellow, lime, racing green, teal, bright blue, midnight purple,
-  pink, white, silver, graphite. `GARAGE_METALLIC` marks the metallic ones
-  (green, teal, blue, purple, silver, graphite). Saves from before snap to the
-  closest new colour when loaded.
+  pink, white, silver, graphite, stainless. `GARAGE_METALLIC` marks the
+  metallic ones (green, teal, blue, purple, silver, graphite) and the bare
+  metal (stainless, 1.0). Saves from before snap to the closest new colour
+  when loaded. New colours go on the end: second colours are saved by index.
+- **Stainless** (`#B8BABF`, 2026-11-15) is bare brushed steel, not paint:
+  metallic 1, roughness 0.34 (`PaintPalette.BARE_ROUGHNESS`), no clear coat,
+  no flakes (`is_bare_metal()`; `car_far.gdshader` matches). The electric
+  pickup wears it; any vehicle can.
 - **Traffic** (`PaintPalette.TRAFFIC`, weighted): white 22, black 16,
   silver 16, dark grey 8, grey 6, blue 5, navy 4, red 5, dark red 3, dark
   green 3, champagne 3, brown 2, then yellow, orange, teal, purple and lime
   at 0.5–1.5 each. Vehicles without their own `paint_palette` use this mix,
   and so do the parked-car props (`traffic_paint`).
 - **Per-type palettes** (uniform pick, on the scene's `Body` node): vans are
-  mostly white; delivery truck cabs and buses carry fleet liveries.
+  mostly white; delivery truck cabs and buses carry fleet liveries; electric
+  pickups are mostly stainless (4 in 6), else black or white (a wrap).
 - **Finish:** `VehicleBodyVisual.paint_material()` looks up the metallic
   amount by colour and always adds the clear coat (§13).
 
@@ -833,8 +839,9 @@ exposure, same tonemapper.
 **Design language**
 
 - **Generic, unbranded archetypes** of real vehicle classes. Today's roster:
-  sports coupé, sedan, van, box truck, city bus, pickup, buggy, monster truck.
-  Each must read as its class from silhouette alone at 50 m.
+  sports coupé, sedan, van, box truck, city bus, pickup, buggy, monster truck,
+  electric SUV, electric pickup. Each must read as its class from silhouette
+  alone at 50 m.
 - **No real brands**, badges, model names or trademarked design signatures
   (kidney grilles, famous light signatures, mascots). Mix cues from different
   eras and makers so no single real model is recognisable. Badges are simple
@@ -845,6 +852,13 @@ exposure, same tonemapper.
     the roof, egg-shaped roof) and the doors. Still no maker's name, badge,
     logo or model name, in the game or anywhere in the repo, and an invented
     badge (a ring round a dot).
+  - **Owner exception (2026-11-15): the electric pickup** may remind you of
+    one well-known angular electric pickup, because the owner's son asked
+    for it next: bare stainless steel, the triangular side view, flat
+    panels with crisp creases, the full-width light bars front and rear,
+    the covered bed and the trapezoid arches. Same limits: no maker's name,
+    badge, logo, model name or its marketing words, in the game or anywhere
+    in the repo, and an invented badge (a triangle).
 - **Real proportions.** Arch gap 3–5 cm on road cars (today 8 cm), 8–15 cm on
   off-road vehicles. Wheels sit 5–20 mm inside the body sides. Ride height
   realistic for the class.
@@ -872,6 +886,7 @@ docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
 | Buggy (`make_buggy.py`) | Classic desert sand-rail: small open tub with a cockpit dip, full tube roll cage and light bar, exposed engine, rear wing. |
 | Monster truck (`make_monster.py`) | Retro 80s/90s show truck: boxy regular-cab pickup high on a tube chassis, chrome coil-overs, roll bar, exhaust stacks. |
 | Electric SUV (`make_suv.py`) | Modern electric family SUV (owner exception above): smooth egg-shaped body, no grille (a rounded nose, slim swept headlights, a narrow black intake low down), a windscreen that runs on up into the roof, a high smooth belt, an arched roof falling to a short tailgate with a lip, slim wrap-round tail lights, flush handles, no exhaust. Gull-wing rear doors that fold in two, each with a glass roof panel, meeting on a black spine. Aero "turbine" wheels with red calipers. |
+| Electric pickup (`make_electric_pickup.py`) | Futuristic electric pickup (owner exception above): bare brushed stainless steel (`PaintPalette` "Stainless"), flat panels with crisp creases. A triangular side view: the bonnet and a huge windscreen rise in one straight line to a peak over the B pillar, the roof falls in another over a covered bed (a dark hard cover between steel sails) to the tailgate. Vertical flat sides with one crease under the windows, upper sides leaning in. A sloped front face under a full-width light bar (running light, headlamps in its outer thirds, amber ends); a full-width tail light bar. Trapezoid wheel arches with black cladding, black rockers and wrap-round bumpers, no grille, hidden door handles, one long wiper. The "facet" aero covers (closed) on all-terrain tyres. Its own straight-lined `LoftBody` section (still the standard 19 points). |
 | Helicopter (`make_heli.py`) | Generic light utility helicopter: rounded teardrop cabin with a big wrap-round windscreen sweeping up into roof windows, chin windows, two doors a side; turbine cowling and exhaust stack on the roof, short mast, two-blade teetering main rotor; slim tail boom with a stabiliser and endplates, swept fin with the tail rotor on the left; tubular skids on two arched cross tubes. A cheat-line livery (`Stripes`, on by default). |
 | Sport plane (`make_plane.py`) | Generic two-seat aerobatic light plane: low tapered wing with dihedral, side-by-side cockpit under a big bubble canopy, cowled flat four with a two-blade propeller (yellow tips) and spinner, tricycle gear in wheel fairings, swept fin with a dorsal strake. A cheat-line livery (the `Stripes` mesh, on by default for planes). |
 
@@ -918,7 +933,7 @@ stock wheels. The rules:
 - **Open** rims (`PartsCatalog.RIMS[...]["open"]`) include the brake disc and
   keep the caliper's space clear (x −0.058..+0.016, radius 0.118..0.196 at
   the standard fit); they get a caliper in the chosen colour. Closed rims
-  (steel, beadlock, dish) have no disc and no caliper.
+  (steel, beadlock, dish, facet) have no disc and no caliper.
 - Rim colours follow §13: bare-metal finishes (silver, chrome, gunmetal,
   gold, bronze) are metallic 1, painted ones (black, white, red, blue, lime,
   body colour) metallic 0 with a light clear coat. "Stock" keeps each rim's
@@ -1027,6 +1042,7 @@ are the authority for wheel positions and radii.
 | Van | 4.9–5.4 | 1.95–2.05 | 1.9–2.2 | 4.99 × 2.01 h; r 0.36, x ±0.86, axles ±1.50 |
 | Pickup | 5.2–5.8 | 1.9–2.05 | 1.8–1.95 | 5.44 × 1.75 h; r 0.40, x ±0.86, axles ±1.60 |
 | Electric SUV | 4.9–5.1 | 1.95–2.0 | 1.65–1.72 | 4.98 × 1.69 h; r 0.37, x ±0.85, axles ±1.48 |
+| Electric pickup | 5.6–5.8 | 2.0–2.05 | 1.75–1.85 | 5.60 × 1.78 h; r 0.44, x ±0.84, axles ±1.88 |
 | Box truck | 6.5–8.0 | 2.3–2.5 | 3.2–3.6 | 6.96 × 3.33 h; r 0.45, x ±0.95, axles ±1.90 |
 | City bus | 11–12.5 | 2.5–2.55 | 3.0–3.3 | 8.89 × 3.25 h (shortened for the town's streets); r 0.50, x ±1.00, axles ±2.20 |
 | Buggy | fictional | | | 3.85 × 1.82 h (cage); r 0.42, x ±0.92, axles ±1.25 |
@@ -1133,6 +1149,9 @@ Nodes: `Propeller` (spins about its local Z), `PropDisc`, `AileronL/R`,
   starts with a random 0–0.45 (most cars clean); the buggy (0.35) and monster
   truck (0.3) start dusty.
 - **Matte** (rare; buggy or monster truck): roughness 0.55–0.7, no clearcoat.
+- **Bare metal** (the "Stainless" colour, metallic 1): roughness 0.34, no
+  clear coat, no flakes; the flop stays. Brushed steel's reflections are
+  meant to be soft, so the reflection-probe note above doesn't apply.
 - **The paint look is defined in one place:** `VehicleBodyVisual.paint_material()`
   makes the per-car `car_paint` material. Vehicles and parked-car props both
   use it, so every car changes together. The finish (solid or metallic)
@@ -2531,6 +2550,8 @@ readable, kid-friendly (crashes are big and fun, never scary).
   4 dB under the cars, 7 dB quieter standing still than flat out; no gear
   shifts, no pops, no limiter stutter (`Vehicle.electric`). Switching on
   is a soft two-note chime (`synth.electric_start`). The car horn.
+- **The electric pickup:** the SUV's motor set pitched down (`rpm_scale`
+  0.8) for a deeper whine, 1 dB louder, and the car horn at 0.86 pitch.
 - **The helicopter:** a synthesised turboshaft (`synth.turbine` at 1,500 /
   3,000 / 6,000 rpm: compressor whine at rpm × 0.55 Hz, gearbox tone,
   combustion roar growing with rpm, a high hiss; `synth.turbine_start`, a

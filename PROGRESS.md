@@ -475,6 +475,46 @@ badges and logo are not.
 
 ---
 
+## Electric pickup (branch `feat/electric-pickup`, not released)
+
+Right after the SUV, the son asked for a well-known angular electric pickup
+(owner, 2026-11-15). The same owner exception (ART_BIBLE.md §12): its shape,
+steel and light bars are fine, its name, badges, logo and marketing words are
+not. In the game it's the "Electric Pickup".
+
+### Done (branch `feat/electric-pickup`, off `main`)
+- [x] Model: `tools/blender/make_electric_pickup.py`, a `LoftBody` with its own straight-lined
+      section (standard 19 points): a triangular side view (bonnet and windscreen in one line
+      up to a peak over the B pillar, the roof falling over a covered bed to the tailgate), flat
+      sides with one crease, upper sides leaning in, chamfered corners, trapezoid arches with
+      black cladding, a sloped front face, full-width light bars front and back, wrap-round
+      bumpers that fall off, one long wiper, an invented triangle badge. 5.2k Blender vertices.
+      Cabin: deep dash with a big screen, two front seats, a rear bench, a wall to the bed
+- [x] "Stainless" paint (`PaintPalette`, 13th garage colour): bare brushed steel (metallic 1,
+      roughness 0.34, no clear coat, no flakes), also on the far LOD. Any vehicle can wear it;
+      the swatch row is 13 wide
+- [x] Wheels: a new closed rim, "Facet" (six sawtooth facets, dark gaps, hex cap), on the
+      all-terrain tyre: `wheel_facet.glb`, `rim_facet.glb`, in the garage for every vehicle
+- [x] Electric drive like the SUV: AWD, 2.9 t, 920 Nm through 12:1, r 0.44 tyres.
+      0-80 km/h 3.0 s (SUV 2.6), 166 km/h at 9 s
+- [x] Sound: the SUV's motor pitched down (rpm_scale 0.8), the car horn at 0.86
+- [x] Garage (after the electric SUV: speed 4, acceleration 5, handling 3, smash 4), spoilers
+      (lip, ducktail, wings), bonnet parts (the supercharger tilts to the sloped bonnet: new
+      `tilt` mount option in `make_kits.py`), the roof light bar. In traffic (weight 0.06):
+      mostly stainless, sometimes black or white
+- [x] Tests: `--seatsheet` (all reach, 12 cm headroom), `--lookdev`, `--parts
+      --vehicles=electric_pickup` (46 ok), `--garage` (73 ok), `--wheels`, `--damage
+      --vehicle=electric_pickup` (all ok, engine smoking included), physics `rest`/`accel`/`turn`,
+      audio check, `--onfoot` (259 ok; the pickup joins the every-vehicle loop in its own lane far
+      down the runway), `--spawncheck`, `--trafficlod` (37 ok)
+- [ ] Owner review, then the son on the Deck: is it the truck he meant?
+
+### Ideas for later (not started)
+- [ ] The bed cover slides open, with something in the bed
+- [ ] A parked one in town; a tow hook for pulling other cars
+
+---
+
 ## Backlog
 
 ### Realism (owner approved 2026-10-03, released in v0.7.0)

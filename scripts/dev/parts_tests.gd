@@ -95,7 +95,7 @@ func run() -> void:
 	await _pick(p, "decal", "none")
 	await _pick(p, "number", "none")
 	check(m.shader == VehicleBodyVisual.PAINT_SHADER, "plain paint again: back to the shared paint shader")
-	for vid: String in ["sedan", "suv", "van", "pickup", "box_truck", "bus", "buggy", "monster_truck"]:
+	for vid: String in ["sedan", "suv", "electric_pickup", "van", "pickup", "box_truck", "bus", "buggy", "monster_truck"]:
 		_show(p, VehicleCatalog.index_of_id(vid))
 		await wait(10)
 		await _pick(p, "decal", "lightning" if vid in ["van", "bus"] else "flames")

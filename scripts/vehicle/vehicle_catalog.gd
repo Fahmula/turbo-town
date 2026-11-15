@@ -65,6 +65,15 @@ const ENTRIES := [
 		"rims": "turbine", "tyres": "sport",
 	},
 	{
+		# An electric pickup of flat steel panels: one gear and instant pull
+		# like the SUV (Vehicle.electric), big all-terrain tyres, bare
+		# stainless steel (PaintPalette's "Stainless").
+		"id": "electric_pickup", "scene": "res://scenes/vehicles/electric_pickup.tscn",
+		"name": "Electric Pickup", "blurb": "A steel wedge on wheels! Super quick, super tough, and super quiet.",
+		"speed": 4, "accel": 5, "handling": 3, "smash": 4,
+		"rims": "facet", "tyres": "allterrain",
+	},
+	{
 		# "air": a plane (Aircraft). Picking it puts you on the Airfield's
 		# runway; it isn't remembered as the vehicle you start with.
 		"id": "plane", "scene": "res://scenes/vehicles/plane.tscn",

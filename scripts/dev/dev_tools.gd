@@ -3257,7 +3257,7 @@ func _lookdev(game: Game) -> void:
 		elif arg.begins_with("--times="):
 			times = Array(arg.split("=")[1].split(","))
 	# A believable paint per vehicle (metallics included).
-	var paints := {"sports_car": 0, "sedan": 10, "suv": 9, "van": 9, "box_truck": 9, "bus": 6, "pickup": 11, "buggy": 2, "monster_truck": 7}
+	var paints := {"sports_car": 0, "sedan": 10, "suv": 9, "electric_pickup": 12, "van": 9, "box_truck": 9, "bus": 6, "pickup": 11, "buggy": 2, "monster_truck": 7}
 	var spot := Transform3D(Basis.looking_at(Vector3.FORWARD, Vector3.UP), Vector3(2.4, 0.6, -38.0))
 	for id: String in ids:
 		var vi := VehicleCatalog.index_of_id(id)
@@ -4047,12 +4047,16 @@ func _onfoot(game: Game) -> void:
 	var fwd := Vector3.RIGHT
 	var right := fwd.cross(Vector3.UP)
 	var k := 0
-	for id: String in ["sedan", "suv", "van", "pickup", "box_truck", "bus", "buggy", "monster_truck"]:
-		# The SUV pulls hardest: it gets its own lane (away from the sports
-		# car left near z 300..306) so it doesn't stop where the next one is
-		# parked.
-		var lane := -10.0 if id == "suv" else 0.0
-		var v := _park_new(game, id, Vector3(292.0 + 32.0 * k, 1.0, 300.0 + lane), fwd)
+	for id: String in ["sedan", "suv", "van", "pickup", "box_truck", "bus", "buggy", "monster_truck", "electric_pickup"]:
+		# The electrics pull hardest: they get their own lane (away from the
+		# sports car left near z 300..306) so they don't stop where the next
+		# one is parked; the SUV near the start, the pickup far down it.
+		var at := Vector3(292.0 + 32.0 * k, 1.0, 300.0)
+		if id == "suv":
+			at.z -= 10.0
+		elif id == "electric_pickup":
+			at = Vector3(484.0, 1.0, 290.0)
+		var v := _park_new(game, id, at, fwd)
 		k += 1
 		await _wait_s(0.6)
 		var entry := v.get_node("Entry") as VehicleEntry

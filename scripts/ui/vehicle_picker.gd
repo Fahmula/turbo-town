@@ -20,7 +20,7 @@ const ACCENT := UiKit.ACCENT
 ## Turntable angle that shows the vehicle's left side with the front turned
 ## a little toward the camera (the wheel view).
 const WHEEL_VIEW_ANGLE := 2.0
-## Colour swatches: 12 to a row, so a palette takes one line.
+## Colour swatches: 13 to a row, so a palette takes one line.
 const SWATCH := 32
 
 var is_open := false
@@ -859,7 +859,7 @@ class SlotRow extends PanelContainer:
 				line.add_child(_value)
 				line.move_child(_value, 1)
 				var grid := GridContainer.new()
-				grid.columns = 12
+				grid.columns = 13
 				grid.add_theme_constant_override("h_separation", 4)
 				grid.add_theme_constant_override("v_separation", 8)
 				col.add_child(grid)
