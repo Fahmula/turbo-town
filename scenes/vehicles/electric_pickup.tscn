@@ -15,7 +15,7 @@ friction = 0.45
 bounce = 0.05
 
 [sub_resource type="BoxShape3D" id="Box_0"]
-size = Vector3(2.0, 0.73, 5.54)
+size = Vector3(2.04, 0.73, 5.72)
 
 [sub_resource type="BoxShape3D" id="Box_1"]
 size = Vector3(1.6, 0.59, 2.3)
@@ -65,7 +65,7 @@ ai_speed_factor = 0.97
 ai_max_accel = 2.1
 
 [node name="Shape0" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.265, 0.07)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.265, 0.11)
 shape = SubResource("Box_0")
 
 [node name="Shape1" type="CollisionShape3D" parent="."]
@@ -88,7 +88,7 @@ paint_palette = Array[Color]([Color(0.72, 0.73, 0.75, 1), Color(0.72, 0.73, 0.75
 [node name="Model" parent="Body" instance=ExtResource("4_body")]
 
 [node name="WheelFL" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.84, 0.182, -1.88)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.83, 0.182, -1.88)
 script = ExtResource("2_wheel")
 steers = true
 driven = true
@@ -106,7 +106,7 @@ grip = 1.15
 transform = Transform3D(-1.1892, 0, 0, 0, 1.1892, 0, 0, 0, -1.1892, 0, 0, 0)
 
 [node name="WheelFR" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.84, 0.182, -1.88)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.83, 0.182, -1.88)
 script = ExtResource("2_wheel")
 steers = true
 driven = true
@@ -124,7 +124,7 @@ grip = 1.15
 transform = Transform3D(1.1892, 0, 0, 0, 1.1892, 0, 0, 0, 1.1892, 0, 0, 0)
 
 [node name="WheelRL" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.84, 0.182, 1.88)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.83, 0.182, 1.88)
 script = ExtResource("2_wheel")
 driven = true
 has_handbrake = true
@@ -142,7 +142,7 @@ grip = 1.2
 transform = Transform3D(-1.1892, 0, 0, 0, 1.1892, 0, 0, 0, -1.1892, 0, 0, 0)
 
 [node name="WheelRR" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.84, 0.182, 1.88)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.83, 0.182, 1.88)
 script = ExtResource("2_wheel")
 driven = true
 has_handbrake = true

@@ -69,8 +69,8 @@ its own tyre reproduces the combined wheel.
                     ten      thin concave ten-spoke (open)
                     twist    seven spiral spokes (open)
                     dish     flat "pepper pot" disc, six holes in Tire (closed)
-                    facet    angular aero cover: six sawtooth wedge facets
-                             on a dark disc, hexagonal cap (closed)
+                    facet    black angular aero cover: hexagonal centre, six
+                             spokes, a twelve-sided ring, sawtooth panels (closed)
                   Open rims show the brake disc; the game mounts the caliper.
 
 Metallic is binary (ART_BIBLE.md §6): discs, hubs and alloy rims are bare
@@ -292,7 +292,7 @@ mats_turbine = _alloy((0.82, 0.83, 0.85), 0.30)           # light silver
 mats_ten = _alloy((0.74, 0.745, 0.76), 0.32)
 mats_twist = _alloy((0.71, 0.72, 0.74), 0.35)
 mats_dish = _alloy((0.90, 0.91, 0.92), 0.38)              # white-ish silver
-mats_facet = _alloy((0.22, 0.23, 0.24), 0.5, metal=0.0)   # dark grey plastic cover
+mats_facet = _alloy((0.13, 0.135, 0.14), 0.5, metal=0.0)  # black plastic cover
 
 
 # Tyres: tyre_<id>(part, tire_m) adds the tyre at its native size.
@@ -499,33 +499,41 @@ def rim_dish(part, rim_m, hub_m, dark_m):
 
 
 def rim_facet(part, rim_m, hub_m, dark_m):
-    """Angular aero cover (the electric pickup's): a closed cover of six flat
-    wedge facets, each sloping down round the wheel like a sawtooth so they
-    catch the light one by one, with dark gaps between them (a dark disc
-    behind) and a hexagonal centre cap. Closed."""
+    """Angular aero cover (the electric pickup's): a closed, nearly flat
+    cover with a raised hexagonal centre, six thick spokes from its corners
+    out to a raised twelve-sided ring inside the lip, and between the spokes
+    flat panels that step down round the wheel (a sawtooth, so they catch
+    the light one by one), with dark seams round them. Black as stock, and
+    all one material, so the garage's rim colour paints the whole cover.
+    Closed."""
     import bmesh
     barrel(part, rim_m, [(0.110, 0.243), (0.119, 0.2478), (0.1260, 0.2455), (0.1235, 0.2300), (0.1100, 0.2215)])
-    bk.lathe(part, dark_m, [(0.110, 0.2215), (0.094, 0.2165), (0.093, 0.0)], 24)
-    n, gap, r0, r1, cols = 6, 0.0075, 0.078, 0.2125, 4
-    x_hi, x_lo, x_base = 0.1105, 0.0985, 0.093
+    bk.lathe(part, dark_m, [(0.110, 0.2215), (0.094, 0.2165), (0.093, 0.0)], 24)          # the seams
+    bk.lathe(part, rim_m, [(0.093, 0.2190), (0.1075, 0.2170), (0.1085, 0.2010), (0.093, 0.1960)], 12)
+    bk.lathe(part, rim_m, [(0.093, 0.100), (0.1125, 0.096), (0.1160, 0.080), (0.1170, 0.0)], 6)
+    for k in range(6):
+        a = 2 * math.pi * k / 6                     # the hexagon's corners
+        beam(part, rim_m, [(0.1135, 0.090, a, 0.016, 0.022), (0.1095, 0.200, a, 0.019, 0.018)], chamfer=0.003)
+    n, gap, r0, r1, cols = 6, 0.023, 0.100, 0.194, 4
+    x_hi, x_lo, x_base = 0.1050, 0.0985, 0.093
     V = mathutils.Vector
     for k in range(n):
-        a0 = math.pi / 2 + 2 * math.pi * k / n
+        a0 = 2 * math.pi * k / n
         a1 = a0 + 2 * math.pi / n
 
         def radial(a, r, side):
-            # A point on the side edge at angle `a`, `gap` in from the gap's centre line.
+            # A point on the side edge at angle `a`, `gap` in from the spoke's centre line.
             return V((0, r * math.cos(a) - side * gap * math.sin(a), r * math.sin(a) + side * gap * math.cos(a)))
         in0, in1 = radial(a0, r0, 1), radial(a1, r0, -1)
         t0, t1 = a0 + math.asin(gap / r1), a1 - math.asin(gap / r1)
         bm = bmesh.new()
         cols_v = []
         for c in range(cols + 1):
-            s = c / cols
-            pin = in0.lerp(in1, s)
-            t = t0 + (t1 - t0) * s
+            f = c / cols
+            pin = in0.lerp(in1, f)
+            t = t0 + (t1 - t0) * f
             pout = V((0, r1 * math.cos(t), r1 * math.sin(t)))
-            x = x_hi + (x_lo - x_hi) * s
+            x = x_hi + (x_lo - x_hi) * f
             cols_v.append([bm.verts.new(V((x_base, pin.y, pin.z))), bm.verts.new(V((x, pin.y, pin.z))),
                            bm.verts.new(V((x, pout.y, pout.z))), bm.verts.new(V((x_base, pout.y, pout.z)))])
         for c in range(cols):
@@ -537,7 +545,6 @@ def rim_facet(part, rim_m, hub_m, dark_m):
         am = (a0 + a1) / 2
         _outward(bm, V((x_base, math.cos(am) * (r0 + r1) / 2, math.sin(am) * (r0 + r1) / 2)))
         bk._append(part, bm, rim_m)
-    bk.lathe(part, hub_m, [(0.093, 0.071), (0.108, 0.071), (0.1155, 0.058), (0.117, 0.0)], 6)
 
 
 # id -> (builder, native width, native bead radius, materials[, uses Tire])

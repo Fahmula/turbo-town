@@ -86,7 +86,7 @@ VEHICLES = {
         # to it); the light bar sits just ahead of the roof's peak.
         "glb": "electric_pickup_body.glb",
         "spoiler": {"edge": -2.84, "lip_hs": 0.80, "wing_y": -2.45, "stand_x": 0.62, "span": 1.9, "height": 0.26},
-        "bonnet": {"y": 1.95, "s": 1.0, "tilt": True},
+        "bonnet": {"y": 2.12, "s": 1.0, "tilt": True},
         "roof": {"y": -0.30, "len": 0.5, "hw": 0.55, "front": -0.15},
     },
     "box_truck": {

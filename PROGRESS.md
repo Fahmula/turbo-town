@@ -507,6 +507,13 @@ not. In the game it's the "Electric Pickup".
       --vehicle=electric_pickup` (all ok, engine smoking included), physics `rest`/`accel`/`turn`,
       audio check, `--onfoot` (259 ok; the pickup joins the every-vehicle loop in its own lane far
       down the runway), `--spawncheck`, `--trafficlod` (37 ok)
+- [x] Second pass from the owner's reference photos (2026-11-15): chunky black cladding swept
+      along paths (arch flares standing 4.5 cm off the body, rocker strips, protruding bumpers
+      with a shelf that wrap round to the flares), a near-vertical front face with the light bar
+      wrapping round the corners and a lower headlamp strip, the windscreen base near the front
+      axle, wide steel frames over the windows and along the roof, a black B pillar, black
+      angular mirrors, a ribbed bed cover, a black band over the tail light bar, and black
+      "Facet" covers with a hexagonal centre and six spokes. 5.95k Blender vertices (budget 6k)
 - [ ] Owner review, then the son on the Deck: is it the truck he meant?
 
 ### Ideas for later (not started)

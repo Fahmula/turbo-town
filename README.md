@@ -117,8 +117,9 @@ pickup, buggy, monster truck, electric SUV, electric pickup, plane or helicopter
   or everyone walks away. Its roof opens with them, so it takes no roof
   parts.
 - The **electric pickup** is a steel wedge on big all-terrain tyres: flat
-  stainless steel panels, light bars across the front and back, a covered
-  bed. It pulls hard and quietly like the SUV, with a deeper whine. Its
+  stainless steel panels, light bars across the front and back, chunky black
+  arch flares and bumpers, a ribbed bed cover. It pulls hard and quietly like
+  the SUV, with a deeper whine. Its
   "Stainless" colour (bare brushed steel) is on the PAINT tab for every
   vehicle, and its "Facet" aero covers are on the WHEELS tab.
 - **X / Y**: surprise me (a random vehicle, or random choices on the tab).

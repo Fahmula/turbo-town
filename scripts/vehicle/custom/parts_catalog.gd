@@ -201,7 +201,7 @@ const RIMS := [
 	{"id": "mesh", "name": "Mesh", "open": true, "color": Color(0.72, 0.73, 0.75)},
 	{"id": "twist", "name": "Twister", "open": true, "color": Color(0.72, 0.73, 0.75)},
 	{"id": "turbine", "name": "Turbine", "open": true, "color": Color(0.8, 0.81, 0.82)},
-	{"id": "facet", "name": "Facet", "open": false, "color": Color(0.22, 0.23, 0.24)},
+	{"id": "facet", "name": "Facet", "open": false, "color": Color(0.13, 0.135, 0.14)},
 	{"id": "dish", "name": "Retro Dish", "open": false, "color": Color(0.85, 0.85, 0.84)},
 	{"id": "steel", "name": "Steelie", "open": false, "color": Color(0.78, 0.78, 0.76)},
 	{"id": "beadlock", "name": "Beadlock", "open": false, "color": Color(0.2, 0.21, 0.22)},
