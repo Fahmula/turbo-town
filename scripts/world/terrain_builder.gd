@@ -53,6 +53,9 @@ func _init() -> void:
 	grass_exclusions.append(Rect2(ac.x - 45.0, ac.z - MapLayout.APRON_SIZE.y * 0.5 - 24.0, 100.0, 24.0))
 	var hs := MapLayout.HELIPAD_SIZE * 0.5
 	grass_exclusions.append(Rect2(MapLayout.HELIPAD_A.x - hs, MapLayout.HELIPAD_A.z - hs, MapLayout.HELIPAD_B.x - MapLayout.HELIPAD_A.x + hs * 2.0, hs * 2.0))
+	# The gas station's forecourt (LandmarksBuilder: 56 x 32 m).
+	var gs := MapLayout.GAS_STATION
+	grass_exclusions.append(Rect2(gs.x - 28.5, gs.z - 16.5, 57.0, 33.0))
 
 
 # ---------------------------------------------------------------- heights ---
