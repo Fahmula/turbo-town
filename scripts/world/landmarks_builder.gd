@@ -662,6 +662,8 @@ func _build_harbor(root: Node3D) -> void:
 				var pc := PackedColorArray([Color(0.12, 0.13, 0.1, StreetKit.TIMBER), Color(0.12, 0.13, 0.1, StreetKit.TIMBER), Color(0.2, 0.2, 0.16, StreetKit.TIMBER),
 					Color(wood.darkened(0.2), StreetKit.TIMBER), Color(wood.darkened(0.1), StreetKit.TIMBER), Color(wood, StreetKit.TIMBER)])
 				mb.add_lathe(Transform3D(Basis.IDENTITY, Vector3(px, y - 5.8, pz + side)), pile, 10, pc, 40.0)
+				# Solid, so boats under the pier bump the piles.
+				_pile_collider(body, Vector3(px, y - 3.0, pz + side), 0.21, 5.6)
 			# Cross beam and a diagonal brace between a pair of piles.
 			mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(px, y - 0.62, pz)), Vector3(0.2, 0.26, 6.0), 0.02, Color(wood.darkened(0.3), StreetKit.TIMBER))
 			StreetKit.beam(mb, Vector3(px, y - 3.2, pz - 2.6), Vector3(px + 2.8, y - 1.0, pz - 2.6), 0.14, 0.1, Color(wood.darkened(0.35), StreetKit.TIMBER), 0.01)
@@ -675,9 +677,14 @@ func _build_harbor(root: Node3D) -> void:
 				_mooring_bollard(mb, bp)
 				_tyre_fender(mb, Vector3(px + 3.0, y - 0.6, pz + side * 3.14), side)
 			px += 6.0
-		_boat(mb, body, Vector3(x0 + 14.0, MapLayout.SEA_LEVEL, pz + 6.5), boat_cols[k][0], boat_cols[k][1], 9.0, k)
-		_boat(mb, body, Vector3(x0 + 30.0, MapLayout.SEA_LEVEL, pz - 6.5), boat_cols[(k + 1) % 3][0], boat_cols[(k + 1) % 3][1], 7.0, k + 1)
+		# (Not in the marina's berths or its channel out to sea.)
+		for bt: Array in [[Vector3(x0 + 14.0, MapLayout.SEA_LEVEL, pz + 6.5), k, 9.0], [Vector3(x0 + 30.0, MapLayout.SEA_LEVEL, pz - 6.5), k + 1, 7.0]]:
+			var at: Vector3 = bt[0]
+			if at.z > MapLayout.MARINA_Z0 - 3.0 and at.z < MapLayout.MARINA_Z1 + 3.0:
+				continue
+			_boat(mb, body, at, boat_cols[bt[1] % 3][0], boat_cols[bt[1] % 3][1], bt[2], bt[1])
 		k += 1
+	_build_marina(root, edge, y)
 	_crane(mb, body, Vector3(qa.x - 10.0, y, (qa.z + qb.z) * 0.5 - 10.0))
 	# Container stacks: ribbed steel boxes in muted shipping colours.
 	var cols := [Color(0.6, 0.24, 0.18), Color(0.2, 0.34, 0.52), Color(0.26, 0.44, 0.3), Color(0.74, 0.52, 0.2), Color(0.42, 0.3, 0.44), Color(0.7, 0.7, 0.68)]
@@ -826,6 +833,121 @@ func _mooring_bollard(mb: MeshBuilder, p: Vector3) -> void:
 	for i in 4:
 		var a := TAU * i / 4.0 + PI * 0.25
 		StreetKit.bolt(mb, p + Vector3(cos(a) * 0.2, 0.03, sin(a) * 0.2), Vector3.UP, 0.025, Color(0.3, 0.28, 0.26, StreetKit.RUST))
+
+
+## A round pile's collider (centre, radius, height).
+func _pile_collider(body: StaticBody3D, center: Vector3, radius: float, height: float) -> void:
+	var cs := CollisionShape3D.new()
+	var sh := CylinderShape3D.new()
+	sh.radius = radius
+	sh.height = height
+	cs.shape = sh
+	cs.position = center
+	body.add_child(cs)
+
+
+# ------------------------------------------------------------------- marina --
+
+## The marina (MapLayout.MARINA_*): a floating pontoon on black floats off
+## the quay wall, three finger berths running west from it (the parked
+## speedboats lie along the outer two, bow-out), a gangway down from the quay
+## (`quay_x` its edge, `quay_y` its height), cleats, two lamp posts, a
+## lifebuoy and a BOATS sign over the top of the gangway. The fuel cabinet on
+## the pontoon's north end is FuelBuilder's.
+func _build_marina(root: Node3D, quay_x: float, quay_y: float) -> void:
+	var body := StaticBody3D.new()
+	body.name = "Marina"
+	var mb := MeshBuilder.new()
+	var deck_y := MapLayout.MARINA_DECK
+	var deck := Color(0.62, 0.6, 0.56)
+	var float_col := Color(0.13, 0.135, 0.14, StreetKit.PLASTIC)
+	var frame := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+	var x0 := MapLayout.MARINA_X - MapLayout.MARINA_WIDTH * 0.5
+	var x1 := MapLayout.MARINA_X + MapLayout.MARINA_WIDTH * 0.5
+	var z0 := MapLayout.MARINA_Z0
+	var z1 := MapLayout.MARINA_Z1
+	# Walkways: [centre, size] (footsteps sound like wood on them).
+	var walks: Array = [[Vector3(MapLayout.MARINA_X, 0.0, (z0 + z1) * 0.5), Vector3(MapLayout.MARINA_WIDTH, 0.0, z1 - z0)]]
+	for fz: float in MapLayout.MARINA_FINGERS:
+		var fl := MapLayout.MARINA_FINGER_LENGTH
+		walks.append([Vector3(x0 - fl * 0.5, 0.0, fz), Vector3(fl, 0.0, MapLayout.MARINA_FINGER_WIDTH)])
+	for w: Array in walks:
+		var c: Vector3 = w[0]
+		var size: Vector3 = w[1]
+		_collider(body, Transform3D(Basis.IDENTITY, Vector3(c.x, deck_y - 0.2, c.z)), Vector3(size.x, 0.4, size.z)).set_meta("surface", "wood")
+		# Composite decking on a galvanised frame, black floats under it.
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(c.x, deck_y - 0.05, c.z)), Vector3(size.x, 0.1, size.z), 0.01, Color(deck, StreetKit.DECKING))
+		mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(c.x, deck_y - 0.17, c.z)), Vector3(size.x + 0.04, 0.14, size.z + 0.04), 0.01, frame)
+		var along_x := size.x > size.z
+		var n := int(maxf(size.x, size.z) / 2.2)
+		for i in n:
+			var t := (i + 0.5) / n
+			var p := Vector3(c.x + (t - 0.5) * size.x, deck_y - 0.42, c.z) if along_x else Vector3(c.x, deck_y - 0.42, c.z + (t - 0.5) * size.z)
+			var fs := Vector3(1.9, 0.36, size.z - 0.12) if along_x else Vector3(size.x - 0.12, 0.36, 1.9)
+			mb.add_bevel_box(Transform3D(Basis.IDENTITY, p), fs, 0.06, float_col)
+	# Cleats along the finger edges and a white bumper strip round them.
+	for fz: float in MapLayout.MARINA_FINGERS:
+		for s: float in [-1.0, 1.0]:
+			var ez := fz + s * (MapLayout.MARINA_FINGER_WIDTH * 0.5 - 0.08)
+			for cx: float in [x0 - 1.0, x0 - 4.0, x0 - 6.6]:
+				_cleat(mb, Vector3(cx, deck_y, ez))
+			mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(x0 - MapLayout.MARINA_FINGER_LENGTH * 0.5, deck_y - 0.12, fz + s * (MapLayout.MARINA_FINGER_WIDTH * 0.5 + 0.035))),
+				Vector3(MapLayout.MARINA_FINGER_LENGTH, 0.12, 0.07), 0.02, Color(0.9, 0.9, 0.88, StreetKit.PLASTIC))
+	# Guide piles at the pontoon's corners keep it in place (it rides up and
+	# down them with the tide).
+	for pp: Vector3 in [Vector3(x1 + 0.35, 0.0, z0 + 0.6), Vector3(x1 + 0.35, 0.0, z1 - 0.6)]:
+		StreetKit.rod(mb, Vector3(pp.x, MapLayout.SEA_LEVEL - 4.0, pp.z), Vector3(pp.x, deck_y + 1.6, pp.z), 0.17, 0.17, 12, frame)
+		mb.add_lathe(Transform3D(Basis.IDENTITY, Vector3(pp.x, deck_y + 1.6, pp.z)), PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.19, 0.0), Vector2(0.0, 0.12)]), 12, PackedColorArray([frame]), 40.0)
+		_pile_collider(body, Vector3(pp.x, MapLayout.SEA_LEVEL - 1.2, pp.z), 0.18, 5.6)
+	# The gangway: an aluminium ramp from the quay's edge (over the wall's
+	# coping) down to the pontoon, with handrails.
+	var gz := MapLayout.MARINA_GANGWAY_Z
+	var a := Vector3(quay_x - 0.2, quay_y + 0.13, gz)
+	var b := Vector3(x1, deck_y + 0.02, gz)
+	var run := b - a
+	var basis := Basis.looking_at(run.normalized(), Vector3.UP)
+	var up := basis.y
+	var mid := (a + b) * 0.5
+	var gw := 1.6
+	_collider(body, Transform3D(basis, mid - up * 0.06), Vector3(gw, 0.12, run.length() + 0.3)).set_meta("surface", "metal")
+	mb.add_bevel_box(Transform3D(basis, mid - up * 0.05), Vector3(gw, 0.1, run.length() + 0.3), 0.01, StreetKit.k(StreetKit.GALV, StreetKit.STEEL_DECK))
+	for s: float in [-1.0, 1.0]:
+		var side := Vector3(0.0, 0.0, s * (gw * 0.5 - 0.04))
+		mb.add_bevel_box(Transform3D(basis, mid + side + up * 0.06), Vector3(0.06, 0.2, run.length() + 0.3), 0.01, frame)
+		var posts := 5
+		for i in posts + 1:
+			var p := a.lerp(b, float(i) / posts) + side
+			StreetKit.rod(mb, p, p + Vector3.UP * 1.0, 0.025, 0.025, 8, frame)
+		StreetKit.rod(mb, a + side + Vector3.UP * 1.0, b + side + Vector3.UP * 1.0, 0.03, 0.03, 8, frame)
+		StreetKit.rod(mb, a + side + Vector3.UP * 0.5, b + side + Vector3.UP * 0.5, 0.02, 0.02, 8, frame)
+	# Lamp posts on the pontoon and a lifebuoy by the gangway.
+	var lamp_scene := load("res://scenes/props/street_lamp.tscn") as PackedScene
+	for lz: float in [z0 + 3.5, z1 - 1.5]:
+		var lamp := lamp_scene.instantiate() as Node3D
+		lamp.position = Vector3(x1 - 0.35, deck_y, lz)
+		lamp.rotation.y = -PI * 0.5
+		root.add_child(lamp)
+	var ring_scene := load("res://assets/models/props/lifebuoy.glb") as PackedScene
+	var post := Vector3(x1 - 0.25, deck_y, gz + 1.6)
+	StreetKit.rod(mb, post, post + Vector3.UP * 1.4, 0.04, 0.035, 8, Color(0.85, 0.85, 0.82, StreetKit.WORN))
+	var ring := ring_scene.instantiate() as Node3D
+	ring.position = post + Vector3(0.0, 1.1, 0.12)
+	root.add_child(ring)
+	# A sign over the top of the gangway.
+	for s: float in [-1.0, 1.0]:
+		StreetKit.rod(mb, Vector3(quay_x + 1.2, quay_y, gz + s * 1.2), Vector3(quay_x + 1.2, quay_y + 3.3, gz + s * 1.2), 0.05, 0.05, 8, frame)
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(quay_x + 1.2, quay_y + 3.0, gz)), Vector3(0.08, 0.6, 2.6), 0.02, Color(0.12, 0.3, 0.55, StreetKit.PAINTED))
+	_label(root, "BOATS", Vector3(quay_x + 1.15, quay_y + 3.0, gz), 64, Color(1.0, 0.95, 0.85), -PI * 0.5)
+	_label(root, "BOATS", Vector3(quay_x + 1.25, quay_y + 3.0, gz), 64, Color(1.0, 0.95, 0.85), PI * 0.5)
+	_mesh(body, mb, _props_mat)
+	root.add_child(body)
+
+
+## A small aluminium mooring cleat on a deck edge.
+func _cleat(mb: MeshBuilder, p: Vector3) -> void:
+	var al := StreetKit.k(StreetKit.GALV, StreetKit.METAL)
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, p + Vector3(0.0, 0.03, 0.0)), Vector3(0.06, 0.06, 0.05), 0.01, al)
+	mb.add_bevel_box(Transform3D(Basis.IDENTITY, p + Vector3(0.0, 0.07, 0.0)), Vector3(0.24, 0.035, 0.05), 0.012, al)
 
 
 ## A tyre hung over a pier edge as a fender (axis along Z, face toward the water).
@@ -1101,13 +1223,19 @@ func _build_islet(root: Node3D) -> void:
 	var bridge := bmb.build_node("IsletBridge", _concrete_mat, true, 1.0)
 	root.add_child(bridge)
 	var pillars := MeshBuilder.new()
+	# Solid, so boats going under the bridge weave between them.
+	var pillar_body := StaticBody3D.new()
+	pillar_body.name = "IsletBridgePillars"
 	var px := xe - 14.0
 	while px > xw + 8.0:
 		var py: float = deck_y.call(px)
-		pillars.add_bevel_box(Transform3D(Basis.IDENTITY, Vector3(px, (py - 0.7 - 7.0) * 0.5, 0)), Vector3(1.6, py - 0.7 + 7.0, MapLayout.BRIDGE_WIDTH * 0.7), 0.08,
-			Color(0.7, 0.69, 0.66, 1.0), Color(0.38, 0.4, 0.38, 1.0))
+		var pxf := Transform3D(Basis.IDENTITY, Vector3(px, (py - 0.7 - 7.0) * 0.5, 0))
+		var psize := Vector3(1.6, py - 0.7 + 7.0, MapLayout.BRIDGE_WIDTH * 0.7)
+		pillars.add_bevel_box(pxf, psize, 0.08, Color(0.7, 0.69, 0.66, 1.0), Color(0.38, 0.4, 0.38, 1.0))
+		_collider(pillar_body, pxf, psize)
 		px -= 16.0
 	_mesh(root, pillars, _concrete_mat)
+	root.add_child(pillar_body)
 	# Bridge lamps (the same knock-over lamps as in town) on alternating parapets,
 	# and amber reflector posts between them.
 	var lamp_scene := load("res://scenes/props/street_lamp.tscn") as PackedScene

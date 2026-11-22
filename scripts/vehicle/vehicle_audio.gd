@@ -241,6 +241,8 @@ func _build() -> void:
 		_add_loop("scrape", VehicleSoundBank.loop(VehicleSoundBank.SCRAPE), IMPACTS)
 		_add_loop("whine", profile.whine, ENGINE)
 		_add_loop("prop", profile.propeller, ENGINE)
+		if vehicle is Boat:
+			_add_loop("water", VehicleSoundBank.loop(VehicleSoundBank.WATER), SURFACE)
 	else:
 		_add_loop("roll", VehicleSoundBank.loop(VehicleSoundBank.ROLL_ASPHALT), TYRES)
 	_add_loop("squeal", VehicleSoundBank.loop(VehicleSoundBank.SQUEAL), SKID)
@@ -527,8 +529,13 @@ func _update_body(dt: float) -> void:
 		_knock_cooldown = 0.14
 		var k := clampf((bump - 1.1) / 2.5, 0.15, 1.0)
 		_shot(VehicleSoundBank.pick("suspension/knock", _rng), linear_to_db(k) - 6.0, _size_pitch() * _rng.randf_range(0.92, 1.08), TYRES)
-	# Into the sea.
-	var wet := vehicle.global_position.y < MapLayout.SEA_LEVEL - 0.3
+	# Into the sea (a boat: water along the hull instead; its splashes come
+	# with landings, _on_landed).
+	var boat := vehicle as Boat
+	if boat:
+		var wash := smoothstep(0.5, 20.0, speed) * clampf(boat.wet * 2.0, 0.0, 1.0)
+		_set_loop("water", wash * 0.75, clampf(0.8 + speed / 45.0, 0.8, 1.35))
+	var wet := vehicle.global_position.y < MapLayout.SEA_LEVEL - 0.3 and boat == null
 	if wet and not _splashed and speed > 2.0:
 		_shot(VehicleSoundBank.pick("body/splash", _rng), 0.0, _rng.randf_range(0.9, 1.05), ENVIRONMENT)
 	_splashed = wet
@@ -634,6 +641,10 @@ func _on_impact(strength: float, pos: Vector3, _normal: Vector3) -> void:
 
 func _on_landed(airtime: float) -> void:
 	var s := clampf(airtime / 2.0, 0.2, 1.0)
+	if vehicle is Boat:
+		# Back down on the water.
+		_shot(VehicleSoundBank.pick("body/splash", _rng), linear_to_db(s) - 3.0, _rng.randf_range(0.95, 1.12), ENVIRONMENT)
+		return
 	var set_name := "suspension/land" if airtime > 0.8 else "suspension/knock"
 	_shot(VehicleSoundBank.pick(set_name, _rng), linear_to_db(s) - 2.0, _size_pitch() * _rng.randf_range(0.93, 1.05), TYRES)
 

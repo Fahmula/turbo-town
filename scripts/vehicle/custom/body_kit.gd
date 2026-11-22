@@ -23,7 +23,7 @@ static var _scenes := {}
 
 static func fit(v: Vehicle, l: Loadout) -> void:
 	var body := v.get_node_or_null("Body") as VehicleBodyVisual
-	if body == null or v is Aircraft:
+	if body == null or v is Aircraft or v is Boat:
 		return
 	var old := body.get_node_or_null("Kit")
 	# Untouched stock bodies are already right.

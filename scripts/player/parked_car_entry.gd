@@ -76,8 +76,10 @@ func interact(actor: Node3D) -> bool:
 		body.paint_color = prop.paint
 	var fwd := -prop.global_basis.z
 	fwd.y = 0.0
+	# (A boat's origin is its water line: it goes where the tied-up one floats.)
+	var lift := 0.05 if car is Boat else car.ride_height() + 0.05
 	var xform := Transform3D(Basis.looking_at(fwd.normalized(), Vector3.UP),
-		prop.global_position + Vector3.UP * (car.ride_height() + 0.05))
+		prop.global_position + Vector3.UP * lift)
 	var parent := prop.get_parent()
 	# Out of the way first, so the new car doesn't start inside it.
 	parent.remove_child(prop)

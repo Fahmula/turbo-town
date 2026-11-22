@@ -16,6 +16,8 @@ const SKID_GRAVEL := "tyre/skid_gravel.wav"
 const WIND := "body/wind.wav"
 const SCRAPE := "body/scrape.wav"
 const BEEPER := "body/reverse_beeper.wav"
+## Water rushing along a boat's hull (Boat).
+const WATER := "body/water_wash.wav"
 
 static var _sets := {}
 static var _loops := {}

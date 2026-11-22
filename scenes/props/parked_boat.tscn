@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/props/prop.gd" id="1_prop"]
+[ext_resource type="PackedScene" path="res://assets/models/boat_body.glb" id="2_body"]
+
+[sub_resource type="BoxShape3D" id="Box_hull"]
+size = Vector3(2.4, 1.2, 5.9)
+
+[sub_resource type="BoxShape3D" id="Box_motor"]
+size = Vector3(0.46, 0.7, 0.68)
+
+[node name="ParkedBoat" type="RigidBody3D"]
+collision_layer = 4
+collision_mask = 7
+mass = 1300.0
+freeze = true
+script = ExtResource("1_prop")
+random_colors = Array[Color]([Color(0.12, 0.3, 0.62, 1), Color(0.72, 0.13, 0.1, 1), Color(0.92, 0.92, 0.9, 1), Color(0.1, 0.42, 0.36, 1), Color(0.86, 0.66, 0.12, 1), Color(0.16, 0.17, 0.19, 1)])
+vehicle_look = true
+drive_scene = "res://scenes/vehicles/boat.tscn"
+
+[node name="HullShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, -0.1)
+shape = SubResource("Box_hull")
+
+[node name="MotorShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 3.3)
+shape = SubResource("Box_motor")
+
+[node name="Model" parent="." instance=ExtResource("2_body")]

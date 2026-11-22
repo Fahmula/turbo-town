@@ -319,6 +319,22 @@ func _flight_readouts(plane: Aircraft) -> void:
 	_hint.visible = warn != ""
 
 
+## A boat's warnings: upside down, stuck on land, far out at sea.
+func _boat_hints(boat: Boat) -> void:
+	var r := "Y" if using_pad else "R"
+	var warn := ""
+	if passenger:
+		warn = ""
+	elif boat.upside_down_time > 1.5:
+		warn = "Upside down? Press %s to flip it over!" % r
+	elif boat.stuck_time > Boat.STRANDED_TIME:
+		warn = "Stuck on land? Press %s to get back in the water!" % r
+	elif turning_back:
+		warn = "Turning back to the island"
+	_hint.text = warn
+	_hint.visible = warn != ""
+
+
 ## Gives the minimap and big map their picture and what to show on it
 ## (`stations`: the places to fill up, see Game._fuel_stations).
 func setup_map(map: WorldMap, traffic: TrafficManager, spots: Array, stations: Array = []) -> void:
@@ -519,7 +535,7 @@ func _process(dt: float) -> void:
 		return
 	speedometer.speed_kmh = vehicle.speed_kmh
 	speedometer.rpm_fraction = vehicle.engine_rpm / vehicle.redline_rpm
-	speedometer.gear_text = "R" if vehicle.gear < 0 else str(vehicle.gear)
+	speedometer.gear_text = "R" if vehicle.gear < 0 else ("F" if vehicle is Boat else str(vehicle.gear))
 	speedometer.assists_on = vehicle.traction_control
 	# The fuel gauge: the driver's (a passenger has none).
 	var fuel := VehicleFuel.of(vehicle)
@@ -528,6 +544,8 @@ func _process(dt: float) -> void:
 	var plane := vehicle as Aircraft
 	if flying and plane:
 		_flight_readouts(plane)
+	elif vehicle is Boat:
+		_boat_hints(vehicle as Boat)
 	else:
 		_hint.text = "Upside down? Press R to flip your car!"
 		_hint.visible = vehicle.upside_down_time > 1.5 and not passenger

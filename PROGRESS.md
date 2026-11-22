@@ -199,7 +199,8 @@ The owner's son wants to fly planes (owner, 2026-10-05).
 ### Ideas for later (not started)
 - [ ] Rings to fly through / an air race; a trick score for loops and rolls
 - [ ] Smoke trails for airshow tricks; a parachute jump out of the plane
-- [~] More aircraft: a helicopter (done, `feat/helicopter`), a seaplane landing on the sea, a small jet
+- [~] More aircraft: a helicopter (done, `feat/helicopter`), a seaplane landing on the sea (the sea floats boats
+      now, `feat/boats`), a small jet
 - [ ] Parts that fall off in crashes (propeller, wheel fairings)
 - [ ] A longer runway (it's 240 m: fine for this plane, short for a beginner's landing)
 
@@ -522,7 +523,7 @@ not. In the game it's the "Electric Pickup".
 
 ---
 
-## Fuel and charging (in progress)
+## Fuel and charging (released in 1.6.0)
 
 The owner's son wants to fuel and charge the vehicles (owner, 2026-11-15). It's
 also the first step toward going inside buildings: the TURBO FUEL shop
@@ -629,7 +630,7 @@ your own, and the town feels alive around you.
 - [ ] Walk into the TURBO FUEL shop: the first building with an inside
       (counter, snack shelves, a fridge), a few special buildings after it
 - [ ] Coins (from jobs like taxi or pizza delivery) that pay for fill-ups
-- [ ] A tow truck when you're empty; a fuel tanker you can drive; boats
+- [ ] A tow truck when you're empty; a fuel tanker you can drive; boats (a speedboat: `feat/boats`)
       refuelling at the harbour
 
 ### Questions for the owner
@@ -640,6 +641,60 @@ your own, and the town feels alive around you.
       10 minutes (owner, 2026-11-15)
 
 ---
+
+## Boats (branch `feat/boats`, not released)
+
+The owner's son wants boats (owner, 2026-11-21: "my son would like to have boats in the game ... or at
+least a boat"). The owner left it to run overnight. It's the "sail anything" in the game's direction (a
+little town where you can drive, fly or sail anything).
+
+### Done (branch `feat/boats`, off `main` 1.6.0)
+- [x] Model: `tools/blender/make_boat.py`, a generic 6 m sport runabout (deep-V hull, white bottom, dark
+      boot stripe, painted topsides, rub rail, non-skid foredeck with a bow rail, wrap-round windscreen,
+      helm and passenger consoles, bucket seats, rear bench, swim platforms, a big outboard that turns as
+      you steer, bow and stern lights, optional hull stripes). Every mesh under 3k vertices
+- [x] `Boat` (a `Vehicle`): floats on 25 hull points (buoyancy scaled so its origin is the water line,
+      centre of mass over the centre of buoyancy), keel grip across the hull and little drag along it,
+      planing (the bow lifts, then levels out, less of the hull wet), outboard thrust while the propeller
+      is in the water (it races in the air), reverse thrust to stop and back up, kid steering (the stick
+      asks for a turn rate, a little even standing still), leans into turns, A / Space power slide,
+      slows quickly when you let go. 0-50 km/h in 3.3 s, about 75 km/h flat out
+- [x] It drives with the car's buttons and chase camera (no new rig); HUD gear F / R, hints for upside
+      down, stuck on land and the island's edge; a "Hold RT to go" tip; the chase camera never dips
+      under the sea
+- [x] Help button (Y / R): upright where it floats, or off a beach into the nearest open water; with
+      assists on it rights itself after a moment upside down; sand stops it a boat length or two up a
+      beach; left alone it stays put (moored); far out at sea it turns back
+- [x] The marina at the harbour: a floating pontoon off the quay with three finger berths, a gangway
+      down from the quay under a BOATS sign, cleats, lamps, a lifebuoy; two speedboats tied up bow-out
+      (walk up and get in); the basin dredged to 2.2 m and the strip of sand at the quay wall's foot gone
+- [x] Getting in from a pontoon, pier or beach (a step down into it); getting out only where there's
+      somewhere to step ("Steer to a pier or a beach to get out!"); a passenger the same ("Wait until
+      Player 1 gets to a pier or a beach!")
+- [x] Garage: on the water nearest you; a car picked out at sea goes to the nearest teleport spot on land;
+      paint, finishes, stripes, decals, numbers, horn (no wheels, kits, two-tone or underglow); not
+      remembered as the start vehicle. Teleports go to the open water nearest the place
+      (`MapLayout.BOAT_SPOTS`); X meets the other player on the water
+- [x] Three floating jump ramps (`MapLayout.BOAT_RAMPS`): air tricks and stunt points like a car, a splash
+      on landing
+- [x] Fuel: a boats-only fuel cabinet on the marina's pontoon ("Low fuel! Fill up at the marina"); empty,
+      it crawls home at 40 km/h
+- [x] Effects: a foam wake that opens into a V and fades (one draw call, the sea's foam texture), bow
+      spray, prop wash, a rooster tail flat out, a splash on landing
+- [x] Sound: a synthesised V6 outboard (`synth.outboard`, start-up), water along the hull, splashes, the
+      truck's air horn pitched down
+- [x] World: the harbour's pier piles and the islet bridge's pillars are solid now (boats go under them);
+      two of the old static moored boats made way for the marina
+- [x] Tests: `--boat` (checks and shots), `--boatbench` (the effects' cost); regressions pass
+- [ ] Owner review, then the son on the Deck
+
+### Ideas for later (not started)
+- [ ] Waves and swell (the sea is flat: physics and looks agree for now)
+- [ ] More boats: a jet ski, a sailboat, a fishing boat, the seaplane from the flying ideas
+- [ ] A buoy course or a boat race round the island; races for two
+- [ ] Water-skiing or a tube towed behind the boat; swimming instead of respawning
+- [ ] Boats in "traffic": a ferry and fishing boats going along the coast
+- [ ] Hiding the sea inside the hull when it digs in hard after a big jump (a depth mask)
 
 ## Backlog
 
@@ -824,3 +879,5 @@ your own, and the town feels alive around you.
 - 2026-11-09 — Helicopter, owner feedback: no more "tap tap tap" on getting in, a gentler nose lean, faster
   blades.
 - 2026-11-09 — Helicopter: no "yo-yo" when going up or down while flying forward or back.
+- 2026-11-21 — Boats (`feat/boats` branch): a speedboat that floats, planes and slides, a marina with parked boats
+  and a fuel pump, jump ramps on the sea.

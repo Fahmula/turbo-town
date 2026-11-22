@@ -14,9 +14,12 @@ const ULTRA := 3
 ## Split-screen draws the world twice: Medium keeps two shadow splits over a
 ## shorter distance there (ART_BIBLE.md §27). Off only for --splitbench A/B.
 static var split_trims := true
+## The level last applied (effects that scale with it read this).
+static var current := HIGH
 
 
 static func apply(level: int, viewport: Viewport, world: Node) -> void:
+	current = level
 	var env_node := world.get_node_or_null("WorldEnvironment") as WorldEnvironment
 	var sun := world.get_node_or_null("Sun") as DirectionalLight3D
 	var env := env_node.environment if env_node else null

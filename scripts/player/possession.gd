@@ -61,8 +61,9 @@ var ride: Vehicle
 var interactable: Interactable
 var blend: CameraBlend
 ## Kind -> {"controller": Node with control(pawn), "camera": Camera3D with
-## set_target(pawn)}. Game fills it in setup() and add_rig() (planes); a new
-## kind of pawn (a boat...) adds its own rig the same way.
+## set_target(pawn)}. Game fills it in setup() and add_rig() (planes, the
+## helicopter); a new kind of pawn that needs other controls adds its own rig
+## the same way (the boat drives with the car's).
 var rigs := {}
 
 var _scan := 0.0
@@ -357,7 +358,10 @@ func leave_ride() -> bool:
 	var entry := VehicleEntry.of(v)
 	var spot: Variant = entry.find_exit(character, true) if entry else null
 	if spot == null:
-		_toast("No room to get out here!")
+		if v is Boat:
+			_toast(("Wait until %s gets to a pier or a beach!" % driver) if driver != "" else "Out at sea: no way off here!")
+		else:
+			_toast("No room to get out here!")
 		return true
 	_step_off(spot, true)
 	return true
@@ -448,6 +452,11 @@ func exit() -> bool:
 		# No getting out of a flying plane: land it first.
 		if player:
 			player.hud.show_toast(("Land the %s first!" % VehicleEntry.in_sentence(plane.display_name)) if not plane.on_ground else "Slow down first!", 2.0)
+		return true
+	if vehicle is Boat and VehicleEntry.of(vehicle).find_exit(character) == null:
+		# Out at sea: there's nowhere to step off.
+		if player:
+			player.hud.show_toast("Steer to a pier or a beach to get out!", 2.5)
 		return true
 	mode = Mode.EXITING
 	_exit_time = 0.0

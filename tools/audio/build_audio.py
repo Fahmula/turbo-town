@@ -10,6 +10,7 @@ Run from the project root:
     python3 tools/audio/build_audio.py weather    # only the rain and thunder
     python3 tools/audio/build_audio.py horns      # only the garage's fun horns
     python3 tools/audio/build_audio.py fuel       # only the fuel pumps and chargers
+    python3 tools/audio/build_audio.py boat       # only the speedboat's motor and water
 
 Needs NumPy and ffmpeg. Third-party recordings are downloaded once into
 build/audio_sources/ (gitignored) from the URLs in sources.py and checked
@@ -43,6 +44,8 @@ SHOT_PEAK_DB = -1.0
 LOOPS = set()      # loops written this run (for the log)
 # The electric motor's loops (profiles.SYNTH_SETS["electric"] lists the same).
 ELECTRIC_RPMS = (300, 700, 1600, 3500, 7000, 14000)
+# The outboard's loops (profiles.SYNTH_SETS["outboard"] lists the same).
+BOAT_RPMS = (750, 1500, 3000, 4500, 6000)
 
 
 def write(rel, x, loop=False, rate=dsp.RATE):
@@ -113,6 +116,16 @@ def build_synth():
     write("tyre/roll_asphalt.wav", synth.road_roar(), loop=True, rate=32000)
 
 
+def build_boat():
+    """The speedboat: its outboard motor (an engine set like the recorded
+    ones, on-load loops only), its start-up, and water along the hull."""
+    print("boat:")
+    for rpm in BOAT_RPMS:
+        write("engine/outboard/on_%d.wav" % rpm, synth.outboard(rpm), loop=True, rate=32000)
+    write("engine/outboard/startup.wav", synth.outboard_start())
+    write("body/water_wash.wav", synth.water_wash(), loop=True, rate=32000)
+
+
 def build_fuel():
     """The fuel pumps and chargers (FuelPump): nozzle click, the "full" ding,
     fuel flowing in, a charger humming."""
@@ -138,7 +151,7 @@ def build_horns():
 # Which files loop (every run marks them, whatever it rebuilt).
 LOOP_PATTERNS = ["engine/*/on_*.wav", "engine/*/off_*.wav", "engine/*_whine.wav", "engine/propeller.wav", "engine/rotor.wav",
                  "tyre/*.wav", "horn/*.wav",
-                 "body/wind.wav", "body/scrape.wav", "body/reverse_beeper.wav", "weather/rain*.wav",
+                 "body/wind.wav", "body/scrape.wav", "body/reverse_beeper.wav", "body/water_wash.wav", "weather/rain*.wav",
                  "fuel/fuel_flow.wav", "fuel/charger_hum.wav"]
 
 
@@ -178,6 +191,8 @@ def main(args):
         build_horns()
     if "fuel" in parts or "synth" in parts:
         build_fuel()
+    if "boat" in parts or "synth" in parts:
+        build_boat()
     if "recorded" in parts:
         import recorded
         recorded.build(write, fetch)

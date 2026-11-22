@@ -24,7 +24,7 @@ var _strength := 1.0
 ## or takes it off ("off").
 static func fit(v: Vehicle, o: Dictionary) -> void:
 	var old := v.get_node_or_null("Underglow")
-	var on: bool = not o.is_empty() and o["id"] != "off" and not (v is Aircraft)
+	var on: bool = not o.is_empty() and o["id"] != "off" and not (v is Aircraft or v is Boat)
 	if not on:
 		if old:
 			v.remove_child(old)

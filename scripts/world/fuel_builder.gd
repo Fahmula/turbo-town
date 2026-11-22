@@ -9,6 +9,7 @@ extends RefCounted
 ##   green bays at the west end of the first row.
 ## * The airfield: a fuel cabinet with a hose reel on the apron.
 ## * Each helipad: a small fuel cabinet on its south side, clear of the rotor.
+## * The marina: a fuel cabinet on the pontoon's north end, for boats only.
 ## The props are new geometry here (FuelKit); the hoses and their handles
 ## are the sites' own (FuelPump), only made when the game runs.
 
@@ -17,6 +18,7 @@ const STATION_LEAD := 5.0
 const CHARGER_LEAD := 5.5
 const AIR_LEAD := 9.0
 const HELIPAD_LEAD := 9.5
+const MARINA_LEAD := 8.0
 
 var _make_sites := not Engine.is_editor_hint()
 
@@ -34,6 +36,7 @@ func build(parent: Node3D) -> void:
 	_airfield(root)
 	for pad: Vector3 in [MapLayout.HELIPAD_A, MapLayout.HELIPAD_B]:
 		_helipad(root, pad)
+	_marina(root)
 
 
 func _site(root: Node3D, site_name: String, kind: VehicleFuel.Kind, title: String) -> FuelSite:
@@ -164,6 +167,26 @@ func _helipad(root: Node3D, pad: Vector3) -> void:
 		s.for_planes = true
 		s.add_pump(parts[0], parts[1], HELIPAD_LEAD, pad.y + 0.03, _cabinet_screen(xf))
 	_props(root, "HelipadFuelProps%s" % ("A" if pad == MapLayout.HELIPAD_A else "B"), mb, body)
+
+
+# ----------------------------------------------------------------- boats --
+
+## The marina's fuel cabinet on the pontoon's north end, its hose reel
+## toward the berths (boats pull up alongside the first finger or the
+## pontoon's west side).
+func _marina(root: Node3D) -> void:
+	var mb := MeshBuilder.new()
+	var body := StaticBody3D.new()
+	# Facing west (its front, with the screen and the holster, toward the water).
+	var at := Vector3(MapLayout.MARINA_X + 0.35, MapLayout.MARINA_DECK, MapLayout.MARINA_Z0 + 1.3)
+	var xf := Transform3D(Basis(Vector3.UP, PI * 0.5), at)
+	var parts := FuelKit.add_air_pump(mb, body, xf)
+	var s := _site(root, "MarinaFuel", VehicleFuel.Kind.FUEL, "Marina fuel")
+	if s:
+		s.for_cars = false
+		s.for_boats = true
+		s.add_pump(parts[0], parts[1], MARINA_LEAD, MapLayout.MARINA_DECK, _cabinet_screen(xf))
+	_props(root, "MarinaFuelProps", mb, body)
 
 
 static func _cabinet_screen(xf: Transform3D) -> Transform3D:

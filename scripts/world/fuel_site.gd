@@ -15,6 +15,8 @@ var kind := VehicleFuel.Kind.FUEL
 ## (the airfield and the helipads); helicopters can land at any fuel site.
 var for_cars := true
 var for_planes := false
+## A marina's pump: only boats can get to it (and only it serves them).
+var for_boats := false
 var title := "Gas station"
 var pumps: Array[FuelPump] = []
 
@@ -70,6 +72,10 @@ func serves(v: Vehicle) -> bool:
 	if v == null:
 		return false
 	if (kind == VehicleFuel.Kind.BATTERY) != v.electric:
+		return false
+	if v is Boat:
+		return for_boats
+	if for_boats:
 		return false
 	if v is Helicopter:
 		return true

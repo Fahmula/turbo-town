@@ -332,10 +332,11 @@ func _fill_car_page(page: VBoxContainer) -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 18)
 	page.add_child(gap)
-	var tip := UiKit.text("Make it yours! Change the paint and the wheels on the next tabs.", 20, ACCENT)
+	var tip := UiKit.text(TIP_WHEELS, 20, ACCENT)
 	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tip.custom_minimum_size = Vector2(460, 0)
 	page.add_child(tip)
+	_tip_label = tip
 
 
 func _arrow_button(dir: int) -> Button:
@@ -608,6 +609,11 @@ func _confirm() -> void:
 	picked.emit(i)
 
 
+const TIP_WHEELS := "Make it yours! Change the paint and the wheels on the next tabs."
+const TIP_BOAT := "Make it yours! Change the paint and the decals on the next tabs."
+var _tip_label: Label
+
+
 ## Puts the selected vehicle on the turntable and updates the text.
 func _show_vehicle() -> void:
 	if _car:
@@ -643,6 +649,8 @@ func _show_vehicle() -> void:
 	_count_label.text = "%02d / %02d" % [index + 1, VehicleCatalog.count()]
 	var noun: String = String(e["name"]).split(" ")[-1].to_upper()
 	_drive_label.text = ("FLY THIS %s" % noun) if e.get("air", false) else "DRIVE THIS %s" % noun
+	if _tip_label:
+		_tip_label.text = TIP_BOAT if e.get("water", false) else TIP_WHEELS
 	for s in VehicleCatalog.STATS.size():
 		var value: int = e[VehicleCatalog.STATS[s][0]]
 		var cells: Array = _stat_cells[s]
@@ -751,6 +759,11 @@ func _refresh_rows() -> void:
 ## Why `slot` can't be changed on `car` right now ("" = it can).
 static func why_not(slot: String, l: Loadout, car: Vehicle) -> String:
 	var body := car.get_node_or_null("Body") as VehicleBodyVisual if car else null
+	if car is Boat:
+		if slot in Loadout.WHEEL_SLOTS:
+			return "Boats have no wheels"
+		if PartsCatalog.is_body_slot(slot) or slot in ["two_tone", "tone_color", "underglow"]:
+			return "Not on boats"
 	if car is Aircraft:
 		var what := "helicopters" if car is Helicopter else "planes"
 		if slot in Loadout.WHEEL_SLOTS:

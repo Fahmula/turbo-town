@@ -271,6 +271,77 @@ def electric_start(seed=141):
     return dsp.fade(dsp.normalize_peak(x, -9.0), 0.005, 0.05)
 
 
+def outboard(rpm, seconds=1.0, seed=151):
+    """The speedboat's outboard motor (a V6 four-stroke) at `rpm`
+    (Boat.engine_rpm: 750 idling, 6,000 flat out): firing pulses three times
+    a turn (rpm / 20 Hz) as a buzzy note with one bank of cylinders a little
+    stronger (a third sub-harmonic: the lumpy idle), the exhaust bubbling
+    out through the propeller hub (a wet burble that fades as the revs
+    climb), the gearcase's whine and the intake's hiss on top. Cut below
+    ~70 Hz and lifted round 300-600 Hz so the Steam Deck's small speakers
+    still carry it (owner, 2026-10-02)."""
+    n = int(seconds * R)
+    t = _t(seconds)
+    cycles = max(3, round(rpm / 20.0 * seconds / 3.0) * 3)
+    f = cycles / seconds
+    buzz = np.zeros(n)
+    for k in range(1, 48):
+        if f * k > 9000.0:
+            break
+        buzz += np.sin(2 * np.pi * f * k * t + 0.7 * k) / k ** 0.8
+    lump = _loop_sine(f / 3.0, seconds) + 0.6 * _loop_sine(2.0 * f / 3.0, seconds, 0.4)
+    buzz = buzz * (1.0 + 0.25 * _lfo(seconds, cycles // 3, 0.9))
+    pulse = (0.5 + 0.5 * np.sin(2 * np.pi * f * t)) ** 4
+    burble = dsp.lowpass(dsp.noise(n, seed, "pink"), 900, 2) * (0.35 + pulse)
+    whine = _loop_sine(rpm / 60.0 * 14.0, seconds) + 0.3 * _loop_sine(rpm / 60.0 * 28.0, seconds, 0.6)
+    hiss = dsp.bandpass(dsp.noise(n, seed + 1), 3000, 8000, 2)
+    hi = min(rpm / 6000.0, 1.0)
+    x = (dsp.normalize_rms(buzz, -20) + dsp.normalize_rms(lump, -27 + 4 * (1 - hi))
+         + dsp.normalize_rms(burble, -22 - 8 * hi) + dsp.normalize_rms(whine, -36 + 6 * hi)
+         + dsp.normalize_rms(hiss, -40 + 8 * hi))
+    x = dsp.peaks(dsp.highpass(x, 70, 2), [(420, 1.0, 0.5)])
+    return dsp.normalize_rms(x, -18.0)
+
+
+def outboard_start(seed=171):
+    """The outboard starting (1.3 s): the starter cranking it over (a whirr
+    and compression pulses), it catches with a burst of revs and settles to
+    the 750 rpm loop it hands over to."""
+    s = 1.3
+    n = int(s * R)
+    t = _t(s)
+    crank = _sweep(lambda tt: np.full_like(tt, 13.0), s, harmonics=20) * dsp.envelope(n, [(0, 0), (0.05, 1), (0.55, 1), (0.62, 0)])
+    whirr = _sweep(lambda tt: np.interp(tt, [0.0, 0.5], [700.0, 1000.0]), s, harmonics=4) * dsp.envelope(n, [(0, 0), (0.04, 0.5), (0.55, 0.5), (0.6, 0)])
+    # Firing rate (rpm / 20 Hz): 300 rpm cranking, a burst to 1,900, then 760.
+    catch = _sweep(lambda tt: np.interp(tt, [0.0, 0.55, 0.75, 1.3], [15.0, 15.0, 95.0, 38.0]), s, harmonics=40)
+    catch = catch * dsp.envelope(n, [(0, 0), (0.55, 0), (0.6, 1.0), (1.3, 0.8)])
+    burble = dsp.lowpass(dsp.noise(n, seed, "pink"), 900, 2) * dsp.envelope(n, [(0, 0), (0.58, 0), (0.7, 1.0), (1.3, 0.7)])
+    x = (dsp.normalize_rms(crank, -26) + dsp.normalize_rms(whirr, -32) + dsp.normalize_rms(catch, -20)
+         + dsp.normalize_rms(burble, -24))
+    x = dsp.highpass(x, 70, 2)
+    return dsp.fade(dsp.normalize_peak(x, -9.0), 0.005, 0.08)
+
+
+def water_wash(seconds=4.0, seed=181):
+    """Water rushing along a hull, as heard from the chase camera: a dark,
+    swelling wash with soft slaps of chop against the bow. Kept dark (no
+    hiss on top: the owner dislikes road hiss, 2026-10-02)."""
+    n = int(seconds * R)
+    rng = np.random.default_rng(seed)
+    wash = dsp.bandpass(dsp.noise(n, seed, "pink"), 180, 1500, 2)
+    swell = 1.0 + 0.3 * _lfo(seconds, 3, 0.2) + 0.18 * _lfo(seconds, 7, 1.3)
+    slap = np.zeros(n)
+    m = int(0.14 * R)
+    tt = np.arange(m) / R
+    env = np.minimum(tt / 0.012, 1.0) * np.exp(-tt * 22.0)      # soft onset: thumps, not clicks
+    for _ in range(int(seconds * 5)):
+        idx = (int(rng.integers(0, n)) + np.arange(m)) % n     # wraps: seamless
+        slap[idx] += rng.standard_normal(m) * env * rng.uniform(0.3, 1.0)
+    slap = dsp.lowpass(slap.astype(np.float32), 900, 2)
+    x = dsp.normalize_rms(wash * swell, -21) + dsp.normalize_rms(slap, -29)
+    return dsp.normalize_rms(dsp.highpass(x, 60, 2), -20.0)
+
+
 def horn(freqs, seconds=1.0, formants=((1600, 2.0, 1.0), (3100, 3.0, 0.6)), brass=0.0, seed=71):
     """Horn loop: buzzy (sawtooth-like, band-limited) tones through the
     diaphragm/trumpet formants. Electric car horns are two tones a third or

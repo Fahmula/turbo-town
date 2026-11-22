@@ -32,7 +32,7 @@ func run() -> void:
 	for i in VehicleCatalog.count():
 		var e: Dictionary = VehicleCatalog.ENTRIES[i]
 		var vid: String = e["id"]
-		if e.get("air", false) or (not _only.is_empty() and not _only.has(vid)):
+		if e.get("air", false) or e.get("water", false) or (not _only.is_empty() and not _only.has(vid)):
 			continue
 		_show(p, i)
 		await wait(20)
@@ -123,6 +123,24 @@ func run() -> void:
 	await wait(5)
 	for slot in ["spoiler", "decal", "underglow", "horn"]:
 		check(VehiclePicker.why_not(slot, p.loadout(), p._car) == "Not on planes", "plane: %s row greyed out" % slot)
+	# --- The boat: paint, decals, numbers and a horn; no kits, wheels, two-tone or underglow
+	var boat := VehicleCatalog.index_of_id("boat")
+	if _only.is_empty() or _only.has("boat"):
+		_show(p, boat)
+		await wait(5)
+		for slot in ["spoiler", "two_tone", "underglow"]:
+			check(VehiclePicker.why_not(slot, p.loadout(), p._car) == "Not on boats", "boat: %s row greyed out" % slot)
+		check(VehiclePicker.why_not("rims", p.loadout(), p._car) == "Boats have no wheels", "boat: no wheel rows")
+		for slot in ["finish", "stripes", "decal", "number", "horn"]:
+			check(VehiclePicker.why_not(slot, p.loadout(), p._car) == "", "boat: %s row works" % slot)
+		await _pick(p, "decal", "flames")
+		await _pick(p, "number", "7")
+		await _pick(p, "finish", "metallic")
+		await wait(10)
+		await shot("boat_decal_number")
+		await _pick(p, "decal", "none")
+		await _pick(p, "number", "none")
+		await _pick(p, "finish", "stock")
 	# Back out the way the player does (Game unpauses and keeps the car).
 	p.close()
 	p.cancelled.emit()

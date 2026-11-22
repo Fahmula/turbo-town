@@ -90,7 +90,7 @@ func status_text() -> String:
 ## player's vehicle, getting them into it if they're on foot).
 func start(index: int) -> void:
 	end_race(false)
-	if game.vehicle is Aircraft:
+	if game.vehicle is Aircraft or game.vehicle is Boat:
 		game.hud.show_toast("Races are for cars! Pick one in the garage (V)", 3.0)
 		return
 	game.ensure_driving()
@@ -166,8 +166,9 @@ func on_teleport() -> void:
 
 
 func _check_start_circles(v: Vehicle) -> void:
-	# Races are for road vehicles (a plane rolling through a circle is just taxiing).
-	var allowed := game.state == Game.State.DRIVING and _skip_check <= 0 and game.driving() and not (v is Aircraft)
+	# Races are for road vehicles (a plane rolling through a circle is just
+	# taxiing; a boat can't get there).
+	var allowed := game.state == Game.State.DRIVING and _skip_check <= 0 and game.driving() and not (v is Aircraft or v is Boat)
 	_skip_check -= 1
 	for i in races.size():
 		var inside := v.global_position.distance_to((races[i]["start"] as Transform3D).origin) < START_RADIUS
