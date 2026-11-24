@@ -9,6 +9,14 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.7.0](https://github.com/Fahmula/turbo-town/compare/v1.6.0...v1.7.0) (2026-11-24)
+
+
+### New stuff
+
+* a marina at the harbour with parked speedboats and a boat fuel pump, and three floating jump ramps out on the sea ([dee6a6d](https://github.com/Fahmula/turbo-town/commit/dee6a6de004c2b4b00e1031f2a59921e2450abc8))
+* a speedboat! Pick it in the garage or take one from the new marina at the harbour: it skims across the sea, leans into turns, power-slides and leaves a foamy wake ([dee6a6d](https://github.com/Fahmula/turbo-town/commit/dee6a6de004c2b4b00e1031f2a59921e2450abc8))
+
 ## [1.6.0](https://github.com/Fahmula/turbo-town/compare/v1.5.0...v1.6.0) (2026-11-15)
 
 
