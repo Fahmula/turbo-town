@@ -137,6 +137,47 @@ const TUNNEL_HILL_HALF_WIDTH := 32.0
 const HARBOR_QUAY_A := Vector3(-392, 1.2, -200)
 const HARBOR_QUAY_B := Vector3(-392, 1.2, -280)
 
+# --- Marina: boats (LandmarksBuilder._build_marina) ---
+## A floating pontoon off the quay between the first two piers (its centre
+## line x, ends z, width, deck height just above the water), reached by a
+## gangway down from the quay. Finger berths run west from it (their centre
+## lines z), so moored boats lie bow-out toward the open sea. The sea floor is
+## dredged round it (MARINA_BASIN: x0, z0, x1, z1; TerrainBuilder).
+const MARINA_X := -423.0
+const MARINA_Z0 := -236.0
+const MARINA_Z1 := -219.0
+const MARINA_WIDTH := 2.8
+const MARINA_DECK := -0.75   # SEA_LEVEL + 0.45
+const MARINA_FINGERS: Array[float] = [-235.4, -227.5, -219.6]
+const MARINA_FINGER_LENGTH := 7.0
+const MARINA_FINGER_WIDTH := 1.2
+const MARINA_GANGWAY_Z := -229.5
+const MARINA_BASIN := Vector4(-447.0, -239.0, -419.0, -216.0)
+## Where the two parked speedboats lie (their origin, on the water line),
+## bow to the west, one along each outer finger.
+const MARINA_BERTHS: Array[Vector2] = [Vector2(-428.6, -233.12), Vector2(-428.6, -221.88)]
+## Open water where a boat is put (the garage, teleports, the help button
+## off a beach): x, z and the way it faces (x, z). The marina's channel
+## first.
+const BOAT_SPOTS: Array[Vector4] = [
+	Vector4(-441.0, -227.5, -1.0, 0.0),     # Harbour: the marina's channel, heading out
+	Vector4(-460.0, 26.0, 0.0, 1.0),        # off the west beach, south of the islet bridge
+	Vector4(-530.0, 58.0, -1.0, 0.0),       # south of Lighthouse Island
+	Vector4(0.0, 612.0, 1.0, 0.0),          # off the stunt park, south coast
+	Vector4(612.0, 0.0, 0.0, 1.0),          # off the dirt fields, east coast
+	Vector4(560.0, 470.0, -0.7, 0.7),       # south-east, past the airfield
+	Vector4(0.0, -632.0, -1.0, 0.0),        # under the mountain, north coast
+	Vector4(-420.0, 520.0, 0.6, 0.8),       # south-west
+]
+
+## Floating jump ramps for boats (their low lip just under the water, rising
+## the way they face): x, z and the way they face (x, z).
+const BOAT_RAMPS: Array[Vector4] = [
+	Vector4(-500.0, -244.0, -1.0, 0.0),     # off the marina's mouth
+	Vector4(-460.0, 72.0, 0.0, 1.0),        # ahead of the west beach spot
+	Vector4(70.0, 612.0, 1.0, 0.0),         # ahead of the south coast spot
+]
+
 # --- Lighthouse islet off the west beach, joined by a bridge ---
 const ISLET_CENTER := Vector2(-528, 0)
 const ISLET_RADIUS := 30.0

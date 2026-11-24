@@ -96,6 +96,13 @@ func base_height(x: float, z: float) -> float:
 	# Island shoreline.
 	h = lerpf(h, -6.5, shore_factor(x, z))
 
+	# The marina's basin, dredged so boats float right up to the pontoon
+	# (only ever deeper, never shallower).
+	var mbs := MapLayout.MARINA_BASIN
+	var basin := _rect_mask(x, z, Vector2(mbs.x, mbs.y), Vector2(mbs.z, mbs.w), 6.0)
+	if basin > 0.0:
+		h = minf(h, lerpf(h, -3.4, basin))
+
 	# Lighthouse islet out in the sea to the west.
 	var di := Vector2(x, z).distance_to(MapLayout.ISLET_CENTER)
 	if di < MapLayout.ISLET_RADIUS + 25.0:
@@ -199,6 +206,28 @@ func apply_raster() -> void:
 		var w := _road_w[idx]
 		if w > 0.0:
 			heights[idx] = lerpf(heights[idx], _road_h[idx], w)
+	_dredge_quay()
+
+
+## The harbour's quay wall stands in water: its flattened ground reaches a
+## cell past the wall, which left a strip of sand at the wall's foot (and in
+## front of the marina). Only ever deeper.
+func _dredge_quay() -> void:
+	var qa := MapLayout.HARBOR_QUAY_A
+	var qb := MapLayout.HARBOR_QUAY_B
+	var x0 := qa.x - 34.0
+	var x1 := qa.x - 19.6
+	var z0 := minf(qa.z, qb.z) - 2.0
+	var z1 := maxf(qa.z, qb.z) + 2.0
+	var floor_y := MapLayout.SEA_LEVEL - 1.6
+	for j in n:
+		var z := -half + j * cell
+		if z < z0 or z > z1:
+			continue
+		for i in n:
+			var x := -half + i * cell
+			if x >= x0 and x <= x1:
+				heights[j * n + i] = minf(heights[j * n + i], floor_y)
 
 
 # --------------------------------------------------------------- sampling ---

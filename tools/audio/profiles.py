@@ -85,12 +85,19 @@ PROFILES = {
     "heli": dict(engine="turbine", rpm_scale=1.0, engine_volume_db=-7.0, rpm_gain_db=5.0, load_gain_db=2.0,
                  startup_catch=2.4,
                  propeller="engine/rotor.wav", propeller_rpm=5580.0, propeller_volume_db=-1.0, size=1.8),
+    # Speedboat: a synthesised V6 outboard (buzzy, a wet burble low down),
+    # loud like a sports car's engine; the truck's air horn pitched down for
+    # a deep boat horn.
+    "boat": dict(engine="outboard", rpm_scale=1.0, engine_volume_db=-1.0, rpm_gain_db=5.0, load_gain_db=3.0,
+                 startup_catch=0.75,
+                 horn="horn/air.wav", horn_volume_db=-8.0, horn_pitch=0.8, size=1.5),
 }
 
 ## Engine sets made by synth.py rather than recorded (on-load loops only).
 SYNTH_SETS = {
     "turbine": {"on": [(r, "engine/turbine/on_%d.wav" % r) for r in (1500, 3000, 6000)], "off": []},
     "electric": {"on": [(r, "engine/electric/on_%d.wav" % r) for r in (300, 700, 1600, 3500, 7000, 14000)], "off": []},
+    "outboard": {"on": [(r, "engine/outboard/on_%d.wav" % r) for r in (750, 1500, 3000, 4500, 6000)], "off": []},
 }
 
 SCRIPT = "res://scripts/vehicle/audio/vehicle_sound_profile.gd"

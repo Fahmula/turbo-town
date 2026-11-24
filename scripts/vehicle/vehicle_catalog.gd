@@ -90,6 +90,15 @@ const ENTRIES := [
 		"speed": 4, "accel": 4, "handling": 5, "smash": 1,
 		"air": true, "stripes": true,
 	},
+	{
+		# A speedboat (Boat, "water"): it floats, so picking it puts it on the
+		# nearest open water (by the marina when you're in town); it isn't
+		# remembered as the vehicle you start with.
+		"id": "boat", "scene": "res://scenes/vehicles/boat.tscn",
+		"name": "Speedboat", "blurb": "Zoom across the sea, power-slide round the buoys and jump the ramps!",
+		"speed": 3, "accel": 4, "handling": 4, "smash": 2,
+		"water": true, "stripes": true,
+	},
 ]
 
 ## Stat keys and the labels shown for them.
@@ -127,6 +136,15 @@ static func scene_value(index: int, node_path: String, property: String, fallbac
 			if state.get_node_property_name(n, p) == property:
 				return state.get_node_property_value(n, p)
 	return fallback
+
+
+## Planes, the helicopter and the boat start somewhere special (a runway,
+## open water): they're never remembered as the vehicle a session starts in.
+static func is_special(index: int) -> bool:
+	if index < 0 or index >= ENTRIES.size():
+		return false
+	var e: Dictionary = ENTRIES[index]
+	return e.get("air", false) or e.get("water", false)
 
 
 static func index_of_id(id: String) -> int:

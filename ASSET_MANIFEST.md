@@ -192,7 +192,9 @@ rotors (`engine/turbine/`, `engine/rotor.wav`), the electric SUV's (and
 electric pickup's) motor and switch-on chime (`engine/electric/`), and the garage's extra horns (`horn/klaxon.wav`,
 `tune.wav` (a made-up fanfare), `clown.wav`, `train.wav`; `build_audio.py horns`),
 and the fuel pumps and chargers (`fuel/`: the nozzle's click, the "full"
-ding, fuel flowing in, a charger's hum; `build_audio.py fuel`).
+ding, fuel flowing in, a charger's hum; `build_audio.py fuel`), and the
+speedboat's outboard motor and start-up (`engine/outboard/`) and water along
+its hull (`body/water_wash.wav`; `build_audio.py boat`).
 (Fallbacks kept in the script but not used: tyre squeal, gravel, horns, air brakes.) The engine start-ups mix the recorded starter crank with
 each engine's own idle loop; the glass shatters `glass_7-8` and `tinkle_4-5`
 are cascades built from Kenney's glass hits.
@@ -204,6 +206,7 @@ Garage parts and decals (no third-party material):
 | `assets/models/kits/<vehicle>_kit.glb` | `tools/blender/make_kits.py` | spoilers, bonnets, roof parts and the sports car / sedan body kits, placed on the committed body models |
 | `assets/models/suv_body.glb`, `wheel_aero.glb` | `tools/blender/make_suv.py`, `make_wheels.py` | the electric SUV and its stock wheel (the turbine rim on the sport tyre); a generic shape with an invented badge, no maker's name or logo |
 | `assets/models/electric_pickup_body.glb`, `wheel_facet.glb`, `wheels/rim_facet.glb` | `tools/blender/make_electric_pickup.py`, `make_wheels.py` | the electric pickup and its stock wheel (the facet aero cover on the all-terrain tyre); a generic shape with an invented badge, no maker's name or logo |
+| `assets/models/boat_body.glb` | `tools/blender/make_boat.py` | the speedboat (hull, cockpit, windscreen, fittings, outboard and propeller, hull stripes); a generic sport runabout, no maker's name or logo. The marina, its pontoon and the boat ramps are built in code (`landmarks_builder.gd`, `ramp.gd`) |
 | `assets/textures/vehicle/decals.png` | `tools/textures/make_decals.py` | side graphics (flames, lightning, stars, checkers, speed lines, paint splash): made-up shapes |
 | `assets/textures/vehicle/digits.png` | `tools/textures/make_decals.py` | race-number digits set in Fira Sans ExtraBold (SIL OFL 1.1); only the glyph shapes are in the PNG |
 

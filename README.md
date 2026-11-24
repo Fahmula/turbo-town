@@ -5,7 +5,7 @@
 
 A stylized driving sandbox for the Steam Deck and Linux, made in Godot 4.7.
 Explore a small island on foot, in any car, truck or bus you find, in a
-plane from the airfield or in a helicopter. It has a city, a ring highway with overpasses, a
+plane from the airfield, in a helicopter or in a speedboat from the marina. It has a city, a ring highway with overpasses, a
 mountain road, dirt fields, a beach, a harbour and a stunt park full of
 ramps. Crash, jump, race and customize your ride.
 
@@ -94,7 +94,7 @@ map, help and pause all work on foot too.
 ### Garage
 
 Press **V** (D-pad down). Pick the sports car, sedan, van, delivery truck, bus,
-pickup, buggy, monster truck, electric SUV, electric pickup, plane or helicopter, and set it up. Switch tabs with Q / E
+pickup, buggy, monster truck, electric SUV, electric pickup, plane, helicopter or speedboat, and set it up. Switch tabs with Q / E
 (LB / RB):
 
 | Tab | What you can change |
@@ -110,7 +110,9 @@ pickup, buggy, monster truck, electric SUV, electric pickup, plane or helicopter
   camera turns to the part being changed.
 - Rows that don't fit the shown vehicle are greyed out with the reason. Full
   body kits are on the sports car and sedan, and planes and the helicopter
-  keep their own shape (paint colour and stripes only).
+  keep their own shape (paint colour and stripes only). The speedboat takes
+  paint, finishes, stripes, decals, numbers and a horn, but no wheels, body
+  kits, two-tone or underglow.
 - The **electric SUV** is quick off the line and quiet (a soft hum when slow,
   a whine at speed). Its back doors are gull-wing doors: walk up to it while
   it's standing still and they swing up; they shut when someone drives off
@@ -191,6 +193,35 @@ pickup, buggy, monster truck, electric SUV, electric pickup, plane or helicopter
 - Teleports while flying hover over the place (the Airfield puts it on the
   helipad); far out over the sea it turns back by itself. Races are for cars.
 
+### Speedboat
+
+- Pick the Speedboat in the garage: it goes on the open water nearest to you
+  (from town, off the west beach or by the marina). Two more are tied up in
+  the **marina** at the harbour (teleport: Harbour): walk down the gangway
+  with the BOATS sign onto the pontoon and get in like a car. Like the plane,
+  it isn't remembered as the vehicle you start with.
+- It drives with the car's buttons: RT (W) to go, LT (S) to slow down and,
+  nearly stopped, to back up, the stick to steer. It turns a little even
+  sitting still, for docking. A (Space) is a power slide: the boat skids
+  round in a cloud of spray.
+- At speed it climbs onto the plane (the bow lifts, then levels out), leans
+  into turns and leaves a white wake. Top speed about 75 km/h. Let go and the
+  water slows it down quickly.
+- Three floating orange jump ramps: off the marina's mouth, ahead of the west
+  beach spot and off the south coast. Air tricks work like a car's (A + the
+  stick), and it lands with a splash.
+- Run it up a beach and the sand stops it; Y (R) puts it back in the open
+  water. Upside down it rights itself after a moment (assists on), or press
+  Y (R).
+- You can only get out where there's somewhere to step: the marina's
+  pontoon, a pier, the quay or a beach ("Steer to a pier or a beach to get
+  out!"). Left alone it stays put, as if tied up.
+- Teleports take it to the open water nearest the place; far out at sea it
+  turns back toward the island. Races are for cars. It drives under the
+  lighthouse bridge and the harbour piers (mind the piles).
+- Fuel: fill up at the marina's fuel cabinet on the pontoon (the filler is
+  on the right side, toward the back).
+
 ### Fuel and charging
 
 - Every vehicle you drive has a tank, or a battery for the electric SUV and
@@ -207,8 +238,9 @@ pickup, buggy, monster truck, electric SUV, electric pickup, plane or helicopter
   so it can creep along low to a pump.
 - **Where:** TURBO FUEL by the east avenue (eight hoses) with two EV chargers
   on green bays; chargers in two city car parks; a fuel cabinet on the
-  airfield's apron; one on each helipad. Planes fill up at the airfield;
-  helicopters anywhere with fuel.
+  airfield's apron; one on each helipad; one on the marina's pontoon (for
+  boats only). Planes fill up at the airfield; helicopters anywhere with
+  fuel; boats at the marina.
 - **Filling up yourself:** stop by a pump ("Get out to fill up"), get out,
   and press F / B at the pump to grab the nozzle (or the charging plug). Walk
   to the vehicle's filler (right side at the back; on a plane, the right wing;
@@ -341,6 +373,12 @@ They're saved to `user://settings.cfg`. What is and isn't saved: see
 "Flying controls" in Settings swaps the nose: push up to climb instead of
 pulling back.
 
+### Boating
+
+The speedboat uses the driving buttons: go (RT / W), slow down and back up
+(LT / S), steer, A / Space to power-slide, Y / R to flip it back over or get
+off a beach, B / F to get out at a pontoon, pier or beach.
+
 ### Flying (helicopter)
 
 | Action | Keyboard | Gamepad |
@@ -397,6 +435,7 @@ generated files are committed, so you only need those tools to change them.
 | `scenes/vehicles/plane.tscn` | The sport plane (`Aircraft`), in the garage and parked at the airfield |
 | `scenes/props/parked_plane.tscn` | A parked plane: a cheap prop, swapped for `plane.tscn` when you get in |
 | `scenes/vehicles/helicopter.tscn` | The helicopter (`Helicopter`), in the garage and parked on the airfield's helipad (`scenes/props/parked_helicopter.tscn`) |
+| `scenes/vehicles/boat.tscn` | The speedboat (`Boat`), in the garage and tied up in the marina (`scenes/props/parked_boat.tscn`) |
 | `scenes/world/world.tscn` | Environment, sun, and the WorldBuilder that generates the map |
 | `scenes/props/` | Cone, barrel, crate, bowling pin, lamp, traffic light, parked cars (drivable: `drive_scene`), and the parametric Ramp |
 | `scenes/dev/physics_test.tscn` | A flat test track for tuning the car |
@@ -406,7 +445,7 @@ generated files are committed, so you only need those tools to change them.
 | Folder | What's in it |
 |---|---|
 | `scripts/player/` | `local_player.gd` (one player on this machine: character, vehicle, rigs, HUD, input; two in split-screen), `player_input.gd` (one player's devices and actions), `possession.gd` (what the player controls; getting in and out), `controllable.gd` (component: who drives a pawn, which rig controls it), `player_character.gd` (walk / run / sprint / jump, kerbs, animation, footsteps, being bumped), `seat_figure.gd` (the character sitting in a vehicle, seen through the glass), `limb_ik.gd` (two-bone IK: hands on the wheel, feet in the footwell), `player_character_controller.gd` (input), `interactable.gd` (things you use with F / B), `vehicle_entry.gd` (a vehicle's doors and safe exit spots), `parked_car_entry.gd` (parked car props you can drive), `fuel_pump.gd` (one hose or charging cable: grab, carry on a lead, fill, reel back), `filler_flap.gd` (where a vehicle takes the nozzle) |
-| `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `helicopter.gd` (an Aircraft: rotor thrust, hover and speed hold, banked turns, flips, skids, spinning rotors), `player_helicopter_controller.gd` (its input), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `wing_doors.gd` (the electric SUV's gull-wing doors), `vehicle_fuel.gd` (a player vehicle's tank or battery: use, low / empty rules), `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
+| `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `helicopter.gd` (an Aircraft: rotor thrust, hover and speed hold, banked turns, flips, skids, spinning rotors), `player_helicopter_controller.gd` (its input), `boat.gd` (a Vehicle that floats: buoyancy points, water drag and keel grip, planing, outboard thrust, kid steering with a lean, slides, righting itself, finding open water), `boat_effects.gd` (its wake ribbon, spray, rooster tail and splashes), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `wing_doors.gd` (the electric SUV's gull-wing doors), `vehicle_fuel.gd` (a player vehicle's tank or battery: use, low / empty rules), `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
 | `scripts/vehicle/custom/` | `parts_catalog.gd` (everything the garage can change: tabs, slots, options, which vehicles a part fits), `loadout.gd` (one vehicle's setup: saved per vehicle, put on the car), `wheel_kit.gd` (fits rim + tyre parts to a vehicle's wheels), `body_kit.gd` (fits bumpers, skirts, arches, spoilers, bonnet and roof parts from the vehicle's kit), `underglow.gd` |
 | `scripts/vehicle/audio/` | `vehicle_sound_profile.gd` (what a vehicle class sounds like), `vehicle_sound_bank.gd` (shared tyre / crash / glass sounds), `audio_director.gd` (traffic voice budget, Doppler) |
 | `scripts/traffic/` | `traffic_network.gd` (lane graph built from the roads, turn curves, junctions, U-turns), `traffic_manager.gd` (spawning, signal timing), `traffic_driver.gd` (AI driver, turn signals), `traffic_light_prop.gd` |
@@ -427,7 +466,7 @@ generated files are committed, so you only need those tools to change them.
 | `assets/materials/` | `env/` has the world's materials |
 | `assets/textures/` | Generated textures |
 | `assets/audio/` | Built by `tools/audio/`; `profiles/` has one VehicleSoundProfile per vehicle |
-| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_suv.py` (electric SUV), `make_electric_pickup.py` (electric pickup), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
+| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_suv.py` (electric SUV), `make_electric_pickup.py` (electric pickup), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_boat.py` (the speedboat), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
 | `tools/textures/` | `make_textures.py` (ground detail, cloud and leaf textures), `make_decals.py` (garage decals), and `fetch_*.py`: download CC0 scans (Poly Haven, ambientCG) and make the game textures (`fetch_sky.py` real skies, `fetch_road.py`, `fetch_terrain.py`, `fetch_building.py`, `fetch_foliage.py`, `fetch_props.py`; shared helpers in `fetch_common.py`). Run them from the project root with `python3`, then import in Godot |
 | `tools/audio/build_audio.py` | Every sound in `assets/audio/`: downloads the licensed recordings, makes loops, synthesizes the rest, writes the profiles (`python3 tools/audio/build_audio.py`) |
 | `tools/release.sh`, `tools/steamdeck/` | The release build and the Steam Deck installer / launcher ([RELEASING.md](RELEASING.md)) |
@@ -789,6 +828,7 @@ godot --path . -- --garage=/tmp/shots
 | `--seats` | The players sitting in vehicles: getting in and out, the hood / cockpit view leaves your own character out, replays, teleports, garage swaps, the bus, the plane, a split-screen passenger in player 2's T-shirt, player 2 leaving |
 | `--flight` | The plane: take-off, cruise, turns, loop, roll, stall, the help button, teleports, the island's edge, landing, getting out and in, replay, parked planes, taxiing, crash, garage. Run with `--fixed-fps 60` |
 | `--fuel` | Fuel and charging: how fast it drains, low (toast, red gauge, the arrow) and empty (crawl, sputter, an empty bus still climbs), filling by hand (grab, the hose's lead, fill, readout, FULL!, take out, hang up, pop-outs on getting in and driving off, teleporting while holding), the setting, a parked car's tank, the electric SUV (a nozzle doesn't fit; charging), the plane (glides home, fills at the airfield), the helicopter (lands itself, creeps low, fills at a helipad), split-screen. Run with `--fixed-fps 60` |
+| `--boat` | The speedboat: the boat spots and the marina are deep enough, picked in the garage (it goes on the water), floating level, onto the plane and top speed, turns that lean in, a power slide, coasting, stopping and backing up, the help button, righting itself, running up a beach and back, a jump ramp, teleports, the island's edge, getting out (not at sea; at the marina), the parked boats, fuel at the marina, a car picked out at sea, night. Run with `--fixed-fps 60` |
 | `--heli` | The helicopter: picked in the garage, the rotor starting, take-off, hovering, forward flight and stopping, turns, backward, climbing, flip and roll, the help button, teleports, the island's edge, a soft landing, getting out and in, replay, the parked one, crash, garage swaps (in the air too), assists off. Run with `--fixed-fps 60` |
 | `--menus` | Title, pause, settings and controls menus driven by input |
 | `--stunts` | Air, flips, rolls, spins, drift, near miss, wipeout → combos and records |
@@ -813,6 +853,7 @@ godot --path . -- --garage=/tmp/shots
 | `--charsheet` | The character from fixed cameras at day / sunset / night, plus animation strips |
 | `--seatsheet` | A driver and a passenger in every vehicle, cut open and from outside, with how far hands and feet fall short and the headroom. `--vehicles=a,b --views=none --try=z,y,recline,wheel z,wheel y;...` tries other seat numbers |
 | `--fx` | Effects: a drift in the stunt park (tyre smoke) and a crash into a building at speed (dents) |
+| `--boatshots` | Review shots of the speedboat: the marina from above, planing with its wake, a ramp jump from the side, a dusk run, the garage |
 
 #### Traffic
 
@@ -860,6 +901,7 @@ the Steam Deck on a PC.
 | `-- --onfootbench` | The character's cost: draw calls, CPU and GPU with it shown and hidden, physics time |
 | `-- --seatbench` | A seated character's cost while driving: draw calls, CPU and GPU with it shown and hidden, animation and IK time |
 | `-- --partsbench` | A fully kitted player car against a stock one: GPU and draw calls |
+| `--gpu-index 0 --resolution 1280x800 -- --boatbench --graphics=1` | The speedboat's wake, spray and rooster tail shown and hidden while it circles at speed: draw calls, render CPU, GPU; the wake ribbon's CPU |
 | `--gpu-index 0 -- --fuelbench --graphics=1` | The fuel places shown and hidden (gas station, a car park's chargers, the helipads): draw calls, render CPU, GPU; the fuel tick and a carried hose's CPU |
 
 #### Sound

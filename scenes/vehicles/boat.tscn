@@ -1,0 +1,80 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/vehicle/boat.gd" id="1_boat"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_body_visual.gd" id="2_visual"]
+[ext_resource type="PackedScene" path="res://assets/models/boat_body.glb" id="3_body"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_audio.gd" id="4_audio"]
+[ext_resource type="Script" path="res://scripts/vehicle/boat_effects.gd" id="5_fx"]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_damage.gd" id="6_damage"]
+[ext_resource type="Resource" path="res://assets/audio/profiles/boat.tres" id="7_sound"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_hull"]
+friction = 0.5
+bounce = 0.05
+
+[sub_resource type="ConvexPolygonShape3D" id="Convex_hull"]
+points = PackedVector3Array(0, -0.4, 2.9, -0.97, -0.12, 2.9, -1.13, 0.82, 2.9, 0.97, -0.12, 2.9, 1.13, 0.82, 2.9, 0, -0.44, 2, -1.004, -0.116, 2, -1.201, 0.833, 2, 1.004, -0.116, 2, 1.201, 0.833, 2, 0, -0.456, 1, -1.01, -0.11, 1, -1.23, 0.854, 1, 1.01, -0.11, 1, 1.23, 0.854, 1, 0, -0.458, 0, -1.007, -0.087, 0, -1.228, 0.888, 0, 1.007, -0.087, 0, 1.228, 0.888, 0, 0, -0.402, -1, -0.926, -0.019, -1, -1.173, 0.947, -1, 0.926, -0.019, -1, 1.173, 0.947, -1, 0, -0.248, -1.8, -0.74, 0.12, -1.8, -1.032, 1.019, -1.8, 0.74, 0.12, -1.8, 1.032, 1.019, -1.8, 0, -0.007, -2.4, -0.484, 0.288, -2.4, -0.793, 1.093, -2.4, 0.484, 0.288, -2.4, 0.793, 1.093, -2.4, 0, 0.256, -2.8, -0.234, 0.452, -2.8, -0.501, 1.147, -2.8, 0.234, 0.452, -2.8, 0.501, 1.147, -2.8, 0, 0.567, -3.08, -0.028, 0.6, -3.08, -0.104, 1.185, -3.08, 0.028, 0.6, -3.08, 0.104, 1.185, -3.08)
+
+[sub_resource type="BoxShape3D" id="Box_screen"]
+size = Vector3(1.98, 0.44, 0.75)
+
+[sub_resource type="BoxShape3D" id="Box_motor"]
+size = Vector3(0.46, 0.7, 0.68)
+
+[node name="Boat" type="RigidBody3D"]
+collision_layer = 2
+collision_mask = 7
+mass = 1300.0
+physics_material_override = SubResource("PhysicsMaterial_hull")
+inertia = Vector3(4800, 5300, 800)
+script = ExtResource("1_boat")
+display_name = "Speedboat"
+driver_eye = Vector3(-0.56, 1.49, 0.39)
+seat_hip = Vector3(-0.56, 0.74, 0.435)
+seat_feet = Vector3(0, -0.46, -0.5)
+seat_recline = 6.0
+steering_wheel = Vector3(-0.59, 0.98, 0.1)
+steering_wheel_radius = 0.165
+steering_wheel_tilt = 28.0
+filler = Vector3(1.06, 0.86, 1.8)
+filler_normal_dir = Vector3(0.35, 1, 0)
+idle_rpm = 750.0
+redline_rpm = 6000.0
+max_reverse_speed = 4.5
+impact_threshold = 3000.0
+float_points = PackedVector3Array(0, -0.032, -2.35, -0.382, 0.195, -2.35, -0.77, 0.05, -2.35, 0.382, 0.195, -2.35, 0.77, 0.05, -2.35, 0, -0.367, -1.25, -0.661, -0.082, -1.25, -1.091, 0.05, -1.25, 0.661, -0.082, -1.25, 1.091, 0.05, -1.25, 0, -0.455, -0.1, -0.752, -0.176, -0.1, -1.175, 0.05, -0.1, 0.752, -0.176, -0.1, 1.175, 0.05, -0.1, 0, -0.456, 1.05, -0.758, -0.197, 1.05, -1.18, 0.05, 1.05, 0.758, -0.197, 1.05, 1.18, 0.05, 1.05, 0, -0.429, 2.25, -0.746, -0.195, 2.25, -1.137, 0.05, 2.25, 0.746, -0.195, 2.25, 1.137, 0.05, 2.25)
+float_areas = PackedFloat32Array(0.469, 0.351, 0.71, 0.351, 0.71, 0.81, 0.608, 0.582, 0.608, 0.582, 0.923, 0.692, 0.487, 0.692, 0.487, 0.929, 0.697, 0.481, 0.697, 0.481, 0.915, 0.687, 0.41, 0.687, 0.41)
+hull_points = PackedVector3Array(0, -0.4, 2.9, -0.97, -0.12, 2.9, -1.13, 0.82, 2.9, 0.97, -0.12, 2.9, 1.13, 0.82, 2.9, 0, -0.458, 0, -1.228, 0.888, 0, 1.228, 0.888, 0, 0, 0.567, -3.08, -0.104, 1.185, -3.08, 0.104, 1.185, -3.08)
+
+[node name="HullShape" type="CollisionShape3D" parent="."]
+shape = SubResource("Convex_hull")
+
+[node name="ScreenShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.08, -0.42)
+shape = SubResource("Box_screen")
+
+[node name="MotorShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 3.3)
+shape = SubResource("Box_motor")
+
+[node name="Body" type="Node3D" parent="."]
+script = ExtResource("2_visual")
+paint_color = Color(0.12, 0.3, 0.62, 1)
+dirt_top = 0.5
+roll_per_g = 0.0
+pitch_per_g = 0.0
+
+[node name="Model" parent="Body" instance=ExtResource("3_body")]
+
+[node name="DriverDoor" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.3, 0.3, 0.2)
+
+[node name="Audio" type="Node3D" parent="."]
+script = ExtResource("4_audio")
+profile = ExtResource("7_sound")
+
+[node name="Effects" type="Node" parent="."]
+script = ExtResource("5_fx")
+
+[node name="Damage" type="Node" parent="."]
+script = ExtResource("6_damage")

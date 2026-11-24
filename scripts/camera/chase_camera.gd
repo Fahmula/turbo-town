@@ -213,6 +213,8 @@ func _process_chase(car_pos: Vector3, speed: float, look_back: bool, dt: float) 
 		_dist = lerpf(_dist, wanted, 1.0 - exp(-3.0 * dt))
 
 	var cam_pos := pivot + dir * _dist
+	# Never under the sea (a boat, looking up at it from low down).
+	cam_pos.y = maxf(cam_pos.y, MapLayout.SEA_LEVEL + 0.35)
 	global_position = cam_pos
 	look_at(pivot + Vector3.UP * 0.1, Vector3.UP)
 

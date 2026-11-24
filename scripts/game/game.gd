@@ -768,8 +768,8 @@ func _keep_garage_changes() -> void:
 
 ## Remembers which vehicle you drive (each one's setup is saved by the garage).
 func _save_choice(index: int, p: LocalPlayer = null) -> void:
-	# Sessions start on the road: a plane isn't remembered as your vehicle.
-	if VehicleCatalog.ENTRIES[index].get("air", false):
+	# Sessions start on the road: a plane or a boat isn't remembered as your vehicle.
+	if VehicleCatalog.is_special(index):
 		return
 	Settings.set_value("vehicle_p2" if p and p.index == 1 else "vehicle", VehicleCatalog.ENTRIES[index]["id"])
 
@@ -778,7 +778,7 @@ func _save_choice(index: int, p: LocalPlayer = null) -> void:
 func _load_choice() -> void:
 	var index := VehicleCatalog.index_of_id(Settings.get_value("vehicle"))
 	var here := VehicleCatalog.index_of_vehicle(vehicle)
-	if index >= 0 and VehicleCatalog.ENTRIES[index].get("air", false):
+	if VehicleCatalog.is_special(index):
 		index = -1
 	if index < 0 or index == here:
 		loadout = Loadout.saved(VehicleCatalog.ENTRIES[maxi(here, 0)]["id"])
@@ -830,7 +830,7 @@ func add_player(p1_device: int, p2_device: int) -> void:
 
 	# Their vehicle (as picked in the garage last time), next to player 1.
 	var index := VehicleCatalog.index_of_id(Settings.get_value("vehicle_p2"))
-	if index < 0 or VehicleCatalog.ENTRIES[index].get("air", false):
+	if index < 0 or VehicleCatalog.is_special(index):
 		index = VehicleCatalog.index_of_id(P2_DEFAULT_VEHICLE)
 	var car := VehicleCatalog.scene(index).instantiate() as Vehicle
 	p2.loadout = Loadout.saved(VehicleCatalog.ENTRIES[index]["id"])

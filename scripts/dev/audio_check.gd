@@ -11,7 +11,7 @@ var _fails := 0
 
 
 func _init() -> void:
-	for id in ["sports_car", "sedan", "suv", "electric_pickup", "van", "box_truck", "bus", "pickup", "buggy", "monster_truck", "plane", "helicopter"]:
+	for id in ["sports_car", "sedan", "suv", "electric_pickup", "van", "box_truck", "bus", "pickup", "buggy", "monster_truck", "plane", "helicopter", "boat"]:
 		var car := (load("res://scenes/vehicles/%s.tscn" % id) as PackedScene).instantiate() as Vehicle
 		var audio := car.get_node_or_null("Audio") as VehicleAudio
 		_check(audio != null and audio.profile != null, "%s: Audio node with a profile" % id)
@@ -19,7 +19,7 @@ func _init() -> void:
 			_check_profile(id, car, audio.profile)
 		car.free()
 	for loop_path in [VehicleSoundBank.ROLL_ASPHALT, VehicleSoundBank.ROLL_GRAVEL, VehicleSoundBank.SQUEAL,
-			VehicleSoundBank.SKID_GRAVEL, VehicleSoundBank.WIND, VehicleSoundBank.SCRAPE, VehicleSoundBank.BEEPER]:
+			VehicleSoundBank.SKID_GRAVEL, VehicleSoundBank.WIND, VehicleSoundBank.SCRAPE, VehicleSoundBank.BEEPER, VehicleSoundBank.WATER]:
 		var st := VehicleSoundBank.loop(loop_path)
 		_check(st != null and _loops(st), "bank loop %s loads and loops" % loop_path)
 	for set_name in ["impact/thud", "impact/crunch", "impact/crash", "impact/metal", "impact/deform", "impact/plastic", "impact/wood",

@@ -72,6 +72,8 @@ func is_overturned() -> bool:
 
 
 func in_water() -> bool:
+	if vehicle is Boat:
+		return false  # (it's meant to be)
 	return vehicle.global_position.y < MapLayout.SEA_LEVEL - 0.3
 
 
@@ -198,6 +200,11 @@ func _door_z() -> float:
 ## Where the character stands to open the door on the side nearest `point`
 ## (world space, at the height of `point`).
 func door_spot(point: Vector3) -> Vector3:
+	if vehicle is Boat:
+		# Stepping down into a boat from a pontoon or a pier: a step toward it.
+		var to := vehicle.global_position - point
+		to.y = 0.0
+		return point + to.normalized() * minf(0.35, to.length()) if to.length() > 0.01 else point
 	var door := driver_door_local()
 	var local := vehicle.global_transform.affine_inverse() * point
 	var side := -1.0 if local.x <= 0.0 else 1.0
@@ -210,6 +217,8 @@ func door_spot(point: Vector3) -> Vector3:
 ## (feet, facing the way the vehicle points), or null if there's no room
 ## anywhere nearby. A `passenger` gets out on the passenger side first.
 func find_exit(character: PlayerCharacter, passenger := false) -> Variant:
+	if vehicle is Boat:
+		return _boat_exit(character, passenger)
 	var space := vehicle.get_world_3d().direct_space_state
 	var frame := _ground_frame(space)
 	var base: Vector3 = frame.origin
@@ -283,6 +292,55 @@ func _check_spot(space: PhysicsDirectSpaceState3D, character: PlayerCharacter, p
 	if not space.intersect_ray(los).is_empty():
 		return null
 	return feet
+
+
+## Getting out of a boat: onto a pontoon, a pier, the quay or a beach close
+## by (up to BOAT_STEP_UP above the water line: climbing onto a pier), never
+## into the sea and never onto the boat itself. Null out at sea.
+const BOAT_STEP_UP := 3.0
+
+func _boat_exit(character: PlayerCharacter, passenger: bool) -> Variant:
+	var space := vehicle.get_world_3d().direct_space_state
+	var fwd := -vehicle.global_basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length() > 0.1 else Vector3.FORWARD
+	var right := fwd.cross(Vector3.UP)
+	var base := vehicle.global_position
+	var water := MapLayout.SEA_LEVEL
+	var side := 1.0 if passenger else -1.0
+	var mid := (vehicle.body_rear - vehicle.body_front) * 0.5
+	var spots: Array[Vector3] = []
+	for r: float in [0.7, 1.4, 2.3, 3.4]:
+		var ring: Array[Vector3] = []
+		for k in 20:
+			var a := TAU * k / 20.0
+			var lx := (vehicle.body_half_width + r) * cos(a)
+			var lz := ((vehicle.body_front + vehicle.body_rear) * 0.5 + r) * sin(a) + mid
+			ring.append(base + right * lx - fwd * lz)
+		# The seat's own side first.
+		var door := base + right * (vehicle.body_half_width + r) * side
+		ring.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.distance_squared_to(door) < b.distance_squared_to(door))
+		spots.append_array(ring)
+	var look := base + Vector3.UP * 3.6
+	var exclude: Array[RID] = [vehicle.get_rid()]
+	var facing := Basis.looking_at(fwd, Vector3.UP)
+	for p in spots:
+		var q := PhysicsRayQueryParameters3D.create(Vector3(p.x, water + BOAT_STEP_UP + 1.5, p.z), Vector3(p.x, water - 1.0, p.z), 1)
+		q.exclude = exclude
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			continue
+		var feet: Vector3 = hit["position"]
+		if feet.y < water + 0.05 or feet.y > water + BOAT_STEP_UP or (hit["normal"] as Vector3).y < 0.7:
+			continue
+		if not _capsule_clear(space, character, feet):
+			continue
+		var los := PhysicsRayQueryParameters3D.create(look, feet + Vector3.UP * 1.0, 1)
+		los.exclude = exclude
+		if not space.intersect_ray(los).is_empty():
+			continue
+		return Transform3D(facing, feet)
+	return null
 
 
 ## Room for the character standing at `feet`: nothing solid in its capsule.

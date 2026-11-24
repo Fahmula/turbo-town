@@ -841,7 +841,7 @@ exposure, same tonemapper.
 
 - **Generic, unbranded archetypes** of real vehicle classes. Today's roster:
   sports coupé, sedan, van, box truck, city bus, pickup, buggy, monster truck,
-  electric SUV, electric pickup. Each must read as its class from silhouette
+  electric SUV, electric pickup, sport plane, light helicopter, speedboat. Each must read as its class from silhouette
   alone at 50 m.
 - **No real brands**, badges, model names or trademarked design signatures
   (kidney grilles, famous light signatures, mascots). Mix cues from different
@@ -889,6 +889,7 @@ docstrings (`tools/blender/make_<vehicle>.py`) hold the full brief.
 | Electric SUV (`make_suv.py`) | Modern electric family SUV (owner exception above): smooth egg-shaped body, no grille (a rounded nose, slim swept headlights, a narrow black intake low down), a windscreen that runs on up into the roof, a high smooth belt, an arched roof falling to a short tailgate with a lip, slim wrap-round tail lights, flush handles, no exhaust. Gull-wing rear doors that fold in two, each with a glass roof panel, meeting on a black spine. Aero "turbine" wheels with red calipers. |
 | Electric pickup (`make_electric_pickup.py`) | Futuristic electric pickup (owner exception above), matched to the owner's reference photos (2026-11-15, kept locally in `reference images/electric-pickup/`): bare brushed stainless steel (`PaintPalette` "Stainless"), flat panels with crisp creases. A triangular side view: the bonnet and a huge windscreen (its base near the front axle) rise in one straight line to a peak over the B pillar, the roof falls in another over a ribbed dark bed cover between wide steel sails to the tailgate. Vertical flat sides with one crease under the windows, upper sides leaning in, wide steel frames over the windows, a black B pillar. A near-vertical steel front face under a full-width running-light bar that wraps round the rounded-off corners, the headlamps a second strip low on the face; a black band and a full-width tail light bar along the tailgate's top. Chunky black cladding that stands off the body: angular trapezoid arch flares, rocker strips, protruding bumpers with a shelf on top wrapping round to the flares (swept along paths, not painted on). Black angular mirrors, no grille, hidden door handles, one long wiper. Black "facet" aero covers (hexagonal centre, six spokes) on all-terrain tyres. Its own straight-lined `LoftBody` section (still the standard 19 points). |
 | Helicopter (`make_heli.py`) | Generic light utility helicopter: rounded teardrop cabin with a big wrap-round windscreen sweeping up into roof windows, chin windows, two doors a side; turbine cowling and exhaust stack on the roof, short mast, two-blade teetering main rotor; slim tail boom with a stabiliser and endplates, swept fin with the tail rotor on the left; tubular skids on two arched cross tubes. A cheat-line livery (`Stripes`, on by default). |
+| Speedboat (`make_boat.py`) | Generic sport runabout (the kind that pulls water-skiers), asked for by the owner's son (2026-11-21): a deep-V planing hull with a sharp chine and a raked stem; a white bottom, a dark boot stripe along the chine, painted topsides (the garage colour) under a black rub rail and a white gunwale cap; a closed non-skid foredeck with a chrome bow rail and a red/green bow light; a wrap-round windscreen with a chrome top rail; an open cockpit with a helm console on the left (like every vehicle here: the seated figure sits on the left), a passenger console, two cream bucket seats and a rear bench; swim platforms with a ladder either side of a big glossy black outboard with a stripe of the boat's colour, which turns as you steer; an all-round white stern light on a pole. Optional `Stripes`: two sweeping bands along the topsides. |
 | Sport plane (`make_plane.py`) | Generic two-seat aerobatic light plane: low tapered wing with dihedral, side-by-side cockpit under a big bubble canopy, cowled flat four with a two-blade propeller (yellow tips) and spinner, tricycle gear in wheel fairings, swept fin with a dorsal strake. A cheat-line livery (the `Stripes` mesh, on by default for planes). |
 
 **Must-have details (as geometry)**
@@ -1050,6 +1051,7 @@ are the authority for wheel positions and radii.
 | Monster truck | fictional | | | 4.72 × 3.30 h; r 0.95, x ±1.32, axles ±1.65 |
 | Sport plane | 6.0–7.0 | span 7.5–8.5 | 2.2–2.5 | 6.35 long, 8.12 span, 2.3 h; mains r 0.20 at x ±1.02 (0.32 behind the CG), nose r 0.17 at 1.78 ahead |
 | Light helicopter | 9.5–10 (no rotor) | rotor 10–10.5 | 2.9–3.2 | 9.2 long (nose to fin), rotor 10.1, 3.0 h to the hub; skids at x ±1.12, contacts r 0.045 at ±1.05 |
+| Speedboat | 5.8–6.4 (hull) | beam 2.3–2.5 | 1.2–1.4 over the water line | hull 6.0 + outboard 0.65; beam 2.4 (2.46 over the rub rail); sole 0.24, gunwale 0.8–1.15, windscreen top ~1.35 above the static water line (the model's origin, z = 0); keel 0.46 below it |
 
 Lengths and heights are measured from the models (height from the ground);
 widths are left out because the mirrors dominate them.
@@ -1123,6 +1125,20 @@ faint) and `Frame` (fixed: the skids' painted aluminium tubes). Nodes:
 `MainRotor` (spins about its local Y), `RotorDisc`, `TailRotor` (local X),
 `TailDisc`; `CabinFront`, `HeliBody`, `TailBoom` and `Skids` are deformable.
 The search light under the nose uses `Headlight`.
+
+**The speedboat** (`make_boat.py`, `Boat`) uses the vehicle set (`Paint` =
+the topsides, `Glass` = the windscreen, `Trim`, `Chrome`, `Interior`) and
+`NavLight` (kind 1 red to port and 2 green to starboard in the bow light, a
+new kind 5 = a steady white all-round stern light), plus four fixed
+materials: `Gelcoat` (white glossy hull bottom, gunwale cap and cockpit
+mouldings, `#EBEBE6`, roughness 0.22), `Deck` (non-skid walking surfaces,
+`#CCC9C2`, roughness 0.78), `Vinyl` (cream upholstery, `#E0D9C7`, roughness
+0.5) and `Cowl` (the outboard's glossy black, `#1C1C1F`, roughness 0.28).
+Nodes: `Hull`, `Cockpit`, `Windscreen` and `Fittings` (deformable),
+`Outboard` (turns about its local Y with the steering; origin on its
+steering axis) with its child `Propeller` (spins about its local Z), and
+`Stripes`. The model's origin is the static water line, so a boat floats
+with its origin on the sea.
 
 Nodes: `Propeller` (spins about its local Z), `PropDisc`, `AileronL/R`,
 `FlapL/R`, `Elevator` (local X = hinge line, + = trailing edge down),
@@ -1285,7 +1301,13 @@ explosions unless the owner asks.
   front doors, pilots' seats and panel), `HeliBody` (2.4k: rear cabin,
   cowling, mast, rear bench; split at the B-pillar shut line, which hides
   the crease), `TailBoom` (1.5k) and `Skids` (0.7k); at most ~5.7k per pass
-  (a hit at the B-pillar).
+  (a hit at the B-pillar). The speedboat: `Hull` (1.9k), `Cockpit` (2.4k:
+  liner, sole, consoles, seats, bench), `FittingsBow` (0.8k) and
+  `FittingsStern` (1.2k), `Windscreen` (0.6k), `Outboard` (0.6k),
+  `Propeller` and `Stripes`; a hit at either end skips the other end's
+  fittings and most of the cockpit. Exported, that's 13.5k vertices over
+  8 meshes, over the 6k guide: a full-strength dent amidships through every
+  one of them measured 1.1 ms (dev CPU, once per hit), so it stays as it is.
 - **Topology:** deformable panels need evenly spaced vertices, about 8–15 cm
   apart on large panels (doors, bonnet, roof, sides), quads where possible.
   **No big n-gons or triangle fans.** (The legacy `extrude_profile` closed
@@ -1585,7 +1607,14 @@ meshes beyond (with fades), and tints each tree ±6% by instance colour.
   `DEPTH_TEXTURE`): turquoise shallows, a pulsing, broken foam band at the
   waterline. Two scrolling ripple normal maps (faded with distance) catch the
   sky (fresnel) and the sun at roughness 0.06. The sea stays calm: no big
-  waves.
+  waves. Boats float on a flat sea at `MapLayout.SEA_LEVEL` (physics and
+  looks agree), and their wake uses the sea's own foam texture
+  (`sea_foam.png`) with the shore foam's recipe, so the two read as the same
+  water.
+- **The marina** (2026-11-21): the sea floor is dredged to 2.2 m round the
+  marina's pontoon (`MapLayout.MARINA_BASIN`) and along the foot of the
+  harbour's quay wall (it used to leave a strip of sand there), so boats
+  float right up to the pontoon and the wall stands in water.
 
 ---
 
@@ -1795,7 +1824,9 @@ needs the owner's OK (it's another download).
 | Glass bits | small transparent boxes | glass tint, 1–1.5 s |
 | Engine smoke | grey puffs from the bonnet | white-grey, darkening toward `#4A4A4E` as damage rises; lit; rises and drifts |
 | Debris | detached parts as rigid bodies | real parts in their own materials |
-| Water splash | none | white foam burst and droplets when a car hits the water (future) |
+| Water splash | a boat landing from a jump (`BoatEffects`) | white droplets all round the hull, ≤ 40, lit per vertex; a car hitting the water still has none (future) |
+| Boat wake | a ribbon on the sea behind the transom (`BoatEffects`, `boat_wake.gdshader`, since 2026-11-21) | one draw call, rebuilt each frame from ≤ 90 points laid every 1.3 m; each point widens with age (the ~19.5° V of a real wake) and fades over 7 s. Foam from the sea's foam texture: broken arms along the edges, white water churned up right behind the boat (gone in ~1 s), a faint lace down the middle. Alpha blended, `render_priority` 1 (after the sea), lit. Same on every quality level |
+| Boat spray | bow spray, prop wash, a rooster tail (`BoatEffects`) | small lit droplets (0.3–0.4 m quads, alpha 0.9) peeling off both sides of the hull above 7 m/s, foam boiling behind the motor under throttle, a plume thrown up behind it flat out; ≤ 40 per emitter, half on Low; only within 90 m of a camera |
 | Rain | streaks round each player's camera (`RainFx`, `rain.gdshader`, since 2026-10-24) | GPU particles in a 28 × 16 × 28 m box that follows the camera (pushed up to 21 m ahead while moving), falling at 10 m/s (slanted by the wind in a storm); 2,500 / 4,000 / 6,000 / 9,000 drops on Low / Medium / High / Ultra. A thin quad per drop, 0.9 m × 12 mm, widening to stay ~1 px across far away (fading by as much), faded out within 2.5 m (the hood camera) and beyond 11-17 m. Lit: ambient plus a glint toward lights behind the drop. Off under a roof (a ray down from 60 m above the camera). |
 | Tyre spray | grey mist behind the rear wheels on a wet road | above 8 m/s, within 70 m of a camera, ≤ 24 per wheel, lit per vertex, `#DCE0E6` at alpha 0.22; replaces dirt dust when wet |
 | Lightning | a jagged ribbon bolt (`Lightning`, `lightning.gdshader`) | 0.6-1.4 km away within ±35° of the view, from a 320 m cloud base, every 7-18 s in a storm. On for 0.07 s, off, on 0.13 s, then the cloud glow (a soft additive billboard) fades over 0.3 s and the ambient lifts by up to 60% with it. Never more than that flicker, never a full-screen flash. |
@@ -2213,6 +2244,15 @@ window):
   nothing when still or resting). The station's forecourt lost the grass
   that grew through it, so it's a little cheaper than before.
 
+- **Boats** (2026-11-21, `--boatbench` on the iGPU at 1280×800, traffic
+  off, the boat at 65 km/h in a wide circle off the south coast, its
+  effects shown / hidden a second at a time, 10 rounds each): the wake,
+  spray, prop wash and rooster tail add ~16 draw calls, ~0.1 ms render CPU
+  and 0.76 ms GPU at Medium (10.6 vs 9.9 ms), 0.36 ms at Low (5.7 vs 5.3);
+  the wake ribbon's rebuild is ~0.12 ms CPU per frame (90 points, triangle
+  strips). Out on the sea it's a cheap place to be: ~10 ms at Medium on the
+  iGPU, about 6 ms on a Deck by the 1.6× rule.
+
 - **Flying** (2026-10-05, branch `flight`, `--flightbench` on the iGPU,
   traffic off, a fixed line across the city at 60 m/s): Medium 21.7 / 20.9 /
   17.9 ms average GPU at 60 / 150 / 300 m (p95 24 ms), Low 9.4–10.8 ms, High
@@ -2610,6 +2650,18 @@ readable, kid-friendly (crashes are big and fun, never scary).
   the loudest part, louder with the collective. 78% of the rotor loop's
   level is above 220 Hz and its beat survives there, so the Deck's speakers
   keep the "whop". No horn.
+- **The speedboat** (2026-11-21, synthesised, `build_audio.py boat`): a V6
+  four-stroke outboard (`synth.outboard` at 750 / 1,500 / 3,000 / 4,500 /
+  6,000 rpm: firing pulses three a turn as a buzzy note with a lumpy
+  third-order idle, the exhaust bubbling out through the propeller hub (a
+  wet burble that fades as the revs climb), gearcase whine and intake hiss
+  on top; cut below 70 Hz and lifted round 420 Hz for the Deck's speakers),
+  1 dB under the cars, revving up when the propeller leaves the water;
+  `synth.outboard_start`, the starter cranking it over and a burst as it
+  catches. Water along the hull (`body/water_wash.wav`: a dark swelling wash
+  with soft-onset slaps of chop, no hiss on top) rises with speed in place of
+  tyre roll, and the shared splash plays when it lands from a jump. The
+  horn is the truck's air horn pitched down to 0.8.
 - **Fuel and charging** (2026-11-15, synthesised, `build_audio.py fuel`, on
   the Environment bus at the nozzle): a metal click (in, out, pitched up for
   a pop-out), a two-note "full" ding (E6, A6), fuel gurgling in (a liquid
@@ -2716,7 +2768,10 @@ is hidden.
   in the van, pickup and box truck; hands 1–7 cm to spare everywhere. The
   helicopter (2026-11-09): 13 cm headroom, the stick hand 3 cm to spare, the
   resting hand 1 cm short, feet 4 cm to spare (`seat_recline` 5°: it sits
-  upright).
+  upright). The speedboat (2026-11-21): an open cockpit (no roof), the
+  wheel raised and brought 17 cm toward the driver on a longer column so
+  both hands hold it, the passenger's hands 2 cm short on their thighs,
+  `seat_recline` 6°.
 - **Look:** no shadow of its own (the cabin is in the vehicle's shadow; one
   less pass per cascade), same layer as the vehicle. Its owner's hood and
   cockpit views leave it out (the camera sits in its head); in split-screen
@@ -2784,3 +2839,8 @@ is hidden.
   the HUD helpers in UiKit, §21 the speedometer's text at 18 px, §22 the fuel
   and plug icons and `UiIcon.paint`, §27 the fuel sites' cost, §33 the fuel
   sounds and the sputter, §34 holding a nozzle.
+- 2026-11-21: boats (branch `feat/boats`): §12 the speedboat class and
+  dimensions, §13 its materials (`Gelcoat`, `Deck`, `Vinyl`, `Cowl`), node
+  names and `NavLight` kind 5, §14 its per-pass split, §19 the marina's
+  dredging and the wake's foam, §23 the wake, spray and splash, §27 their
+  cost, §33 the outboard and water sounds.

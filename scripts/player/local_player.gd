@@ -407,6 +407,8 @@ func _on_pawn_changed(pawn: Node3D) -> void:
 		hud.show_prompt_for("Get out", 4.0)
 	if plane and plane.on_ground and game.state == Game.State.DRIVING and ride == null:
 		_take_off_tip()
+	elif pawn is Boat and game.state == Game.State.DRIVING and ride == null:
+		hud.show_toast("Hold %s to go, %s to slide!" % (["RT", "A"] if hud.using_pad else ["W", "Space"]), 4.0)
 	_note_ride(ride)
 	game.refresh_friends()
 
@@ -484,10 +486,12 @@ func teleport_to(i: int) -> void:
 		possession.leave_ride_now()
 	# Anyone riding in the vehicle comes along (a parked plane stays put).
 	var riders: Array[LocalPlayer] = []
-	if not (vehicle is Aircraft and possession and possession.on_foot()):
+	if not ((vehicle is Aircraft or vehicle is Boat) and possession and possession.on_foot()):
 		riders = game.riders_in(vehicle)
 	if vehicle is Aircraft:
 		_teleport_plane(vehicle as Aircraft, sp)
+	elif vehicle is Boat:
+		_teleport_boat(vehicle as Boat, sp)
 	else:
 		vehicle.teleport(sp["xform"])
 		snap_camera()
@@ -522,6 +526,29 @@ func _teleport_plane(plane: Aircraft, sp: Dictionary) -> void:
 			side *= 2.0
 		plane.place_in_flight(xf.origin + Vector3.UP * up + side * 2.0, heading.normalized() if heading.length() > 0.1 else Vector3.FORWARD)
 	snap_camera()
+
+
+## Teleporting with a boat. In it, it goes to the open water nearest the
+## place (MapLayout.BOAT_SPOTS; the Harbour = the marina's channel); on foot
+## the boat stays where it is and you walk off at the place.
+func _teleport_boat(boat: Boat, sp: Dictionary) -> void:
+	if possession and possession.on_foot():
+		character.place(sp["xform"])
+		foot_camera.snap()
+		return
+	var spot := Boat.nearest_boat_spot(boat, (sp["xform"] as Transform3D).origin)
+	if not spot.is_empty():
+		boat.teleport(spot["xform"])
+	snap_camera()
+
+
+## Open water for `boat` near `near` (a spot in reach, else the nearest
+## marked boat spot): {"xform"} or {}.
+static func water_for(boat: Boat, near: Vector3) -> Dictionary:
+	var spot := Boat.water_spot(boat, near, 45.0)
+	if spot.is_empty():
+		spot = Boat.nearest_boat_spot(boat, near)
+	return spot
 
 
 ## Split-screen: each player has their own side of the runway (m off the
@@ -593,7 +620,16 @@ func regroup(other: LocalPlayer) -> void:
 	var their_plane := them as Aircraft
 	var flying_there := their_plane != null and not their_plane.on_ground
 	var plane := vehicle as Aircraft
+	var boat := vehicle as Boat
 	var msg := "With Player %d!" % (other.index + 1)
+	if boat and driving():
+		# A boat meets them on the water nearest to them.
+		var wspot := water_for(boat, t.origin)
+		if not wspot.is_empty():
+			boat.teleport(wspot["xform"])
+			snap_camera()
+			hud.show_toast("Sailing to Player %d!" % (other.index + 1) if them is Boat else msg)
+			return
 	if plane and driving() and flying_there:
 		plane.place_in_flight(t.origin + right * 18.0 - fwd * 12.0 + Vector3.UP * 4.0, fwd)
 		snap_camera()
@@ -603,9 +639,9 @@ func regroup(other: LocalPlayer) -> void:
 	if flying_there:
 		# They're in the air: meet them at the nearest place on the ground.
 		near = null
-	if plane and not (plane is Helicopter):
-		# A plane stays where it is: walk over on foot (or wait at the runway).
-		# (A helicopter comes along like a car.)
+	if (plane and not (plane is Helicopter)) or boat:
+		# A plane (or a boat) stays where it is: walk over on foot (or wait at
+		# the runway). (A helicopter comes along like a car.)
 		if not possession.on_foot():
 			hud.show_toast("Land and get out first!")
 			return
@@ -673,8 +709,11 @@ func physics_tick(dt: float) -> void:
 	var pawn := possession.pawn()
 	var p := pawn.global_position
 	var edge := 2600.0 if pawn is Aircraft else 1500.0
-	var lost := p.y < MapLayout.SEA_LEVEL - 0.8 or p.y < -60.0 or absf(p.x) > edge or absf(p.z) > edge
-	hud.turning_back = flight_controller.turning_back or heli_controller.turning_back
+	# (A boat is meant to be in the sea.)
+	var sunk := p.y < MapLayout.SEA_LEVEL - 0.8 and not (pawn is Boat)
+	var lost := sunk or p.y < -60.0 or absf(p.x) > edge or absf(p.z) > edge
+	hud.turning_back = flight_controller.turning_back or heli_controller.turning_back \
+		or (driving() and vehicle is Boat and (vehicle as Boat).turning_back)
 	if lost:
 		if _lost_timer == 0.0:
 			hud.show_popup("SPLASH!" if p.y > -60.0 else "WHOOPS!")
@@ -744,6 +783,8 @@ func _fuel_tick(dt: float) -> void:
 static func fuel_message(v: Vehicle, empty: bool) -> String:
 	if v.electric:
 		return "Battery empty! Find a charger" if empty else "Low battery! Find a charger"
+	if v is Boat:
+		return "Out of fuel! Head back to the marina" if empty else "Low fuel! Fill up at the marina"
 	if v is Helicopter:
 		return "Out of fuel! Landing..." if empty else "Low fuel! Fill up at a helipad"
 	if v is Aircraft:
@@ -789,10 +830,17 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 	var on_foot := possession != null and not possession.driving()
 	var plane := car as Aircraft
 	var heli := car as Helicopter
+	var boat := car as Boat
 	var old_flying := old is Aircraft and not (old as Aircraft).on_ground
+	# (A car picked while out on the water goes to the nearest teleport spot;
+	# on foot by a moored boat it comes beside you as usual.)
+	var old_afloat := not on_foot and old is Boat and (old as Boat).floating() and boat == null
 	var old_xform := old.global_transform
+	var near_here := character.global_position if on_foot else old.global_position
 	var spot := {}
-	if place_here and (plane == null or heli != null) and not old_flying:
+	if old_afloat:
+		spawn_index = game.nearest_spawn_index(old.global_position)
+	elif place_here and (plane == null or heli != null) and not old_flying and boat == null:
 		# (Planes go to the runway, helicopters stand where a car would; a
 		# car never appears in the sky under a flying aircraft: it goes to
 		# the spawn point.)
@@ -827,7 +875,13 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 		r.possession.start_riding(car)
 	if not place_here:
 		return
-	if heli and old_flying:
+	if boat:
+		# On the water nearest to where you were (by the marina in town).
+		var wspot := water_for(boat, near_here)
+		if not wspot.is_empty():
+			boat.teleport(wspot["xform"])
+		snap_camera()
+	elif heli and old_flying:
 		# Swapped in the air: the helicopter hovers where the old one flew.
 		var dir := -old_xform.basis.z
 		dir.y = 0.0
@@ -847,7 +901,9 @@ func change_vehicle(i: int, setup: Loadout = null, place_here := true) -> void:
 func _drive_up(v: Vehicle) -> void:
 	possession.leave_ride_now()
 	var spot := {}
-	if not (v is Aircraft) or v is Helicopter:
+	if v is Boat:
+		spot = water_for(v as Boat, character.global_position)
+	elif not (v is Aircraft) or v is Helicopter:
 		spot = _room_beside_character(v, v)
 		if spot.is_empty():
 			spot = spot_near(character, v)

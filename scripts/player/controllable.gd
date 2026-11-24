@@ -6,10 +6,11 @@ extends Node
 ## nobody), so two controllers never drive the same pawn, and `kind` tells the
 ## Possession which input controller and camera to use for it.
 ##
-## The kinds are "character", "vehicle" (cars, trucks, buses...), "plane"
-## (Aircraft) and "heli" (Helicopter). A new kind (a boat...) gets its own
-## controller and camera (Possession.add_rig); the rest of the hand-over stays
-## the same.
+## The kinds are "character", "vehicle" (cars, trucks, buses... and the
+## Boat, which takes the car's controls and chase camera), "plane"
+## (Aircraft) and "heli" (Helicopter). A new kind that needs other controls
+## gets its own controller and camera (Possession.add_rig); the rest of the
+## hand-over stays the same.
 
 signal taken(by: Object)
 signal dropped(by: Object)

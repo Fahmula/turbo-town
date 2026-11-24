@@ -58,6 +58,12 @@ extends Node
 ##                    turns, tricks, help button, teleports, the island's edge, landing,
 ##                    getting out and in, the parked one, crash, garage swaps, assists off
 ##                    (checks and shots; scripts/dev/heli_tests.gd)
+##   --boat=<dir>     the speedboat: boat spots, garage, floating, onto the plane, top
+##                    speed, turns, slide, stopping and backing up, help button, capsizing,
+##                    beaching, teleports, the island's edge, getting out, the marina's
+##                    parked boats and fuel (checks and shots; scripts/dev/boat_tests.gd)
+##   --boatbench      what the boat's wake and spray cost (draw calls, render CPU, GPU)
+##   --boatshots=<dir> review screenshots of the boat: marina, wake, jump, sunset, garage
 ##   --flightbench=<dir> GPU time / draw calls flying over the city at 60, 150 and 300 m,
 ##                    Medium / Low / High (use --gpu-index 0, the iGPU, as a Deck stand-in)
 ##   --split=<dir>    two players in split-screen: joining with a second gamepad, each
@@ -228,6 +234,14 @@ func _ready() -> void:
 		elif arg.begins_with("--heli="):
 			_mode = "heli"
 			_dir = arg.split("=")[1]
+		elif arg.begins_with("--boat="):
+			_mode = "boat"
+			_dir = arg.split("=")[1]
+		elif arg == "--boatbench":
+			_mode = "boatbench"
+		elif arg.begins_with("--boatshots="):
+			_mode = "boatshots"
+			_dir = arg.split("=")[1]
 		elif arg.begins_with("--fuel="):
 			_mode = "fuel"
 			_dir = arg.split("=")[1]
@@ -396,6 +410,12 @@ func _run() -> void:
 		await preload("res://scripts/dev/flight_tests.gd").new(self, game, _dir).bench()
 	elif _mode == "heli":
 		await preload("res://scripts/dev/heli_tests.gd").new(self, game, _dir).run()
+	elif _mode == "boat":
+		await preload("res://scripts/dev/boat_tests.gd").new(self, game, _dir).run()
+	elif _mode == "boatbench":
+		await preload("res://scripts/dev/boat_tests.gd").new(self, game, _dir).bench()
+	elif _mode == "boatshots":
+		await preload("res://scripts/dev/boat_tests.gd").new(self, game, _dir).shots()
 	elif _mode == "fuel":
 		await preload("res://scripts/dev/fuel_tests.gd").new(self, game, _dir).run()
 	elif _mode == "fuelbench":

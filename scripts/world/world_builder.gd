@@ -24,6 +24,7 @@ const PROP_SCENES := {
 	"parked_van": preload("res://scenes/props/parked_van.tscn"),
 	"parked_plane": preload("res://scenes/props/parked_plane.tscn"),
 	"parked_helicopter": preload("res://scenes/props/parked_helicopter.tscn"),
+	"parked_boat": preload("res://scenes/props/parked_boat.tscn"),
 	"ramp": preload("res://scenes/props/ramp.tscn"),
 	"hydrant": preload("res://scenes/props/hydrant.tscn"),
 	"bin": preload("res://scenes/props/street_bin.tscn"),
@@ -140,6 +141,14 @@ func _extra_props() -> Array[Dictionary]:
 		list.append({"scene": "parked_plane", "xform": Transform3D(Basis(Vector3.UP, spot[1]), ac + spot[0] + Vector3(0, 0.03, 0))})
 	# A helicopter on the second helipad, nose toward the runway.
 	list.append({"scene": "parked_helicopter", "xform": Transform3D(Basis(Vector3.UP, PI), MapLayout.HELIPAD_B + Vector3(0, 0.04, 0))})
+	# Floating jump ramps for the speedboat, their lip just under the water.
+	for r: Vector4 in MapLayout.BOAT_RAMPS:
+		var face := Vector3(r.z, 0.0, r.w).normalized()
+		list.append({"scene": "ramp", "xform": Transform3D(Basis.looking_at(face, Vector3.UP), Vector3(r.x, MapLayout.SEA_LEVEL - 0.45, r.y)),
+			"shape": 1, "length": 9.0, "height": 2.4, "width": 6.0, "color": Color(0.98, 0.55, 0.16)})
+	# Speedboats tied up in the marina's berths, bows out to sea.
+	for berth: Vector2 in MapLayout.MARINA_BERTHS:
+		list.append({"scene": "parked_boat", "xform": Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(berth.x, MapLayout.SEA_LEVEL, berth.y))})
 	# Big jump off the mountain top, facing north.
 	var c := MapLayout.MOUNTAIN_CENTER
 	var y := roads.summit_height - 0.15
