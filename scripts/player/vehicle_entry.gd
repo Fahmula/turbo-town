@@ -25,8 +25,8 @@ const MAX_ENTER_SPEED := 2.5
 const DOOR_GAP := 0.6
 ## Ground under an exit spot may be this much above or below the vehicle's.
 const MAX_STEP := 1.2
-## Physics layers: world, vehicles, props.
-const BLOCKERS := 0b111
+## Physics layers: world, vehicles, props, pedestrians.
+const BLOCKERS := 0b10111
 
 var vehicle: Vehicle
 ## Passenger seats besides the driver's. One: there are at most two players.

@@ -28,10 +28,11 @@ enum State { ACTIVE, KNOCKED, SCRIPTED, HIDDEN }
 const GROUP := &"player_characters"
 ## Physics layer of characters ("characters" in the project settings).
 const LAYER := 8
-## Characters collide with the world, vehicles and props; vehicles don't
-## collide with characters (a car would hit a person like a wall), the
-## character gets out of their way instead (see _check_vehicles).
-const MASK := 0b111
+## Characters collide with the world, vehicles, props and pedestrians (who
+## can't be walked through); vehicles don't collide with characters (a car
+## would hit a person like a wall), the character gets out of their way
+## instead (see _check_vehicles).
+const MASK := 0b10111
 
 @export_group("Speeds (m/s)")
 @export var walk_speed := 1.55

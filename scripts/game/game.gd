@@ -128,6 +128,7 @@ var race: RaceManager
 var day_night: DayNight
 var weather: Weather
 var replay: Replay
+var pedestrians: PedestrianManager
 ## Start on the title screen. Off for dev/test runs (they pass command-line
 ## args) so they start driving straight away.
 var show_title := OS.get_cmdline_user_args().is_empty()
@@ -225,6 +226,11 @@ func _ready() -> void:
 	add_child(weather)
 	weather.setup(day_night)
 	weather.set_mode(Settings.get_value("weather"), true)
+	pedestrians = PedestrianManager.new()
+	pedestrians.name = "Pedestrians"
+	pedestrians.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(pedestrians)
+	pedestrians.setup(self)
 	possession.start_in_vehicle(vehicle)
 	teleport_to(0)
 	if start_on_foot:

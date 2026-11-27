@@ -26,6 +26,9 @@ signal traffic_toggled(on: bool)
 var focus: Node3D
 ## People on foot that drivers stop for (the players' characters).
 var pedestrians: Array[Node3D] = []
+## Pedestrians on a road (crossing, or back from a tumble): drivers stop
+## for them too, but don't honk (PedestrianManager.set_crossing).
+var walkers: Array[Node3D] = []
 ## The other players (split-screen player 2): traffic lives around them too,
 ## avoids their vehicles and reacts to their horns. Set by Game.
 var others: Array[LocalPlayer] = []
@@ -288,6 +291,20 @@ func signal_state(id: int, axis: int) -> int:
 		1:
 			return TrafficNetwork.SignalState.AMBER if axis == sg["green"] else TrafficNetwork.SignalState.RED
 	return TrafficNetwork.SignalState.RED
+
+
+## How much longer `axis` can count on its green (s): INF while nobody waits
+## on the other axis, 0 if it isn't green (pedestrians only step off with
+## time to get across).
+func green_left(id: int, axis: int) -> float:
+	if id < 0 or id >= _signals.size() or not network.signals[id]["signalized"]:
+		return INF
+	var sg := _signals[id]
+	if int(sg["phase"]) != 0 or int(sg["green"]) != axis:
+		return 0.0
+	if time - float(sg["demand"][1 - axis]) >= 1.0:
+		return INF
+	return maxf(MAX_GREEN - float(sg["t"]), MIN_GREEN - float(sg["t"]))
 
 
 ## Called by drivers approaching (or waiting at) a signal.

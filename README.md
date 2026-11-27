@@ -91,6 +91,27 @@ map, help and pause all work on foot too.
 - Traffic stops for you (and honks if you stay in the road). A car that bumps
   into you just knocks you aside.
 
+### Pedestrians
+
+Townspeople walk the city's sidewalks, the park paths and round the plaza
+fountain: men and women of all heights in T-shirts, long sleeves, jackets,
+dresses, skirts, shorts and caps, some in a hurry, some strolling, a few out
+jogging.
+
+- They wait at the kerb for the lights and cross on the zebra; cars turning
+  across it stop for them. If the lights change halfway, they hurry.
+- They stop now and then to look around, and sometimes stop to chat with
+  someone walking the other way.
+- Walk up to someone and press **F** (**B** on a gamepad) to **say hi**: they
+  turn, wave and tell you something.
+- **Honk** near them and they wave. Honk three times quickly and they dance.
+- Pull a big **stunt** near them and they cheer.
+- Drive at them and they hop out of the way. If you bump into someone anyway,
+  they tumble, get back up ("Hey!") and walk back to the sidewalk. Nobody
+  ever gets hurt.
+- How many walk around: **Pedestrians** in the settings (off / few / normal /
+  busy).
+
 ### Garage
 
 Press **V** (D-pad down). Pick the sports car, sedan, van, delivery truck, bus,
@@ -311,6 +332,7 @@ in Settings.
 On the title screen or in the pause menu:
 
 - traffic amount (few / normal / busy);
+- pedestrians (off / few / normal / busy);
 - graphics quality (low / medium / high / ultra);
 - time of day (day / sunset / night / day & night cycle);
 - weather (clear / cloudy / rain / thunderstorm / changing);
@@ -332,6 +354,7 @@ They're saved to `user://settings.cfg`. What is and isn't saved: see
 | Jump | Space | A (Cross) |
 | Get in a vehicle / flip one back over | F | B (Circle) |
 | Grab a fuel nozzle, fill up, hang it up | F | B (Circle) |
+| Say hi to someone | F | B (Circle) |
 | Look around | Mouse | Right stick |
 | Camera distance | C | RB |
 
@@ -448,7 +471,7 @@ generated files are committed, so you only need those tools to change them.
 | `scripts/vehicle/` | `aircraft.gd` (a plane: lift, drag, thrust, fly-by-wire controls and kid assists, propeller, control surfaces), `player_aircraft_controller.gd` (flying input), `helicopter.gd` (an Aircraft: rotor thrust, hover and speed hold, banked turns, flips, skids, spinning rotors), `player_helicopter_controller.gd` (its input), `boat.gd` (a Vehicle that floats: buoyancy points, water drag and keel grip, planing, outboard thrust, kid steering with a lean, slides, righting itself, finding open water), `boat_effects.gd` (its wake ribbon, spray, rooster tail and splashes), `vehicle.gd` (engine, gearbox, steering, assists), `vehicle_wheel.gd` (raycast suspension + tyre model), `player_vehicle_controller.gd` (input), `vehicle_body_visual.gd` (materials, lamps, indicators, grime, contact shadow), `vehicle_reflection.gd` (the player car's reflection probe), `vehicle_audio.gd`, `vehicle_effects.gd`, `vehicle_damage.gd`, `wing_doors.gd` (the electric SUV's gull-wing doors), `vehicle_fuel.gd` (a player vehicle's tank or battery: use, low / empty rules), `vehicle_catalog.gd` (the garage's vehicle list, blurbs, star ratings, stock wheel parts), `paint_palette.gd` (garage and traffic paints) |
 | `scripts/vehicle/custom/` | `parts_catalog.gd` (everything the garage can change: tabs, slots, options, which vehicles a part fits), `loadout.gd` (one vehicle's setup: saved per vehicle, put on the car), `wheel_kit.gd` (fits rim + tyre parts to a vehicle's wheels), `body_kit.gd` (fits bumpers, skirts, arches, spoilers, bonnet and roof parts from the vehicle's kit), `underglow.gd` |
 | `scripts/vehicle/audio/` | `vehicle_sound_profile.gd` (what a vehicle class sounds like), `vehicle_sound_bank.gd` (shared tyre / crash / glass sounds), `audio_director.gd` (traffic voice budget, Doppler) |
-| `scripts/traffic/` | `traffic_network.gd` (lane graph built from the roads, turn curves, junctions, U-turns), `traffic_manager.gd` (spawning, signal timing), `traffic_driver.gd` (AI driver, turn signals), `traffic_light_prop.gd` |
+| `scripts/traffic/` | `traffic_network.gd` (lane graph built from the roads, turn curves, junctions, U-turns), `traffic_manager.gd` (spawning, signal timing), `traffic_driver.gd` (AI driver, turn signals), `traffic_light_prop.gd`; pedestrians: `pedestrian_manager.gd` (spawning, level of detail, vehicles, honks, stunts), `pedestrian_network.gd` (sidewalks and crossings), `pedestrian.gd` (one person), `pedestrian_look.gd` (looks and colours), `pedestrian_pose.gd` (head turns, waves), `pedestrian_greet.gd` ("Say hi") |
 | `scripts/camera/` | `chase_camera.gd` (driving), `flight_camera.gd` (flying), `heli_camera.gd` (the helicopter: level, along its heading), `on_foot_camera.gd` (walking), `camera_blend.gd` (glides between them), `menu_camera.gd` (title screen), `views.gd` (the cameras the players see through: one, or one per split-screen view) |
 | `scripts/world/` | `map_layout.gd` (**all** the map's numbers); the terrain, road, city, nature, stunt park and landmark builders; `building_kit.gd`, `street_kit.gd`, `tree_kit.gd` (buildings, street furniture and trees, built in code); `mesh_builder.gd` (geometry helpers: bevelled boxes, lathes, sweeps, automatic LODs); `art_palette.gd` (world colours); `day_night.gd` (sun, real skies through the day, lights after dark); `sky_catalog.gd` (generated: each sky photo's sun and colours); `weather.gd` (clouds, rain, wet ground, wet grip), `rain_fx.gd` (rain round each camera), `lightning.gd` (bolts in a storm); `grass_field.gd` (3D grass tufts round the camera); `tree_scatter.gd`, `tree_lod.gd`, `tree_colliders.gd` (where trees grow, their LOD quadtree, trunk colliders); `night_light.gd`, `lighthouse_beam.gd`; `fuel_builder.gd` (where to fill up and charge), `fuel_site.gd` (one such place and its hoses), `fuel_kit.gd` (nozzle, plug, hoses, chargers and fuel cabinets) |
 | `scripts/props/` | `prop.gd`, `kit_prop.gd` (props whose mesh comes from StreetKit), `ramp.gd` (`@tool`, editable in the editor) |
@@ -466,7 +489,7 @@ generated files are committed, so you only need those tools to change them.
 | `assets/materials/` | `env/` has the world's materials |
 | `assets/textures/` | Generated textures |
 | `assets/audio/` | Built by `tools/audio/`; `profiles/` has one VehicleSoundProfile per vehicle |
-| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_suv.py` (electric SUV), `make_electric_pickup.py` (electric pickup), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_boat.py` (the speedboat), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations); `body_kit.py` is the shared loft body builder and modelling helpers |
+| `tools/blender/` | One script per model, run as `blender -b -P tools/blender/<script>.py`: `make_car.py` (sports car), `make_sedan.py`, `make_van.py`, `make_pickup.py`, `make_truck.py` (delivery truck), `make_bus.py`, `make_buggy.py`, `make_monster.py` (monster truck), `make_suv.py` (electric SUV), `make_electric_pickup.py` (electric pickup), `make_wheels.py` (every rim and tyre), `make_plane.py` (the sport plane and its wheel), `make_heli.py` (the helicopter), `make_boat.py` (the speedboat), `make_kits.py` (body kits), `make_character.py` (the player character from Quaternius' CC0 Universal Animation Library: downloads it, rebuilds the mesh, keeps the animations), `make_pedestrians.py` (the eight townspeople, from the same library and make_character's helpers; `--only <look> --preview <dir>` for quick look-dev shots); `body_kit.py` is the shared loft body builder and modelling helpers |
 | `tools/textures/` | `make_textures.py` (ground detail, cloud and leaf textures), `make_decals.py` (garage decals), and `fetch_*.py`: download CC0 scans (Poly Haven, ambientCG) and make the game textures (`fetch_sky.py` real skies, `fetch_road.py`, `fetch_terrain.py`, `fetch_building.py`, `fetch_foliage.py`, `fetch_props.py`; shared helpers in `fetch_common.py`). Run them from the project root with `python3`, then import in Godot |
 | `tools/audio/build_audio.py` | Every sound in `assets/audio/`: downloads the licensed recordings, makes loops, synthesizes the rest, writes the profiles (`python3 tools/audio/build_audio.py`) |
 | `tools/release.sh`, `tools/steamdeck/` | The release build and the Steam Deck installer / launcher ([RELEASING.md](RELEASING.md)) |
@@ -654,7 +677,50 @@ The player controls a *pawn*: the character or a vehicle (`scripts/player/`).
 - **Collisions:** characters are on physics layer 4, and vehicles don't
   collide with them (a car would hit a person like a wall). Instead the
   character is shoved aside by anything that drives into it, and traffic
-  drivers stop for it (`TrafficManager.pedestrians`).
+  drivers stop for it (`TrafficManager.pedestrians`). Characters do collide
+  with pedestrians (layer 5), so you can't walk through people.
+
+#### Pedestrians
+
+`PedestrianManager` (a child of `Game`) keeps up to Settings' count of
+townspeople (10 / 18 / 30) around the players, shared in split-screen.
+
+- **Where they walk:** `PedestrianNetwork` builds a graph from `MapLayout`:
+  a walking line 2.8 m in from each block's kerb (clear of street trees,
+  lamps and shop fronts), corner ways round the traffic-light poles out to
+  each corner's tip, crossings over the zebras inside the junction squares
+  (each with its junction's signal and the traffic axis it crosses), the park
+  paths and a ring round the plaza fountain (round the plaza's kicker ramps).
+  Walkers keep right of the line by their own `lane`, so people coming the
+  other way pass.
+- **Who they are:** `PedestrianLook` picks one of eight people from
+  `assets/models/character/pedestrians.glb` (`tools/blender/make_pedestrians.py`:
+  the player's rig and clips, different bodies, hair and clothes) and dresses
+  them: height, skin, hair (grey for some) and clothes colours, set as
+  instance uniforms of `pedestrian.gdshader`, so the crowd shares one
+  material.
+- **What they do:** `Pedestrian` is a Node3D moved along its path each
+  frame (no physics): walk, pause, chat, wait for the lights (they "press the
+  button": `TrafficManager.request_signal`) and cross while the traffic they
+  cross has a red and the green beside them has time left
+  (`TrafficManager.green_left`), with nothing driving over the zebra. On a
+  road they're in `TrafficManager.walkers`, so drivers stop for them (without
+  honking). `PedestrianPose` turns heads toward players and waves or cheers
+  with two-bone IK (`LimbIK`).
+- **Vehicles:** the manager checks every moving vehicle near the players
+  against them each frame: one heading straight at someone makes them hop
+  aside, one that touches them knocks them over (a stagger, a roll, or a hop
+  that lands on their feet, by speed), then they walk back to the sidewalk.
+  A small static body (layer 5) stops players on foot; vehicles never touch
+  it.
+- **Spawning:** out of sight (a ray checks a building hides the spot) 18-80 m
+  from a player, or in plain view only beyond 68 m; anywhere from 8 m during
+  a fill (start, teleport). Far ones (105 m, or 90 m out of view) go back to a
+  pool and come back as someone new.
+- **Cost:** one draw call each plus shadows; hidden beyond 80-120 m and
+  shadows only within 12-45 m (by graphics level), animation every frame up
+  close, 30 Hz, 15 Hz further off, 4 Hz out of view; head turns and gestures
+  only within 20 m. `--pedbench` measures it.
 
 #### Flying
 
@@ -830,6 +896,7 @@ godot --path . -- --garage=/tmp/shots
 | `--fuel` | Fuel and charging: how fast it drains, low (toast, red gauge, the arrow) and empty (crawl, sputter, an empty bus still climbs), filling by hand (grab, the hose's lead, fill, readout, FULL!, take out, hang up, pop-outs on getting in and driving off, teleporting while holding), the setting, a parked car's tank, the electric SUV (a nozzle doesn't fit; charging), the plane (glides home, fills at the airfield), the helicopter (lands itself, creeps low, fills at a helipad), split-screen. Run with `--fixed-fps 60` |
 | `--boat` | The speedboat: the boat spots and the marina are deep enough, picked in the garage (it goes on the water), floating level, onto the plane and top speed, turns that lean in, a power slide, coasting, stopping and backing up, the help button, righting itself, running up a beach and back, a jump ramp, teleports, the island's edge, getting out (not at sea; at the marina), the parked boats, fuel at the marina, a car picked out at sea, night. Run with `--fixed-fps 60` |
 | `--heli` | The helicopter: picked in the garage, the rotor starting, take-off, hovering, forward flight and stopping, turns, backward, climbing, flip and roll, the help button, teleports, the island's edge, a soft landing, getting out and in, replay, the parked one, crash, garage swaps (in the air too), assists off. Run with `--fixed-fps 60` |
+| `--peds` | Pedestrians: the sidewalk network (built, every walking line clear of walls and props), people around City Center (how many, how varied, on the ground, walking), waiting for the lights and crossing, saying hi, a player can't walk through them, honks (wave, dance), a stunt (cheer), a car coming (they hop aside), a bump (tumble, up, back to the sidewalk), the setting, night, a line-up of every look. Run with `--fixed-fps 60` |
 | `--menus` | Title, pause, settings and controls menus driven by input |
 | `--stunts` | Air, flips, rolls, spins, drift, near miss, wipeout → combos and records |
 | `--races` | The race flow, plus an autopilot drives every race (medal reference times) |
@@ -903,6 +970,7 @@ the Steam Deck on a PC.
 | `-- --partsbench` | A fully kitted player car against a stock one: GPU and draw calls |
 | `--gpu-index 0 --resolution 1280x800 -- --boatbench --graphics=1` | The speedboat's wake, spray and rooster tail shown and hidden while it circles at speed: draw calls, render CPU, GPU; the wake ribbon's CPU |
 | `--gpu-index 0 -- --fuelbench --graphics=1` | The fuel places shown and hidden (gas station, a car park's chargers, the helipads): draw calls, render CPU, GPU; the fuel tick and a carried hose's CPU |
+| `--gpu-index 0 --resolution 1280x800 -- --pedbench=<dir> --graphics=1` | Pedestrians Off / Normal / Busy in the city (on foot on a sidewalk, by car at a junction), three rounds: draw calls, render CPU, GPU, the game's frame time and the pedestrians' own |
 
 #### Sound
 
