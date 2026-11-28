@@ -9,6 +9,16 @@ Since 0.12.0, release-please writes the new sections: one bullet per
 add an "Unreleased" heading here; new versions are inserted above the first
 version heading.
 
+## [1.8.0](https://github.com/Fahmula/turbo-town/compare/v1.7.0...v1.8.0) (2026-11-28)
+
+
+### New stuff
+
+* **pedestrians:** people walk the city's sidewalks and cross at the zebras when the lights let them ([8a2bc1b](https://github.com/Fahmula/turbo-town/commit/8a2bc1bc9e6f0cb8b9944553033643a8c482e0c7))
+* **pedestrians:** say hi on foot, honk (they wave; three honks and they dance) and pull stunts near them (they cheer) ([8a2bc1b](https://github.com/Fahmula/turbo-town/commit/8a2bc1bc9e6f0cb8b9944553033643a8c482e0c7))
+* **pedestrians:** they hop out of a car's way, and a bump only makes them tumble and get back up ([8a2bc1b](https://github.com/Fahmula/turbo-town/commit/8a2bc1bc9e6f0cb8b9944553033643a8c482e0c7))
+* **settings:** a Pedestrians setting (off, few, normal, busy) ([8a2bc1b](https://github.com/Fahmula/turbo-town/commit/8a2bc1bc9e6f0cb8b9944553033643a8c482e0c7))
+
 ## [1.7.0](https://github.com/Fahmula/turbo-town/compare/v1.6.0...v1.7.0) (2026-11-24)
 
 
