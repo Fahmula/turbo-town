@@ -15,6 +15,7 @@ const PATH := "user://settings.cfg"
 const DEFAULTS := {
 	"units_mph": false,
 	"traffic_density": 1,  # 0 few, 1 normal, 2 busy
+	"pedestrians": 2,  # 0 off, 1 few, 2 normal, 3 busy
 	"graphics": 2,  # 0 low, 1 medium, 2 high (tuned for the Steam Deck), 3 ultra
 	"fullscreen": false,
 	"master_volume": 0.8,
@@ -36,6 +37,9 @@ const DEFAULTS := {
 
 const TRAFFIC_LABELS := ["Few", "Normal", "Busy"]
 const TRAFFIC_CARS := [10, 22, 30]
+const PEDESTRIAN_LABELS := ["Off", "Few", "Normal", "Busy"]
+## Most pedestrians out at once (PedestrianManager), shared in split-screen.
+const PEDESTRIAN_COUNTS := [0, 10, 18, 30]
 const GRAPHICS_LABELS := ["Low", "Medium", "High", "Ultra"]
 const TIME_LABELS := ["Day", "Sunset", "Night", "Day & night"]
 const WEATHER_LABELS := ["Clear", "Cloudy", "Rain", "Thunderstorm", "Changing"]

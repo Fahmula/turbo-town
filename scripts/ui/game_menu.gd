@@ -687,6 +687,7 @@ func _join_input(event: InputEvent) -> void:
 ## A line about each setting, shown under the rows while it's focused.
 const SETTING_HELP := {
 	"traffic_density": "How many cars drive around town.",
+	"pedestrians": "How many people walk around town.",
 	"assists": "On: the car (or plane) helps you steer. Off: drift mode, it's all you!",
 	"graphics": "Lower runs smoother. Higher looks nicer.",
 	"flight_invert": "Which way to push the stick to make a plane climb.",
@@ -748,6 +749,7 @@ func _build_settings() -> Control:
 	right.append(volume)
 	left.append(_cycle_row(grid, "Fullscreen", "fullscreen", ["Off", "On"]))
 	right.append(_cycle_row(grid, "Fuel", "fuel", ["Off", "On"]))
+	left.append(_cycle_row(grid, "Pedestrians", "pedestrians", Settings.PEDESTRIAN_LABELS))
 
 	# What the focused setting does.
 	var help := PanelContainer.new()

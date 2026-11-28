@@ -156,7 +156,7 @@ Blender scripts in `tools/blender/` (`make_<vehicle>.py`, `make_wheels.py`).
 - [x] Visible driver in the seat (done on `feature/visible-drivers`, see "Visible drivers" below)
 - [ ] Door open/close animations (the doors are part of the body mesh today)
 - [ ] Character customization (outfit colours) saved like vehicle loadouts
-- [ ] Pedestrians in the city (the character class takes any controller)
+- [x] Pedestrians in the city (done on `feat/pedestrians-v2`, see "Pedestrians" below)
 - [ ] Swimming instead of respawning in the sea; climbing; ragdoll falls
 - [~] Passenger seats (done for two players in v0.11); entering from the passenger side and sliding across
 
@@ -696,6 +696,64 @@ little town where you can drive, fly or sail anything).
 - [ ] Boats in "traffic": a ferry and fishing boats going along the coast
 - [ ] Hiding the sea inside the hull when it digs in hard after a big jump (a depth mask)
 
+## Pedestrians (branch `feat/pedestrians-v2`, not released)
+
+The owner's son wants pedestrians (owner, 2026-11-27). An earlier attempt
+(`feat/pedestrians`, kept for reference, never merged) cloned the player in
+new shirts, was hard to spot from the car, wandered into the road and let
+cars drive through people; the owner asked for a redo: people who look real,
+feel solid and safe, fill the sidewalks and are fun to interact with.
+
+### Done (branch `feat/pedestrians-v2`, off `main`)
+- [x] Eight townspeople from `tools/blender/make_pedestrians.py` (the player's
+      CC0 rig, clips and sculpting helpers): men's, women's and a heavier
+      build; short, buzz, receding, ponytail, bun, long and bob hair and a cap;
+      T-shirts, long sleeves, a jacket, a tank top, a dress, a skirt, shorts
+      and trousers. ~8k triangles and one surface each (`pedestrians.glb`,
+      3 MB, 12 clips incl. Roll and Dance)
+- [x] Everyone different: `PedestrianLook` picks a person, a height
+      (1.58-1.90 m), skin, hair (grey for some), clothes and shoe colours
+      (instance uniforms of `pedestrian.gdshader`: one material for the crowd);
+      some walk formally, some jog, older people walk slower
+- [x] Sidewalk network (`PedestrianNetwork`): a walking line round every
+      block clear of trees, lamps and shops, corner ways round the light
+      poles, 48 zebra crossings on the junctions' lights, park paths, a ring
+      round the plaza fountain (round its kicker ramps); every line checked
+      clear of walls and props by `--peds`
+- [x] Walking (`Pedestrian`): keep right, pass people coming the other way,
+      slow behind slower people, pause to look around, stop to chat, wait at
+      the kerb and press for the lights, cross with time to get over (hurry
+      if the lights change), give up after a long wait, turn back at a car
+      parked on the sidewalk
+- [x] Traffic: pedestrians on a road are in `TrafficManager.walkers`, so
+      drivers stop for them (no honking at townspeople)
+- [x] Solid and kid-safe: they hop out of the way of a car coming at them;
+      one that bumps them anyway makes them stagger, roll or fly in a hop that
+      lands on their feet, then "Hey!" and back to the sidewalk; players on
+      foot can't walk through them (physics layer 5)
+- [x] Fun: "Say hi" on foot (they turn, wave and say something about the
+      island), heads turn toward a player walking up, a honk makes them wave,
+      three quick honks make them dance, a big stunt nearby makes them cheer,
+      speech bubbles (a few at once, never two side by side)
+- [x] Spawning round each player (split-screen too) out of sight, or round a
+      corner (a ray checks a building hides the spot), tight enough that the
+      streets near you are busy; pooled and redressed on reuse
+- [x] Pedestrians setting: Off / Few / Normal / Busy (0 / 10 / 18 / 30)
+- [x] Steam Deck level of detail: hidden beyond 80-120 m, shadows within
+      12-45 m (by graphics level), animation every frame up close, 30 / 15 Hz
+      further off, 4 Hz out of view, head turns and gestures only within 20 m
+- [x] Tests: `--peds` (32 checks and shots, a line-up of every look),
+      `--pedbench` (Off / Normal / Busy on the iGPU)
+- [ ] Owner review, then the son on the Deck: do they look right, is Normal
+      busy enough, is it still smooth at Medium?
+
+### Ideas for later (not started)
+- [ ] Children (needs a smaller body with its own proportions in the generator)
+- [ ] People at the beach, the harbour and the airfield (only the city has paths today)
+- [ ] Sitting on benches, waiting at bus stops, walking dogs
+- [ ] Ask for a ride: a pedestrian flags you down and gets in (taxi jobs)
+- [ ] Umbrellas or hurrying when it rains; fewer people at night
+
 ## Backlog
 
 ### Realism (owner approved 2026-10-03, released in v0.7.0)
@@ -881,3 +939,4 @@ little town where you can drive, fly or sail anything).
 - 2026-11-09 — Helicopter: no "yo-yo" when going up or down while flying forward or back.
 - 2026-11-21 — Boats (`feat/boats` branch): a speedboat that floats, planes and slides, a marina with parked boats
   and a fuel pump, jump ramps on the sea.
+- 2026-11-27 — Pedestrians (branch `feat/pedestrians-v2`): eight townspeople on the city's sidewalks and crossings; say hi, honk, stunts; kid-safe dodges and tumbles.

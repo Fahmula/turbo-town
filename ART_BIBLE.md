@@ -2253,6 +2253,18 @@ window):
   strips). Out on the sea it's a cheap place to be: ~10 ms at Medium on the
   iGPU, about 6 ms on a Deck by the 1.6× rule.
 
+- **Pedestrians** (2026-11-27, `--pedbench` on the iGPU at Medium,
+  1280×800, traffic on, Off / Normal 18 / Busy 30 people, three rounds):
+  on foot on a downtown sidewalk, Off 410 draw calls / GPU 17.28 ms /
+  render CPU 1.32 ms; Normal +6 / +0.05 / +0.11; Busy +21 / +0.16 / +0.13. By
+  car at a junction, Off 703 / 17.89 / 1.17; Normal +18 / +0.11 / +0.15; Busy
+  +15 / +0.14 / +0.18. Their own CPU (on the dev laptop's CPU while it
+  drives the iGPU, so slowed): 0.43-0.56 ms a frame for Normal, 0.58-0.77 ms
+  for Busy, of which walking ~0.25-0.3, the level of detail and neighbour
+  checks ~0.1-0.14, the animation ~0.11, the vehicle checks ~0.07-0.13.
+  Behind buildings, people cull, so most of a crowd costs nothing on the GPU;
+  the CPU is the thing to watch on the Deck (try Busy there).
+
 - **Flying** (2026-10-05, branch `flight`, `--flightbench` on the iGPU,
   traffic off, a fixed line across the city at 60 m/s): Medium 21.7 / 20.9 /
   17.9 ms average GPU at 60 / 150 / 300 m (p95 24 ms), Low 9.4–10.8 ms, High
@@ -2780,6 +2792,50 @@ is hidden.
   calls, GPU within the noise on the iGPU at Medium and Low, ~0.02 ms of
   animation and ~0.015 ms of IK per frame (`--seatbench`, §27).
 
+### Pedestrians (2026-11-27)
+
+Townspeople on the city's sidewalks (`PedestrianManager`). The same
+direction as the player: believable everyday adults, kid-safe, stylized
+realism; a crowd, so cheaper.
+
+- **People:** eight from `tools/blender/make_pedestrians.py` (the player's
+  rig, clips and SDF helpers; never hand-edit `pedestrians.glb`): men's,
+  women's (narrower shoulders, a bust and hips, a finer jaw, nose and brows,
+  fuller lips) and a heavier build (a belly); hair short, buzz, receding,
+  ponytail, bun, long, bob or under a cap; T-shirts, long sleeves, a jacket
+  (stand-up collar, zip), a tank top, a dress, an A-line skirt (its hem
+  follows each thigh halfway), shorts, trousers; sneakers for everyone. Real
+  garment shapes, as §34 asks, not colours painted on a body.
+- **Colours:** everyday, medium-to-low saturation (`PedestrianLook`): off-white,
+  charcoal, navy, heather grey, olive, burgundy, mustard, teal, dusty pink,
+  sky blue, forest green, sand, plum; denim, chinos; a few brighter summery
+  dresses. Never the players' red-orange or player 2's blue, so a player
+  still finds their own character in a crowd. Six skin tones, six hair
+  colours and three greys. Albedo within sRGB 0.11-0.94.
+- **Heights:** men 1.70-1.90 m, women 1.58-1.76 m (the model scaled; it's
+  1.82 m).
+- **Material:** one surface per person, one material for the whole crowd
+  (`pedestrian.gdshader`): each region is a cell of a 16×16 palette and the
+  shader recolours the cells from instance uniforms (skin, hair, top,
+  bottom, shoes, accent; lips, mouth, laces and heel tab follow theirs).
+  Roughness as §34 (skin 0.55, cotton 0.85, denim 0.8, a jacket's nylon 0.55,
+  hair 0.6). Single-sided.
+- **Animation:** the library's clips (Idle, Idle_Talking, Walk, Walk_Formal,
+  Jog_Fwd, Sprint, Jump, Jump_Land, Hit_Chest, Roll, Dance), clip speed matched
+  to ground speed and height. Head turns and the wave and cheer are IK after
+  the clip (`PedestrianPose`), never edited clips.
+- **Kid safety:** a car that reaches someone makes them hop aside; one that
+  bumps them makes them stagger, roll, or fly in a hop that lands on their
+  feet, by speed, and they get up and say "Hey!". No falling over, no lying
+  on the ground, no pain sounds; the library's death clip stays out.
+- **Budget:** ≤ 10k triangles each (about 8k), 1 surface, ≤ 4 influences,
+  one 16×16 texture; 12 clips. Visible to 80 / 95 / 110 / 120 m (Low / Medium /
+  High / Ultra), sun shadows within 12 / 18 / 30 / 45 m, the animation every
+  frame inside 22 m, 30 Hz to 50 m, 15 Hz beyond, 4 Hz out of view; IK only
+  within 20 m. Counts by setting: 10 / 18 / 30. GPU and draw calls stay
+  within the noise; the CPU is ~0.5 ms (Normal) to ~0.75 ms (Busy) a frame
+  (`--pedbench`, §27).
+
 ---
 
 *Revision log*
@@ -2844,3 +2900,6 @@ is hidden.
   names and `NavLight` kind 5, §14 its per-pass split, §19 the marina's
   dredging and the wake's foam, §23 the wake, spray and splash, §27 their
   cost, §33 the outboard and water sounds.
+- 2026-11-27: pedestrians (branch `feat/pedestrians-v2`): §34 "Pedestrians"
+  (the eight people, their colours, heights, one shared material, kid-safe
+  bumps, budgets), §27 their measured cost.

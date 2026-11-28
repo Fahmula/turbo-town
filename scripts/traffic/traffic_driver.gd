@@ -608,10 +608,11 @@ func _plan_speed() -> float:
 			blocker = "car %s" % other.name
 			blocker_vehicle = other
 
-	# People on foot in our lane: stop for them (they're not on the physics
-	# layers the sensor rays see). Stopped with someone right beside the car
-	# (walking up to the door), stay put.
-	for ped in manager.pedestrians:
+	# People on foot in our lane (players' characters, and pedestrians on the
+	# road): stop for them (they're not on the physics layers the sensor rays
+	# see). Stopped with someone right beside the car (walking up to the
+	# door), stay put.
+	for ped in manager.pedestrians + manager.walkers:
 		if not _alive(ped) or not ped.visible:
 			continue
 		var pp := ped.global_position
@@ -630,7 +631,8 @@ func _plan_speed() -> float:
 		var a := _idm(v, INF, gap, 0.0)
 		if a < best:
 			best = a
-			blocker = "pedestrian"
+			# Players on foot get honked at after a while; townspeople don't.
+			blocker = "walker" if ped is Pedestrian else "pedestrian"
 			blocker_vehicle = null
 			if gap <= 0.1:
 				_hold = true

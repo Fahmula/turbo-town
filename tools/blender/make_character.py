@@ -1045,4 +1045,6 @@ def main():
     log("wrote", out, "(%d KB)" % (os.path.getsize(out) // 1024))
 
 
-main()
+# make_pedestrians.py imports this file for its helpers.
+if __name__ == "__main__":
+    main()
